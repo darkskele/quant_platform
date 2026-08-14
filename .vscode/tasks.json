@@ -68,6 +68,82 @@
             "problemMatcher": []
         },
         {
+            "label": "Build: qp_core_tests",
+            "type": "shell",
+            "command": "cmake --build build/debug --target qp_core_tests -j",
+            "dependsOn": "Configure (debug)",
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "SPSC queue tests — functional correctness, ASan/UBSan."
+        },
+        {
+            "label": "Test: qp_core_tests",
+            "type": "shell",
+            "command": "./build/debug/libs/core/qp_core_tests",
+            "dependsOn": "Build: qp_core_tests",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "Configure (tsan)",
+            "type": "shell",
+            "command": "cmake --preset tsan",
+            "problemMatcher": [],
+            "detail": "ThreadSanitizer — the actual point of testing a concurrent queue. Benchmarks excluded (QP_BUILD_BENCHMARKS=OFF baked into the preset)."
+        },
+        {
+            "label": "Build: qp_core_tests (tsan)",
+            "type": "shell",
+            "command": "cmake --build build/tsan --target qp_core_tests -j",
+            "dependsOn": "Configure (tsan)",
+            "group": "build",
+            "problemMatcher": ["$gcc"]
+        },
+        {
+            "label": "Test: qp_core_tests (tsan)",
+            "type": "shell",
+            "command": "setarch $(uname -m) -R ./build/tsan/libs/core/qp_core_tests",
+            "dependsOn": "Build: qp_core_tests (tsan)",
+            "group": "test",
+            "problemMatcher": [],
+            "detail": "setarch -R disables ASLR — TSan hits a known WSL2 memory-mapping issue without it."
+        },
+        {
+            "label": "Build: qp_core_tests (release)",
+            "type": "shell",
+            "command": "cmake --build build/release --target qp_core_tests -j",
+            "dependsOn": "Configure (release)",
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "Same SPSC queue tests at -O3/-DNDEBUG, no ASan/UBSan."
+        },
+        {
+            "label": "Test: qp_core_tests (release)",
+            "type": "shell",
+            "command": "./build/release/libs/core/qp_core_tests",
+            "dependsOn": "Build: qp_core_tests (release)",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "Build: qp_core_bench (release)",
+            "type": "shell",
+            "command": "cmake --build build/release --target qp_core_bench -j",
+            "dependsOn": "Configure (release)",
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "SPSC queue push/pop benchmarks, release build."
+        },
+        {
+            "label": "Run queue bench",
+            "type": "shell",
+            "command": "./build/release/libs/core/qp_core_bench",
+            "dependsOn": "Build: qp_core_bench (release)",
+            "group": "test",
+            "problemMatcher": [],
+            "detail": "Release build — still WSL2, so trust deltas over absolutes (docs/environment.md)."
+        },
+        {
             "label": "Build: everything",
             "type": "shell",
             "command": "cmake --build build/debug -j",

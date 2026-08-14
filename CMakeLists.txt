@@ -21,6 +21,27 @@ endif()
 include(CTest)                                  # BUILD_TESTING, default ON
 option(QP_BUILD_BENCHMARKS "Build Google Benchmark suites" ON)
 
+if(QP_BUILD_BENCHMARKS)
+    # Built from source, not found on the system: apt's libbenchmark-dev
+    # ships a .so compiled without NDEBUG ("Library was built as DEBUG"),
+    # a property baked into that .so regardless of our own flags. A
+    # FetchContent build inherits this configure's CMAKE_BUILD_TYPE, so
+    # under the release preset it's a real -DNDEBUG build. Superseded once
+    # vcpkg lands (its release triplet builds benchmark the same way).
+    # Declared once here, not per-lib: every *_bench target links the same
+    # benchmark::benchmark: no reason to re-fetch it per consumer.
+    include(FetchContent)
+    set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+    set(BENCHMARK_ENABLE_GTEST_TESTS OFF CACHE BOOL "" FORCE)
+    set(BENCHMARK_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
+    FetchContent_Declare(
+        googlebenchmark
+        GIT_REPOSITORY https://github.com/google/benchmark.git
+        GIT_TAG v1.8.3
+    )
+    FetchContent_MakeAvailable(googlebenchmark)
+endif()
+
 # Each lib is its own CMake target (qp_core, qp_venue, ...) plus, where it has
 # them, its own *_tests / *_bench targets — `cmake --build build --target
 # qp_venue_tests` builds exactly that and its deps, nothing else in the tree.

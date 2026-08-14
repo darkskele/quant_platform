@@ -58,3 +58,9 @@ See the top uncompleted phase in `docs/roadmap.md` (starts at Phase 0).
   staged/unstaged for the user to commit themselves.
 - Branching and pull/rebase are fine, but only when directly prompted for
   that specific action — not as a side effect of finishing other work.
+
+## Build workflow
+- **Don't build or run tests/benchmarks unless explicitly asked** — the user
+  runs those themselves. Exception: when told to as part of an iterative
+  change (e.g. "fix X and verify it"), building/running for that specific
+  step is fine.
