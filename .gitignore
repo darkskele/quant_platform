@@ -23,6 +23,5 @@ config/*.local.*
 *.bin
 
 # Editor / OS
-.vscode/
 .idea/
 .DS_Store

@@ -51,3 +51,10 @@ See the top uncompleted phase in `docs/roadmap.md` (starts at Phase 0).
   use the `amend-doc` skill. `docs/decisions.md` is append-only; other docs
   get minimal in-place edits, not rewrites.
 - Smallest correct diff. No drive-by cleanup, no speculative abstraction.
+
+## Git workflow
+- **Never `git commit`, in this repo, regardless of mode or how the request
+  is phrased.** At most, propose a commit message and leave the change
+  staged/unstaged for the user to commit themselves.
+- Branching and pull/rebase are fine, but only when directly prompted for
+  that specific action — not as a side effect of finishing other work.
