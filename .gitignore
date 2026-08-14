@@ -1,0 +1,28 @@
+# Build
+/build/
+/out/
+*.o
+*.a
+*.so
+compile_commands.json
+
+# vcpkg
+/vcpkg_installed/
+
+# Secrets — NEVER commit exchange keys
+.env
+.env.*
+secrets.*
+*.key
+config/*.local.*
+
+# Data — never commit collected market data
+/data/
+*.parquet
+*.zst
+*.bin
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
