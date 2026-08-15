@@ -51,6 +51,9 @@ See the top uncompleted phase in `docs/roadmap.md` (starts at Phase 0).
   use the `amend-doc` skill. `docs/decisions.md` is append-only; other docs
   get minimal in-place edits, not rewrites.
 - Smallest correct diff. No drive-by cleanup, no speculative abstraction.
+- Don't volunteer what was deliberately left out/deferred unless asked.
+- Don't caveat with "this hasn't been built/verified" — the user builds
+  (see Build workflow); just say what changed.
 
 ## Git workflow
 - **Never `git commit`, in this repo, regardless of mode or how the request

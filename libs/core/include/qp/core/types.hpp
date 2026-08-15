@@ -25,9 +25,10 @@ enum class EventKind : std::uint8_t { BookDiff, Trade, Funding };
 // Kept as one struct (not a variant) so it serializes trivially to `wire`.
 struct MarketEvent {
     EventKind     kind{};
-    Timestamp     ts{};    // exchange/event time
-    std::uint64_t seq{};   // sequence number (final update id), for gap detection / resync
-    std::uint64_t prev_seq{}; // sequence this event continues from; 0/unset if not applicable
+    Timestamp     ts{};        // exchange/event time
+    std::uint64_t first_seq{}; // first sequence number in this event (Binance's U); BookDiff only
+    std::uint64_t seq{};       // sequence number (final update id, Binance's u), for gap detection / resync
+    std::uint64_t prev_seq{};  // sequence this event continues from (pu); 0/unset if not applicable
     SymbolId      symbol{};
 
     // BookDiff:

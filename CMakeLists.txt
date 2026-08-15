@@ -5,6 +5,13 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Feeds .vscode/c_cpp_properties.json: IntelliSense reads the *actual* flags
+# (standard, defines, include paths) per file from here instead of a
+# hand-maintained, driftable copy — fixes both "unrecognized C++20 syntax"
+# false errors and "can't find simdjson.h/boost" false errors in one go,
+# since those live outside default include paths.
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
 endif()
@@ -50,8 +57,8 @@ endif()
 # third lib repeats this (seams first, generality later).
 add_subdirectory(libs/core)
 add_subdirectory(libs/venue)
+add_subdirectory(libs/marketdata)  # degrades gracefully without Boost — see its CMakeLists.txt
 
 # Blocked on vcpkg bringing in Boost.Beast/OpenSSL:
-#   add_subdirectory(libs/marketdata)
 #   add_subdirectory(libs/record)
 #   add_subdirectory(apps/collector)

@@ -16,6 +16,7 @@ TEST(BinanceParser, DepthUpdate) {
     MarketEvent ev;
     ASSERT_TRUE(parse_message(msg, symbols, ev));
     EXPECT_EQ(ev.kind, EventKind::BookDiff);
+    EXPECT_EQ(ev.first_seq, 157u);
     EXPECT_EQ(ev.seq, 160u);
     EXPECT_EQ(ev.prev_seq, 149u);
     EXPECT_EQ(ev.ts, 1723660800123LL * 1'000'000);
@@ -69,6 +70,7 @@ TEST(BinanceParser, DepthUpdateRealCapture) {
     ASSERT_TRUE(parse_message(msg, symbols, ev));
     EXPECT_EQ(ev.kind, EventKind::BookDiff);
     EXPECT_EQ(symbols.name(ev.symbol), "ETHUSDT");
+    EXPECT_EQ(ev.first_seq, 11289273841677u);
     EXPECT_EQ(ev.seq, 11289273848795u);
     EXPECT_EQ(ev.prev_seq, 11289273841549u);
     ASSERT_EQ(ev.bids.size(), 16u);
@@ -161,4 +163,28 @@ TEST(BinanceParser, DepthSnapshotUrlRespectsEndpoint) {
               "https://fapi.binance.com/fapi/v1/depth?symbol=BTCUSDT&limit=1000");
     EXPECT_EQ(depth_snapshot_url("btcusdt", 1000, kFuturesRestTestnet),
               "https://testnet.binancefuture.com/fapi/v1/depth?symbol=BTCUSDT&limit=1000");
+}
+
+// Real capture from GET /fapi/v1/depth?symbol=BTCUSDT&limit=5 on 2026-08-14.
+TEST(BinanceParser, ParseDepthSnapshotRealCapture) {
+    const char* body =
+        R"({"lastUpdateId":11289247357348,"E":1786742451231,"T":1786742451224,)"
+        R"("bids":[["62858.90","40.395"],["62858.80","0.859"],["62858.70","0.005"],)"
+        R"(["62858.40","0.003"],["62858.10","0.006"]],)"
+        R"("asks":[["62859.00","2.613"],["62859.10","0.004"],["62859.20","0.001"],)"
+        R"(["62859.30","0.084"],["62859.50","0.005"]]})";
+
+    auto snapshot = parse_depth_snapshot(body);
+    ASSERT_TRUE(snapshot.has_value());
+    EXPECT_EQ(snapshot->last_update_id, 11289247357348u);
+    ASSERT_EQ(snapshot->bids.size(), 5u);
+    ASSERT_EQ(snapshot->asks.size(), 5u);
+    EXPECT_DOUBLE_EQ(snapshot->bids[0].price, 62858.90);
+    EXPECT_DOUBLE_EQ(snapshot->bids[0].qty, 40.395);
+    EXPECT_DOUBLE_EQ(snapshot->asks[4].price, 62859.50);
+}
+
+TEST(BinanceParser, ParseDepthSnapshotRejectsMalformed) {
+    EXPECT_FALSE(parse_depth_snapshot(R"({not json)").has_value());
+    EXPECT_FALSE(parse_depth_snapshot(R"({"bids":[],"asks":[]})").has_value());  // missing lastUpdateId
 }

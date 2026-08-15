@@ -44,3 +44,13 @@ arc gated on data accumulation.
 ## D9 — Dev on WSL Ubuntu, deploy to VM; storage on R2/B2 + local working set
 WSL for dev + relative benchmarks; VM for absolute perf + 24/7 collection.
 Object storage as cold archive, pull-slice-to-local for backtest.
+
+## D10 — LiveWebSocketSource resync: real concurrency, not an OS-buffer shortcut
+Binance's documented procedure (buffer diffs, fetch REST snapshot, align,
+replay) needs true concurrent buffering — a "connect then immediately block
+on the REST call" shortcut risks silently missing diffs. Two threads (WS I/O,
+dedicated REST-resync), coordinated via two SpscQueues; no third "coordinator"
+thread — that logic runs on the I/O thread. Per-symbol, not connection-wide:
+one symbol resyncing doesn't pause the others. We can't do full ULL (no
+exotic hardware), but SPSC-queue-coordinated threads is the correctness-grade
+concurrency architecture-principles.md already calls for.

@@ -81,6 +81,39 @@ std::string depth_snapshot_url(std::string_view symbol, int limit, RestEndpoint 
            "&limit=" + std::to_string(limit);
 }
 
+std::optional<DepthSnapshot> parse_depth_snapshot(std::string_view json_body) {
+    try {
+        simdjson::padded_string      padded(json_body);
+        simdjson::ondemand::parser   parser;
+        simdjson::ondemand::document doc = parser.iterate(padded);
+
+        DepthSnapshot snapshot;
+        if (doc["lastUpdateId"].get(snapshot.last_update_id) != simdjson::SUCCESS) return std::nullopt;
+
+        simdjson::ondemand::array bids;
+        if (doc["bids"].get(bids) == simdjson::SUCCESS) {
+            for (auto level : bids) {
+                simdjson::ondemand::array pair;
+                PriceLevel                lvl;
+                if (level.get(pair) == simdjson::SUCCESS && read_level(pair, lvl)) snapshot.bids.push_back(lvl);
+            }
+        }
+
+        simdjson::ondemand::array asks;
+        if (doc["asks"].get(asks) == simdjson::SUCCESS) {
+            for (auto level : asks) {
+                simdjson::ondemand::array pair;
+                PriceLevel                lvl;
+                if (level.get(pair) == simdjson::SUCCESS && read_level(pair, lvl)) snapshot.asks.push_back(lvl);
+            }
+        }
+
+        return snapshot;
+    } catch (const simdjson::simdjson_error&) {
+        return std::nullopt;
+    }
+}
+
 bool parse_message(std::string_view msg, SymbolTable& symbols, MarketEvent& out) {
     try {
         simdjson::padded_string      padded(msg);
@@ -104,11 +137,13 @@ bool parse_message(std::string_view msg, SymbolTable& symbols, MarketEvent& out)
             data["E"].get(event_time_ms);
             out.ts = event_time_ms * 1'000'000;  // ms -> ns
 
-            std::uint64_t u = 0, pu = 0;
+            std::uint64_t U = 0, u = 0, pu = 0;
+            data["U"].get(U);
             if (data["u"].get(u) != simdjson::SUCCESS) return false;
             data["pu"].get(pu);
-            out.seq      = u;
-            out.prev_seq = pu;
+            out.first_seq = U;
+            out.seq       = u;
+            out.prev_seq  = pu;
 
             out.bids.clear();
             simdjson::ondemand::array bids;

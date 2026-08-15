@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -27,6 +28,7 @@ private:
 struct WsEndpoint {
     std::string_view host;
     std::string_view port;
+    bool             use_tls = true;  // false only for local test/mock servers
 };
 inline constexpr WsEndpoint kFuturesWsProduction{"fstream.binance.com", "443"};
 inline constexpr WsEndpoint kFuturesWsTestnet{"stream.binancefuture.com", "443"};
@@ -53,9 +55,22 @@ std::string build_stream_url(const std::vector<std::string>& symbols,
                               std::string_view                 depth_speed = "100ms");
 
 // REST endpoint for the initial depth snapshot used to seed book
-// reconstruction. Not yet called anywhere — snapshot+resync is follow-up work.
+// reconstruction / resync after a gap.
 std::string depth_snapshot_url(std::string_view symbol, int limit,
                                 RestEndpoint endpoint = kFuturesRestProduction);
+
+// A REST depth snapshot: the anchor point resync aligns buffered diffs
+// against. last_update_id is Binance's field of the same name.
+struct DepthSnapshot {
+    std::uint64_t            last_update_id;
+    std::vector<PriceLevel>  bids;
+    std::vector<PriceLevel>  asks;
+};
+
+// Parses the REST response body from depth_snapshot_url. Pure parsing, no
+// I/O — the actual HTTP fetch (Beast-dependent) lives in libs/marketdata,
+// same split as build_stream_path (URL/parsing here, transport there).
+std::optional<DepthSnapshot> parse_depth_snapshot(std::string_view json_body);
 
 // Parses one combined-stream message (`{"stream":...,"data":{...}}`) into
 // `out`. Handles depthUpdate -> BookDiff and aggTrade -> Trade. Returns false

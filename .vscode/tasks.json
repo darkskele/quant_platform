@@ -144,6 +144,73 @@
             "detail": "Release build — still WSL2, so trust deltas over absolutes (docs/environment.md)."
         },
         {
+            "label": "Build: qp_marketdata_tests",
+            "type": "shell",
+            "command": "cmake --build build/debug --target qp_marketdata_tests -j",
+            "dependsOn": "Configure (debug)",
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "Pure logic (gap_detector, backoff) — no Boost, no network, always buildable."
+        },
+        {
+            "label": "Test: qp_marketdata_tests",
+            "type": "shell",
+            "command": "./build/debug/libs/marketdata/qp_marketdata_tests",
+            "dependsOn": "Build: qp_marketdata_tests",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "Build: qp_marketdata_tests (release)",
+            "type": "shell",
+            "command": "cmake --build build/release --target qp_marketdata_tests -j",
+            "dependsOn": "Configure (release)",
+            "group": "build",
+            "problemMatcher": ["$gcc"]
+        },
+        {
+            "label": "Test: qp_marketdata_tests (release)",
+            "type": "shell",
+            "command": "./build/release/libs/marketdata/qp_marketdata_tests",
+            "dependsOn": "Build: qp_marketdata_tests (release)",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "Build: qp_marketdata_bench (release)",
+            "type": "shell",
+            "command": "cmake --build build/release --target qp_marketdata_bench -j",
+            "dependsOn": "Configure (release)",
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "Message-processing hot path: parse + gap-check + queue push."
+        },
+        {
+            "label": "Run marketdata bench",
+            "type": "shell",
+            "command": "./build/release/libs/marketdata/qp_marketdata_bench",
+            "dependsOn": "Build: qp_marketdata_bench (release)",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "Build: qp_marketdata_integration_tests",
+            "type": "shell",
+            "command": "cmake --build build/debug --target qp_marketdata_integration_tests -j",
+            "dependsOn": "Configure (debug)",
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "Needs Boost/OpenSSL (vcpkg). Real Beast connect/handshake/read/reconnect against a local mock WS server, no real Binance dependency."
+        },
+        {
+            "label": "Test: qp_marketdata_integration_tests",
+            "type": "shell",
+            "command": "./build/debug/libs/marketdata/qp_marketdata_integration_tests",
+            "dependsOn": "Build: qp_marketdata_integration_tests",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
             "label": "Build: everything",
             "type": "shell",
             "command": "cmake --build build/debug -j",
