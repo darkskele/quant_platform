@@ -14,5 +14,5 @@ endif()
 if(QP_BUILD_BENCHMARKS)
     # googlebenchmark is fetched once, at the top level.
     add_executable(qp_core_bench benchmarks/bench_spsc_queue.cpp)
-    target_link_libraries(qp_core_bench PRIVATE qp_core benchmark::benchmark)
+    target_link_libraries(qp_core_bench PRIVATE qp_core benchmark::benchmark_main)
 endif()

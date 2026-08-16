@@ -2,7 +2,7 @@
 
 #include <thread>
 
-#include "qp/core/spsc_queue.hpp"
+#include "spsc_queue.hpp"
 
 TEST(SpscQueue, PushPopFifoFullEmpty) {
     qp::SpscQueue<int, 4> q;  // capacity 4, one slot wasted -> 3 usable

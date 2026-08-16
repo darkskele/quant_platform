@@ -32,6 +32,16 @@ shared-memory IPC is an HFT latency pattern we don't need. Clean seams keep the
 door open to cut a process boundary later for *operational* reasons (restart the
 trader without dropping the feed), not speed.
 
+**"Not competing on network/hardware latency" ≠ "computational efficiency
+doesn't matter."** D1 rules out colo/kernel-bypass/FPGAs — racing the wire.
+It doesn't rule out SIMD, cache-conscious layouts, or lock-free structures
+where the codebase already benefits from them without hardware investment
+(the SPSC queue, direct-array-indexed gap detection, simdjson's SIMD
+parsing are already this discipline, just not previously named). Phase 4's
+order-book feature engine is the natural home for more of it — e.g. SIMD
+level-aggregation — since that's genuinely hot, high-volume, on-box compute,
+not a race against another firm's network path.
+
 ## The seams
 
 1. **Event schema — the lingua franca.** `MarketEvent` (book update, trade,

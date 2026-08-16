@@ -15,11 +15,42 @@ free.
   *same* engine with different instantiations.
 - **vcpkg (manifest mode)** — `vcpkg.json` pins exact dependency versions so
   laptop and VM resolve identically. Needs: WebSocket client, fast JSON parser
-  (ingest only), zstd, GoogleTest, Google Benchmark.
+  (ingest only), zstd, GoogleTest, Google Benchmark. Wired into root
+  `CMakeLists.txt`: exporting `VCPKG_ROOT` before configuring switches every
+  `find_package()` call from local apt/conda packages to vcpkg, unchanged —
+  unset, it's a no-op (today's state on this WSL box: vcpkg itself isn't
+  bootstrapped yet, blocked on `zip`/`unzip` not being installed and no
+  passwordless `sudo` to install them — `sudo apt-get install zip unzip`,
+  then `./bootstrap-vcpkg.sh` in a cloned `microsoft/vcpkg`, then export
+  `VCPKG_ROOT` to that clone).
 - **Compiler:** recent clang/gcc, C++20/23. Prefer **concepts** over raw CRTP
   for policy seams (same zero-cost dispatch, better errors).
 - **Sanitizers** (ASan/UBSan, TSan for concurrency) wired into a debug preset —
   one flag away, not an afterthought.
+- **TSan under WSL2** can fail with `FATAL: ThreadSanitizer: unexpected
+  memory mapping` — an ASLR incompatibility, not a real race. Workaround:
+  disable ASLR for the run, `setarch $(uname -m) -R ./build/tsan/<binary>`.
+- **`target_link_libraries` PUBLIC vs PRIVATE tracks the header, not the
+  `.cpp`.** A dependency is PUBLIC whenever any of the target's own public
+  headers name that dependency's types in their interface — PRIVATE only
+  when it's confined entirely to the implementation. Getting this backwards
+  compiles fine until a new downstream consumer includes the public header
+  and can't find the transitive include path — bit twice in one session
+  (`qp_venue` on `qp_protocol`, `zstd::libzstd` on `qp_sink`), both only
+  surfacing once `apps/collector` became a second consumer. A lib with no
+  downstream consumer yet ships this silently.
+- **CMake audit, post-restructure** (`libs/venue` → `libs/data_source/source/venue/
+  binance`, websocket transport → `libs/data_source/source/protocol`): the
+  PUBLIC/PRIVATE rule above re-verified across every lib, no regression.
+  Header self-containment checked manually — all 14 public headers compile
+  standalone (`-fsyntax-only` against the real include flags from
+  `compile_commands.json`); not wired into CMake as a standing target, rerun
+  manually if a regression is ever suspected. The recurring RPATH warning
+  (`libssl.so.3` "may be hidden") is dev-box-specific — this box has both
+  `/usr/lib/x86_64-linux-gnu/libssl.so.3` and a conda one; `ldd` on the built
+  binary confirms the conda one resolves at runtime, the same one CMake
+  linked against — benign, not chased with a box-specific RPATH override
+  that could behave differently on the eventual VM/Docker target.
 - **Dockerfile pinning the toolchain** kept from early on — not necessarily to
   develop inside, but so "builds on laptop" provably == "builds on VM."
 

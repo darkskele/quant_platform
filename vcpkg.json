@@ -2,7 +2,6 @@
   "name": "quant-platform",
   "version": "0.0.1",
   "description": "Modular C++ platform for medium-frequency crypto trading.",
-  "$note": "Declared for when vcpkg is bootstrapped as the toolchain. Not yet wired in — libs/core and libs/venue's find_package() calls currently resolve against locally-installed simdjson/GTest/benchmark (apt/conda) for verification. Once the vcpkg toolchain file is passed to CMake, the same find_package() calls resolve here instead, unchanged. boost-beast/openssl are declared for libs/marketdata (live_ws_source.cpp) which isn't wired into the CMake build yet.",
   "dependencies": [
     "simdjson",
     "gtest",

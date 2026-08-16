@@ -22,16 +22,24 @@ quant-platform/
 ├── libs/                   # each is a CMake target = a seam (or group)
 │   ├── core/               # LINGUA FRANCA: MarketEvent, Order, Fill, Intent, Timestamp,
 │   │                       # Clock concept, Portfolio/StateView. Header-only. Depends on NOTHING.
-│   ├── wire/               # on-disk/on-wire binary format (zstd, partitioning).
-│   │                       # Shared by record (writes) AND file_replay_source (reads).
-│   ├── marketdata/         # MarketDataSource concept + adapters:
-│   │                       #   LiveWebSocketSource (+ book reconstruction), FileReplaySource
-│   ├── venue/              # Binance glue: REST snapshot, symbol table, stream URLs, order xlate.
-│   │                       # Isolated so a 2nd venue is additive.
+│   ├── data_source/        # "source" + "sinks" cities — coequal, independent seams
+│   │   │                   # (MarketDataSource vs Sink), grouped as sibling dirs for
+│   │   │                   # filesystem convenience only — see DESIGN.md's "Cities today".
+│   │   ├── source/         # "prod streamer" town: MarketDataSource concept,
+│   │   │   │               # ResyncCoordinator/gap-detection/backoff, the Parser concept —
+│   │   │   │               # protocol- and venue-agnostic. Villages nested below (physically,
+│   │   │   │               # not just narratively — see the convention note further down):
+│   │   │   ├── protocol/            # "protocol" village: Boost.Beast transport
+│   │   │   │                        # (GenericLiveWebSocketSource). Flat -- a leaf,
+│   │   │   │                        # no separate docs/. Only protocol today.
+│   │   │   └── venue/               # "venue" village: Binance glue (REST
+│   │   │                        # snapshot, symbol table, stream URLs). Flat --
+│   │   │                        # a leaf, no separate docs/. Only venue today.
+│   │   └── sink/            # "sinks" city: wire format (wire.hpp, pure) + Sink
+│   │                        # concept + FileRecorder, NullSink. No further nesting.
 │   ├── execution/          # ExecutionGateway concept + SimExecution, LiveExecution   (trader milestone)
 │   ├── risk/               # RiskGate interface + impls (+ kill-switch)               (trader milestone)
 │   ├── strategy/           # Strategy interface + concrete strategies                 (trader milestone)
-│   ├── record/             # Sink concept + FileRecorder, NullSink
 │   ├── engine/             # Engine<Src,Clk,Exec,Rec> template (trader only)          (trader milestone)
 │   ├── telemetry/          # logging + metrics (uptime is a feature)                  (later)
 │   └── analytics/          # backtest reporting: PnL, Sharpe, drawdown               (later)
@@ -53,12 +61,16 @@ Dependencies point **inward toward `core`**; concrete adapters do **not** depend
 on each other.
 
 - `core` depends on nothing.
-- `marketdata`, `execution`, `risk`, `strategy`, `record` depend on `core` only
-  — never on each other. `strategy` cannot see `execution`; it knows only
-  `Intent` / `StateView` / `MarketEvent`.
-- `wire` depends on `core`; `record` and `file_replay_source` both depend on
-  `wire` (shared format).
-- `venue` depends on `core`; `marketdata` depends on `venue` privately.
+- `data_source/source`, `execution`, `risk`, `strategy`, `data_source/sink`
+  depend on `core` only — never on each other. `strategy` cannot see
+  `execution`; it knows only `Intent` / `StateView` / `MarketEvent`.
+- `data_source/source/venue` depends on `core`;
+  `data_source/source/protocol` depends on `venue`
+  **publicly** (its own public header names venue types in the class
+  interface — see `docs/environment.md`'s PUBLIC/PRIVATE rule).
+  `data_source/source`'s `file_replay_source` (not built yet) will
+  additionally depend on `data_source/sink` for the shared wire format
+  (`write_event`/`read_event` — see `libs/data_source/sink/docs/DECISIONS.md`).
 - `engine` depends on the seam concepts, not concrete adapters.
 - `apps/*` are the only place concrete types meet — all compile-time wiring
   happens in one thin file per binary.
@@ -73,11 +85,66 @@ trader is the **source** (book reconstruction), so recorded data is built by the
 same code as live data. Recorder runs on its own thread behind an SPSC queue so
 a disk stall can't back up the socket read.
 
+## The city/town/village doc convention
+
+Every non-leaf directory gets a `docs/` folder holding `DESIGN.md`
+(goals + success metrics — tests, and benchmarks where hot-path applies, N/A
+stated explicitly where cold-path) and `STATUS.md` (a goal-tracking list + a
+"Last proof" section tagged to the working tree — descriptions live only in
+`DESIGN.md`, `STATUS.md` never restates them). `DECISIONS.md` joins them in
+that same `docs/` folder wherever there's real content — an append-only log,
+title-only where that's the whole story, longer where a decision genuinely
+earned it (a bug's root-cause narrative). A superseded decision is struck
+through (`~~...~~`) at its old location with a pointer to where it moved —
+never deleted. Leaf directories get code comments only, no doc files.
+
+**Goals cascade by level, not by content.** Root `DESIGN.md`'s goals are the
+repo's own milestones (`docs/roadmap.md`'s phases). Every directory below
+that states its goals as what should *exist at that directory* — a
+deliverable, not a design essay — naturally sharper the deeper you go (a
+town's goal names a capability, a village's names a component, a leaf's
+would name a file if leaves had `DESIGN.md`s — they don't). Once a "goal"
+would only make sense talking about a single file's contents, it's stopped
+being a goal — that's implementation, and it lives inline as a code
+comment, not a doc.
+
+**Goal tracking**: goals are stated super high level — a title, one clause
+at most (`~~**Shared wire format**~~ — one encoder, not two`, not a
+paragraph). A completed goal's title is struck through (`~~...~~`) at the
+point it's stated — same convention as a superseded decision, never
+deleted — and drops its success metric once struck through: proof of a done
+goal lives in `STATUS.md`'s "Last proof" and the test suite, not restated
+prose. An incomplete goal keeps its success metric (what "done" would look
+like is exactly what's still needed) and stays a title someone can act on,
+not a design essay. `STATUS.md` lists every goal by title only (one line);
+a completed goal needs nothing more. An incomplete goal's `STATUS.md` line
+expands with a short paragraph — what's missing, what proving it would take
+— so there's somewhere to look for "why isn't this done" without
+re-deriving it each time.
+
+**Composition-level `DESIGN.md`** (a directory that wires together concrete
+types from more than one lib/village — today, `apps/*`) additionally opens
+with a diagram of the pieces and how data flows between them, then a bullet
+list of the generic components involved (what each represents, how they
+connect), then a high-level rundown of the directory's own source files —
+*before* the goals section. Leaf/pure-logic `DESIGN.md`s (a single lib with
+no sub-wiring) don't need this — it earns its place at a composition point,
+not everywhere.
+
+"City"/"town" are logical groupings, not always a physical directory — root
+`DESIGN.md`'s **sinks** city (`libs/data_source/sink/`) has no further nesting and
+needs none. Physically restructuring to mirror a logical grouping (as
+`libs/data_source/source/{protocol,venue}/` now does for the
+**source** city's prod-streamer town) is worth doing when it's cheap and the
+grouping is real — not forced pre-emptively, and never with placeholder
+folders for a variant that doesn't exist yet: both villages are flat,
+leaves (no `protocol/websocket/`, no `venue/binance/`), until a second
+protocol or venue justifies the nesting.
+
 ## Scaffold status
 
-Folders only — this tree exists on disk, empty, no build files, no code.
-Deliberately no CMake/vcpkg yet: writing build plumbing before the first real
-adapter is cart-before-horse. Next real work is the collector slice (`core`,
-`wire`, `venue`, `record`, `marketdata`, `apps/collector`) — implementation
-first, CMake wired up around what actually exists. Trader libs (`execution`,
-`risk`, `strategy`, `engine`) come with the trader milestone.
+`core`, `data_source/source` (town-level + its `protocol` and
+`venue` villages), `data_source/sink`, and `apps/collector` are implemented,
+building, and tested — this is no longer folders-only. Trader libs
+(`execution`, `risk`, `strategy`, `engine`) remain scaffold-only, arriving
+with the trader milestone.

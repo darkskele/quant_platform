@@ -1,4 +1,15 @@
 cmake_minimum_required(VERSION 3.19)
+
+# vcpkg manifest mode (vcpkg.json): auto-detect via VCPKG_ROOT, set before
+# project() since that's what triggers toolchain detection. No-op — same
+# local apt/conda resolution as today — until VCPKG_ROOT is exported; once
+# it is, the same find_package() calls resolve through vcpkg instead,
+# unchanged.
+if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+    set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+        CACHE STRING "")
+endif()
+
 project(quant_platform CXX)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -49,16 +60,31 @@ if(QP_BUILD_BENCHMARKS)
     FetchContent_MakeAvailable(googlebenchmark)
 endif()
 
-# Each lib is its own CMake target (qp_core, qp_venue, ...) plus, where it has
-# them, its own *_tests / *_bench targets — `cmake --build build --target
-# qp_venue_tests` builds exactly that and its deps, nothing else in the tree.
-# No shared test/benchmark-registration macro yet: venue is the first lib to
-# need one, and a helper for a pattern used once is premature — add it when a
-# third lib repeats this (seams first, generality later).
+# Each lib is its own CMake target (qp_core, qp_protocol, ...) plus, where
+# it has them, its own *_tests / *_bench targets — `cmake --build build
+# --target qp_source_tests` builds exactly that and its deps, nothing
+# else in the tree. No shared test/benchmark-registration macro yet: a
+# helper for this pattern is premature until a third *top-level* lib repeats
+# it verbatim (seams first, generality later) — libs/data_source/source now
+# add_subdirectory's its own villages (venue, protocol)
+# internally, see its CMakeLists.txt.
 add_subdirectory(libs/core)
-add_subdirectory(libs/venue)
-add_subdirectory(libs/marketdata)  # degrades gracefully without Boost — see its CMakeLists.txt
+add_subdirectory(libs/data_source/source)  # degrades gracefully without Boost — see its CMakeLists.txt
+add_subdirectory(libs/data_source/sink)
+add_subdirectory(apps/collector)  # degrades gracefully without Boost — see its CMakeLists.txt
 
-# Blocked on vcpkg bringing in Boost.Beast/OpenSSL:
-#   add_subdirectory(libs/record)
-#   add_subdirectory(apps/collector)
+if(QP_BUILD_BENCHMARKS)
+    # One binary, every benchmark case, one results table. Per-lib *_bench
+    # targets (above, in each lib's own CMakeLists.txt) stay for targeted
+    # builds — this just also links them into one executable; Google
+    # Benchmark's own --benchmark_filter narrows a single run when needed.
+    add_executable(qp_bench
+        libs/core/benchmarks/bench_spsc_queue.cpp
+        libs/data_source/source/benchmarks/bench_message_processing.cpp
+        libs/data_source/source/venue/benchmarks/bench_binance_parser.cpp
+        libs/data_source/sink/benchmarks/bench_wire.cpp
+    )
+    target_link_libraries(qp_bench PRIVATE
+        qp_core qp_source_pure qp_venue qp_sink_pure benchmark::benchmark_main
+    )
+endif()

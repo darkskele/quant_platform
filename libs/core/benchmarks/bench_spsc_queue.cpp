@@ -1,9 +1,9 @@
-#include "qp/core/spsc_queue.hpp"
-#include "qp/core/types.hpp"
-
 #include <benchmark/benchmark.h>
 
 #include <utility>
+
+#include "spsc_queue.hpp"
+#include "types.hpp"
 
 namespace {
 
@@ -23,11 +23,12 @@ void BM_PushPopInt(benchmark::State& state) {
         ++i;
     }
 }
+
 BENCHMARK(BM_PushPopInt);
 
 // MarketEvent is the type this queue actually carries in production. A
 // fresh copy each iteration deliberately pays vector reallocation — that's
-// the real cost of live_ws_source.cpp's current on_message lambda, which
+// the real cost of live_websocket_source.cpp's current on_message lambda, which
 // constructs a new MarketEvent per WS message rather than reusing one (a
 // known, not-yet-fixed gap, tracked in that file's own comments).
 void BM_PushPopMarketEvent(benchmark::State& state) {
@@ -39,15 +40,15 @@ void BM_PushPopMarketEvent(benchmark::State& state) {
     seed.asks = {{100.50, 1.5}, {101.00, 0.75}};
 
     for (auto _ : state) {
-        qp::MarketEvent fresh = seed;  // copy: reallocates bids/asks, matches live_ws_source.cpp today
-        bool            pushed = q.push(std::move(fresh));
+        qp::MarketEvent fresh =
+            seed;  // copy: reallocates bids/asks, matches live_websocket_source.cpp today
+        bool pushed = q.push(std::move(fresh));
         benchmark::DoNotOptimize(pushed);
         auto v = q.pop();
         benchmark::DoNotOptimize(v);
     }
 }
+
 BENCHMARK(BM_PushPopMarketEvent);
 
 }  // namespace
-
-BENCHMARK_MAIN();

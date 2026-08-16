@@ -5,14 +5,18 @@
             "name": "Debug: qp_venue_tests",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/debug/libs/venue/qp_venue_tests",
+            "program": "${workspaceFolder}/build/debug/libs/data_source/source/venue/qp_venue_tests",
             "args": [],
-            "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
             "externalConsole": false,
             "MIMode": "gdb",
+            "cwd": "${workspaceFolder}",
             "miDebuggerPath": "/usr/bin/gdb",
             "environment": [
+                {
+                    "name": "DEBUGINFOD_URLS",
+                    "value": ""
+                },
                 {
                     "name": "ASAN_OPTIONS",
                     "value": "detect_leaks=0"
@@ -28,13 +32,19 @@
             "name": "Release: qp_venue_tests",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/release/libs/venue/qp_venue_tests",
+            "program": "${workspaceFolder}/build/release/libs/data_source/source/venue/qp_venue_tests",
             "args": [],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
             "externalConsole": false,
             "MIMode": "gdb",
             "miDebuggerPath": "/usr/bin/gdb",
+            "environment": [
+                {
+                    "name": "DEBUGINFOD_URLS",
+                    "value": ""
+                }
+            ],
             "setupCommands": [
                 { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
             ],
@@ -52,6 +62,10 @@
             "MIMode": "gdb",
             "miDebuggerPath": "/usr/bin/gdb",
             "environment": [
+                {
+                    "name": "DEBUGINFOD_URLS",
+                    "value": ""
+                },
                 {
                     "name": "ASAN_OPTIONS",
                     "value": "detect_leaks=0"
@@ -73,6 +87,12 @@
             "externalConsole": false,
             "MIMode": "gdb",
             "miDebuggerPath": "/usr/bin/gdb",
+            "environment": [
+                {
+                    "name": "DEBUGINFOD_URLS",
+                    "value": ""
+                }
+            ],
             "setupCommands": [
                 { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
             ],
@@ -89,26 +109,38 @@
             "externalConsole": false,
             "MIMode": "gdb",
             "miDebuggerPath": "/usr/bin/gdb",
+            "environment": [
+                {
+                    "name": "DEBUGINFOD_URLS",
+                    "value": ""
+                }
+            ],
             "preLaunchTask": "Build: qp_core_bench (release)"
         },
         {
             "name": "Run parser bench",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/release/libs/venue/qp_venue_bench",
+            "program": "${workspaceFolder}/build/release/libs/data_source/source/venue/qp_venue_bench",
             "args": ["--benchmark_min_time=0.1s"],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
             "externalConsole": false,
             "MIMode": "gdb",
             "miDebuggerPath": "/usr/bin/gdb",
+            "environment": [
+                {
+                    "name": "DEBUGINFOD_URLS",
+                    "value": ""
+                }
+            ],
             "preLaunchTask": "Build: qp_venue_bench (release)"
         },
         {
-            "name": "Debug: qp_marketdata_tests (all)",
+            "name": "Debug: qp_source_tests (all)",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/debug/libs/marketdata/qp_marketdata_tests",
+            "program": "${workspaceFolder}/build/debug/libs/data_source/source/qp_source_tests",
             "args": [],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
@@ -117,6 +149,10 @@
             "miDebuggerPath": "/usr/bin/gdb",
             "environment": [
                 {
+                    "name": "DEBUGINFOD_URLS",
+                    "value": ""
+                },
+                {
                     "name": "ASAN_OPTIONS",
                     "value": "detect_leaks=0"
                 }
@@ -124,13 +160,13 @@
             "setupCommands": [
                 { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
             ],
-            "preLaunchTask": "Build: qp_marketdata_tests"
+            "preLaunchTask": "Build: qp_source_tests"
         },
         {
-            "name": "Debug: qp_marketdata_integration_tests",
+            "name": "Debug: qp_protocol_integration_tests",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/debug/libs/marketdata/qp_marketdata_integration_tests",
+            "program": "${workspaceFolder}/build/debug/libs/data_source/source/protocol/qp_protocol_integration_tests",
             "args": [],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
@@ -139,6 +175,10 @@
             "miDebuggerPath": "/usr/bin/gdb",
             "environment": [
                 {
+                    "name": "DEBUGINFOD_URLS",
+                    "value": ""
+                },
+                {
                     "name": "ASAN_OPTIONS",
                     "value": "detect_leaks=0"
                 }
@@ -146,20 +186,206 @@
             "setupCommands": [
                 { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
             ],
-            "preLaunchTask": "Build: qp_marketdata_integration_tests"
+            "preLaunchTask": "Build: qp_protocol_integration_tests"
+        },
+        {
+            "name": "Debug: qp_collector_integration_tests",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/debug/apps/collector/qp_collector_integration_tests",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "environment": [
+                {
+                    "name": "DEBUGINFOD_URLS",
+                    "value": ""
+                },
+                {
+                    "name": "ASAN_OPTIONS",
+                    "value": "detect_leaks=0"
+                }
+            ],
+            "setupCommands": [
+                { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
+            ],
+            "preLaunchTask": "Build: qp_collector_integration_tests"
+        },
+        {
+            "name": "Debug: qp_sink_integration_tests",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/debug/libs/data_source/sink/qp_sink_integration_tests",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "environment": [
+                {
+                    "name": "DEBUGINFOD_URLS",
+                    "value": ""
+                },
+                {
+                    "name": "ASAN_OPTIONS",
+                    "value": "detect_leaks=0"
+                },
+            ],
+            "setupCommands": [
+                { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
+            ],
+            "preLaunchTask": "Build: qp_sink_integration_tests"
+        },
+        {
+            "name": "Debug: qp_sink_tests",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/debug/libs/data_source/sink/qp_sink_tests",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "environment": [
+                {
+                    "name": "DEBUGINFOD_URLS",
+                    "value": ""
+                },
+                {
+                    "name": "ASAN_OPTIONS",
+                    "value": "detect_leaks=0"
+                },
+            ],
+            "setupCommands": [
+                { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
+            ],
+            "preLaunchTask": "Build: qp_sink_tests"
+        },
+        {
+            "name": "Release: qp_sink_tests",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/release/libs/data_source/sink/qp_sink_tests",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "environment": [
+                {
+                    "name": "DEBUGINFOD_URLS",
+                    "value": ""
+                }
+            ],
+            "setupCommands": [
+                { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
+            ],
+            "preLaunchTask": "Build: qp_sink_tests (release)"
         },
         {
             "name": "Run marketdata bench",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/release/libs/marketdata/qp_marketdata_bench",
+            "program": "${workspaceFolder}/build/release/libs/data_source/source/qp_source_bench",
             "args": ["--benchmark_min_time=0.1s"],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
             "externalConsole": false,
             "MIMode": "gdb",
             "miDebuggerPath": "/usr/bin/gdb",
-            "preLaunchTask": "Build: qp_marketdata_bench (release)"
+            "environment": [
+                {
+                    "name": "DEBUGINFOD_URLS",
+                    "value": ""
+                }
+            ],
+            "preLaunchTask": "Build: qp_source_bench (release)"
+        },
+        {
+            "name": "Run record bench",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/release/libs/data_source/sink/qp_sink_bench",
+            "args": ["--benchmark_min_time=0.1s"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "environment": [
+                {
+                    "name": "DEBUGINFOD_URLS",
+                    "value": ""
+                }
+            ],
+            "preLaunchTask": "Build: qp_sink_bench (release)"
+        },
+        {
+            "name": "Run all tests (debug)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "/usr/bin/ctest",
+            "args": ["--test-dir", "build/debug", "--output-on-failure"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "environment": [
+                {
+                    "name": "DEBUGINFOD_URLS",
+                    "value": ""
+                },
+                {
+                    "name": "ASAN_OPTIONS",
+                    "value": "detect_leaks=0"
+                }
+            ],
+            "preLaunchTask": "Build: all tests (debug)"
+        },
+        {
+            "name": "Run all tests (release)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "/usr/bin/ctest",
+            "args": ["--test-dir", "build/release", "--output-on-failure"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "environment": [
+                {
+                    "name": "DEBUGINFOD_URLS",
+                    "value": ""
+                }
+            ],
+            "preLaunchTask": "Build: all tests (release)"
+        },
+        {
+            "name": "Run all benches",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/release/qp_bench",
+            "args": ["--benchmark_min_time=0.1s"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "environment": [
+                {
+                    "name": "DEBUGINFOD_URLS",
+                    "value": ""
+                }
+            ],
+            "preLaunchTask": "Build: qp_bench (release)"
         }
     ]
 }

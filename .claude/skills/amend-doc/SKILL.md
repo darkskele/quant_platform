@@ -19,6 +19,9 @@ Route the change to the ONE doc that owns it — don't touch the others:
 Rules:
 - Smallest diff that makes the doc accurate again. Edit in place — don't
   rewrite surrounding prose, don't restate context the doc already has.
+- Style: terse, imperative, plain prose. State the fact; cut the runway.
+  No em dashes, no "it's worth noting" / "in order to" filler, no AI-tell
+  phrasing. One clause beats two sentences. This is a spec, not an essay.
 - A genuine decision (a choice + the reason) also gets one D-numbered entry
   appended to `docs/decisions.md`, 1–3 lines, matching the existing D1–D9
   style. A status update (scaffold built, phase started) is not a decision —

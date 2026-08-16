@@ -19,10 +19,9 @@ so L2 history accumulates while everything else is built.
   the real prod data path, not a throwaway.
 - **Collector = streamer + `FileRecorder` sink** (binary/zstd/partitioned), no
   strategies attached. Falls out of the streamer. Run on laptop first, then VM.
-- Download free Binance kline/funding history.
 
 **Milestone:** collector banking BTCUSDT/ETHUSDT depth+trades 24/7 with honest
-gap logging; repo builds the skeleton for all three binaries.
+gap logging.
 
 ## Phase 1 — Backtester + first strategy (≈ weeks 4–9)
 - `FileReplaySource`, `SimClock`, `SimExecution` with the **honest cost model**

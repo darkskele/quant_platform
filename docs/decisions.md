@@ -45,12 +45,59 @@ arc gated on data accumulation.
 WSL for dev + relative benchmarks; VM for absolute perf + 24/7 collection.
 Object storage as cold archive, pull-slice-to-local for backtest.
 
-## D10 — LiveWebSocketSource resync: real concurrency, not an OS-buffer shortcut
-Binance's documented procedure (buffer diffs, fetch REST snapshot, align,
-replay) needs true concurrent buffering — a "connect then immediately block
-on the REST call" shortcut risks silently missing diffs. Two threads (WS I/O,
-dedicated REST-resync), coordinated via two SpscQueues; no third "coordinator"
-thread — that logic runs on the I/O thread. Per-symbol, not connection-wide:
-one symbol resyncing doesn't pause the others. We can't do full ULL (no
-exotic hardware), but SPSC-queue-coordinated threads is the correctness-grade
-concurrency architecture-principles.md already calls for.
+## ~~D10 — LiveWebSocketSource resync: real concurrency, not an OS-buffer shortcut~~
+**Relocated to `libs/data_source/source/docs/DECISIONS.md`** (the town-level "prod
+streamer" doc — this is generic resync design, not root-scoped).
+
+## ~~D11 — FileRecorder: local disk only in Phase 0, R2 sync deferred~~
+**Relocated to `libs/data_source/sink/docs/DECISIONS.md`** (the "sinks" city doc).
+
+## ~~D12 — Collector/recorder: shared wire format, retry-driven gap alerting, flush-based crash safety~~
+**Split and relocated**: wire-format + crash-safety thirds to
+`libs/data_source/sink/docs/DECISIONS.md`; gap-alerting third to
+`libs/data_source/source/docs/DECISIONS.md` (originally
+`protocol/docs/DECISIONS.md`, folded in when `protocol/websocket/`
+flattened to `protocol/` and lost its own `docs/`).
+
+## ~~D13 — Resync alignment was using spot's +1 rule, not futures'; found by live smoke-testing~~
+**Relocated to `libs/data_source/source/docs/DECISIONS.md`** (the code it's about —
+`resync.hpp` — lives there).
+
+## ~~D14 — Resync snapshots are forwarded as a BookSnapshot event, not discarded after alignment~~
+**Relocated to `libs/data_source/source/docs/DECISIONS.md`** (same file as D13 —
+`resync_coordinator.hpp`).
+
+## D15 — `libs/marketdata`/`libs/record` regrouped as `libs/data_source/{source,sink}`
+Reverses the physical (not logical) side of the earlier "source/sinks are
+coequal cities, not one combined data source" split: `MarketDataSource` and
+`Sink` stay independent seams with independent consumers — that logic didn't
+change — but the two now live as sibling directories under `libs/data_source/`
+for discoverability, matching how the collector/live/backtest apps are all
+"what does the data source connect to" questions. No C++ namespace or CMake
+target renamed (`qp::marketdata`, `qp_marketdata_*`, `qp::record`,
+`qp_record_*` all unchanged) — purely a directory move plus every path
+reference (CMakeLists.txt, docs, `.vscode/`, skill tables) updated to match.
+Verified with a full clean rebuild + `ctest` (7/7) + TSan on the two
+concurrent integration suites, all unchanged from pre-move.
+
+## D16 — Every lib's `include/` flattened; namespaces and CMake/test targets renamed to match, superseding D15's "unchanged"
+D15 deliberately left C++ namespaces and CMake target names alone, moving
+only directories. Follow-up push went further: no lib gets a `qp/`-wrapper
+folder in its `include/` (every header sits directly in `include/`, included
+by bare filename — `"types.hpp"`, `"wire.hpp"`, `"binance.hpp"`, ...), and
+every namespace/target name that only matched the *old* `libs/marketdata`/
+`libs/record` names now matches the *current* one instead: `qp::record` →
+`qp::sink` (`qp_record*` → `qp_sink*`), town-level `libs/data_source/source`
+content (`backoff`/`gap_detector`/`parser`/`resync`/`resync_coordinator`/
+`source`/`venue_types`) moved from bare `qp` into `qp::source`
+(`qp_marketdata_pure`/`qp_marketdata_tests`/`qp_marketdata_bench` →
+`qp_source_*`), and the `protocol` village's own library (previously
+confusingly named bare `qp_marketdata`, sharing no name with the town's
+`_pure`/`_tests` targets) is now `qp_protocol`/`qp_protocol_test_support`/
+`qp_protocol_integration_tests`. `venue` (`qp::venue::binance`, `qp_venue*`)
+and `collector` (`qp::collector`, `qp_collector*`) already matched and are
+unchanged; `core` (bare `qp`, `qp_core*`) is the deliberate exception — it's
+the root/lingua-franca namespace, not a domain village. Every `.vscode/`
+task/launch entry, the `/test` and `/bench` skill tables, and CMakeLists.txt
+comments updated to match. Verified: full rebuild + `ctest`, 7/7 in both
+debug and release, plus the combined `qp_bench` binary links clean.

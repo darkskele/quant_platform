@@ -34,6 +34,12 @@ structural/statistical edges — **not HFT**. See `MISSION.md`.
   optimistic fill sim is how backtests lie.
 - **Risk has autonomous authority** (kill-switch / drawdown flatten).
 - **Secrets never committed.** Exchange keys via env/secrets file only.
+- **Exchange protocol rules differ by market type (spot vs. futures) even
+  when documented on adjacent pages.** Never assume one documents the
+  other — verify against the specific market's own docs. (D13: the resync
+  alignment offset differs between spot and futures; implementing the
+  wrong one passed every mock/synthetic test and failed 100% of the time
+  against real data.)
 
 ## Toolchain
 - C++20/23, CMake + Ninja, `CMakePresets.json` (presets ARE the prod/test
@@ -54,6 +60,20 @@ See the top uncompleted phase in `docs/roadmap.md` (starts at Phase 0).
 - Don't volunteer what was deliberately left out/deferred unless asked.
 - Don't caveat with "this hasn't been built/verified" — the user builds
   (see Build workflow); just say what changed.
+- Run `clang-format -i` on every C++ file created or edited, every time —
+  don't rely on an editor's format-on-save.
+- **Comment standard: Doxygen-compatible tags** (`///`, `@param`, `@return`,
+  `@pre`, `@warning`) on public function/method declarations where there's
+  something non-obvious to say — clangd renders these as hover tooltips, so
+  they pay for themselves in the editor, not just in generated docs. This
+  does NOT mean Doxygen's typical exhaustive default (a tag block on every
+  function regardless of whether it says anything) — default to no comment;
+  add one only when the WHY is non-obvious, same bar as any inline comment.
+  New code going forward; not a retrofit of existing comments.
+- Adding a new buildable target (test/bench/app executable)? Add its
+  `.vscode/tasks.json` build+test entries and `launch.json` debug config in
+  the same change, matching the existing per-target pattern — unless a
+  generic/wildcard task already covers it.
 
 ## Git workflow
 - **Never `git commit`, in this repo, regardless of mode or how the request
@@ -67,3 +87,10 @@ See the top uncompleted phase in `docs/roadmap.md` (starts at Phase 0).
   runs those themselves. Exception: when told to as part of an iterative
   change (e.g. "fix X and verify it"), building/running for that specific
   step is fine.
+- When asked to build/run tests, use the `test` skill (`/test`); when asked
+  to run benchmarks, use the `bench` skill (`/bench`) — both build and run
+  directly via Bash (ctest / Google Benchmark), targeted to what changed by
+  default. Not a standing exception to the rule above — still only on
+  explicit ask, this is just the mechanism. (VS Code's cppdbg/gdb
+  debug-launch is currently broken/flaky under WSL2 in this window — plain
+  execution is what's confirmed working.)

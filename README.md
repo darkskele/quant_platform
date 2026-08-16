@@ -17,8 +17,14 @@ one engine.
 | [`docs/data.md`](docs/data.md) | Data sources, collector, storage |
 | [`docs/environment.md`](docs/environment.md) | Build, perf, tooling, VCS, secrets |
 | [`docs/roadmap.md`](docs/roadmap.md) | Phases & horizon |
-| [`docs/decisions.md`](docs/decisions.md) | Decision log |
+| [`docs/repo-layout.md`](docs/repo-layout.md) | Directory tree, module boundaries, the doc-hierarchy convention |
+| [`docs/decisions.md`](docs/decisions.md) | Root decision log (per-directory logs live nearest their code) |
+| [`docs/DESIGN.md`](docs/DESIGN.md) / [`docs/STATUS.md`](docs/STATUS.md) | Root goals + current status of the engineering-process initiative |
 | [`CLAUDE.md`](CLAUDE.md) | Context + conventions for Claude Code |
+
+Every non-leaf directory has its own `docs/DESIGN.md`/`docs/STATUS.md`
+(+ `docs/DECISIONS.md` where relevant) — start at a lib's own doc, not just
+the root ones, for anything below the whole-repo level.
 
 ## The core idea
 The **trader** (live/backtest) is one Engine, swapped by compile-time policies:
@@ -26,16 +32,46 @@ The **trader** (live/backtest) is one Engine, swapped by compile-time policies:
 live.cpp      Engine<LiveWebSocketSource, WallClock, LiveExecution, FileRecorder>
 backtest.cpp  Engine<FileReplaySource,    SimClock,  SimExecution,  NullSink>
 ```
-The **collector** is not an Engine — it's a thin `source → recorder` loop that
-shares the *source* (book reconstruction), so recorded data is built by the same
-code as live data. Same book-building, swapped adapters — that's the whole idea.
+The **collector** is not an Engine — it's a thin `source → recorder` loop.
+It shares the *source* with the trader (book reconstruction: resync, gap
+detection, reconnect), so live and collected data are produced by the same
+code, not a second copy. Same source, swapped adapters — that's the whole
+idea.
 
-## Getting started (local)
+## Building
+
 ```bash
-git init
-# set up .env / secrets loading BEFORE any exchange key exists
-# (Phase 0 in docs/roadmap.md scaffolds CMake presets + vcpkg manifest)
+cmake --preset debug         # or release, or tsan (ThreadSanitizer)
+cmake --build build/debug -j
 ```
 
-Status: **design locked, Phase 0 not yet started.** See
-[`docs/roadmap.md`](docs/roadmap.md).
+Debug also carries ASan/UBSan. See [`docs/environment.md`](docs/environment.md)
+for the toolchain (vcpkg manifest, GoogleTest, Google Benchmark) and the
+WSL-vs-VM performance caveat.
+
+## Testing
+
+```bash
+ctest --test-dir build/debug --output-on-failure
+```
+
+## Benchmarks
+
+```bash
+cmake --preset release
+cmake --build build/release --target qp_bench -j
+./build/release/qp_bench --benchmark_min_time=0.1s
+```
+
+## Running the collector
+
+```bash
+./build/debug/apps/collector/qp_collector SYMBOL [SYMBOL...] --data-dir DIR [--duration SECONDS] [--testnet]
+```
+
+For a VM deploy, `tools/package_collector.sh` bundles a release binary with
+`run.sh`/`stop.sh`/`status.sh` into a self-contained tarball:
+
+```bash
+./run.sh SYMBOL [SYMBOL...] [--duration SECONDS] [--testnet]
+```
