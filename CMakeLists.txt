@@ -60,13 +60,13 @@ if(QP_BUILD_BENCHMARKS)
     FetchContent_MakeAvailable(googlebenchmark)
 endif()
 
-# Each lib is its own CMake target (qp_core, qp_protocol, ...) plus, where
+# Each lib is its own CMake target (qp_core, qp_source, ...) plus, where
 # it has them, its own *_tests / *_bench targets — `cmake --build build
 # --target qp_source_tests` builds exactly that and its deps, nothing
 # else in the tree. No shared test/benchmark-registration macro yet: a
 # helper for this pattern is premature until a third *top-level* lib repeats
 # it verbatim (seams first, generality later) — libs/data_source/source now
-# add_subdirectory's its own villages (venue, protocol)
+# add_subdirectory's its remaining village (venue)
 # internally, see its CMakeLists.txt.
 add_subdirectory(libs/core)
 add_subdirectory(libs/data_source/source)  # degrades gracefully without Boost — see its CMakeLists.txt

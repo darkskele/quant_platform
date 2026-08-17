@@ -86,8 +86,8 @@ int run(const Config& config, std::atomic<bool>& stop_requested) {
 
     // source -> recorder directly, not an Engine (docs/architecture-principles.md);
     // SelectedParser is venue.hpp's compile-time pick (QP_COLLECTOR_VENUE).
-    protocol::GenericLiveWebSocketSource<SelectedParser> source(config.symbols, config.ws_endpoint,
-                                                                config.rest_endpoint);
+    source::GenericLiveWebSocketSource<SelectedParser> source(config.symbols, config.ws_endpoint,
+                                                              config.rest_endpoint);
     sink::FileRecorder recorder(config.data_dir, source.symbol_names());
 
     const auto start = std::chrono::steady_clock::now();

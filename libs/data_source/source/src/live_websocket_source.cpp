@@ -22,7 +22,7 @@ namespace net       = boost::asio;
 namespace ssl       = net::ssl;
 using tcp           = net::ip::tcp;
 
-namespace qp::protocol {
+namespace qp::source {
 
 // ---------------------------------------------------------------------------
 // WebSocket transport — no Parser dependency at all below run_ws_session and
@@ -148,8 +148,8 @@ void connect_plain(const std::string& host, const std::string& port, const std::
     run_ws_session(ws, host, path, running, on_message, on_idle);
 }
 
-template <source::Parser P, class OnMessage, class OnIdle>
-void connect_and_stream(const std::vector<std::string>& symbols, source::WsEndpoint endpoint,
+template <Parser P, class OnMessage, class OnIdle>
+void connect_and_stream(const std::vector<std::string>& symbols, WsEndpoint endpoint,
                         const std::atomic<bool>& running, const OnMessage& on_message,
                         const OnIdle& on_idle) {
     const std::string host = std::string(endpoint.host);
@@ -177,7 +177,7 @@ struct ParsedRestUrl {
     bool        use_tls;
 };
 
-// Only ever applied to our own source::RestEndpoint constants/test values, never to
+// Only ever applied to our own RestEndpoint constants/test values, never to
 // untrusted input — no need for a general-purpose URL parser here.
 ParsedRestUrl parse_rest_base_url(std::string_view base_url) {
     const bool       use_tls = base_url.starts_with("https://");
@@ -255,9 +255,9 @@ std::optional<std::string> http_get_plain(const std::string& host, const std::st
     return res.body();
 }
 
-template <source::Parser P>
-std::optional<source::DepthSnapshot> fetch_depth_snapshot(source::RestEndpoint endpoint,
-                                                          const std::string&   symbol_name) {
+template <Parser P>
+std::optional<DepthSnapshot> fetch_depth_snapshot(RestEndpoint       endpoint,
+                                                  const std::string& symbol_name) {
     const auto [host, port, use_tls] = parse_rest_base_url(endpoint.base_url);
     const std::string full_url       = P::depth_snapshot_url(symbol_name, 1000, endpoint);
     const std::string target         = full_url.substr(std::string(endpoint.base_url).size());
@@ -279,10 +279,10 @@ std::optional<source::DepthSnapshot> fetch_depth_snapshot(source::RestEndpoint e
 // GenericLiveWebSocketSource
 // ---------------------------------------------------------------------------
 
-template <source::Parser P>
+template <Parser P>
 GenericLiveWebSocketSource<P>::GenericLiveWebSocketSource(std::vector<std::string> symbols,
-                                                          source::WsEndpoint       ws_endpoint,
-                                                          source::RestEndpoint     rest_endpoint)
+                                                          WsEndpoint               ws_endpoint,
+                                                          RestEndpoint             rest_endpoint)
     : symbols_(std::move(symbols)), ws_endpoint_(ws_endpoint), rest_endpoint_(rest_endpoint) {
     // Pre-intern up front rather than leaving it to lazy first-message
     // interning: makes SymbolId assignment deterministic (matches symbols_'s
@@ -297,76 +297,76 @@ GenericLiveWebSocketSource<P>::GenericLiveWebSocketSource(std::vector<std::strin
     resync_thread_ = std::thread([this] { resync_run(); });
 }
 
-template <source::Parser P>
+template <Parser P>
 const std::vector<std::string>& GenericLiveWebSocketSource<P>::symbol_names() const noexcept {
     return symbol_table_.names();
 }
 
-template <source::Parser P>
+template <Parser P>
 GenericLiveWebSocketSource<P>::~GenericLiveWebSocketSource() {
     running_.store(false, std::memory_order_release);
     if (io_thread_.joinable()) io_thread_.join();
     if (resync_thread_.joinable()) resync_thread_.join();
 }
 
-template <source::Parser P>
+template <Parser P>
 std::optional<MarketEvent> GenericLiveWebSocketSource<P>::next() {
     return queue_.pop();
 }
 
-template <source::Parser P>
+template <Parser P>
 std::size_t GenericLiveWebSocketSource<P>::dropped_count() const noexcept {
     return dropped_.load(std::memory_order_relaxed);
 }
 
-template <source::Parser P>
+template <Parser P>
 std::size_t GenericLiveWebSocketSource<P>::gap_count() const noexcept {
     return gaps_.load(std::memory_order_relaxed);
 }
 
-template <source::Parser P>
+template <Parser P>
 std::size_t GenericLiveWebSocketSource<P>::resync_count() const noexcept {
     return resync_count_.load(std::memory_order_relaxed);
 }
 
-template <source::Parser P>
+template <Parser P>
 std::size_t GenericLiveWebSocketSource<P>::resync_retry_count() const noexcept {
     return resync_retry_count_.load(std::memory_order_relaxed);
 }
 
-template <source::Parser P>
+template <Parser P>
 std::size_t GenericLiveWebSocketSource<P>::resync_rest_failure_count() const noexcept {
     return resync_rest_failure_count_.load(std::memory_order_relaxed);
 }
 
-template <source::Parser P>
+template <Parser P>
 std::size_t GenericLiveWebSocketSource<P>::resync_buffer_overflow_count() const noexcept {
     return resync_buffer_overflow_count_.load(std::memory_order_relaxed);
 }
 
-template <source::Parser P>
+template <Parser P>
 std::size_t GenericLiveWebSocketSource<P>::resync_no_alignment_count() const noexcept {
     return resync_no_alignment_count_.load(std::memory_order_relaxed);
 }
 
-template <source::Parser P>
+template <Parser P>
 std::size_t GenericLiveWebSocketSource<P>::resync_request_dropped_count() const noexcept {
     return resync_request_dropped_.load(std::memory_order_relaxed);
 }
 
-template <source::Parser P>
+template <Parser P>
 std::size_t GenericLiveWebSocketSource<P>::output_queue_high_water_mark() const noexcept {
     return output_queue_high_water_.load(std::memory_order_relaxed);
 }
 
-template <source::Parser P>
+template <Parser P>
 std::size_t GenericLiveWebSocketSource<P>::resync_request_queue_high_water_mark() const noexcept {
     return resync_request_queue_high_water_.load(std::memory_order_relaxed);
 }
 
 // --- I/O thread side ---------------------------------------------------
 
-template <source::Parser P>
+template <Parser P>
 void GenericLiveWebSocketSource<P>::begin_resync(SymbolId symbol) {
     resync_count_.fetch_add(1, std::memory_order_relaxed);
 
@@ -376,7 +376,7 @@ void GenericLiveWebSocketSource<P>::begin_resync(SymbolId symbol) {
     }
 }
 
-template <source::Parser P>
+template <Parser P>
 void GenericLiveWebSocketSource<P>::drain_resync_responses() {
     while (auto result = resync_responses_.pop()) {
         if (!result->snapshot) {
@@ -413,7 +413,7 @@ void GenericLiveWebSocketSource<P>::drain_resync_responses() {
     }
 }
 
-template <source::Parser P>
+template <Parser P>
 void GenericLiveWebSocketSource<P>::on_message(std::string_view msg) {
     drain_resync_responses();  // let a just-arrived snapshot unblock its symbol before this message
                                // is processed
@@ -442,13 +442,13 @@ void GenericLiveWebSocketSource<P>::on_message(std::string_view msg) {
     auto           verdict = coordinator_.on_event(std::move(ev));
 
     switch (verdict.action) {
-        case source::ResyncCoordinator::Action::Forward:
+        case ResyncCoordinator::Action::Forward:
             if (!queue_.push(std::move(*verdict.event)))
                 dropped_.fetch_add(1, std::memory_order_relaxed);
             break;
-        case source::ResyncCoordinator::Action::Buffer:
+        case ResyncCoordinator::Action::Buffer:
             break;
-        case source::ResyncCoordinator::Action::BufferAndRequest:
+        case ResyncCoordinator::Action::BufferAndRequest:
             if (verdict.gap_detected) {
                 gaps_.fetch_add(1, std::memory_order_relaxed);
                 std::cerr << "[LiveWebSocketSource] sequence gap on " << symbol_table_.name(symbol)
@@ -470,11 +470,11 @@ void GenericLiveWebSocketSource<P>::on_message(std::string_view msg) {
     }
 }
 
-template <source::Parser P>
+template <Parser P>
 void GenericLiveWebSocketSource<P>::run() {
-    source::ExponentialBackoff backoff;
-    auto                       on_message_fn = [this](std::string_view msg) { on_message(msg); };
-    auto                       on_idle_fn    = [this] { drain_resync_responses(); };
+    ExponentialBackoff backoff;
+    auto               on_message_fn = [this](std::string_view msg) { on_message(msg); };
+    auto               on_idle_fn    = [this] { drain_resync_responses(); };
 
     while (running_.load(std::memory_order_acquire)) {
         try {
@@ -514,7 +514,7 @@ void GenericLiveWebSocketSource<P>::run() {
 
 // --- Resync thread side --------------------------------------------------
 
-template <source::Parser P>
+template <Parser P>
 void GenericLiveWebSocketSource<P>::sample_queue_depths() {
     auto update_high_water = [](std::atomic<std::size_t>& hwm, std::size_t observed) {
         std::size_t current = hwm.load(std::memory_order_relaxed);
@@ -526,7 +526,7 @@ void GenericLiveWebSocketSource<P>::sample_queue_depths() {
     update_high_water(resync_request_queue_high_water_, resync_requests_.size());
 }
 
-template <source::Parser P>
+template <Parser P>
 void GenericLiveWebSocketSource<P>::resync_run() {
     while (running_.load(std::memory_order_acquire)) {
         bool did_work = false;
@@ -557,4 +557,4 @@ void GenericLiveWebSocketSource<P>::resync_run() {
 // declaration.
 template class GenericLiveWebSocketSource<venue::binance::BinanceParser>;
 
-}  // namespace qp::protocol
+}  // namespace qp::source

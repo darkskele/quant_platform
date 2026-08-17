@@ -14,12 +14,12 @@
 #include "types.hpp"
 #include "venue_types.hpp"
 
-namespace qp::protocol {
+namespace qp::source {
 
-// Live MarketDataSource: connects to a combined depth-diff + aggTrade
-// stream, normalizes each message to a MarketEvent on a dedicated I/O
-// thread, and hands them to next() via an internal SPSC queue. Reconnects
-// with exponential backoff on any drop.
+// Live Source: connects to a combined depth-diff + aggTrade stream,
+// normalizes each message to a MarketEvent on a dedicated I/O thread, and
+// hands them to next() via an internal SPSC queue. Reconnects with
+// exponential backoff on any drop.
 //
 // Templated on `Parser` (see parser.hpp) — the wire-protocol glue (message
 // parsing, stream-URL construction, snapshot fetch/parse) is the only part
@@ -53,15 +53,15 @@ namespace qp::protocol {
 // Seam note: next() is non-blocking and returns nullopt when the queue is
 // simply empty right now, NOT when the stream has ended (there is no "end"
 // for a live source). This differs from FileReplaySource, where nullopt
-// means end-of-file. Both satisfy MarketDataSource syntactically; a caller
-// that treats nullopt as "done" is only correct for replay.
-template <source::Parser P>
+// means end-of-file. Both satisfy Source syntactically; a caller that
+// treats nullopt as "done" is only correct for replay.
+template <Parser P>
 class GenericLiveWebSocketSource {
    public:
     explicit GenericLiveWebSocketSource(
         std::vector<std::string> symbols,
-        source::WsEndpoint       ws_endpoint   = venue::binance::kFuturesWsProduction,
-        source::RestEndpoint     rest_endpoint = venue::binance::kFuturesRestProduction);
+        WsEndpoint               ws_endpoint   = venue::binance::kFuturesWsProduction,
+        RestEndpoint             rest_endpoint = venue::binance::kFuturesRestProduction);
     ~GenericLiveWebSocketSource();
 
     // Rule of 5, explicitly: not just uncopyable but unmovable too, and both
@@ -141,7 +141,7 @@ class GenericLiveWebSocketSource {
     void drain_resync_responses();
     void sample_queue_depths();
 
-    static constexpr std::size_t kMaxSymbols = source::ResyncCoordinator::kMaxSymbols;
+    static constexpr std::size_t kMaxSymbols = ResyncCoordinator::kMaxSymbols;
 
     // Sized for jitter, not outages. This queue's actual job is a short-term
     // handoff to a sink that's continuously draining it (next() called in a
@@ -175,8 +175,8 @@ class GenericLiveWebSocketSource {
                                                         // contract as MarketEvent
 
     struct ResyncResult {
-        SymbolId                             symbol;
-        std::optional<source::DepthSnapshot> snapshot;  // nullopt = fetch failed
+        SymbolId                     symbol;
+        std::optional<DepthSnapshot> snapshot;  // nullopt = fetch failed
     };
 
     static_assert(std::is_standard_layout_v<ResyncResult>);
@@ -184,15 +184,15 @@ class GenericLiveWebSocketSource {
                                                                  // same reasoning
 
     std::vector<std::string> symbols_;
-    source::WsEndpoint       ws_endpoint_;
-    source::RestEndpoint     rest_endpoint_;
-    source::SymbolTable      symbol_table_;  // I/O-thread only
+    WsEndpoint               ws_endpoint_;
+    RestEndpoint             rest_endpoint_;
+    SymbolTable              symbol_table_;  // I/O-thread only
 
     // Pure buffering/gap/resync-alignment state machine, extracted so it can
     // be driven and proven correct directly (tests/test_resync_coordinator.cpp)
     // rather than only through real sockets and real thread timing. I/O-thread
     // only — same as symbol_table_.
-    source::ResyncCoordinator coordinator_;
+    ResyncCoordinator coordinator_;
 
     // Embedded, not heap-allocated: at sizeof(MarketEvent) == 128 and
     // kQueueCapacity == 2048, this is 256KB — a real but small fraction of
@@ -225,10 +225,10 @@ class GenericLiveWebSocketSource {
 };
 
 // Compiled once, in live_websocket_source.cpp, via explicit instantiation — not
-// header-only. Every existing call site says qp::protocol::LiveWebSocketSource;
+// header-only. Every existing call site says qp::source::LiveWebSocketSource;
 // only code that ever wants a *different* Parser (no such code exists) would
 // need to spell out GenericLiveWebSocketSource<OtherParser>.
 extern template class GenericLiveWebSocketSource<venue::binance::BinanceParser>;
 using LiveWebSocketSource = GenericLiveWebSocketSource<venue::binance::BinanceParser>;
 
-}  // namespace qp::protocol
+}  // namespace qp::source

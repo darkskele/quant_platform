@@ -9,6 +9,25 @@
 
 ## Last proof
 
+**`protocol/` collapsed into this town directly** (D18) — the only
+transport village, folded up now that `FileReplaySource` (Phase 1) is about
+to become a second `Source` living directly here too, with no `Parser` and
+no reason for a `protocol/`-shaped home. `live_websocket_source.hpp`/`.cpp`
+and its tests/`support/` moved to this town's own `include/`/`src/`/`tests/`;
+`qp::protocol` merged into `qp::source` (the `source::` qualifications the
+file already used throughout became self-references, stripped).
+`MarketDataSource` (`source.hpp`) renamed to `Source` — no longer stutters
+under the merged namespace/folder/file. CMake targets: `qp_protocol` →
+`qp_source`, `qp_protocol_test_support` → `qp_source_test_support`,
+`qp_protocol_integration_tests` → `qp_source_integration_tests`. Every
+reference updated repo-wide (`apps/collector`, root `CMakeLists.txt`,
+`.vscode/`, `/test` skill table, `docs/architecture-principles.md`,
+`docs/repo-layout.md`, root `docs/DESIGN.md`, `CLAUDE.md`).
+- Mechanical rename/move only, no logic or test-assertion changes.
+- **Not rebuilt/tested this pass** — pending `/test libs/data_source/source`
+  (or `/test all`) before this is trusted.
+- As of: working tree (uncommitted).
+
 **Every `include/` flattened; namespaces/build targets renamed to match**
 (D17) — headers sit directly in each lib's `include/`, included by bare
 filename (`"types.hpp"`, `"wire.hpp"`, `"binance.hpp"`,

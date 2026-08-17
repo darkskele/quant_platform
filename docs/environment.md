@@ -36,7 +36,7 @@ free.
   when it's confined entirely to the implementation. Getting this backwards
   compiles fine until a new downstream consumer includes the public header
   and can't find the transitive include path — bit twice in one session
-  (`qp_venue` on `qp_protocol`, `zstd::libzstd` on `qp_sink`), both only
+  (`qp_venue` on `qp_source`, `zstd::libzstd` on `qp_sink`), both only
   surfacing once `apps/collector` became a second consumer. A lib with no
   downstream consumer yet ships this silently.
 - **CMake audit, post-restructure** (`libs/venue` → `libs/data_source/source/venue/

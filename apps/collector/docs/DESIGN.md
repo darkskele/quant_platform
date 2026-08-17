@@ -21,7 +21,7 @@ parse_args() ──▶ Config
                    │ instantiates
                    ▼
   GenericLiveWebSocketSource<SelectedParser>          FileRecorder
-  (libs/data_source/source/protocol)                  (libs/data_source/sink)
+  (libs/data_source/source)                           (libs/data_source/sink)
   connect, resync, gap-detect, reconnect               zstd + partition to disk
   1 I/O thread + 1 resync thread                        1 writer thread
                    │                                        ▲
@@ -31,17 +31,19 @@ parse_args() ──▶ Config
 ```
 
 Which macro compiles which concrete variant — today `QP_COLLECTOR_VENUE`
-only selects **venue** (which `Parser`); **protocol** (the transport) is
-fixed to `protocol/`, the only village that exists:
+only selects **venue** (which `Parser`); the transport is fixed to
+`GenericLiveWebSocketSource` (Boost.Beast websocket), the only one that
+exists — it used to be its own `protocol/` village, now it's this town's
+own content (D18, `libs/data_source/source/docs/DECISIONS.md`):
 
 ```
-                       protocol
+                      transport
                   websocket          multicast
                 ┌─────────────┬───────────────────────┐
         binance │    BUILT     │ illustrative only —    │
-       (venue)  │ QP_VENUE_    │ no such protocol       │
-                │ BINANCE      │ village exists; shown  │
-                │ (default)    │ only to show the axis  │
+       (venue)  │ QP_VENUE_    │ no such transport      │
+                │ BINANCE      │ exists; shown only to  │
+                │ (default)    │ show the axis          │
                 └─────────────┴───────────────────────┘
 ```
 

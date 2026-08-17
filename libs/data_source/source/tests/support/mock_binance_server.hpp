@@ -168,7 +168,7 @@ class MockHttpServer {
 };
 
 // Polls next() until `count` events arrive or `timeout` elapses.
-inline std::vector<qp::MarketEvent> collect(qp::protocol::LiveWebSocketSource& source,
+inline std::vector<qp::MarketEvent> collect(qp::source::LiveWebSocketSource& source,
                                             std::size_t count, std::chrono::seconds timeout) {
     std::vector<qp::MarketEvent> received;
     auto                         deadline = std::chrono::steady_clock::now() + timeout;

@@ -37,7 +37,7 @@ target_link_libraries(qp_sink
     # zstd::libzstd is PUBLIC, not PRIVATE: file_recorder.hpp (the public
     # header) transitively includes zstd_stream.hpp, which includes
     # <zstd.h> for ZstdCompressor's ZSTD_CCtx/ZSTD_EndDirective types — same
-    # PUBLIC-vs-PRIVATE bug already hit once with qp_venue/qp_protocol
+    # PUBLIC-vs-PRIVATE bug already hit once with qp_venue/qp_source
     # (D-something: a public header naming a dependency's types means
     # consumers transitively need that dependency's include path too).
     # Threads stays PRIVATE — confined to the .cpp's own thread, never named

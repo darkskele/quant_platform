@@ -48,8 +48,8 @@ TEST(LiveWebSocketSourceIntegration, ReceivesMessagesFromLocalServer) {
     std::string ws_port  = std::to_string(server.port());
     std::string rest_url = "http://127.0.0.1:" + std::to_string(http_server.port());
 
-    qp::protocol::LiveWebSocketSource source({"BTCUSDT"}, {"127.0.0.1", ws_port, /*use_tls=*/false},
-                                             {rest_url});
+    qp::source::LiveWebSocketSource source({"BTCUSDT"}, {"127.0.0.1", ws_port, /*use_tls=*/false},
+                                           {rest_url});
     // +1 for the BookSnapshot anchor the resync forwards before the diffs.
     auto received = collect(source, 4, std::chrono::seconds(5));
 
@@ -86,8 +86,8 @@ TEST(LiveWebSocketSourceIntegration, FlagsASequenceGapAndResyncs) {
     std::string ws_port  = std::to_string(server.port());
     std::string rest_url = "http://127.0.0.1:" + std::to_string(http_server.port());
 
-    qp::protocol::LiveWebSocketSource source({"BTCUSDT"}, {"127.0.0.1", ws_port, /*use_tls=*/false},
-                                             {rest_url});
+    qp::source::LiveWebSocketSource source({"BTCUSDT"}, {"127.0.0.1", ws_port, /*use_tls=*/false},
+                                           {rest_url});
     // 2 resyncs (initial + gap), each forwarding its own BookSnapshot anchor
     // before its diff: snapshot, diff(100), snapshot, diff(200).
     auto received = collect(source, 4, std::chrono::seconds(5));
@@ -112,8 +112,8 @@ TEST(LiveWebSocketSourceIntegration, ReconnectsAfterServerDisconnect) {
     std::string ws_port  = std::to_string(server.port());
     std::string rest_url = "http://127.0.0.1:" + std::to_string(http_server.port());
 
-    qp::protocol::LiveWebSocketSource source({"BTCUSDT"}, {"127.0.0.1", ws_port, /*use_tls=*/false},
-                                             {rest_url});
+    qp::source::LiveWebSocketSource source({"BTCUSDT"}, {"127.0.0.1", ws_port, /*use_tls=*/false},
+                                           {rest_url});
     // Backoff's default initial delay is 1s; give reconnect + two resyncs
     // room. 2 resyncs (one per connection), each forwarding its own
     // BookSnapshot anchor: snapshot, diff(100), snapshot, diff(100).

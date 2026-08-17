@@ -109,19 +109,19 @@
             "detail": "setarch -R disables ASLR — TSan hits a known WSL2 memory-mapping issue without it."
         },
         {
-            "label": "Build: qp_protocol_integration_tests (tsan)",
+            "label": "Build: qp_source_integration_tests (tsan)",
             "type": "shell",
-            "command": "cmake --build build/tsan --target qp_protocol_integration_tests -j",
+            "command": "cmake --build build/tsan --target qp_source_integration_tests -j",
             "dependsOn": "Configure (tsan)",
             "group": "build",
             "problemMatcher": ["$gcc"],
             "detail": "Proves LiveWebSocketSource's I/O + resync threads race-free — never TSan-verified before, only qp_core's queue was."
         },
         {
-            "label": "Test: qp_protocol_integration_tests (tsan)",
+            "label": "Test: qp_source_integration_tests (tsan)",
             "type": "shell",
-            "command": "setarch $(uname -m) -R ./build/tsan/libs/data_source/source/protocol/qp_protocol_integration_tests",
-            "dependsOn": "Build: qp_protocol_integration_tests (tsan)",
+            "command": "setarch $(uname -m) -R ./build/tsan/libs/data_source/source/qp_source_integration_tests",
+            "dependsOn": "Build: qp_source_integration_tests (tsan)",
             "group": "test",
             "problemMatcher": []
         },
@@ -245,19 +245,19 @@
             "problemMatcher": []
         },
         {
-            "label": "Build: qp_protocol_integration_tests",
+            "label": "Build: qp_source_integration_tests",
             "type": "shell",
-            "command": "cmake --build build/debug --target qp_protocol_integration_tests -j",
+            "command": "cmake --build build/debug --target qp_source_integration_tests -j",
             "dependsOn": "Configure (debug)",
             "group": "build",
             "problemMatcher": ["$gcc"],
             "detail": "Needs Boost/OpenSSL (vcpkg). Real Beast connect/handshake/read/reconnect against a local mock WS server, no real Binance dependency."
         },
         {
-            "label": "Test: qp_protocol_integration_tests",
+            "label": "Test: qp_source_integration_tests",
             "type": "shell",
-            "command": "./build/debug/libs/data_source/source/protocol/qp_protocol_integration_tests",
-            "dependsOn": "Build: qp_protocol_integration_tests",
+            "command": "./build/debug/libs/data_source/source/qp_source_integration_tests",
+            "dependsOn": "Build: qp_source_integration_tests",
             "group": "test",
             "problemMatcher": []
         },
@@ -350,7 +350,7 @@
         {
             "label": "Build: all tests (debug)",
             "type": "shell",
-            "command": "cmake --build build/debug --target qp_core_tests qp_source_tests qp_protocol_integration_tests qp_venue_tests qp_sink_tests qp_sink_integration_tests qp_collector_integration_tests -j",
+            "command": "cmake --build build/debug --target qp_core_tests qp_source_tests qp_source_integration_tests qp_venue_tests qp_sink_tests qp_sink_integration_tests qp_collector_integration_tests -j",
             "dependsOn": "Configure (debug)",
             "group": "build",
             "problemMatcher": ["$gcc"],
@@ -367,7 +367,7 @@
         {
             "label": "Build: all tests (release)",
             "type": "shell",
-            "command": "cmake --build build/release --target qp_core_tests qp_source_tests qp_protocol_integration_tests qp_venue_tests qp_sink_tests qp_sink_integration_tests qp_collector_integration_tests -j",
+            "command": "cmake --build build/release --target qp_core_tests qp_source_tests qp_source_integration_tests qp_venue_tests qp_sink_tests qp_sink_integration_tests qp_collector_integration_tests -j",
             "dependsOn": "Configure (release)",
             "group": "build",
             "problemMatcher": ["$gcc"],

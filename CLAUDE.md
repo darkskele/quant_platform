@@ -17,7 +17,7 @@ structural/statistical edges — **not HFT**. See `MISSION.md`.
 
 ## Non-negotiable conventions
 - **One code path.** Backtest/live differ only in compile-time policy types
-  (`MarketDataSource`, `Clock`, `ExecutionGateway`, `Sink`). Never fork strategy
+  (`Source`, `Clock`, `ExecutionGateway`, `Sink`). Never fork strategy
   logic on a macro.
 - **Never call the system clock in strategy/risk code** — always the injected
   `Clock` seam. This is a determinism landmine.

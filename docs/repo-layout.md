@@ -23,15 +23,12 @@ quant-platform/
 │   ├── core/               # LINGUA FRANCA: MarketEvent, Order, Fill, Intent, Timestamp,
 │   │                       # Clock concept, Portfolio/StateView. Header-only. Depends on NOTHING.
 │   ├── data_source/        # "source" + "sinks" cities — coequal, independent seams
-│   │   │                   # (MarketDataSource vs Sink), grouped as sibling dirs for
+│   │   │                   # (Source vs Sink), grouped as sibling dirs for
 │   │   │                   # filesystem convenience only — see DESIGN.md's "Cities today".
-│   │   ├── source/         # "prod streamer" town: MarketDataSource concept,
-│   │   │   │               # ResyncCoordinator/gap-detection/backoff, the Parser concept —
-│   │   │   │               # protocol- and venue-agnostic. Villages nested below (physically,
-│   │   │   │               # not just narratively — see the convention note further down):
-│   │   │   ├── protocol/            # "protocol" village: Boost.Beast transport
-│   │   │   │                        # (GenericLiveWebSocketSource). Flat -- a leaf,
-│   │   │   │                        # no separate docs/. Only protocol today.
+│   │   ├── source/         # "prod streamer" town: Source concept,
+│   │   │   │               # ResyncCoordinator/gap-detection/backoff, the Parser concept,
+│   │   │   │               # GenericLiveWebSocketSource (Boost.Beast transport) — all
+│   │   │   │               # town-level now, venue-agnostic. One village nested below:
 │   │   │   └── venue/               # "venue" village: Binance glue (REST
 │   │   │                        # snapshot, symbol table, stream URLs). Flat --
 │   │   │                        # a leaf, no separate docs/. Only venue today.
@@ -65,7 +62,8 @@ on each other.
   depend on `core` only — never on each other. `strategy` cannot see
   `execution`; it knows only `Intent` / `StateView` / `MarketEvent`.
 - `data_source/source/venue` depends on `core`;
-  `data_source/source/protocol` depends on `venue`
+  `data_source/source` itself (the live transport,
+  `GenericLiveWebSocketSource`) depends on `venue`
   **publicly** (its own public header names venue types in the class
   interface — see `docs/environment.md`'s PUBLIC/PRIVATE rule).
   `data_source/source`'s `file_replay_source` (not built yet) will
@@ -133,18 +131,19 @@ not everywhere.
 
 "City"/"town" are logical groupings, not always a physical directory — root
 `DESIGN.md`'s **sinks** city (`libs/data_source/sink/`) has no further nesting and
-needs none. Physically restructuring to mirror a logical grouping (as
-`libs/data_source/source/{protocol,venue}/` now does for the
-**source** city's prod-streamer town) is worth doing when it's cheap and the
-grouping is real — not forced pre-emptively, and never with placeholder
-folders for a variant that doesn't exist yet: both villages are flat,
-leaves (no `protocol/websocket/`, no `venue/binance/`), until a second
-protocol or venue justifies the nesting.
+needs none. Physically restructuring to mirror a logical grouping is worth
+doing when it's cheap and the grouping is real — not forced pre-emptively,
+and never with placeholder folders for a variant that doesn't exist yet:
+`libs/data_source/source/venue/` is flat, a leaf (no `venue/binance/`),
+until a second venue justifies the nesting. The prod-streamer town's other
+would-be village, `protocol/`, was collapsed back into the town itself
+(D18, town `docs/DECISIONS.md`) once it was clear only one transport would
+ever live there.
 
 ## Scaffold status
 
-`core`, `data_source/source` (town-level + its `protocol` and
-`venue` villages), `data_source/sink`, and `apps/collector` are implemented,
+`core`, `data_source/source` (town-level + its `venue`
+village), `data_source/sink`, and `apps/collector` are implemented,
 building, and tested — this is no longer folders-only. Trader libs
 (`execution`, `risk`, `strategy`, `engine`) remain scaffold-only, arriving
 with the trader milestone.

@@ -13,14 +13,16 @@ what's confirmed working here.
 | Lib | Test target(s) | Depends on (transitively re-test if this changed) |
 |---|---|---|
 | `libs/core` | `qp_core_tests` | — |
-| `libs/data_source/source` | `qp_source_tests`, `qp_protocol_integration_tests`, `qp_venue_tests` | core |
+| `libs/data_source/source` | `qp_source_tests`, `qp_source_integration_tests`, `qp_venue_tests` | core |
 | `libs/data_source/sink` | `qp_sink_tests`, `qp_sink_integration_tests` | core |
 | `apps/collector` | `qp_collector_integration_tests` | core, marketdata, record |
 
-`libs/data_source/source`'s row covers its nested villages too (`venue`,
-`protocol` — see `libs/data_source/source/docs/DESIGN.md`): a change anywhere
-under `libs/data_source/source/**` maps to this row by path prefix, no separate
-village rows needed. `qp_venue_tests` stays individually invocable by exact
+`libs/data_source/source`'s row covers its nested village too (`venue` — see
+`libs/data_source/source/docs/DESIGN.md`; the live-transport code that used
+to be a separate `protocol` village is now this town's own
+`qp_source_integration_tests`): a change anywhere under
+`libs/data_source/source/**` maps to this row by path prefix, no separate
+village row needed. `qp_venue_tests` stays individually invocable by exact
 target name (`/test qp_venue_tests`) when only that village changed. For the
 build step, `cmake --build build/debug --target qp_prod_streamer_tests -j`
 is equivalent to listing all three target names — either works.

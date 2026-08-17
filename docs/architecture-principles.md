@@ -48,7 +48,7 @@ not a race against another firm's network path.
    funding), `Order`, `Fill`, `Ack/Reject`, `PositionUpdate`. Plain data, no
    behavior, no venue-specifics. Get this right and the rest composes.
 
-2. **`MarketDataSource` (concept, compile-time)** — `next() -> optional<MarketEvent>`.
+2. **`Source` (concept, compile-time)** — `next() -> optional<MarketEvent>`.
    Adapters: `LiveWebSocketSource`, `FileReplaySource`. Book-building lives
    *behind* this seam so both produce identical events.
 
@@ -102,7 +102,7 @@ trader.
 policies:
 
 ```cpp
-template<MarketDataSource Src, Clock Clk, ExecutionGateway Exec, Sink Rec>
+template<Source Src, Clock Clk, ExecutionGateway Exec, Sink Rec>
 class Engine {
     Src source_; Clk clock_; Exec exec_; Rec recorder_;   // recorder tee optional
     std::vector<std::unique_ptr<Strategy>> strategies_;

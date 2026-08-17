@@ -14,15 +14,16 @@ loops would have caught earlier or prevented outright.
 
 ## Cities today
 
-Two, coequal — independent seams (`MarketDataSource` vs `Sink`, separate
+Two, coequal — independent seams (`Source` vs `Sink`, separate
 consumers), physically grouped as sibling directories under `libs/data_source/`
 for filesystem convenience only, not merged into one concern:
 
-- **source** — everything behind `MarketDataSource`. Today: the **prod
+- **source** — everything behind `Source`. Today: the **prod
   streamer** town (`libs/data_source/source/`) — generic resync/gap-detection
-  machinery — composed of a **protocol** village (`protocol/`,
-  Boost.Beast) and a **venue** village (`venue/`, Binance glue). A
-  future **file replay** town (`FileReplaySource`, backtest) isn't built yet.
+  machinery plus the live Boost.Beast transport (`GenericLiveWebSocketSource`),
+  all town-level now — with one **venue** village (`venue/`, Binance glue)
+  nested below. A future **file replay** town (`FileReplaySource`, backtest)
+  isn't built yet.
 - **sinks** (`libs/data_source/sink/`) — everything behind `Sink`/`Recorder`. No
   further nesting — one `Sink` implementation (`FileRecorder`) today.
 
@@ -51,7 +52,7 @@ arrive with the trader milestone — not built yet, not goals here.
    added for a venue that doesn't exist. `ResyncCoordinator::on_snapshot`
    narrowed from the full `venue::binance::DepthSnapshot` to just
    `last_update_id`, the only field it uses.
-   - **Success metric:** `qp_source_tests`, `qp_protocol_integration_tests`,
+   - **Success metric:** `qp_source_tests`, `qp_source_integration_tests`,
      `qp_collector_integration_tests` all pass; TSan clean on the
      multi-threaded ones; no `venue::binance::` name appears inside the
      generic transport/resync code paths — only inside the concept-satisfying
@@ -62,7 +63,7 @@ arrive with the trader milestone — not built yet, not goals here.
    children's tests.
    - **Success metric:** one command per level runs that level's full test
      set, children included (e.g. testing the `source` town runs
-     `qp_source_tests` + `qp_protocol_integration_tests` +
+     `qp_source_tests` + `qp_source_integration_tests` +
      `qp_venue_tests`). Same for benchmarks.
 
 4. **Benchmarks are required for hot-path code, not optional.** Cold-path

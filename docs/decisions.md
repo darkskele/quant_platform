@@ -101,3 +101,13 @@ the root/lingua-franca namespace, not a domain village. Every `.vscode/`
 task/launch entry, the `/test` and `/bench` skill tables, and CMakeLists.txt
 comments updated to match. Verified: full rebuild + `ctest`, 7/7 in both
 debug and release, plus the combined `qp_bench` binary links clean.
+
+## D17 — `MarketDataSource` concept renamed `Source`
+Stuttered as `qp::source::MarketDataSource` once its content lived fully
+under the `source` namespace/folder/`source.hpp` file — `Source` matches
+this repo's convention of type name mirroring namespace/folder (`sink`'s
+`Sink`). Repo-wide references updated (`CLAUDE.md`,
+`docs/architecture-principles.md`, `docs/DESIGN.md`, `docs/repo-layout.md`,
+and the code itself). Same pass also collapsed `libs/data_source/source`'s
+`protocol/` village back into the town directly — town-scoped detail in
+`libs/data_source/source/docs/DECISIONS.md` D18.

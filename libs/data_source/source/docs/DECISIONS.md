@@ -140,3 +140,37 @@ without touching proven code.
 to unblock `apps/collector`'s venue-selection macro (D17), which needed
 `Config`/`Parser` to stop naming a venue at all; `venue::binance::` now
 just aliases them.
+
+## D18 — `protocol/` collapsed into this town; `MarketDataSource` renamed `Source`
+`protocol/` was a village-of-one (only `GenericLiveWebSocketSource` ever
+lived there) and its own code already treated this town as its natural
+namespace, qualifying every type it used (`source::WsEndpoint`, `::Parser`,
+`::ResyncCoordinator`, ...) since they're this town's own. Unlike `venue/`
+— which has a real reason to stay separate, a second venue is a real future
+— `protocol/` had no second transport to justify the split. The trigger:
+`FileReplaySource` (Phase 1) is about to become a second `Source`
+implementation living directly in this town, with no `Parser` and no
+transport-village shape either — better to flatten now than grow a
+structure around one village that's about to get an awkward, differently-
+shaped sibling.
+
+`live_websocket_source.hpp`/`.cpp` and `tests/`/`tests/support/` moved up
+into this town's own directories; `qp::protocol` merged into `qp::source`
+(the file's own `source::` qualifications became redundant self-references,
+stripped). `qp_protocol`/`qp_protocol_test_support`/
+`qp_protocol_integration_tests` → `qp_source`/`qp_source_test_support`/
+`qp_source_integration_tests`; `QP_PROTOCOL_WEBSOCKET_BUILT` →
+`QP_SOURCE_LIVE_BUILT`.
+
+Separately, same pass: `MarketDataSource` (`source.hpp`) renamed `Source`
+— `qp::source::MarketDataSource` stuttered once everything already lives
+under the `source` namespace/folder/`source.hpp` file; `Source` matches the
+existing convention (type name mirrors namespace/folder, as `sink`'s `Sink`
+does). Repo-wide references updated (`apps/collector`, root
+`CMakeLists.txt`, `.vscode/`, `/test` skill table, root
+`docs/architecture-principles.md`/`docs/repo-layout.md`/`docs/DESIGN.md`,
+`CLAUDE.md`) — see root `docs/decisions.md` D17 for the repo-visible side
+of this.
+
+Mechanical only, no logic or test-assertion changes. Not rebuilt/tested
+this pass — see `docs/STATUS.md`.

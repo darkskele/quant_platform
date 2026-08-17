@@ -163,10 +163,10 @@
             "preLaunchTask": "Build: qp_source_tests"
         },
         {
-            "name": "Debug: qp_protocol_integration_tests",
+            "name": "Debug: qp_source_integration_tests",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/debug/libs/data_source/source/protocol/qp_protocol_integration_tests",
+            "program": "${workspaceFolder}/build/debug/libs/data_source/source/qp_source_integration_tests",
             "args": [],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
@@ -186,7 +186,7 @@
             "setupCommands": [
                 { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
             ],
-            "preLaunchTask": "Build: qp_protocol_integration_tests"
+            "preLaunchTask": "Build: qp_source_integration_tests"
         },
         {
             "name": "Debug: qp_collector_integration_tests",
