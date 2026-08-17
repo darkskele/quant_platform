@@ -28,8 +28,12 @@ for filesystem convenience only, not merged into one concern:
   further nesting — one `Sink` implementation (`FileRecorder`) today.
 
 `libs/core/` is the lingua franca substrate both cities depend on — not
-itself a city. `apps/collector/` composes prod streamer + `FileRecorder`
-("what it's made of") — described at root, not a city/town itself.
+itself a city. `libs/data_source/wire/` is a second substrate, scoped to
+these two cities rather than the whole repo: the on-disk `MarketEvent` codec
+(`wire.hpp`/`zstd_stream.hpp`/`partition.hpp`) `source` and `sink` both
+depend on instead of on each other (D19). `apps/collector/` composes prod
+streamer + `FileRecorder` ("what it's made of") — described at root, not a
+city/town itself.
 Execution/risk/strategy/engine (per `docs/repo-layout.md`'s planned tree)
 arrive with the trader milestone — not built yet, not goals here.
 

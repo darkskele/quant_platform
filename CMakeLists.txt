@@ -69,6 +69,7 @@ endif()
 # add_subdirectory's its remaining village (venue)
 # internally, see its CMakeLists.txt.
 add_subdirectory(libs/core)
+add_subdirectory(libs/data_source/wire)    # codec substrate shared by source (read) and sink (write)
 add_subdirectory(libs/data_source/source)  # degrades gracefully without Boost — see its CMakeLists.txt
 add_subdirectory(libs/data_source/sink)
 add_subdirectory(apps/collector)  # degrades gracefully without Boost — see its CMakeLists.txt
@@ -82,9 +83,9 @@ if(QP_BUILD_BENCHMARKS)
         libs/core/benchmarks/bench_spsc_queue.cpp
         libs/data_source/source/benchmarks/bench_message_processing.cpp
         libs/data_source/source/venue/benchmarks/bench_binance_parser.cpp
-        libs/data_source/sink/benchmarks/bench_wire.cpp
+        libs/data_source/wire/benchmarks/bench_wire.cpp
     )
     target_link_libraries(qp_bench PRIVATE
-        qp_core qp_source_pure qp_venue qp_sink_pure benchmark::benchmark_main
+        qp_core qp_source_pure qp_venue qp_wire benchmark::benchmark_main
     )
 endif()

@@ -7,7 +7,7 @@
 #include <stdexcept>
 #include <vector>
 
-namespace qp::sink {
+namespace qp::wire {
 
 // Thin RAII wrapper around zstd's streaming compression API — not a
 // general-purpose binding, just the three operations FileRecorder needs:
@@ -76,4 +76,57 @@ class ZstdCompressor {
     ZSTD_CCtx* ctx_;
 };
 
-}  // namespace qp::sink
+// The read-side mirror of ZstdCompressor: streaming decompression, driven
+// by whatever chunks of a `.bin.zst` file the caller hands in (FileRecorder
+// writes each segment as file bytes arrive on disk; FileReplaySource reads
+// them back the same way — neither side needs the whole file in memory at
+// once). A single instance decodes exactly one zstd frame's worth of
+// history; a fresh instance per segment file mirrors FileRecorder opening a
+// fresh ZstdCompressor (and frame) per segment (file_recorder.cpp's
+// ensure_open) — there's no cross-segment state to carry.
+class ZstdDecompressor {
+   public:
+    ZstdDecompressor() : ctx_(ZSTD_createDCtx()) {
+        if (!ctx_) throw std::runtime_error("ZSTD_createDCtx failed");
+    }
+
+    ~ZstdDecompressor() {
+        if (ctx_) ZSTD_freeDCtx(ctx_);
+    }
+
+    ZstdDecompressor(const ZstdDecompressor&)            = delete;
+    ZstdDecompressor& operator=(const ZstdDecompressor&) = delete;
+    ZstdDecompressor(ZstdDecompressor&&)                 = delete;
+    ZstdDecompressor& operator=(ZstdDecompressor&&)      = delete;
+
+    // Decodes as much of `input` as currently yields output, appending
+    // decoded bytes to `out`. Safe to call repeatedly with successive
+    // chunks of the same frame — zstd's streaming decoder carries state
+    // (window/history) across calls, same as ZstdCompressor::compress does
+    // on the write side. A partial trailing record left in `out` after the
+    // last call (e.g. mid-write crash, flush()'d but not finish()'d) is
+    // exactly wire::read_event's truncated-tail case, not this class's
+    // concern to detect.
+    void decompress(std::span<const std::byte> input, std::vector<std::byte>& out) {
+        ZSTD_inBuffer                    in{input.data(), input.size(), 0};
+        std::array<std::byte, 64 * 1024> buf;
+
+        while (in.pos < in.size) {
+            ZSTD_outBuffer zout{buf.data(), buf.size(), 0};
+            std::size_t    ret = ZSTD_decompressStream(ctx_, &zout, &in);
+            if (ZSTD_isError(ret)) throw std::runtime_error(ZSTD_getErrorName(ret));
+            out.insert(out.end(), buf.data(), buf.data() + zout.pos);
+            // ret == 0 means a frame just ended. FileRecorder writes one
+            // frame per segment file, so normally that coincides with
+            // `input` running out too; if trailing bytes remain regardless,
+            // looping continues to feed them into the same call (a second
+            // frame in one file never happens today, but nothing here
+            // assumes otherwise).
+        }
+    }
+
+   private:
+    ZSTD_DCtx* ctx_;
+};
+
+}  // namespace qp::wire

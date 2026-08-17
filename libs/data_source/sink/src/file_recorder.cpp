@@ -9,6 +9,12 @@
 
 namespace qp::sink {
 
+using wire::day_key_for;
+using wire::format_day;
+using wire::needs_rotation;
+using wire::segment_path;
+using wire::write_event;
+
 FileRecorder::FileRecorder(std::filesystem::path data_dir, std::vector<std::string> symbol_names,
                            std::chrono::milliseconds flush_interval)
     : data_dir_(std::move(data_dir)),
@@ -79,13 +85,13 @@ void FileRecorder::ensure_open(Partition& part, SymbolId symbol, DayKey day) {
     // reaching fresh data appended after it. A brand-new file has no such
     // risk: it's either a complete, valid frame (clean close) or valid up
     // to its last flush() checkpoint (crash) — never "valid content stuck
-    // after garbage." FileReplaySource (Phase 1) reads {date}.NNN.bin.zst
-    // segments in order and concatenates. The manifest doesn't need this —
-    // plain text tolerates a ragged/duplicate tail line just fine, so it
-    // stays a single append-mode file per day.
+    // after garbage." FileReplaySource reads {date}.NNN.bin.zst segments in
+    // order (wire::list_segments) and concatenates. The manifest doesn't
+    // need this — plain text tolerates a ragged/duplicate tail line just
+    // fine, so it stays a single append-mode file per day.
     std::filesystem::path data_path;
     for (int seq = 0;; ++seq) {
-        data_path = symbol_dir / std::format("{}.{:03d}.bin.zst", date_str, seq);
+        data_path = segment_path(symbol_dir, day, seq);
         if (!std::filesystem::exists(data_path)) break;
     }
     std::filesystem::path manifest_path = symbol_dir / (date_str + ".manifest");

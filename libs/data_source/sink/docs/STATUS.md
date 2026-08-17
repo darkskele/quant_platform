@@ -4,11 +4,11 @@
 
 ## Last proof
 
-`qp_sink_bench`'s `BM_*FullDepthSnapshot` (1000 levels, Binance's max):
-write ~864ns, read ~1267ns, round-trip ~2115ns — cold path, proves the
-format scales.
-- `ctest` → `qp_sink_tests`/`qp_sink_integration_tests` passing.
+Wire codec (encode/decode, zstd, day/segment naming) moved to
+`libs/data_source/wire` (D19) — this lib now depends on it instead of
+owning it; `qp_sink_bench`/`qp_sink_tests` moved with it to
+`qp_wire_bench`/`qp_wire_tests`. `qp_sink_integration_tests` (`FileRecorder`
+itself, still here) unchanged in behavior, only in what it links against.
+- Not rebuilt/tested this pass — pending `/test libs/data_source/sink` (or
+  `/test all`) before this is trusted.
 - As of: working tree (uncommitted).
-
-`qp::record`/`qp_record_*` renamed to `qp::sink`/`qp_sink_*` to match this
-lib's actual folder name — see root `docs/decisions.md` D16.

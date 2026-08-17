@@ -17,6 +17,9 @@
 
 namespace qp::sink {
 
+using wire::DayKey;
+using wire::ZstdCompressor;
+
 // The Sink concept's concrete Phase-0 implementation (architecture-
 // principles.md): tees MarketEvents to local compressed, partitioned files
 // on a dedicated writer thread behind an SPSC queue, so a disk stall can

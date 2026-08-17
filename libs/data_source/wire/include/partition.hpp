@@ -1,13 +1,15 @@
 #pragma once
 #include <chrono>
 #include <cstdint>
+#include <filesystem>
 #include <format>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "types.hpp"
 
-namespace qp::sink {
+namespace qp::wire {
 
 // A day, UTC, as a count of days since the Unix epoch — the only question
 // this needs to answer is "same day as the currently-open partition, or
@@ -42,4 +44,30 @@ inline bool needs_rotation(std::optional<DayKey> currently_open, DayKey event_da
     return !currently_open || *currently_open != event_day;
 }
 
-}  // namespace qp::sink
+// Filename for the `seq`-th segment of `symbol_dir`'s `day` partition — the
+// on-disk naming convention (`{date}.{seq:03d}.bin.zst`) shared by the
+// write side (FileRecorder, picking the next free seq to open) and the
+// read side (FileReplaySource, enumerating existing segments), so the
+// format string exists in exactly one place rather than two that could
+// drift apart.
+inline std::filesystem::path segment_path(const std::filesystem::path& symbol_dir, DayKey day,
+                                          int seq) {
+    return symbol_dir / std::format("{}.{:03d}.bin.zst", format_day(day), seq);
+}
+
+// Every existing segment for `symbol_dir`'s `day`, in write order (seq 0,
+// 1, 2, ...). Stops at the first missing seq — safe because FileRecorder
+// only ever opens the next integer, never a sparse sequence, so a gap means
+// "no more segments," not "a hole to skip past."
+inline std::vector<std::filesystem::path> list_segments(const std::filesystem::path& symbol_dir,
+                                                         DayKey day) {
+    std::vector<std::filesystem::path> segments;
+    for (int seq = 0;; ++seq) {
+        auto path = segment_path(symbol_dir, day, seq);
+        if (!std::filesystem::exists(path)) break;
+        segments.push_back(std::move(path));
+    }
+    return segments;
+}
+
+}  // namespace qp::wire

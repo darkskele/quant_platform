@@ -13,9 +13,10 @@ what's confirmed working here.
 | Lib | Test target(s) | Depends on (transitively re-test if this changed) |
 |---|---|---|
 | `libs/core` | `qp_core_tests` | — |
-| `libs/data_source/source` | `qp_source_tests`, `qp_source_integration_tests`, `qp_venue_tests` | core |
-| `libs/data_source/sink` | `qp_sink_tests`, `qp_sink_integration_tests` | core |
-| `apps/collector` | `qp_collector_integration_tests` | core, marketdata, record |
+| `libs/data_source/wire` | `qp_wire_tests` | core |
+| `libs/data_source/source` | `qp_source_tests`, `qp_source_integration_tests`, `qp_venue_tests` | core, wire |
+| `libs/data_source/sink` | `qp_sink_integration_tests` | core, wire |
+| `apps/collector` | `qp_collector_integration_tests` | core, source, sink, wire |
 
 `libs/data_source/source`'s row covers its nested village too (`venue` — see
 `libs/data_source/source/docs/DESIGN.md`; the live-transport code that used
@@ -40,7 +41,7 @@ CMake target name, so `ctest -R` can filter on the same names as this table.
   rerun everything). Doesn't map cleanly — top-level files, several unrelated
   libs, nothing changed — fall back to **all**, don't guess narrow.
 - **`all`**: every target in the table, ignore git state.
-- **A lib or target name** (`/test record`, `/test qp_sink_tests`): just
+- **A lib or target name** (`/test wire`, `/test qp_wire_tests`): just
   that one, no diff inspection.
 
 ## Steps

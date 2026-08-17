@@ -25,6 +25,10 @@ quant-platform/
 │   ├── data_source/        # "source" + "sinks" cities — coequal, independent seams
 │   │   │                   # (Source vs Sink), grouped as sibling dirs for
 │   │   │                   # filesystem convenience only — see DESIGN.md's "Cities today".
+│   │   ├── wire/            # codec substrate (like core, but scoped to data_source):
+│   │   │                    # wire.hpp (MarketEvent<->bytes), zstd_stream.hpp
+│   │   │                    # (bytes<->zstd bytes), partition.hpp (day/segment naming).
+│   │   │                    # Not itself a city — source and sink both depend on it.
 │   │   ├── source/         # "prod streamer" town: Source concept,
 │   │   │   │               # ResyncCoordinator/gap-detection/backoff, the Parser concept,
 │   │   │   │               # GenericLiveWebSocketSource (Boost.Beast transport) — all
@@ -32,8 +36,8 @@ quant-platform/
 │   │   │   └── venue/               # "venue" village: Binance glue (REST
 │   │   │                        # snapshot, symbol table, stream URLs). Flat --
 │   │   │                        # a leaf, no separate docs/. Only venue today.
-│   │   └── sink/            # "sinks" city: wire format (wire.hpp, pure) + Sink
-│   │                        # concept + FileRecorder, NullSink. No further nesting.
+│   │   └── sink/            # "sinks" city: Sink concept + FileRecorder, NullSink.
+│   │                        # No further nesting.
 │   ├── execution/          # ExecutionGateway concept + SimExecution, LiveExecution   (trader milestone)
 │   ├── risk/               # RiskGate interface + impls (+ kill-switch)               (trader milestone)
 │   ├── strategy/           # Strategy interface + concrete strategies                 (trader milestone)
@@ -61,14 +65,19 @@ on each other.
 - `data_source/source`, `execution`, `risk`, `strategy`, `data_source/sink`
   depend on `core` only — never on each other. `strategy` cannot see
   `execution`; it knows only `Intent` / `StateView` / `MarketEvent`.
+- `data_source/wire` is substrate too, like `core`, but scoped to
+  `data_source`'s two cities rather than the whole repo: depends on `core`
+  only. `data_source/sink` (`FileRecorder`'s write side) depends
+  **publicly** on it for the shared wire format/zstd codec/day-segment
+  naming (D19).
 - `data_source/source/venue` depends on `core`;
   `data_source/source` itself (the live transport,
   `GenericLiveWebSocketSource`) depends on `venue`
   **publicly** (its own public header names venue types in the class
   interface — see `docs/environment.md`'s PUBLIC/PRIVATE rule).
-  `data_source/source`'s `file_replay_source` (not built yet) will
-  additionally depend on `data_source/sink` for the shared wire format
-  (`write_event`/`read_event` — see `libs/data_source/sink/docs/DECISIONS.md`).
+  `data_source/source`'s `file_replay_source` (not built yet) will depend
+  on `data_source/wire`, not `data_source/sink`, for the shared wire format
+  (D19).
 - `engine` depends on the seam concepts, not concrete adapters.
 - `apps/*` are the only place concrete types meet — all compile-time wiring
   happens in one thin file per binary.
@@ -142,7 +151,7 @@ ever live there.
 
 ## Scaffold status
 
-`core`, `data_source/source` (town-level + its `venue`
+`core`, `data_source/wire`, `data_source/source` (town-level + its `venue`
 village), `data_source/sink`, and `apps/collector` are implemented,
 building, and tested — this is no longer folders-only. Trader libs
 (`execution`, `risk`, `strategy`, `engine`) remain scaffold-only, arriving

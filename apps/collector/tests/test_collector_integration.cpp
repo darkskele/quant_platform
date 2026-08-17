@@ -71,7 +71,7 @@ std::vector<MarketEvent> decode_events(const std::filesystem::path& path) {
     auto                       bytes = decode_whatever_is_readable(path);
     std::span<const std::byte> cursor{bytes};
     std::vector<MarketEvent>   events;
-    while (auto ev = qp::sink::read_event(cursor)) events.push_back(std::move(*ev));
+    while (auto ev = qp::wire::read_event(cursor)) events.push_back(std::move(*ev));
     return events;
 }
 

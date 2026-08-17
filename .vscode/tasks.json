@@ -262,35 +262,35 @@
             "problemMatcher": []
         },
         {
-            "label": "Build: qp_sink_tests",
+            "label": "Build: qp_wire_tests",
             "type": "shell",
-            "command": "cmake --build build/debug --target qp_sink_tests -j",
+            "command": "cmake --build build/debug --target qp_wire_tests -j",
             "dependsOn": "Configure (debug)",
             "group": "build",
             "problemMatcher": ["$gcc"],
-            "detail": "Wire format round-trip + truncated-tail tests — pure, no zstd/Boost, always buildable."
+            "detail": "Wire format round-trip/truncated-tail, day-key/segment-listing, and zstd compress<->decompress tests."
         },
         {
-            "label": "Test: qp_sink_tests",
+            "label": "Test: qp_wire_tests",
             "type": "shell",
-            "command": "./build/debug/libs/data_source/sink/qp_sink_tests",
-            "dependsOn": "Build: qp_sink_tests",
+            "command": "./build/debug/libs/data_source/wire/qp_wire_tests",
+            "dependsOn": "Build: qp_wire_tests",
             "group": "test",
             "problemMatcher": []
         },
         {
-            "label": "Build: qp_sink_tests (release)",
+            "label": "Build: qp_wire_tests (release)",
             "type": "shell",
-            "command": "cmake --build build/release --target qp_sink_tests -j",
+            "command": "cmake --build build/release --target qp_wire_tests -j",
             "dependsOn": "Configure (release)",
             "group": "build",
             "problemMatcher": ["$gcc"]
         },
         {
-            "label": "Test: qp_sink_tests (release)",
+            "label": "Test: qp_wire_tests (release)",
             "type": "shell",
-            "command": "./build/release/libs/data_source/sink/qp_sink_tests",
-            "dependsOn": "Build: qp_sink_tests (release)",
+            "command": "./build/release/libs/data_source/wire/qp_wire_tests",
+            "dependsOn": "Build: qp_wire_tests (release)",
             "group": "test",
             "problemMatcher": []
         },
@@ -312,19 +312,19 @@
             "problemMatcher": []
         },
         {
-            "label": "Build: qp_sink_bench (release)",
+            "label": "Build: qp_wire_bench (release)",
             "type": "shell",
-            "command": "cmake --build build/release --target qp_sink_bench -j",
+            "command": "cmake --build build/release --target qp_wire_bench -j",
             "dependsOn": "Configure (release)",
             "group": "build",
             "problemMatcher": ["$gcc"],
             "detail": "Wire format write/read/round-trip cost, release build."
         },
         {
-            "label": "Run record bench",
+            "label": "Run wire bench",
             "type": "shell",
-            "command": "./build/release/libs/data_source/sink/qp_sink_bench",
-            "dependsOn": "Build: qp_sink_bench (release)",
+            "command": "./build/release/libs/data_source/wire/qp_wire_bench",
+            "dependsOn": "Build: qp_wire_bench (release)",
             "group": "test",
             "problemMatcher": [],
             "detail": "Release build — still WSL2, so trust deltas over absolutes (docs/environment.md)."
@@ -350,7 +350,7 @@
         {
             "label": "Build: all tests (debug)",
             "type": "shell",
-            "command": "cmake --build build/debug --target qp_core_tests qp_source_tests qp_source_integration_tests qp_venue_tests qp_sink_tests qp_sink_integration_tests qp_collector_integration_tests -j",
+            "command": "cmake --build build/debug --target qp_core_tests qp_wire_tests qp_source_tests qp_source_integration_tests qp_venue_tests qp_sink_integration_tests qp_collector_integration_tests -j",
             "dependsOn": "Configure (debug)",
             "group": "build",
             "problemMatcher": ["$gcc"],
@@ -367,7 +367,7 @@
         {
             "label": "Build: all tests (release)",
             "type": "shell",
-            "command": "cmake --build build/release --target qp_core_tests qp_source_tests qp_source_integration_tests qp_venue_tests qp_sink_tests qp_sink_integration_tests qp_collector_integration_tests -j",
+            "command": "cmake --build build/release --target qp_core_tests qp_wire_tests qp_source_tests qp_source_integration_tests qp_venue_tests qp_sink_integration_tests qp_collector_integration_tests -j",
             "dependsOn": "Configure (release)",
             "group": "build",
             "problemMatcher": ["$gcc"],

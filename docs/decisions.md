@@ -111,3 +111,13 @@ this repo's convention of type name mirroring namespace/folder (`sink`'s
 and the code itself). Same pass also collapsed `libs/data_source/source`'s
 `protocol/` village back into the town directly — town-scoped detail in
 `libs/data_source/source/docs/DECISIONS.md` D18.
+
+## D19 — `wire` split out of `sink` into its own lib; `source`/`sink` depend on it instead of on each other
+`FileReplaySource`'s read side needs the same wire format/zstd codec/day-
+segment naming `FileRecorder` already had, but `source` depending on `sink`
+directly would violate "seams depend on core only, never each other."
+`wire.hpp`/`zstd_stream.hpp`/`partition.hpp` moved into `libs/data_source/wire`
+(`qp::wire`, `qp_wire` target) — core-like substrate scoped to
+`data_source`'s two cities, not itself a city. `source` and `sink` both
+depend downward on it now. `zstd_stream.hpp` gained `ZstdDecompressor`
+(read-side mirror of `ZstdCompressor`) for `FileReplaySource` to use.

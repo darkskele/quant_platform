@@ -1,10 +1,10 @@
 # collector — thin apps/ wiring: a venue-selected GenericLiveWebSocketSource
 # -> FileRecorder (see QP_COLLECTOR_VENUE below, venue.hpp), no Engine, no
 # strategies (architecture-principles.md: "the collector is NOT an Engine").
-# Needs Boost/OpenSSL (via qp_source) and zstd (via
-# qp_sink) — both already required by their own libs, but re-checked here:
+# Needs Boost/OpenSSL (via qp_source) and zstd (via qp_sink -> qp_wire) —
+# both already required by their own libs, but re-checked here:
 # add_subdirectory scoping means libs/data_source/source's and
-# libs/data_source/sink's own find_package results (Boost_FOUND/OpenSSL_FOUND,
+# libs/data_source/wire's own find_package results (Boost_FOUND/OpenSSL_FOUND,
 # the zstd::libzstd imported target) don't propagate to this sibling directory.
 find_package(Boost QUIET COMPONENTS system)
 find_package(OpenSSL QUIET)

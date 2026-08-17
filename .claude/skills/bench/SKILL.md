@@ -21,7 +21,7 @@ runs.
 | `libs/core` | `qp_core_bench` | `libs/core/qp_core_bench` | SPSC queue push/pop round-trip |
 | `libs/data_source/source` | `qp_source_bench` | `libs/data_source/source/qp_source_bench` | parse + gap-check + queue push (I/O-thread hot path) |
 | `libs/data_source/source` (venue village) | `qp_venue_bench` | `libs/data_source/source/venue/qp_venue_bench` | Binance message parsing |
-| `libs/data_source/sink` | `qp_sink_bench` | `libs/data_source/sink/qp_sink_bench` | wire format write/read/round-trip |
+| `libs/data_source/wire` | `qp_wire_bench` | `libs/data_source/wire/qp_wire_bench` | wire format write/read/round-trip |
 
 Binary output paths mirror the source tree, not always `libs/<lib>/<target>`
 — use the Path column, not a guessed pattern.
@@ -39,7 +39,7 @@ nothing changed) — fall back to **all**. `cmake --build build/release
 
 - **No argument (default)**: targeted, by current changes.
 - **`all`**: build+run `qp_bench` directly, ignore git state and the table.
-- **A lib or target name** (`/bench record`, `/bench qp_sink_bench`): just
+- **A lib or target name** (`/bench wire`, `/bench qp_wire_bench`): just
   that one, from the table.
 
 ## Steps
