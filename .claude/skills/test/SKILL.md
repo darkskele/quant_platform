@@ -14,9 +14,10 @@ what's confirmed working here.
 |---|---|---|
 | `libs/core` | `qp_core_tests` | — |
 | `libs/data_source/wire` | `qp_wire_tests` | core |
-| `libs/data_source/source` | `qp_source_tests`, `qp_source_integration_tests`, `qp_venue_tests` | core, wire |
+| `libs/data_source/source` | `qp_source_tests`, `qp_source_integration_tests`, `qp_file_replay_tests`, `qp_venue_tests` | core, wire |
 | `libs/data_source/sink` | `qp_sink_integration_tests` | core, wire |
 | `apps/collector` | `qp_collector_integration_tests` | core, source, sink, wire |
+| `tests` (root) | `qp_parity_tests` | core, wire, source, sink |
 
 `libs/data_source/source`'s row covers its nested village too (`venue` — see
 `libs/data_source/source/docs/DESIGN.md`; the live-transport code that used
@@ -26,7 +27,7 @@ to be a separate `protocol` village is now this town's own
 village row needed. `qp_venue_tests` stays individually invocable by exact
 target name (`/test qp_venue_tests`) when only that village changed. For the
 build step, `cmake --build build/debug --target qp_prod_streamer_tests -j`
-is equivalent to listing all three target names — either works.
+is equivalent to listing all four target names — either works.
 
 Every target above is registered with CTest as `add_test(NAME <target>
 COMMAND <target>)` in its lib's `CMakeLists.txt` — the test name equals the
@@ -36,10 +37,12 @@ CMake target name, so `ctest -R` can filter on the same names as this table.
 
 - **No argument (default): targeted.** Union of `git status --short` and
   `git diff --staged --name-only`. Map changed paths to the table by
-  `libs/<name>/` (nested villages map to their town's row), then pull in
-  anything transitively depending on a changed lib (`libs/core/*` changed →
-  rerun everything). Doesn't map cleanly — top-level files, several unrelated
-  libs, nothing changed — fall back to **all**, don't guess narrow.
+  `libs/<name>/` (nested villages map to their town's row) or by root
+  `tests/`, then pull in anything transitively depending on a changed lib
+  (`libs/core/*` changed → rerun everything; `libs/data_source/source/*` or
+  `.../sink/*` changed → also rerun `qp_parity_tests`). Doesn't map cleanly
+  — top-level files, several unrelated libs, nothing changed — fall back to
+  **all**, don't guess narrow.
 - **`all`**: every target in the table, ignore git state.
 - **A lib or target name** (`/test wire`, `/test qp_wire_tests`): just
   that one, no diff inspection.

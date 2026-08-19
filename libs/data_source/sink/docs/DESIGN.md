@@ -2,9 +2,11 @@
 
 Coequal with **source** (root `docs/DESIGN.md`). Everything behind
 `Sink`/`Recorder`: `FileRecorder`, day-partition rotation, crash-safe flush
-cadence. The wire codec itself (encode/decode, zstd, day/segment naming)
-moved to `libs/data_source/wire` (D19) — this lib depends on it rather than
-owning it. One `Sink` implementation — no further nesting yet.
+cadence, and the top-level `symbols.manifest` (D20) — the canonical symbol
+list `FileReplaySource` reads back. The wire codec itself (encode/decode,
+zstd, day/segment naming) moved to `libs/data_source/wire` (D19) — this lib
+depends on it rather than owning it. One `Sink` implementation — no further
+nesting yet.
 
 ## Goals
 

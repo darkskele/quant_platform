@@ -41,8 +41,8 @@ the event pipeline above — used by `GenericLiveWebSocketSource`
 ## Generic components
 
 - **`Source` concept** (`source.hpp`) — output seam: `next() ->
-  optional<MarketEvent>`, satisfied by this town's live streamer or a
-  future file-replay source.
+  optional<MarketEvent>`, satisfied by this town's live streamer and its
+  backtest replay source.
 - **`Parser` concept** (`parser.hpp`) — input seam: what a venue must
   implement to plug in.
 - **`ResyncCoordinator`** (`resync_coordinator.hpp`) — per-symbol
@@ -60,6 +60,15 @@ the event pipeline above — used by `GenericLiveWebSocketSource`
   (`venue_types.hpp`) — venue-agnostic types the `Parser` concept and
   `GenericLiveWebSocketSource` are built against; `venue::binance::` aliases
   them rather than owning its own copies (D16).
+- **`FileReplaySource`** (`file_replay_source.hpp`/`.cpp`) — the backtest
+  `Source`: replays what `FileRecorder` wrote, via the shared wire codec
+  (`libs/data_source/wire`, D19) rather than a second format
+  implementation. Reads `data_dir/symbols.manifest` (D20) for the canonical
+  `SymbolId` <-> name mapping — never takes an independently-supplied one —
+  with an optional `wanted` filter to a subset. Single-threaded/synchronous
+  (no live socket to protect from backpressure, unlike the live transport)
+  — k-way merges every loaded symbol's segment files into one
+  ascending-timestamp stream.
 
 ## High-level implementation
 
@@ -74,6 +83,9 @@ describes its own files in its own `DESIGN.md`.
 - `live_websocket_source.hpp` / `.cpp` — `GenericLiveWebSocketSource`, the
   Boost.Beast transport (needs Boost/OpenSSL; degrades gracefully without
   them, see this town's `CMakeLists.txt`).
+- `file_replay_source.hpp` / `.cpp` — `FileReplaySource`, the backtest
+  replay `Source` (needs only `libs/data_source/wire` — no Boost/OpenSSL,
+  builds unconditionally).
 
 ## Goals
 
@@ -93,3 +105,13 @@ describes its own files in its own `DESIGN.md`.
      `Parser` concept.
    - ~~**Fast parsing**~~ — real-time depth-diff parsing is the actual
      I/O-thread hot path.
+2. ~~**Build `FileReplaySource`: the backtest `Source`**~~ — reads back what
+   `FileRecorder` wrote via the shared wire codec (`libs/data_source/wire`),
+   k-way-merged by timestamp across every requested symbol. Field-for-field-
+   lossless round trip against a real `FileRecorder` proven by
+   `qp_parity_tests` (`tests/docs/DESIGN.md`'s G1) — this town's own tests
+   only prove wire-format compliance in isolation.
+   - Replay throughput benchmarked (`qp_file_replay_bench`: single-symbol
+     BookDiff/Trade, multi-symbol merge overhead) — not hot-path-critical
+     (backtest is throughput- not latency-bound, `docs/data.md`), but worth
+     tracking for regressions.

@@ -6,7 +6,6 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
-#include <random>
 #include <span>
 #include <thread>
 #include <vector>
@@ -14,31 +13,17 @@
 #include "../collector.hpp"
 #include "support/mock_binance_server.hpp"
 #include "support/real_captures.hpp"
+#include "support/scratch_dir.hpp"
 #include "wire.hpp"
 
 using qp::MarketEvent;
+using qp::test::ScratchDir;
 using qp::testsupport::MockHttpServer;
 using qp::testsupport::MockWsServer;
 using qp::testsupport::real_depth_msg;
 using qp::testsupport::real_snapshot_body;
 
 namespace {
-
-struct ScratchDir {
-    std::filesystem::path path;
-
-    ScratchDir() {
-        std::random_device rd;
-        path = std::filesystem::temp_directory_path() /
-               std::filesystem::path("qp_collector_test_" + std::to_string(rd()));
-        std::filesystem::create_directories(path);
-    }
-
-    ~ScratchDir() {
-        std::error_code ec;
-        std::filesystem::remove_all(path, ec);
-    }
-};
 
 // Same decode approach as libs/data_source/sink/tests/test_file_recorder_integration.cpp
 // — tolerant of an unfinished frame, since that's the real crash-safety

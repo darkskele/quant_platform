@@ -5,6 +5,7 @@
 #include <span>
 #include <vector>
 
+#include "support/market_event_builders.hpp"
 #include "wire.hpp"
 
 using qp::EventKind;
@@ -14,39 +15,19 @@ using qp::Side;
 
 namespace {
 
+// Fixed symbol/ts per kind — this file only cares about the fields under
+// test (seq numbers, levels, price/qty/side, rate), not identity/timing.
 MarketEvent book_diff(std::uint64_t first_seq, std::uint64_t seq, std::uint64_t prev_seq,
                       std::vector<PriceLevel> bids, std::vector<PriceLevel> asks) {
-    MarketEvent ev;
-    ev.kind      = EventKind::BookDiff;
-    ev.ts        = 1'700'000'000'000;
-    ev.first_seq = first_seq;
-    ev.seq       = seq;
-    ev.prev_seq  = prev_seq;
-    ev.symbol    = 7;
-    ev.bids      = std::move(bids);
-    ev.asks      = std::move(asks);
-    return ev;
+    return qp::test::make_book_diff(7, 1'700'000'000'000, first_seq, seq, prev_seq, std::move(bids),
+                                    std::move(asks));
 }
 
 MarketEvent trade(qp::Price price, qp::Qty qty, Side side) {
-    MarketEvent ev;
-    ev.kind   = EventKind::Trade;
-    ev.ts     = 1'700'000'001'000;
-    ev.symbol = 3;
-    ev.price  = price;
-    ev.qty    = qty;
-    ev.side   = side;
-    return ev;
+    return qp::test::make_trade(3, 1'700'000'001'000, price, qty, side);
 }
 
-MarketEvent funding(double rate) {
-    MarketEvent ev;
-    ev.kind         = EventKind::Funding;
-    ev.ts           = 1'700'000'002'000;
-    ev.symbol       = 1;
-    ev.funding_rate = rate;
-    return ev;
-}
+MarketEvent funding(double rate) { return qp::test::make_funding(1, 1'700'000'002'000, rate); }
 
 void expect_equal(const MarketEvent& a, const MarketEvent& b) {
     EXPECT_EQ(a.kind, b.kind);

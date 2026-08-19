@@ -5,50 +5,25 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
-#include <random>
 #include <span>
 #include <thread>
 #include <vector>
 
 #include "file_recorder.hpp"
+#include "support/market_event_builders.hpp"
+#include "support/scratch_dir.hpp"
 #include "wire.hpp"
 
-using qp::EventKind;
 using qp::MarketEvent;
 using qp::PriceLevel;
 using qp::sink::FileRecorder;
+using qp::test::ScratchDir;
 
 namespace {
 
-// Unique-per-test scratch dir under the system temp path, removed on
-// destruction — real file I/O needs a real filesystem location, not a mock.
-struct ScratchDir {
-    std::filesystem::path path;
-
-    ScratchDir() {
-        std::random_device rd;
-        path = std::filesystem::temp_directory_path() /
-               std::filesystem::path("qp_sink_test_" + std::to_string(rd()));
-        std::filesystem::create_directories(path);
-    }
-
-    ~ScratchDir() {
-        std::error_code ec;
-        std::filesystem::remove_all(path, ec);
-    }
-};
-
 MarketEvent book_diff(std::uint32_t symbol, std::int64_t ts, std::uint64_t seq,
                       std::vector<PriceLevel> bids = {{100.0, 1.0}}) {
-    MarketEvent ev;
-    ev.kind      = EventKind::BookDiff;
-    ev.ts        = ts;
-    ev.symbol    = symbol;
-    ev.first_seq = seq;
-    ev.seq       = seq;
-    ev.prev_seq  = seq > 0 ? seq - 1 : 0;
-    ev.bids      = std::move(bids);
-    return ev;
+    return qp::test::make_book_diff(symbol, ts, seq, seq, seq > 0 ? seq - 1 : 0, std::move(bids));
 }
 
 // Decompresses whatever's decodable from `path` — tolerant of an unfinished

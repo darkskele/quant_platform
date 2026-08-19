@@ -1,36 +1,50 @@
 ---
 name: audit
-description: Multi-faceted review of one directory — design consistency (DESIGN.md/STATUS.md/DECISIONS.md drift, re-run tests/benchmarks), hot-path performance (cache-awareness, modern C++, inline trade-off comments), and style/lint (clang-format clean, comment-convention compliance). Token-conscious — reads only that one directory's docs + source, not the whole tree. ONLY invoked explicitly (/audit <path>) — never proactively.
+description: Multi-faceted review of staged changes — design consistency (DESIGN.md/STATUS.md/DECISIONS.md drift at the directory level each staged file belongs to, re-run tests/benchmarks), hot-path performance (cache-awareness, modern C++, inline trade-off comments) on staged hot-path files, and style/lint (clang-format clean, comment-convention compliance) on staged files. Token-conscious — reads only the staged diff plus the owning directory's docs, not the whole tree. ONLY invoked explicitly (/audit) — never proactively.
 ---
 
-Explicit invocation only (`/audit <path>`) — never on own judgment just
-because code changed.
+Explicit invocation only (`/audit`) — never on own judgment just because
+code changed.
 
-`<path>` is a directory in the city/town/village hierarchy (see
-`docs/repo-layout.md`) — e.g. `/audit libs/data_source/sink`, `/audit
-libs/data_source/source`, `/audit .` for root. Must contain a
-`docs/DESIGN.md`; if it doesn't, say so and stop — don't guess the parent
-(leaf villages like `venue/`/`protocol/` don't have one — their goals live
-in the town's `docs/DESIGN.md` as sub-goals; audit the town instead).
+## Scope: derived from staged changes, not a typed-in path
 
-Three facets, one pass: **A. design consistency**, **B. hot-path
-performance**, **C. style & comment lint**. Read-only throughout — never
-edits `docs/STATUS.md`, `docs/DECISIONS.md`, or code. A human applies
-whatever the report turns up. (An automated write-back-on-review loop was
-considered and rejected earlier in this project's history as exactly the
-per-commit cascading automation that doesn't fit a solo-dev, local,
-explicit-invocation workflow.)
+1. `git diff --cached --name-only`. Nothing staged → say so and stop; don't
+   fall back to unstaged changes or guess a directory (the user works out
+   of staged changes deliberately — same reasoning as never touching the
+   index without being asked).
+2. For each staged file, walk up from its containing directory until you
+   find one with a `docs/DESIGN.md` (per the city/town/village hierarchy,
+   `docs/repo-layout.md`) — that's the file's **owning directory**. Leaf
+   villages (`venue/`, `protocol/`) have no `DESIGN.md` of their own; their
+   files own up to the town. Root `docs/DESIGN.md` is the ceiling — every
+   path resolves to *something*.
+3. Dedupe into a set of owning directories. Run the full three-facet pass
+   (below) once per owning directory, each scoped to *that directory's*
+   staged files. Multiple owning directories in one invocation → one report
+   section per directory, in the report format at the end.
 
-## Facet A — design consistency
+## Facets
 
-1. **Read** `<path>/docs/DESIGN.md` (goals + success metrics — a struck-
-   through goal is claimed done), `<path>/docs/STATUS.md` (goal-title list +
-   last-proof section — a goal is title-only if done, expanded with a
-   description if not), `<path>/docs/DECISIONS.md` if it exists. Don't read
-   anything outside `<path>` unless a goal explicitly points elsewhere.
+Three, one pass per owning directory: **A. design consistency** (whole-
+directory docs, cross-checked against what's staged), **B. hot-path
+performance** (staged files only), **C. style & comment lint** (staged
+files only). Read-only throughout — never edits `docs/STATUS.md`,
+`docs/DECISIONS.md`, or code. A human applies whatever the report turns up.
+(An automated write-back-on-review loop was considered and rejected earlier
+in this project's history as exactly the per-commit cascading automation
+that doesn't fit a solo-dev, local, explicit-invocation workflow.)
+
+### Facet A — design consistency
+
+1. **Read** the owning directory's `docs/DESIGN.md` (goals + success
+   metrics — a struck-through goal is claimed done), `docs/STATUS.md`
+   (goal-title list + last-proof section — a goal is title-only if done,
+   expanded with a description if not), `docs/DECISIONS.md` if it exists.
+   Don't read anything outside the owning directory unless a goal
+   explicitly points elsewhere.
 
 2. **Re-run, don't trust.** Invoke `test`, and `bench` if `DESIGN.md` names
-   one, scoped to this level. Compare against `STATUS.md`'s last-proof
+   one, scoped to this directory. Compare against `STATUS.md`'s last-proof
    claim. Flag drift either direction — a new failure, or `STATUS.md`
    under-claiming what's actually passing. Also flag `DESIGN.md`/`STATUS.md`
    goal-state drift itself: a goal struck through in one but not
@@ -43,28 +57,27 @@ explicit-invocation workflow.)
    order, *before* the goals section (see `apps/collector/docs/DESIGN.md`
    for the shape). Leaf/pure-logic directories don't need this — flag its
    absence only where the directory is actually a composition point.
-   Separately: if `<path>` contains source files directly (not just
-   subdirectories), confirm `DESIGN.md`'s generic-components / rundown
-   section names those files' components — a directory with real code and
-   an empty or subdirectory-only design doc is a finding. Implementation
-   details belong in the code, not the doc — don't flag a design doc for
-   *lacking* implementation detail, only for lacking the component-level
-   description.
+   Separately: if the staged diff touches source files directly (not just
+   docs), confirm `DESIGN.md`'s generic-components / rundown section names
+   those files' components — new/changed source with no matching doc
+   mention is a finding. Implementation details belong in the code, not the
+   doc — don't flag a design doc for *lacking* implementation detail, only
+   for lacking the component-level description.
 
-4. **Implementation-vs-design scan.** For each generic component/goal
-   `DESIGN.md` describes, skim the corresponding source in `<path>` and
-   check it still matches that description structurally (what it depends
-   on, what it owns, the shape of its interface) — not line-by-line, just
-   "does the doc still describe what's there." Where it's diverged:
+4. **Implementation-vs-design scan.** For each staged file, check whether
+   `DESIGN.md`'s description of the component it belongs to still matches
+   structurally (what it depends on, what it owns, the shape of its
+   interface) — not line-by-line, just "does the doc still describe what's
+   there." Where it's diverged:
    - Check `DECISIONS.md` for an entry that justifies the divergence. Found
      one → not a finding (the doc's staleness is the decision log's job to
      explain, not `DESIGN.md`'s). Report which decision covers it.
-     Not found → a finding. Say which side looks wrong: if the
-     implementation is clearly deliberate/better than what's documented,
-     recommend updating `DESIGN.md` (and note it wants a `DECISIONS.md`
-     entry); if it looks like accidental drift, recommend fixing the code
-     back to match the design. Don't guess silently — say which you think
-     it is and why, but leave the call to the human.
+     Not found → a finding. Say which side looks wrong: if the staged
+     change is clearly deliberate/better than what's documented, recommend
+     updating `DESIGN.md` (and note it wants a `DECISIONS.md` entry); if it
+     looks like accidental drift, recommend fixing the code back to match
+     the design. Don't guess silently — say which you think it is and why,
+     but leave the call to the human.
 
 5. **Decision-drift check — bounded.** Only for `DECISIONS.md` entries with
    no mention in `STATUS.md`'s last "as of" note (plausibly newer than the
@@ -73,17 +86,18 @@ explicit-invocation workflow.)
    stopped matching it (not struck through, not superseded, just quietly
    wrong) is a finding.
 
-## Facet B — hot-path performance
+### Facet B — hot-path performance
 
-Scope: only components `DESIGN.md` marks hot-path (has a bench-table row,
-or a goal explicitly calling out a benchmark) — don't perf-review cold-path
-code, that's facet C's job at most.
+Scope: staged files that are also components `DESIGN.md` marks hot-path
+(has a bench-table row, or a goal explicitly calling out a benchmark) —
+skip staged files that aren't hot-path, and skip unstaged hot-path files
+that weren't touched.
 
-6. **Hot-path/bench cross-check.** Each `DESIGN.md` hot-path component
-   needs a real, currently-building row in the `bench` skill's table — no
-   match, or a benchmark that no longer builds, is a finding.
+6. **Hot-path/bench cross-check.** Each staged hot-path component needs a
+   real, currently-building row in the `bench` skill's table — no match, or
+   a benchmark that no longer builds, is a finding.
 
-7. **Read the hot-path source.** For each such component, check for:
+7. **Read the staged hot-path source.** For each such file, check for:
    - unnecessary heap allocation, copies, or indirection in the loop that
      actually runs per-message/per-tick (vs. one-time setup);
    - cache-conscious layout where it matters (contiguous storage over
@@ -104,13 +118,14 @@ code, that's facet C's job at most.
    code. Don't flag micro-optimizations with no evidence they matter here —
    `bench`'s numbers are the evidence; use them if a finding needs backing.
 
-## Facet C — style & comment lint
+### Facet C — style & comment lint
+
+Scope: staged `.hpp`/`.cpp` files only — not the rest of the owning
+directory.
 
 8. **clang-format clean.** Run `clang-format --dry-run --Werror` (no `-i`,
-   this is read-only) over every `.hpp`/`.cpp` in `<path>` (not
-   subdirectories' own audited scope — same directory only, to stay
-   token-conscious; a subdirectory gets its own `/audit` pass). Any file
-   that isn't clean is a finding — name the file, don't paste the diff.
+   this is read-only) over each staged `.hpp`/`.cpp`. Any file that isn't
+   clean is a finding — name the file, don't paste the diff.
 
 9. **Comment-convention check**, per `CLAUDE.md`'s comment standard:
    - Doxygen tags (`///`, `@param`, `@return`, `@pre`, `@warning`) belong on
@@ -124,15 +139,16 @@ code, that's facet C's job at most.
      the fix is "move the WHY inline, keep the declaration comment short or
      absent," not "delete the explanation."
    - This is new-code convention, not a retrofit mandate — don't flag
-     pre-existing code the CLAUDE.md rule predates unless it's in a file
-     this review is otherwise already flagging.
+     pre-existing (unstaged) code the CLAUDE.md rule predates.
 
 ## Report
 
-Terse, bulleted, tagged by facet. One line per goal for facet A's core
-check, then a short findings list per facet for everything else:
+Terse, bulleted, tagged by owning directory then facet. One line per goal
+for facet A's core check, then a short findings list per facet for
+everything else:
 
 ```
+## <owning directory>
 G<n> — pass|fail|unproven|drift: <one-clause reason>
 ...
 [A] <finding — file/goal ref, one clause, DESIGN-side or code-side call if applicable>
@@ -140,4 +156,6 @@ G<n> — pass|fail|unproven|drift: <one-clause reason>
 [C] <finding — file[:line], one clause>
 ```
 
-No prose summary. Omit a facet's section entirely if it produced nothing.
+Repeat the block per owning directory. No prose summary. Omit a facet's
+section entirely if it produced nothing; omit a directory's block entirely
+if all three facets produced nothing.

@@ -20,6 +20,7 @@ runs.
 |---|---|---|---|
 | `libs/core` | `qp_core_bench` | `libs/core/qp_core_bench` | SPSC queue push/pop round-trip |
 | `libs/data_source/source` | `qp_source_bench` | `libs/data_source/source/qp_source_bench` | parse + gap-check + queue push (I/O-thread hot path) |
+| `libs/data_source/source` | `qp_file_replay_bench` | `libs/data_source/source/qp_file_replay_bench` | FileReplaySource: single-symbol BookDiff/Trade replay throughput, multi-symbol merge overhead |
 | `libs/data_source/source` (venue village) | `qp_venue_bench` | `libs/data_source/source/venue/qp_venue_bench` | Binance message parsing |
 | `libs/data_source/wire` | `qp_wire_bench` | `libs/data_source/wire/qp_wire_bench` | wire format write/read/round-trip |
 
@@ -35,7 +36,7 @@ transitively depending on a changed lib (`libs/core` changed → rerun every
 bench). Doesn't map cleanly (top-level files, several unrelated libs,
 nothing changed) — fall back to **all**. `cmake --build build/release
 --target qp_prod_streamer_bench -j` builds `qp_source_bench` +
-`qp_venue_bench` together when both are in scope.
+`qp_file_replay_bench` + `qp_venue_bench` together when all are in scope.
 
 - **No argument (default)**: targeted, by current changes.
 - **`all`**: build+run `qp_bench` directly, ignore git state and the table.

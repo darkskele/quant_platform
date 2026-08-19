@@ -19,7 +19,6 @@ naming `venue::binance::` directly; `-DQP_COLLECTOR_VENUE=kraken` confirmed
 to fail the build at `venue.hpp`'s `#error`, not downstream.
 - `qp_collector_integration_tests` → passing, unchanged behavior.
 - TSan clean.
-- As of: working tree (uncommitted — root `docs/STATUS.md`).
 
 Carried forward from D14: `events[0]` is the `BookSnapshot` anchor with real
 captured level counts, `events[1..]` are the diffs — recorded output has an

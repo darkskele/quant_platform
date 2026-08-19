@@ -23,7 +23,7 @@ if(BUILD_TESTING)
         tests/test_partition.cpp
         tests/test_zstd_stream.cpp
     )
-    target_link_libraries(qp_wire_tests PRIVATE qp_wire GTest::gtest GTest::gtest_main)
+    target_link_libraries(qp_wire_tests PRIVATE qp_wire qp_core_test_support GTest::gtest GTest::gtest_main)
     add_test(NAME qp_wire_tests COMMAND qp_wire_tests)
 endif()
 

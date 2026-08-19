@@ -4,10 +4,11 @@
 #include <filesystem>
 #include <fstream>
 #include <optional>
-#include <random>
 
 #include "partition.hpp"
+#include "support/scratch_dir.hpp"
 
+using qp::test::ScratchDir;
 using qp::wire::day_key_for;
 using qp::wire::DayKey;
 using qp::wire::format_day;
@@ -58,18 +59,8 @@ TEST(Partition, SegmentPathMatchesFileRecorderNamingConvention) {
 
 class ListSegmentsTest : public ::testing::Test {
    protected:
-    void SetUp() override {
-        std::random_device rd;
-        dir_ = std::filesystem::temp_directory_path() /
-               std::filesystem::path("qp_wire_partition_test_" + std::to_string(rd()));
-        std::filesystem::create_directories(dir_);
-    }
-    void TearDown() override {
-        std::error_code ec;
-        std::filesystem::remove_all(dir_, ec);
-    }
-
-    std::filesystem::path dir_;
+    ScratchDir             scratch_{"qp_wire_partition_test_"};
+    std::filesystem::path& dir_ = scratch_.path;
 };
 
 TEST_F(ListSegmentsTest, EmptyWhenNoSegmentsExist) {
@@ -90,7 +81,8 @@ TEST_F(ListSegmentsTest, ListsContiguousSegmentsInOrder) {
 
 TEST_F(ListSegmentsTest, StopsAtFirstGapEvenIfLaterSegmentsExist) {
     touch(segment_path(dir_, 19723, 0));
-    touch(segment_path(dir_, 19723, 2));  // seq 1 missing — shouldn't happen, but don't skip past it
+    touch(
+        segment_path(dir_, 19723, 2));  // seq 1 missing — shouldn't happen, but don't skip past it
 
     auto segments = list_segments(dir_, 19723);
     ASSERT_EQ(segments.size(), 1u);

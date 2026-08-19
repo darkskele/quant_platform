@@ -12,6 +12,6 @@ Moved `wire.hpp`/`partition.hpp` (+ tests, `qp_sink_tests` → `qp_wire_tests`,
 extracted out of `FileRecorder::ensure_open`'s write-side-only loop) for
 `FileReplaySource`'s read side. New `test_zstd_stream.cpp` covers the
 compressor↔decompressor round trip, including chunked/incremental feed.
-- Not rebuilt/tested this pass — pending `/test libs/data_source/wire` (or
-  `/test all`) before this is trusted.
-- As of: working tree (uncommitted).
+Also fixed a latent null-pointer `memcpy` in `read_levels` on empty
+bids/asks (Trade/Funding events), UB caught once this path actually ran.
+- `qp_wire_tests` passes.

@@ -6,6 +6,7 @@
 find_package(Threads REQUIRED)
 
 add_library(qp_sink src/file_recorder.cpp)
+target_include_directories(qp_sink PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(qp_sink
     # qp_wire is PUBLIC, not PRIVATE: file_recorder.hpp (the public header)
     # names wire::DayKey/wire::ZstdCompressor directly in the class
@@ -20,7 +21,7 @@ if(BUILD_TESTING)
     find_package(GTest CONFIG REQUIRED)
     add_executable(qp_sink_integration_tests tests/test_file_recorder_integration.cpp)
     target_link_libraries(qp_sink_integration_tests
-        PRIVATE qp_sink GTest::gtest GTest::gtest_main
+        PRIVATE qp_sink qp_core_test_support GTest::gtest GTest::gtest_main
     )
     add_test(NAME qp_sink_integration_tests COMMAND qp_sink_integration_tests)
 endif()

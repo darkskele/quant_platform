@@ -121,3 +121,19 @@ directly would violate "seams depend on core only, never each other."
 `data_source`'s two cities, not itself a city. `source` and `sink` both
 depend downward on it now. `zstd_stream.hpp` gained `ZstdDecompressor`
 (read-side mirror of `ZstdCompressor`) for `FileReplaySource` to use.
+
+## D20 — `FileRecorder` writes `data_dir/symbols.manifest`; `FileReplaySource` reads it instead of taking its own symbol list
+Passing `symbol_names` independently to both `FileRecorder` (write) and
+`FileReplaySource` (read) meant nothing enforced the two orderings agreed —
+a replay using a different order than record time would silently mislabel
+every event's `SymbolId`. `FileRecorder` now writes a plain-text
+`symbols.manifest` (one name per line, index == `SymbolId`) at
+construction; `FileReplaySource`'s constructor is now `(data_dir,
+first_day, last_day, wanted = nullopt)` and reads that file as the sole
+canonical source of the mapping. `wanted` optionally filters to a subset
+without renumbering `SymbolId` (still the manifest's global index); every
+`wanted` name is validated against the manifest before any segment file is
+touched, so a bad name fails immediately rather than after paying for
+whatever other symbols were already read. No `wire` involvement — the
+format (newline-delimited names) is too trivial to carry the drift risk
+`write_event`/`read_event`'s binary encoding does.

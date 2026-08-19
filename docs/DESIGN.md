@@ -20,10 +20,9 @@ for filesystem convenience only, not merged into one concern:
 
 - **source** — everything behind `Source`. Today: the **prod
   streamer** town (`libs/data_source/source/`) — generic resync/gap-detection
-  machinery plus the live Boost.Beast transport (`GenericLiveWebSocketSource`),
-  all town-level now — with one **venue** village (`venue/`, Binance glue)
-  nested below. A future **file replay** town (`FileReplaySource`, backtest)
-  isn't built yet.
+  machinery plus the live Boost.Beast transport (`GenericLiveWebSocketSource`)
+  and the backtest replay `Source` (`FileReplaySource`), both town-level (D18)
+  — with one **venue** village (`venue/`, Binance glue) nested below.
 - **sinks** (`libs/data_source/sink/`) — everything behind `Sink`/`Recorder`. No
   further nesting — one `Sink` implementation (`FileRecorder`) today.
 
@@ -81,9 +80,10 @@ arrive with the trader milestone — not built yet, not goals here.
    consumption; status highly formatted but bulleted/terse; a `/audit`
    skill reads only what's needed (a level's `DESIGN.md` goals + `STATUS.md`
    last proof + targeted test/bench output) rather than the whole tree.
-   - **Success metric:** `/audit <path>` exists, explicit-invocation-only
-     (same standing rule as `/test`/`/bench` — never self-triggered),
-     produces a terse per-goal pass/fail report.
+   - **Success metric:** `/audit` exists, deriving scope from staged
+     changes (no path arg), explicit-invocation-only (same standing rule as
+     `/test`/`/bench` — never self-triggered), produces a terse per-goal
+     pass/fail report.
 
 6. **Baseline stays green.** All tests and all benchmarks pass — not a
    one-time check, the standing bar `STATUS.md` reports against.

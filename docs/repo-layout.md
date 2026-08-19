@@ -31,7 +31,8 @@ quant-platform/
 │   │   │                    # Not itself a city — source and sink both depend on it.
 │   │   ├── source/         # "prod streamer" town: Source concept,
 │   │   │   │               # ResyncCoordinator/gap-detection/backoff, the Parser concept,
-│   │   │   │               # GenericLiveWebSocketSource (Boost.Beast transport) — all
+│   │   │   │               # GenericLiveWebSocketSource (Boost.Beast transport),
+│   │   │   │               # FileReplaySource (backtest Source, reads via wire) — all
 │   │   │   │               # town-level now, venue-agnostic. One village nested below:
 │   │   │   └── venue/               # "venue" village: Binance glue (REST
 │   │   │                        # snapshot, symbol table, stream URLs). Flat --
@@ -67,17 +68,15 @@ on each other.
   `execution`; it knows only `Intent` / `StateView` / `MarketEvent`.
 - `data_source/wire` is substrate too, like `core`, but scoped to
   `data_source`'s two cities rather than the whole repo: depends on `core`
-  only. `data_source/sink` (`FileRecorder`'s write side) depends
-  **publicly** on it for the shared wire format/zstd codec/day-segment
-  naming (D19).
+  only. Both `data_source/source` (`FileReplaySource`'s read side) and
+  `data_source/sink` (`FileRecorder`'s write side) depend **publicly** on it
+  for the shared wire format/zstd codec/day-segment naming — never on each
+  other (D19).
 - `data_source/source/venue` depends on `core`;
   `data_source/source` itself (the live transport,
   `GenericLiveWebSocketSource`) depends on `venue`
   **publicly** (its own public header names venue types in the class
   interface — see `docs/environment.md`'s PUBLIC/PRIVATE rule).
-  `data_source/source`'s `file_replay_source` (not built yet) will depend
-  on `data_source/wire`, not `data_source/sink`, for the shared wire format
-  (D19).
 - `engine` depends on the seam concepts, not concrete adapters.
 - `apps/*` are the only place concrete types meet — all compile-time wiring
   happens in one thin file per binary.
@@ -97,8 +96,8 @@ a disk stall can't back up the socket read.
 Every non-leaf directory gets a `docs/` folder holding `DESIGN.md`
 (goals + success metrics — tests, and benchmarks where hot-path applies, N/A
 stated explicitly where cold-path) and `STATUS.md` (a goal-tracking list + a
-"Last proof" section tagged to the working tree — descriptions live only in
-`DESIGN.md`, `STATUS.md` never restates them). `DECISIONS.md` joins them in
+"Last proof" section — descriptions live only in `DESIGN.md`, `STATUS.md`
+never restates them). `DECISIONS.md` joins them in
 that same `docs/` folder wherever there's real content — an append-only log,
 title-only where that's the whole story, longer where a decision genuinely
 earned it (a bug's root-cause narrative). A superseded decision is struck
@@ -152,7 +151,8 @@ ever live there.
 ## Scaffold status
 
 `core`, `data_source/wire`, `data_source/source` (town-level + its `venue`
-village), `data_source/sink`, and `apps/collector` are implemented,
+village, now including `FileReplaySource`), `data_source/sink`,
+`apps/collector`, and root `tests/` (cross-lib parity) are implemented,
 building, and tested — this is no longer folders-only. Trader libs
 (`execution`, `risk`, `strategy`, `engine`) remain scaffold-only, arriving
 with the trader milestone.

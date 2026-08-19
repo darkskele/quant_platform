@@ -24,9 +24,33 @@ endif()
 
 add_subdirectory(venue)
 
+# FileReplaySource — the backtest Source implementation (D18/D19): reads
+# back what FileRecorder wrote, via the shared wire codec (qp_wire) rather
+# than a second implementation of the format. No Boost/OpenSSL needed (no
+# live transport), so this builds unconditionally, unlike qp_source below.
+add_library(qp_file_replay src/file_replay_source.cpp)
+target_link_libraries(qp_file_replay PUBLIC qp_source_pure qp_wire)
+
+if(BUILD_TESTING)
+    add_executable(qp_file_replay_tests tests/test_file_replay_source.cpp)
+    # qp_sink is test-only here: fixtures are written via a real FileRecorder
+    # (not a hand-rolled copy of its write logic — see the test file's own
+    # comment), never linked into qp_file_replay itself. Production
+    # dependency graph stays clean (source depends on wire, not sink).
+    target_link_libraries(qp_file_replay_tests
+        PRIVATE qp_file_replay qp_sink qp_core_test_support GTest::gtest GTest::gtest_main
+    )
+    add_test(NAME qp_file_replay_tests COMMAND qp_file_replay_tests)
+endif()
+
 if(QP_BUILD_BENCHMARKS)
     add_executable(qp_source_bench benchmarks/bench_message_processing.cpp)
     target_link_libraries(qp_source_bench PRIVATE qp_source_pure qp_venue benchmark::benchmark_main)
+
+    add_executable(qp_file_replay_bench benchmarks/bench_file_replay_source.cpp)
+    target_link_libraries(qp_file_replay_bench
+        PRIVATE qp_file_replay qp_core_test_support benchmark::benchmark_main
+    )
 endif()
 
 # Live transport (GenericLiveWebSocketSource, live_websocket_source.cpp) —
@@ -75,7 +99,7 @@ if(Boost_FOUND AND OpenSSL_FOUND)
         add_test(NAME qp_source_integration_tests COMMAND qp_source_integration_tests)
     endif()
 
-    set(QP_SOURCE_LIVE_BUILT TRUE PARENT_SCOPE)
+    set(QP_SOURCE_LIVE_BUILT TRUE)
 else()
     message(STATUS "source: Boost/OpenSSL not found — qp_source "
                     "(LiveWebSocketSource) and its integration test skipped. Needed once vcpkg is "
@@ -89,11 +113,14 @@ endif()
 # qp_source_integration_tests only exists when the live-transport Boost/
 # OpenSSL guard passed, so it's conditionally included.
 set(_qp_prod_streamer_test_deps qp_source_tests qp_venue_tests)
+if(BUILD_TESTING)
+    list(APPEND _qp_prod_streamer_test_deps qp_file_replay_tests)
+endif()
 if(QP_SOURCE_LIVE_BUILT AND BUILD_TESTING)
     list(APPEND _qp_prod_streamer_test_deps qp_source_integration_tests)
 endif()
 add_custom_target(qp_prod_streamer_tests DEPENDS ${_qp_prod_streamer_test_deps})
 
 if(QP_BUILD_BENCHMARKS)
-    add_custom_target(qp_prod_streamer_bench DEPENDS qp_source_bench qp_venue_bench)
+    add_custom_target(qp_prod_streamer_bench DEPENDS qp_source_bench qp_file_replay_bench qp_venue_bench)
 endif()

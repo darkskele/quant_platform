@@ -22,7 +22,22 @@ FileRecorder::FileRecorder(std::filesystem::path data_dir, std::vector<std::stri
       partitions_(symbol_names_.size()),
       flush_interval_(flush_interval) {
     std::filesystem::create_directories(data_dir_);
+    write_symbols_manifest();
     writer_thread_ = std::thread([this] { writer_run(); });
+}
+
+// The canonical symbol list FileReplaySource reads back — so it doesn't
+// need its own independently-supplied copy that could silently disagree
+// with what was actually recorded. Written once, on the constructing
+// thread, before the writer thread starts.
+void FileRecorder::write_symbols_manifest() {
+    std::FILE* f = std::fopen((data_dir_ / "symbols.manifest").c_str(), "w");
+    if (!f) {
+        throw std::runtime_error("FileRecorder: failed to write " +
+                                 (data_dir_ / "symbols.manifest").string());
+    }
+    for (const auto& name : symbol_names_) std::fprintf(f, "%s\n", name.c_str());
+    std::fclose(f);
 }
 
 FileRecorder::~FileRecorder() {
@@ -34,6 +49,11 @@ void FileRecorder::record(MarketEvent event) {
     if (!queue_.push(std::move(event))) dropped_.fetch_add(1, std::memory_order_relaxed);
 }
 
+// Appends to `symbol`'s *currently open* manifest, whatever day that is.
+// Routed through the writer thread (not written directly here) so "which
+// day is current" is decided by one thread reusing one piece of state,
+// never independently recomputed from wall-clock time — that's what keeps
+// a manifest line paired with the data partition it actually describes.
 void FileRecorder::log(SymbolId symbol, std::string message) {
     if (!log_queue_.push(LogLine{symbol, std::move(message)})) {
         log_dropped_.fetch_add(1, std::memory_order_relaxed);
@@ -58,6 +78,9 @@ std::size_t FileRecorder::write_error_count() const noexcept {
 
 // --- Writer thread -------------------------------------------------------
 
+// A bad write shouldn't unwind out of the writer thread (see writer_run's
+// try/catch around every handle_event/handle_log call) — checked_write/
+// checked_flush increment write_errors_ instead of throwing.
 void FileRecorder::checked_write(std::FILE* f, const std::byte* data, std::size_t size) {
     if (std::fwrite(data, 1, size, f) != size)
         write_errors_.fetch_add(1, std::memory_order_relaxed);

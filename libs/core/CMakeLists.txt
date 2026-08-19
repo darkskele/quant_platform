@@ -3,6 +3,16 @@ add_library(qp_core INTERFACE)
 target_include_directories(qp_core INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_features(qp_core INTERFACE cxx_std_20)
 
+# Test/benchmark-only support (ScratchDir): every real-file-I/O test or
+# benchmark in the repo needs a unique, self-cleaning temp directory —
+# extracted here once duplicated a third time. Unconditional (not gated by
+# BUILD_TESTING): QP_BUILD_BENCHMARKS-only consumers need it too, and an
+# unused INTERFACE library costs nothing. include dir is tests/ itself (not
+# tests/support/), same convention as qp_source_test_support, so
+# #include "support/scratch_dir.hpp" resolves the same way from any consumer.
+add_library(qp_core_test_support INTERFACE)
+target_include_directories(qp_core_test_support INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
+
 if(BUILD_TESTING)
     find_package(GTest CONFIG REQUIRED)
     find_package(Threads REQUIRED)

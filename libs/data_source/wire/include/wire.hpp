@@ -94,7 +94,11 @@ inline bool read_levels(std::span<const std::byte>& in, std::vector<PriceLevel>&
     const std::size_t bytes_needed = static_cast<std::size_t>(count) * sizeof(PriceLevel);
     if (in.size() < bytes_needed) return false;
     out.resize(count);
-    std::memcpy(out.data(), in.data(), bytes_needed);
+    // count == 0 (Trade/Funding events, whose bids/asks are always empty)
+    // leaves out.data()/in.data() potentially null — memcpy's arguments
+    // are declared never-null even at size 0, so skip the call entirely
+    // rather than pass a null pointer into it (UB, UBSan-caught).
+    if (count > 0) std::memcpy(out.data(), in.data(), bytes_needed);
     in = in.subspan(bytes_needed);
     return true;
 }

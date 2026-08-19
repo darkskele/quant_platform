@@ -70,9 +70,14 @@ endif()
 # internally, see its CMakeLists.txt.
 add_subdirectory(libs/core)
 add_subdirectory(libs/data_source/wire)    # codec substrate shared by source (read) and sink (write)
-add_subdirectory(libs/data_source/source)  # degrades gracefully without Boost — see its CMakeLists.txt
 add_subdirectory(libs/data_source/sink)
+# sink before source: qp_file_replay_tests test-only links qp_sink (real
+# FileRecorder for fixtures — see source's CMakeLists.txt), so qp_sink must
+# already exist by the time source's CMakeLists.txt runs. No production
+# dependency between them either way (sink depends on core+wire only).
+add_subdirectory(libs/data_source/source)  # degrades gracefully without Boost — see its CMakeLists.txt
 add_subdirectory(apps/collector)  # degrades gracefully without Boost — see its CMakeLists.txt
+add_subdirectory(tests)           # cross-lib integration/parity tests — see its CMakeLists.txt
 
 if(QP_BUILD_BENCHMARKS)
     # One binary, every benchmark case, one results table. Per-lib *_bench
@@ -82,10 +87,11 @@ if(QP_BUILD_BENCHMARKS)
     add_executable(qp_bench
         libs/core/benchmarks/bench_spsc_queue.cpp
         libs/data_source/source/benchmarks/bench_message_processing.cpp
+        libs/data_source/source/benchmarks/bench_file_replay_source.cpp
         libs/data_source/source/venue/benchmarks/bench_binance_parser.cpp
         libs/data_source/wire/benchmarks/bench_wire.cpp
     )
     target_link_libraries(qp_bench PRIVATE
-        qp_core qp_source_pure qp_venue qp_wire benchmark::benchmark_main
+        qp_core qp_core_test_support qp_source_pure qp_file_replay qp_venue qp_wire benchmark::benchmark_main
     )
 endif()

@@ -31,7 +31,8 @@ if(Boost_FOUND AND OpenSSL_FOUND)
         find_package(GTest CONFIG REQUIRED)
         add_executable(qp_collector_integration_tests tests/test_collector_integration.cpp)
         target_link_libraries(qp_collector_integration_tests
-            PRIVATE qp_collector_core qp_source_test_support zstd::libzstd GTest::gtest GTest::gtest_main
+            PRIVATE qp_collector_core qp_source_test_support qp_core_test_support zstd::libzstd
+                    GTest::gtest GTest::gtest_main
         )
         add_test(NAME qp_collector_integration_tests COMMAND qp_collector_integration_tests)
     endif()
