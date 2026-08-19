@@ -3,6 +3,8 @@
 - [x] G1 — zero deps beyond Threads (test-only)
 - [x] G2 — SPSC queue proven under TSan + benchmarked
 - [x] G3 — event schema stays plain data
+- [ ] G4 — SpmcRing<T, Capacity> designed (gated multi-cursor,
+      `shared_ptr<const MarketEvent>` first use); not yet implemented
 
 ## Last proof
 
