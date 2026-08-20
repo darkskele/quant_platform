@@ -72,6 +72,13 @@ class SpmcRing {
         return out;
     }
 
+    /// Compile-time-indexed sibling of try_pop(std::size_t).
+    template <std::size_t Consumer>
+    std::optional<T> try_pop() {
+        static_assert(Consumer < NumConsumers);
+        return try_pop(Consumer);
+    }
+
     /// Publishes one event constructed from `args`. Single producer only;
     /// blocks until every consumer has read past the slot being reused —
     /// see wait_for_slot for the wait policy. Never drops data.
