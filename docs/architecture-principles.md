@@ -48,9 +48,12 @@ not a race against another firm's network path.
    funding), `Order`, `Fill`, `Ack/Reject`, `PositionUpdate`. Plain data, no
    behavior, no venue-specifics. Get this right and the rest composes.
 
-2. **`Source` (concept, compile-time)** — `next() -> optional<MarketEvent>`.
-   Adapters: `LiveWebSocketSource`, `FileReplaySource`. Book-building lives
-   *behind* this seam so both produce identical events.
+2. **`Transport` (concept, compile-time)** — `next() -> optional<MarketEvent>`.
+   Adapters: `LiveWebSocketSource`, `FileReplaySource`, an in-process ring
+   reader. Named `Transport`, not `Source` — `source`/`sink` already name
+   the two `data_source` cities, and an adapter reading off a `Sink`'s
+   fan-out ring is not itself a "source." Book-building lives *behind* this
+   seam so every adapter produces identical events.
 
 3. **`Clock` / `TimeSource` (concept, compile-time) — the determinism landmine.**
    `now() -> Timestamp`. `WallClock` (live) / `SimClock` (backtest, driven by
@@ -84,7 +87,7 @@ not a race against another firm's network path.
 ## Compile-time vs virtual — the rule
 
 **Static dispatch where events are frequent and the swap is build-fixed**
-(source, clock, execution, recorder). **Virtual where configuration is runtime**
+(transport, clock, execution, recorder). **Virtual where configuration is runtime**
 (which strategy, which risk config). The choice is a function of *how often you
 cross the seam relative to your latency budget* — at MFT the strategy seam is
 crossed rarely against a huge budget, so virtual is free; at HFT it'd be
@@ -102,18 +105,23 @@ trader.
 policies:
 
 ```cpp
-template<Source Src, Clock Clk, ExecutionGateway Exec, Sink Rec>
+template<Transport Tx, Clock Clk, ExecutionGateway Exec>
 class Engine {
-    Src source_; Clk clock_; Exec exec_; Rec recorder_;   // recorder tee optional
+    Tx transport_; Clk clock_; Exec exec_;
     std::vector<std::unique_ptr<Strategy>> strategies_;
     std::unique_ptr<RiskGate> risk_;
     Portfolio state_;
-    // loop: pull event -> (recorder tee) -> strategies -> risk -> exec -> fills -> state
+    // loop: pull event -> strategies -> risk -> exec -> fills -> state
 };
 
-// live.cpp     Engine<LiveWebSocketSource, WallClock, LiveExecution, FileRecorder>
-// backtest.cpp Engine<FileReplaySource,    SimClock,  SimExecution,  NullSink>
+// live.cpp     Engine<LiveWebSocketSource, WallClock, LiveExecution>
+// backtest.cpp Engine<FileReplaySource,    SimClock,  SimExecution>
 ```
+
+No `Sink` param — recording is orthogonal to the decision loop, not
+something the backtest side needs to satisfy with a no-op. Live recording,
+if wanted alongside trading, wraps the `Transport` (a tee) or runs the
+collector as its own process; `Engine` itself never touches a `Sink`.
 
 **The collector** is NOT an Engine — it's a thin source→recorder loop. Bundling
 `ExecutionGateway` into the Engine as a policy means an engine-shaped collector

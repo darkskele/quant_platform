@@ -42,14 +42,14 @@ quant-platform/
 │   ├── execution/          # ExecutionGateway concept + SimExecution, LiveExecution   (trader milestone)
 │   ├── risk/               # RiskGate interface + impls (+ kill-switch)               (trader milestone)
 │   ├── strategy/           # Strategy interface + concrete strategies                 (trader milestone)
-│   ├── engine/             # Engine<Src,Clk,Exec,Rec> template (trader only)          (trader milestone)
+│   ├── engine/             # Engine<Tx,Clk,Exec> template (trader only)               (trader milestone)
 │   ├── telemetry/          # logging + metrics (uptime is a feature)                  (later)
 │   └── analytics/          # backtest reporting: PnL, Sharpe, drawdown               (later)
 │
 ├── apps/                   # thin mains; the ONLY place concrete types are named
 │   ├── collector/main.cpp  # LiveWebSocketSource -> FileRecorder  (NOT an Engine)
-│   ├── live/main.cpp       # Engine<LiveWebSocketSource, WallClock, LiveExecution, FileRecorder>  (later)
-│   └── backtest/main.cpp   # Engine<FileReplaySource,    SimClock,  SimExecution,  NullSink>       (later)
+│   ├── live/main.cpp       # Engine<LiveWebSocketSource, WallClock, LiveExecution>  (later)
+│   └── backtest/main.cpp   # Engine<FileReplaySource,    SimClock,  SimExecution>   (later)
 │
 ├── research/               # Python subtree — stat-arb, ML training; reads the `wire` format
 ├── tools/                  # data-download scripts, ops

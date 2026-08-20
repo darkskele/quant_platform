@@ -137,3 +137,16 @@ touched, so a bad name fails immediately rather than after paying for
 whatever other symbols were already read. No `wire` involvement — the
 format (newline-delimited names) is too trivial to carry the drift risk
 `write_event`/`read_event`'s binary encoding does.
+
+## D22 — Engine's `Source` concept renamed `Transport`; `Sink` dropped from Engine's template params
+`Source` collided with the `source`/`sink` `data_source` city names once an
+adapter reading off a `Sink`'s fan-out ring also needed to satisfy it —
+renamed the Engine-facing `next() -> optional<MarketEvent>` concept to
+`Transport`; the two cities keep their own names. `Sink` also dropped from
+`Engine<Transport, Clock, ExecutionGateway>`'s params — recording is
+orthogonal to the decision loop, not something backtest should have to
+satisfy with a no-op; live recording wraps the `Transport` or runs the
+collector separately. Docs-only for now (`docs/architecture-principles.md`,
+`docs/repo-layout.md`) — `libs/data_source/source/include/source.hpp`'s
+`Source` concept keeps its current name until Engine/the ring-reading
+adapter are actually built, to avoid doc/code drift in the meantime.

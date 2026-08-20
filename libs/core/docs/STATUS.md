@@ -3,10 +3,20 @@
 - [x] G1 — zero deps beyond Threads (test-only)
 - [x] G2 — SPSC queue proven under TSan + benchmarked
 - [x] G3 — event schema stays plain data
-- [ ] G4 — SpmcRing<T, Capacity> designed (gated multi-cursor,
-      `shared_ptr<const MarketEvent>` first use); not yet implemented
+- [x] G4 — SpmcRing<T, Capacity, NumConsumers> implemented, gated multi-cursor fan-out
 
 ## Last proof
+
+`SpmcRing<T, Capacity, NumConsumers>` (`libs/core/include/spmc_ring.hpp`)
+implemented: extends `SpscQueue`'s `construct_at`/`destroy_at` slot
+discipline to `NumConsumers` independent cursors, gated so `push()` blocks
+rather than overwriting a slot a consumer hasn't read — nothing is ever
+silently dropped. First instantiation is `shared_ptr<const MarketEvent>`,
+shared via refcount bump rather than each consumer copying the event.
+Gained a compile-time-indexed `try_pop<Consumer>()` alongside the runtime
+`try_pop(std::size_t)`, for consumers whose cursor is fixed at the wiring
+call site rather than assigned at runtime. `qp_core_tests`/`qp_core_bench`
+cover it (`test_spmc_ring.cpp`, `bench_spmc_ring.cpp`).
 
 `qp_core_test_support` added (`libs/core/tests/support/`): `ScratchDir`
 (RAII temp dir) and `make_book_diff`/`make_trade`/`make_funding`

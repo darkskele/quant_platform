@@ -17,6 +17,15 @@ independent of the recorder/collector design.
 (root `docs/decisions.md`) — the format itself now lives in its own lib so
 `source` and `sink` don't depend on each other for it.
 
+## D21 — `Sink` concept added, mirroring `source`'s `Source`
+
+`FanoutSink` (in-process fan-out via `SpmcRing`) gave this lib a second
+`record(MarketEvent)` implementation alongside `FileRecorder` — nothing
+formalized that the two share a shape. `sink.hpp` adds a `Sink` concept
+(`record(MarketEvent) -> void`), compile-time like `Source`. `apps/collector`
+now takes its recorder as `sink::Sink auto` instead of naming
+`FileRecorder` concretely.
+
 **Crash safety** (still this lib's own concern — `FileRecorder`'s flush
 cadence, not the format): periodic `ZSTD_e_flush` (not a full frame close) every ~1s
 or K events bounds data loss to that window without discarding the
