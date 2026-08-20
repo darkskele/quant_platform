@@ -16,13 +16,13 @@ target_include_directories(qp_core_test_support INTERFACE ${CMAKE_CURRENT_SOURCE
 if(BUILD_TESTING)
     find_package(GTest CONFIG REQUIRED)
     find_package(Threads REQUIRED)
-    add_executable(qp_core_tests tests/test_spsc_queue.cpp)
+    add_executable(qp_core_tests tests/test_spsc_queue.cpp tests/test_spmc_ring.cpp)
     target_link_libraries(qp_core_tests PRIVATE qp_core Threads::Threads GTest::gtest GTest::gtest_main)
     add_test(NAME qp_core_tests COMMAND qp_core_tests)
 endif()
 
 if(QP_BUILD_BENCHMARKS)
     # googlebenchmark is fetched once, at the top level.
-    add_executable(qp_core_bench benchmarks/bench_spsc_queue.cpp)
+    add_executable(qp_core_bench benchmarks/bench_spsc_queue.cpp benchmarks/bench_spmc_ring.cpp)
     target_link_libraries(qp_core_bench PRIVATE qp_core benchmark::benchmark_main)
 endif()

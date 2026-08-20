@@ -86,6 +86,7 @@ if(QP_BUILD_BENCHMARKS)
     # Benchmark's own --benchmark_filter narrows a single run when needed.
     add_executable(qp_bench
         libs/core/benchmarks/bench_spsc_queue.cpp
+        libs/core/benchmarks/bench_spmc_ring.cpp
         libs/data_source/source/benchmarks/bench_message_processing.cpp
         libs/data_source/source/benchmarks/bench_file_replay_source.cpp
         libs/data_source/source/venue/benchmarks/bench_binance_parser.cpp
