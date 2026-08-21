@@ -17,3 +17,10 @@ goals, per the city/town/village convention.
    proven by `qp_clock_tests`. `WallClock` deliberately deferred to the live
    milestone (D23). No `Engine` consumer yet — arrives with the trader
    milestone.
+3. ~~**SimExecution.**~~ `execution`'s `ExecutionGateway`/`Matcher`
+   concepts + `SimExecution<M>` + `LastTradeMatcher` (D25), proven by
+   `qp_execution_tests`. Deliberately one `Matcher` today — more (book-aware,
+   slippage-modeling) are the expected direction as strategy families need
+   them, sibling files under `execution` (D25). `LiveExecution` — real order
+   execution, not simulated — deferred to the live milestone. No `Engine`
+   consumer yet — arrives with the trader milestone.

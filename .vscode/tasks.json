@@ -396,6 +396,39 @@
             "problemMatcher": []
         },
         {
+            "label": "Build: qp_execution_tests",
+            "type": "shell",
+            "command": "cmake --build build/debug --target qp_execution_tests -j",
+            "dependsOn": "Configure (debug)",
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "ExecutionGateway/Matcher concept satisfaction, SimExecution<LastTradeMatcher>: reject-before-price, fill-at-last-price, outcome ordering."
+        },
+        {
+            "label": "Test: qp_execution_tests",
+            "type": "shell",
+            "command": "./build/debug/libs/execution/qp_execution_tests",
+            "dependsOn": "Build: qp_execution_tests",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "Build: qp_execution_tests (release)",
+            "type": "shell",
+            "command": "cmake --build build/release --target qp_execution_tests -j",
+            "dependsOn": "Configure (release)",
+            "group": "build",
+            "problemMatcher": ["$gcc"]
+        },
+        {
+            "label": "Test: qp_execution_tests (release)",
+            "type": "shell",
+            "command": "./build/release/libs/execution/qp_execution_tests",
+            "dependsOn": "Build: qp_execution_tests (release)",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
             "label": "Build: qp_sink_integration_tests",
             "type": "shell",
             "command": "cmake --build build/debug --target qp_sink_integration_tests -j",

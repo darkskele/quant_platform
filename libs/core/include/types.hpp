@@ -6,8 +6,8 @@
 namespace qp {
 
 using Timestamp = std::int64_t;  ///< Nanoseconds since epoch.
-using Price     = double;        ///< TODO: consider fixed-point ticks for exactness.
-using Qty       = double;
+using Price     = double;  ///< TODO: fixed-point ticks for exactness — see D26.
+using Qty       = double;  ///< Same exactness gap as Price (D26): step size, not tick size.
 using SymbolId  = std::uint32_t;  ///< Index into venue symbol table.
 
 enum class Side : std::uint8_t { Buy, Sell };
@@ -60,5 +60,40 @@ static_assert(std::is_standard_layout_v<MarketEvent>);
 // flips to true, something's wrong (or the container choice changed on
 // purpose — update this assert either way, don't just delete it).
 static_assert(!std::is_trivially_copyable_v<MarketEvent>);
+
+using OrderId  = std::uint64_t;  ///< Caller-assigned; unique per submitted Order.
+using Notional = double;         ///< Quote-currency amount (fees, PnL).
+
+/// A request to trade. Market order only — no price/type field yet; earns
+/// its place when limit orders do.
+struct Order {
+    OrderId  id{};
+    SymbolId symbol{};
+    Side     side{};
+    Qty      qty{};
+};
+
+/// What happened to a submitted Order: filled.
+struct Fill {
+    OrderId   order_id{};
+    SymbolId  symbol{};
+    Timestamp ts{};
+    Side      side{};
+    Price     price{};
+    Qty       qty{};  ///< == Order::qty always, for now — no partials.
+    Notional  fee{};
+};
+
+/// Reasons grow as real ones appear (margin, invalid qty, exchange
+/// downtime) — NoPriceAvailable is SimExecution's only one today.
+enum class RejectReason : std::uint8_t { NoPriceAvailable };
+
+/// What happened to a submitted Order: didn't.
+struct Reject {
+    OrderId      order_id{};
+    SymbolId     symbol{};
+    Timestamp    ts{};
+    RejectReason reason{};
+};
 
 }  // namespace qp

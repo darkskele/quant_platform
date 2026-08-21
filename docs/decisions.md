@@ -165,3 +165,51 @@ against `system_clock`'s non-monotonicity (NTP sync, manual changes) wants
 an anchor-plus-`steady_clock` design, not a bare `system_clock::now()` —
 designing that now, ahead of Phase 2's actual live requirements, is
 guessing. `SimClock` is all Phase 1 (backtest) needs.
+
+## D25 — `ExecutionGateway`/`Matcher` split; `SimExecution<M>` generic over fill sophistication now, not deferred to a second implementation
+`SimExecution` and `LiveExecution` don't share a template: `SimExecution`'s
+`submit()` computes inline, `LiveExecution`'s is inherently async (fires an
+order, a background thread fills the outcome queue whenever the exchange
+responds) — forcing both through one generic shell would wrap a synchronous
+abstraction around an async reality. They're two independent
+`ExecutionGateway` implementations, matching `LiveWebSocketSource`/
+`FileReplaySource` under `Source`. Within `SimExecution<M>`, fill
+sophistication (market-state tracking + fill computation) is templated on
+one bundled `Matcher` policy now, with only one implementation
+(`LastTradeMatcher`) — deliberately not deferred to "abstract on the third
+implementation": unlike most seams in this repo, this one is being built as
+a genuine compile-time-swappable policy from the start rather than
+concretely-then-generalized, because getting the seam boundary right
+matters here independent of whether a second `Matcher` exists yet. Named
+`Matcher`, not `FillModel` — considered and rejected splitting market-state
+tracking out into its own lib (mirroring `wire`'s D19 extraction, shared
+substrate for two consumers instead of one depending on the other): `wire`
+was extracted once `FileReplaySource` *concretely* needed the same codec
+`FileRecorder` already had, not in anticipation of it. No second concrete
+consumer of market-state tracking exists yet (a live feature engine is a
+distant Phase 4 concern) — bundled and renamed is right-sized for now;
+revisit the extraction if/when one is actually being built. `Fill`/`Reject`
+come back through one poll, `next_outcome() -> optional<variant<Fill,
+Reject>>`, not two separate queues — two channels would lose the true order
+outcomes happened in (fill, reject, fill — draining one queue then the
+other scrambles that). `Order`/`Fill`/`Reject`/`RejectReason`/`OrderId`/
+`Notional` added to `core/types.hpp` (lingua-franca plain data, same tier as
+`MarketEvent`, per `docs/repo-layout.md`'s original scoping of `core`).
+`LastTradeMatcher`: no book (funding carry needs no depth,
+`docs/strategy.md`), no slippage, no partials — full fill at the last-seen
+`Trade` price, `NoPriceAvailable` reject if none seen yet.
+
+## D26 — `Price`/`Qty` staying `double` for now is a tracked gap, not a settled decision
+Both have the same exactness problem: Binance defines price and quantity in
+fixed decimal increments per symbol (`tickSize`/`stepSize`), and `double`
+drifts across repeated arithmetic (fee calc, PnL summation, `price * qty`
+not matching the exchange's own integer arithmetic exactly). `Price`
+already carried a fixed-point TODO; `Qty` silently didn't — same problem,
+inconsistently flagged, now aligned. Not fixed here: `PriceLevel` is
+`memcpy`'d directly into the `wire` binary format
+(`is_trivially_copyable`), so changing either's representation touches the
+on-disk format, the parser converting Binance's string-decimals into it,
+and every already-tested record/replay path — a dedicated pass (real
+representation choice: fixed-point scale, per-symbol precision from
+`exchangeInfo`, etc.), not a rushed redefinition as a side effect of
+unrelated work.

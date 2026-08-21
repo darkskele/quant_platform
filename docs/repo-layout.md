@@ -41,7 +41,8 @@ quant-platform/
 │   │   │                        # a leaf, no separate docs/. Only venue today.
 │   │   └── sink/            # "sinks" city: Sink concept + FileRecorder, NullSink.
 │   │                        # No further nesting.
-│   ├── execution/          # ExecutionGateway concept + SimExecution, LiveExecution   (trader milestone)
+│   ├── execution/          # ExecutionGateway/Matcher concepts + SimExecution (D25);
+│   │                       # LiveExecution deferred to the live milestone.
 │   ├── risk/               # RiskGate interface + impls (+ kill-switch)               (trader milestone)
 │   ├── strategy/           # Strategy interface + concrete strategies                 (trader milestone)
 │   ├── engine/             # Engine<Tx,Clk,Exec> template (trader only)               (trader milestone)
@@ -152,9 +153,9 @@ ever live there.
 
 ## Scaffold status
 
-`core`, `clock`, `data_source/wire`, `data_source/source` (town-level + its
-`venue` village, now including `FileReplaySource`), `data_source/sink`,
-`apps/collector`, and root `tests/` (cross-lib parity) are implemented,
-building, and tested — this is no longer folders-only. Trader libs
-(`execution`, `risk`, `strategy`, `engine`) remain scaffold-only, arriving
+`core`, `clock`, `execution`, `data_source/wire`, `data_source/source`
+(town-level + its `venue` village, now including `FileReplaySource`),
+`data_source/sink`, `apps/collector`, and root `tests/` (cross-lib parity)
+are implemented, building, and tested — this is no longer folders-only.
+Trader libs (`risk`, `strategy`, `engine`) remain scaffold-only, arriving
 with the trader milestone.

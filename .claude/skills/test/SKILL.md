@@ -14,6 +14,7 @@ what's confirmed working here.
 |---|---|---|
 | `libs/core` | `qp_core_tests` | — |
 | `libs/clock` | `qp_clock_tests` | core |
+| `libs/execution` | `qp_execution_tests` | core |
 | `libs/data_source/wire` | `qp_wire_tests` | core |
 | `libs/data_source/source` | `qp_source_tests`, `qp_source_integration_tests`, `qp_file_replay_tests`, `qp_venue_tests` | core, wire |
 | `libs/data_source/sink` | `qp_sink_integration_tests` | core, wire |

@@ -80,7 +80,8 @@ function(qp_register_test name)
 endfunction()
 
 add_subdirectory(libs/core)
-add_subdirectory(libs/clock)               # Clock concept + WallClock/SimClock, depends on core only
+add_subdirectory(libs/clock)               # Clock concept + SimClock (WallClock deferred), depends on core only
+add_subdirectory(libs/execution)           # ExecutionGateway/Matcher concepts + SimExecution, depends on core only
 add_subdirectory(libs/data_source/wire)    # codec substrate shared by source (read) and sink (write)
 add_subdirectory(libs/data_source/sink)
 # sink before source: qp_file_replay_tests test-only links qp_sink (real
