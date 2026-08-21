@@ -264,3 +264,22 @@ gains `test_round_robin_pool.cpp` (pool mechanics in isolation, no
 `Strategy`/`Engine` scaffolding needed); `qp_engine_tests` gains a
 2-strategy/1-worker case proving `Engine`'s own commit loop aggregates both
 strategies' fills correctly.
+
+## D31 — `Portfolio` stores positions in a fixed `std::array<Qty, kMaxSymbols>`, direct-indexed by `SymbolId`, not an `unordered_map`
+`SymbolId` is already a dense id ("index into venue symbol table",
+`core/types.hpp`) assigned by the run's own `SymbolTable::intern()` from a
+config/manifest-provided symbol list (`FileRecorder`'s `symbols.manifest`,
+D20; the collector's CLI `--symbols`) — known and bounded *before* `Engine`
+ever starts, not discovered mid-run. An `unordered_map` was hashing a key
+space that was never sparse or unbounded to begin with; direct array
+indexing is the structurally correct fit, not a premature optimization.
+`kMaxSymbols = 64` is sized for a solo retail portfolio's own subscribed
+set (funding-carry majors + stat-arb pairs, `docs/strategy.md`), not
+Binance's full several-hundred-symbol catalog — a generous, cheap (512
+bytes) bound, not a guess dressed up as one; bump it if a real strategy
+set needs more. `position()`/`apply_fill()` assert `symbol < kMaxSymbols`
+in debug builds — an out-of-range `SymbolId` here is an internal
+config/venue mismatch, not user input to validate against (CLAUDE.md:
+trust internal guarantees, validate only at system boundaries). No
+allocation, no hashing, on either call — same D27 discipline applied to
+`Portfolio`'s own hot path.

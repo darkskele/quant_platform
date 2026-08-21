@@ -10,16 +10,10 @@
 
 namespace qp {
 
-/// Runs a fixed, compile-time set of Tasks — each `Result operator()(const
-/// Context&)` — round-robin across NumWorkers persistent threads
-/// (NumWorkers <= sizeof...(Tasks); a worker runs several tasks per round
-/// if there are more tasks than workers). Domain-agnostic: knows nothing
-/// about MarketEvent/Strategy — Engine supplies Context/Result/Tasks.
+/// Runs a fixed, compile-time set of Tasks. Domain-agnostic.
 ///
 /// run_round() collects results via one SpscQueue<Result> per task,
-/// drained in strict task-index order — draining is simultaneously the
-/// wait for that task's worker and the deterministic ordering, no separate
-/// barrier (see docs/decisions.md D33).
+/// drained in strict task-index order.
 template <std::size_t NumWorkers, class Context, class Result, class... Tasks>
 class RoundRobinPool {
     static constexpr std::size_t kNumTasks = sizeof...(Tasks);
@@ -32,7 +26,7 @@ class RoundRobinPool {
         spawn_workers(std::make_index_sequence<NumWorkers>{});
     }
 
-    // Worker threads capture `this`; a moved-to pool would leave them
+    // Worker threads capture `this` a moved-to pool would leave them
     // pointing at the old address.
     RoundRobinPool(const RoundRobinPool&)            = delete;
     RoundRobinPool& operator=(const RoundRobinPool&) = delete;
