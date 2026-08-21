@@ -23,9 +23,11 @@ structural/statistical edges — **not HFT**. See `MISSION.md`.
   `Clock` seam. This is a determinism landmine.
 - **Strategies emit `Intent`, not venue calls.** They depend only on
   `MarketEvent` / `StateView` / `Intent` — never on concrete adapters.
-- **Static dispatch on hot/fixed seams (concepts preferred over CRTP); virtual
-  on cold/runtime seams (strategy, risk).** Don't templatize the rebalance path;
-  don't put a vtable in the feed loop.
+- **Static dispatch everywhere the software controls the cost** (concepts
+  preferred over CRTP) — including strategy and risk. Virtual dispatch is
+  reserved for a genuinely rare, config-selected choice with no hot-path
+  exposure; none of the current seams qualify (D27). Don't put a vtable in
+  the feed loop.
 - **Seams first, generality later.** Build concretely; abstract on the 3rd
   implementation. No plugin framework before a plugin.
 - **Data on disk is binary + zstd + partitioned. Never JSON.** Record

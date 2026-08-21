@@ -24,3 +24,10 @@ goals, per the city/town/village convention.
    them, sibling files under `execution` (D25). `LiveExecution` — real order
    execution, not simulated — deferred to the live milestone. No `Engine`
    consumer yet — arrives with the trader milestone.
+4. ~~**Trader-milestone skeleton.**~~ `Intent`/`Portfolio`/`StateView`
+   (`core`), `strategy`'s `Strategy` concept, `risk`'s `RiskGate` concept +
+   `RiskDecision`, and `engine`'s `Engine<Tx,Clk,Exec,Risk,Strategies...>`
+   (D27/D28), proven by `qp_strategy_tests`/`qp_risk_tests`/
+   `qp_engine_tests`. Interfaces + composition only — no concrete
+   funding-carry `Strategy`, no real kill-switch `RiskGate`, no `WallClock`,
+   no `apps/backtest` wiring yet; those are separate later milestones.

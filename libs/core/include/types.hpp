@@ -5,9 +5,9 @@
 
 namespace qp {
 
-using Timestamp = std::int64_t;  ///< Nanoseconds since epoch.
-using Price     = double;  ///< TODO: fixed-point ticks for exactness — see D26.
-using Qty       = double;  ///< Same exactness gap as Price (D26): step size, not tick size.
+using Timestamp = std::int64_t;   ///< Nanoseconds since epoch.
+using Price     = double;         ///< TODO: fixed-point ticks for exactness — see D26.
+using Qty       = double;         ///< Same exactness gap as Price (D26): step size, not tick size.
 using SymbolId  = std::uint32_t;  ///< Index into venue symbol table.
 
 enum class Side : std::uint8_t { Buy, Sell };
@@ -33,25 +33,29 @@ enum class EventKind : std::uint8_t { BookDiff, Trade, Funding, BookSnapshot };
 
 /// The lingua franca. Plain data, no behavior, no venue-specifics.
 /// Kept as one struct (not a variant) so it serializes trivially to `wire`.
+/// Field order is alignment-driven, not logical (D32): kind/side/symbol
+/// grouped first — they're the only sub-8-byte fields — saves 16 bytes of
+/// padding (128 -> 112) versus declaration order. wire.hpp encodes
+/// field-by-field, not memcpy, so this doesn't touch the on-disk format.
 struct MarketEvent {
     EventKind     kind{};
+    Side          side{};  ///< Trade only.
+    SymbolId      symbol{};
     Timestamp     ts{};         ///< Exchange/event time.
     std::uint64_t first_seq{};  ///< First seq in event (Binance's U); BookDiff only.
     std::uint64_t seq{};        ///< Final update id (Binance's u); gap detection/resync.
     std::uint64_t prev_seq{};   ///< Continues-from seq (pu); 0/unset if not applicable.
-    SymbolId      symbol{};
-
-    // BookDiff:
-    std::vector<PriceLevel> bids;
-    std::vector<PriceLevel> asks;
 
     // Trade:
     Price price{};
     Qty   qty{};
-    Side  side{};
 
     // Funding:
     double funding_rate{};
+
+    // BookDiff:
+    std::vector<PriceLevel> bids;
+    std::vector<PriceLevel> asks;
 };
 
 static_assert(std::is_standard_layout_v<MarketEvent>);
@@ -83,27 +87,35 @@ struct Order {
     Qty      qty{};
 };
 
-/// What happened to a submitted Order: filled.
+/// What happened to a submitted Order: filled. Field order is
+/// alignment-driven (D32): symbol/side grouped right after order_id saves
+/// 8 bytes of padding (56 -> 48) versus declaration order.
 struct Fill {
     OrderId   order_id{};
     SymbolId  symbol{};
-    Timestamp ts{};
     Side      side{};
+    Timestamp ts{};
     Price     price{};
     Qty       qty{};  ///< == Order::qty always, for now — no partials.
     Notional  fee{};
 };
 
+static_assert(sizeof(Fill) == 48, "unexpected padding/size regression");
+
 /// Reasons grow as real ones appear (margin, invalid qty, exchange
 /// downtime) — NoPriceAvailable is SimExecution's only one today.
 enum class RejectReason : std::uint8_t { NoPriceAvailable };
 
-/// What happened to a submitted Order: didn't.
+/// What happened to a submitted Order: didn't. Field order is
+/// alignment-driven (D32): symbol/reason grouped right after order_id
+/// saves 8 bytes of padding (32 -> 24) versus declaration order.
 struct Reject {
     OrderId      order_id{};
     SymbolId     symbol{};
-    Timestamp    ts{};
     RejectReason reason{};
+    Timestamp    ts{};
 };
+
+static_assert(sizeof(Reject) == 24, "unexpected padding/size regression");
 
 }  // namespace qp

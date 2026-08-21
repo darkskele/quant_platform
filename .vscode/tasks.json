@@ -429,6 +429,105 @@
             "problemMatcher": []
         },
         {
+            "label": "Build: qp_strategy_tests",
+            "type": "shell",
+            "command": "cmake --build build/debug --target qp_strategy_tests -j",
+            "dependsOn": "Configure (debug)",
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "Strategy concept satisfaction against an inline NoopStrategy."
+        },
+        {
+            "label": "Test: qp_strategy_tests",
+            "type": "shell",
+            "command": "./build/debug/libs/strategy/qp_strategy_tests",
+            "dependsOn": "Build: qp_strategy_tests",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "Build: qp_strategy_tests (release)",
+            "type": "shell",
+            "command": "cmake --build build/release --target qp_strategy_tests -j",
+            "dependsOn": "Configure (release)",
+            "group": "build",
+            "problemMatcher": ["$gcc"]
+        },
+        {
+            "label": "Test: qp_strategy_tests (release)",
+            "type": "shell",
+            "command": "./build/release/libs/strategy/qp_strategy_tests",
+            "dependsOn": "Build: qp_strategy_tests (release)",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "Build: qp_risk_tests",
+            "type": "shell",
+            "command": "cmake --build build/debug --target qp_risk_tests -j",
+            "dependsOn": "Configure (debug)",
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "RiskGate concept satisfaction, RiskDecision shape: approve carries an Order, reject carries none."
+        },
+        {
+            "label": "Test: qp_risk_tests",
+            "type": "shell",
+            "command": "./build/debug/libs/risk/qp_risk_tests",
+            "dependsOn": "Build: qp_risk_tests",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "Build: qp_risk_tests (release)",
+            "type": "shell",
+            "command": "cmake --build build/release --target qp_risk_tests -j",
+            "dependsOn": "Configure (release)",
+            "group": "build",
+            "problemMatcher": ["$gcc"]
+        },
+        {
+            "label": "Test: qp_risk_tests (release)",
+            "type": "shell",
+            "command": "./build/release/libs/risk/qp_risk_tests",
+            "dependsOn": "Build: qp_risk_tests (release)",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "Build: qp_engine_tests",
+            "type": "shell",
+            "command": "cmake --build build/debug --target qp_engine_tests -j",
+            "dependsOn": "Configure (debug)",
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "Engine<Tx,Clk,Exec,Risk,Strategies...> loop end-to-end: transport exhaustion, trade->intent->fill->Portfolio, reject path, run() draining multiple events."
+        },
+        {
+            "label": "Test: qp_engine_tests",
+            "type": "shell",
+            "command": "./build/debug/libs/engine/qp_engine_tests",
+            "dependsOn": "Build: qp_engine_tests",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "Build: qp_engine_tests (release)",
+            "type": "shell",
+            "command": "cmake --build build/release --target qp_engine_tests -j",
+            "dependsOn": "Configure (release)",
+            "group": "build",
+            "problemMatcher": ["$gcc"]
+        },
+        {
+            "label": "Test: qp_engine_tests (release)",
+            "type": "shell",
+            "command": "./build/release/libs/engine/qp_engine_tests",
+            "dependsOn": "Build: qp_engine_tests (release)",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
             "label": "Build: qp_sink_integration_tests",
             "type": "shell",
             "command": "cmake --build build/debug --target qp_sink_integration_tests -j",

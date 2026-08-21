@@ -1,20 +1,11 @@
 #include <gtest/gtest.h>
 
-#include <vector>
-
 #include "portfolio.hpp"
 #include "strategy.hpp"
+#include "support/strategy_doubles.hpp"
 #include "types.hpp"
 
-namespace {
-
-struct NoopStrategy {
-    std::vector<qp::Intent> on_event(const qp::MarketEvent&, qp::StateView) { return {}; }
-
-    std::vector<qp::Intent> on_timer(qp::Timestamp, qp::StateView) { return {}; }
-};
-
-}  // namespace
+using qp::test::NoopStrategy;
 
 static_assert(qp::Strategy<NoopStrategy>);
 

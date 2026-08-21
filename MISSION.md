@@ -14,7 +14,11 @@ The edge is sought in **signal quality, honest cost modeling, and operational
 discipline**, at holding periods from minutes to days on **Binance USD-M
 perpetuals** — deliberately *not* in tick-to-trade speed. The engineering
 ambition (lock-free data paths, compile-time policy dispatch, mechanical
-sympathy) is spent on **correctness and throughput, not nanoseconds**.
+sympathy) **chases every nanosecond the software controls** — not because
+speed is the edge, but because self-inflicted overhead is real cost
+regardless of what it's spent on (see `docs/decisions.md` D27). What it
+can't buy is the hardware — colo, kernel-bypass, FPGAs — that would make a
+tick-to-trade race worth entering.
 
 Strategies are developed in order of increasing sophistication and data
 appetite — funding/basis carry first, statistical arbitrage next,

@@ -45,7 +45,7 @@ quant-platform/
 │   │                       # LiveExecution deferred to the live milestone.
 │   ├── risk/               # RiskGate interface + impls (+ kill-switch)               (trader milestone)
 │   ├── strategy/           # Strategy interface + concrete strategies                 (trader milestone)
-│   ├── engine/             # Engine<Tx,Clk,Exec> template (trader only)               (trader milestone)
+│   ├── engine/             # Engine<Tx,Clk,Exec,Risk,NumWorkers,Strategies...> template (trader only)  (trader milestone)
 │   ├── telemetry/          # logging + metrics (uptime is a feature)                  (later)
 │   └── analytics/          # backtest reporting: PnL, Sharpe, drawdown               (later)
 │

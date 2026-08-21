@@ -3,6 +3,7 @@
 - ~~G1 — Working data source~~
 - ~~G2 — SimClock~~
 - ~~G3 — SimExecution~~
+- ~~G4 — Trader-milestone skeleton~~
 
 ## Last proof
 
@@ -31,3 +32,31 @@ deferred, not fixed (D26). `qp_execution_tests`: concept-satisfaction
 per-symbol price independence, `nullopt` on an empty queue, and outcome
 ordering (reject then fill, matching submission order rather than grouped
 by kind).
+
+`Strategy`/`RiskGate` moved from a planned virtual-dispatch design to C++20
+concepts, and `Engine` from `vector<unique_ptr<Strategy>>` to a closed
+`std::tuple<Strategies...>` + a concept-constrained `Risk` — D4's "virtual:
+strategy, risk" was wrong, superseded by D27: this project isn't opting out
+of latency sensitivity, only out of hardware (colo/kernel-bypass/FPGA) it
+can't afford, so a vtable/heap allocation on this path is a self-inflicted,
+avoidable cost. `Intent`/`Portfolio`/`StateView` (`core`), `Strategy`
+(`strategy`), `RiskGate`/`RiskDecision` (`risk`), and
+`Engine<Tx,Clk,Exec,Risk,NumWorkers,Strategies...>` (`engine`) added (D28)
+— see `libs/engine/docs/STATUS.md` for `Engine`'s own proof, including the
+follow-up `RoundRobinPool`-based parallel dispatch (D33). `qp_strategy_tests`:
+concept satisfaction against an inline `NoopStrategy` — 1/1 passing.
+`qp_risk_tests`: concept satisfaction, an approved decision carries an
+`Order` sized from the `Intent`, a rejected one carries none — 2/2 passing.
+
+`Portfolio`'s `unordered_map<SymbolId, Qty>` replaced with a fixed
+`std::array<Qty, 64>`, direct-indexed by `SymbolId` (D31) — `SymbolId` is
+already a dense id assigned by the run's own bounded, config-known symbol
+set, so array indexing is the correct structure, not a premature
+optimization; no allocation, no hashing on `apply_fill`/`position`.
+Separately, `Fill`/`Reject`/`MarketEvent` (pre-existing, D25) reordered for
+alignment (D32): `Fill` 56→48 bytes, `Reject` 32→24, `MarketEvent`
+~128→~112 — `static_assert(sizeof(...) == N)` guards added to `Fill`/
+`Reject` matching `PriceLevel`'s existing convention (verified against a
+real compilation, not just hand arithmetic). No behavior change; three
+designated-initializer call sites updated to the new declaration order
+(`last_trade_matcher.hpp`, `test_portfolio.cpp`).

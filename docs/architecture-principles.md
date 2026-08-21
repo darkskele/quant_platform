@@ -33,11 +33,12 @@ door open to cut a process boundary later for *operational* reasons (restart the
 trader without dropping the feed), not speed.
 
 **"Not competing on network/hardware latency" ≠ "computational efficiency
-doesn't matter."** D1 rules out colo/kernel-bypass/FPGAs — racing the wire.
-It doesn't rule out SIMD, cache-conscious layouts, or lock-free structures
-where the codebase already benefits from them without hardware investment
+doesn't matter."** D1 rules out colo/kernel-bypass/FPGAs — racing the wire
+with hardware we can't buy. It does *not* rule out chasing every nanosecond
+the software controls: SIMD, cache-conscious layouts, lock-free structures
 (the SPSC queue, direct-array-indexed gap detection, simdjson's SIMD
-parsing are already this discipline, just not previously named). Phase 4's
+parsing), and — per D27 — static dispatch on every seam, strategy/risk
+included, not just the ones that happen to be I/O-adjacent. Phase 4's
 order-book feature engine is the natural home for more of it — e.g. SIMD
 level-aggregation — since that's genuinely hot, high-volume, on-box compute,
 not a race against another firm's network path.
@@ -60,13 +61,13 @@ not a race against another firm's network path.
    event timestamps). **Strategy code must NEVER call the system clock directly**
    — that silently breaks backtest determinism.
 
-4. **`Strategy` (virtual, runtime)** — `on_event(MarketEvent, StateView) ->
+4. **`Strategy` (concept, compile-time)** — `on_event(MarketEvent, StateView) ->
    vector<Intent>`, `on_timer(...)`. Emits **intent** ("be +2 BTC"), not venue
-   calls — stays execution-agnostic and unit-testable. Virtual because chosen by
-   config, held in collections, swappable; vtable cost is irrelevant at this
-   frequency.
+   calls — stays execution-agnostic and unit-testable. A closed,
+   compile-time set of strategies (`std::tuple<Strategies...>`, fold-dispatched)
+   runs inside one `Engine` — no vtable, no per-strategy heap allocation (D27).
 
-5. **`RiskGate` (virtual, runtime)** — `check(Intent, StateView) -> RiskDecision`
+5. **`RiskGate` (concept, compile-time)** — `check(Intent, StateView) -> RiskDecision`
    (approve/resize/reject → concrete `Order`s) + `on_tick(StateView) ->
    vector<Order>` (autonomous kill-switch / drawdown flatten). Where intent
    becomes sized orders. Has its own authority.
@@ -86,12 +87,17 @@ not a race against another firm's network path.
 
 ## Compile-time vs virtual — the rule
 
-**Static dispatch where events are frequent and the swap is build-fixed**
-(transport, clock, execution, recorder). **Virtual where configuration is runtime**
-(which strategy, which risk config). The choice is a function of *how often you
-cross the seam relative to your latency budget* — at MFT the strategy seam is
-crossed rarely against a huge budget, so virtual is free; at HFT it'd be
-templated (or `std::variant`+`visit`) so the hot path inlines.
+**Static dispatch everywhere the software controls the cost** — transport,
+clock, execution, recorder, strategy, risk all resolve at compile time
+(concepts, not virtual bases; `std::tuple<Strategies...>` + a fold
+expression for the closed, heterogeneous strategy set). We're not racing
+colo/kernel-bypass/FPGA hardware (D1) — that's a resource constraint, not
+permission to waste the latency we do control. A vtable indirection or a
+heap allocation is a self-inflicted cost, same category as an unnecessary
+copy or a missed cache line; "the budget is huge so it doesn't matter" was
+D4's mistake, superseded by D27. Virtual dispatch is reserved for a
+genuinely rare, config-selected choice with no hot-path exposure — none of
+the current seams qualify; revisit if one actually appears.
 
 ## Composition — share the SOURCE, not the engine
 
@@ -105,17 +111,17 @@ trader.
 policies:
 
 ```cpp
-template<Transport Tx, Clock Clk, ExecutionGateway Exec>
+template<Transport Tx, Clock Clk, ExecutionGateway Exec, RiskGate Risk,
+         std::size_t NumWorkers, Strategy... Strategies>
 class Engine {
-    Tx transport_; Clk clock_; Exec exec_;
-    std::vector<std::unique_ptr<Strategy>> strategies_;
-    std::unique_ptr<RiskGate> risk_;
+    Tx transport_; Clk clock_; Exec exec_; Risk risk_;
+    RoundRobinPool<NumWorkers, ..., Strategies...> pool_;  // strategies, round-robin (D33)
     Portfolio state_;
-    // loop: pull event -> strategies -> risk -> exec -> fills -> state
+    // loop: pull event -> pool_.run_round(strategies) -> risk/exec, in strategy order -> fills -> state
 };
 
-// live.cpp     Engine<LiveWebSocketSource, WallClock, LiveExecution>
-// backtest.cpp Engine<FileReplaySource,    SimClock,  SimExecution>
+// live.cpp     Engine<LiveWebSocketSource, WallClock, LiveExecution, ...>
+// backtest.cpp Engine<FileReplaySource,    SimClock,  SimExecution,  ...>
 ```
 
 No `Sink` param — recording is orthogonal to the decision loop, not

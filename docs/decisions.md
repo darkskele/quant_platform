@@ -216,6 +216,103 @@ representation choice: fixed-point scale, per-symbol precision from
 `exchangeInfo`, etc.), not a rushed redefinition as a side effect of
 unrelated work.
 
+## D27 — Every seam we control gets static dispatch, not just source/clock/execution/recorder; D4's "virtual: strategy, risk" was wrong
+D4 justified virtual dispatch on `Strategy`/`RiskGate` by "the strategy
+seam is crossed rarely against a huge budget"
+(`docs/architecture-principles.md`) — wrong. This project isn't opting out
+of latency sensitivity; D1's "not HFT" rules out *hardware* we can't
+afford (colo, kernel-bypass, FPGAs), it doesn't say we stop caring about
+latency on the software we do control. A vtable indirection and a
+`unique_ptr` allocation per strategy are both self-inflicted, avoidable
+costs on the one part of the budget we actually own — "the budget is huge
+so it doesn't matter" is the same optimism this repo's honest-cost
+discipline (`SimExecution`, D25/D26) exists to reject elsewhere. `Strategy`
+and `RiskGate` become C++20 concepts (like `Clock`/`ExecutionGateway`), not
+virtual base classes. `Engine` dispatches `Strategy`s through a shared
+`RoundRobinPool` (D33, `libs/core`) rather than a vtable/heap per strategy
+— still one `RiskGate`/`Portfolio` shared across all of them (needed so a
+kill-switch sees aggregate drawdown, not per-strategy). Non-goals unchanged
+(D1/D2, `MISSION.md`): no market making, no latency arbitrage, no
+colocated/specialized hardware, holding periods stay minutes-to-days —
+this is about not wasting the latency we already have, not about entering
+a race we can't win.
+
+## D28 — `Intent`/`Portfolio`/`StateView` shapes; `Strategy`/`RiskGate` concept signatures; `Engine`'s member layout
+`Intent` (`core/types.hpp`): a target position, not a delta or a venue
+order ("be +2 BTC", not "buy 2 BTC") — `RiskGate` computes the delta itself
+against current `StateView`. No `ts` field, matching `Order`'s own
+precedent — timestamps are call-site parameters where actually consumed,
+not struct fields. `Portfolio`/`StateView` (`core/portfolio.hpp`, not a new
+`libs/portfolio`): unlike `Clock`/`ExecutionGateway`, `Portfolio` has no
+backtest/live variant to swap between — exactly one implementation, ever —
+so it isn't a compile-time-swappable seam, it's shared state;
+`docs/repo-layout.md`'s tree comment already pre-declared it living in
+`core`. `StateView` v1 exposes only `position(SymbolId) -> Qty`: no PnL, no
+open-order tracking — every `Order` today fills or rejects synchronously
+(`SimExecution`/`LastTradeMatcher`), so "open orders" would always be
+empty, and PnL wants a real consumer (a real kill-switch `RiskGate`, or
+analytics reporting — both still later milestones) before its shape (cost
+basis? mark-to-market against which price?) is guessed at.
+
+`RiskDecision` (`libs/risk`) is a tag (`RiskOutcome`) + `optional<Order>`,
+not a `variant`: `Approved`/`Resized` share one payload shape (an `Order`)
+— only `Rejected` differs — so a tag says *why*, not *what shape*, unlike
+`Fill`/`Reject` which genuinely differ in fields. `OrderId` minting is each
+concrete `RiskGate`'s own responsibility (a private counter), not part of
+the interface. `strategy` stays bare namespace `qp` (one concept, no
+supporting types, matching `Clock`'s precedent); `risk` gets `qp::risk`
+(multiple types, matching `qp::execution`'s precedent).
+
+`Engine::step()` calls `RiskGate::on_tick` once per processed event — the
+only well-defined, non-speculative cadence available in an event-driven
+core with no idle-time polling. `Strategy::on_timer` is deliberately wired
+nowhere yet: inventing a timer-scheduling mechanism now, ahead of any real
+caller, would be exactly the speculative machinery this repo's "seams
+first, generality later" principle warns against. Scope, matching D25's
+precedent: only the interfaces + `Engine` skeleton + a minimal passing loop
+test land now — no concrete funding-carry `Strategy`, no real kill-switch
+`RiskGate`, no `WallClock`, no `apps/backtest` wiring.
+
+## D31 — `Portfolio` stores positions in a fixed `std::array<Qty, kMaxSymbols>`, direct-indexed by `SymbolId`, not an `unordered_map`
+`SymbolId` is already a dense id ("index into venue symbol table",
+`core/types.hpp`) assigned by the run's own `SymbolTable::intern()` from a
+config/manifest-provided symbol list (`FileRecorder`'s `symbols.manifest`,
+D20; the collector's CLI `--symbols`) — known and bounded *before* `Engine`
+ever starts, not discovered mid-run. An `unordered_map` was hashing a key
+space that was never sparse or unbounded to begin with; direct array
+indexing is the structurally correct fit, not a premature optimization.
+`kMaxSymbols = 64` is sized for a solo retail portfolio's own subscribed
+set (funding-carry majors + stat-arb pairs, `docs/strategy.md`), not
+Binance's full several-hundred-symbol catalog — a generous, cheap (512
+bytes) bound, not a guess dressed up as one; bump it if a real strategy
+set needs more. `position()`/`apply_fill()` assert `symbol < kMaxSymbols`
+in debug builds — an out-of-range `SymbolId` here is an internal
+config/venue mismatch, not user input to validate against (CLAUDE.md:
+trust internal guarantees, validate only at system boundaries). No
+allocation, no hashing, on either call — same D27 discipline applied to
+`Portfolio`'s own hot path.
+
+## D32 — `Fill`/`Reject`/`MarketEvent` field order changed to be alignment-driven, not declaration-order-by-accident
+A structural review (prompted by D28's new `Portfolio`/`Intent` additions)
+found the existing (pre-this-branch) `Fill`/`Reject`/`MarketEvent` structs
+paying real, avoidable padding from small fields (`SymbolId`, `Side`/
+`RejectReason`) being interleaved between 8-byte fields instead of grouped:
+`Fill` 56 -> 48 bytes, `Reject` 32 -> 24 bytes, `MarketEvent` ~128 -> ~112
+bytes, by grouping the sub-8-byte fields adjacently instead of scattering
+them at their "logical" position. Safe to do: `wire.hpp` encodes
+`MarketEvent` field-by-field (already asserted `!is_trivially_copyable`),
+never `memcpy`s it, so reordering declaration order doesn't touch the
+on-disk format — unlike `PriceLevel`, which *is* `memcpy`'d and so cannot
+be reordered this freely. `Fill`/`Reject` gain
+`static_assert(sizeof(...) == N)` guards matching `PriceLevel`'s existing
+convention, to catch a future regression; `MarketEvent` doesn't (it holds
+`std::vector`s — its size isn't a portable constant across standard
+library implementations the way an all-fixed-width struct's is).
+Call sites using designated initializers (C++20 requires designator order
+to match declaration order) updated to match:
+`libs/execution/include/last_trade_matcher.hpp`,
+`libs/core/tests/test_portfolio.cpp`.
+
 ## D33 — `Engine` dispatches `Strategy`s across a generic `RoundRobinPool` (`libs/core`), not one thread per strategy
 Cross-strategy ordering only matters once something downstream is
 order-sensitive: a `RiskGate` with capacity shared across strategies
@@ -266,53 +363,3 @@ gains `test_round_robin_pool.cpp` (pool mechanics in isolation, no
 `Strategy`/`Engine` scaffolding needed); `qp_engine_tests` gains a
 2-strategy/1-worker case proving `Engine`'s own commit loop aggregates both
 strategies' fills correctly.
-
-## D31 — `Portfolio` stores positions in a fixed `std::array<Qty, kMaxSymbols>`, direct-indexed by `SymbolId`, not an `unordered_map`
-`SymbolId` is already a dense id ("index into venue symbol table",
-`core/types.hpp`) assigned by the run's own `SymbolTable::intern()` from a
-config/manifest-provided symbol list (`FileRecorder`'s `symbols.manifest`,
-D20; the collector's CLI `--symbols`) — known and bounded *before* `Engine`
-ever starts, not discovered mid-run. An `unordered_map` was hashing a key
-space that was never sparse or unbounded to begin with; direct array
-indexing is the structurally correct fit, not a premature optimization.
-`kMaxSymbols = 64` is sized for a solo retail portfolio's own subscribed
-set (funding-carry majors + stat-arb pairs, `docs/strategy.md`), not
-Binance's full several-hundred-symbol catalog — a generous, cheap (512
-bytes) bound, not a guess dressed up as one; bump it if a real strategy
-set needs more. `position()`/`apply_fill()` assert `symbol < kMaxSymbols`
-in debug builds — an out-of-range `SymbolId` here is an internal
-config/venue mismatch, not user input to validate against (CLAUDE.md:
-trust internal guarantees, validate only at system boundaries). No
-allocation, no hashing, on either call — same D27 discipline applied to
-`Portfolio`'s own hot path.
-
-## D27 — Every seam we control gets static dispatch, not just source/clock/execution/recorder; D4's "virtual: strategy, risk" was wrong
-D4 justified virtual dispatch on `Strategy`/`RiskGate` by "the strategy
-seam is crossed rarely against a huge budget"
-(`docs/architecture-principles.md`) — wrong. This project isn't opting out
-of latency sensitivity; D1's "not HFT" rules out *hardware* we can't
-afford (colo, kernel-bypass, FPGAs), it doesn't say we stop caring about
-latency on the software we do control. A vtable indirection and a
-`unique_ptr` allocation per strategy are both self-inflicted, avoidable
-costs on the one part of the budget we actually own — "the budget is huge
-so it doesn't matter" is the same optimism this repo's honest-cost
-discipline (`SimExecution`, D25/D26) exists to reject elsewhere. `Strategy`
-and `RiskGate` become C++20 concepts (like `Clock`/`ExecutionGateway`), not
-virtual base classes. `Engine` will dispatch `Strategy`s through a shared
-`RoundRobinPool` (D33, `libs/core`) rather than a vtable/heap per strategy
-— still one `RiskGate`/`Portfolio` shared across all of them (needed so a
-kill-switch sees aggregate drawdown, not per-strategy). Non-goals unchanged
-(D1/D2, `MISSION.md`): no market making, no latency arbitrage, no
-colocated/specialized hardware, holding periods stay minutes-to-days —
-this is about not wasting the latency we already have, not about entering
-a race we can't win.
-
-## D34 — `Intent` shape; `Strategy` stays a bare `qp` namespace concept
-`Intent` (`core/types.hpp`): a target position, not a delta or a venue
-order ("be +2 BTC", not "buy 2 BTC") — `RiskGate` computes the delta
-itself against current `StateView`. No `ts` field, matching `Order`'s own
-precedent — timestamps are call-site parameters, not struct fields.
-`Strategy` stays bare namespace `qp` (one concept, no supporting types,
-matching `Clock`'s precedent) rather than `qp::strategy` — contrast
-`risk`, expected to get its own namespace once it lands `RiskGate` +
-`RiskDecision` + `RiskOutcome` together.
