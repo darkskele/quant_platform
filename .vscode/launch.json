@@ -267,6 +267,54 @@
             "preLaunchTask": "Build: qp_parity_tests"
         },
         {
+            "name": "Debug: qp_clock_tests",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/debug/libs/clock/qp_clock_tests",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "environment": [
+                {
+                    "name": "DEBUGINFOD_URLS",
+                    "value": ""
+                },
+                {
+                    "name": "ASAN_OPTIONS",
+                    "value": "detect_leaks=0"
+                },
+            ],
+            "setupCommands": [
+                { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
+            ],
+            "preLaunchTask": "Build: qp_clock_tests"
+        },
+        {
+            "name": "Release: qp_clock_tests",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/release/libs/clock/qp_clock_tests",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "environment": [
+                {
+                    "name": "DEBUGINFOD_URLS",
+                    "value": ""
+                }
+            ],
+            "setupCommands": [
+                { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
+            ],
+            "preLaunchTask": "Build: qp_clock_tests (release)"
+        },
+        {
             "name": "Debug: qp_sink_integration_tests",
             "type": "cppdbg",
             "request": "launch",

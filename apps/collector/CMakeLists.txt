@@ -34,7 +34,7 @@ if(Boost_FOUND AND OpenSSL_FOUND)
             PRIVATE qp_collector_core qp_source_test_support qp_core_test_support zstd::libzstd
                     GTest::gtest GTest::gtest_main
         )
-        add_test(NAME qp_collector_integration_tests COMMAND qp_collector_integration_tests)
+        qp_register_test(qp_collector_integration_tests)
     endif()
 else()
     message(STATUS "collector: Boost/OpenSSL not found — apps/collector skipped (needs qp_source).")

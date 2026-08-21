@@ -14,7 +14,7 @@ if(BUILD_TESTING)
     find_package(GTest CONFIG REQUIRED)
     add_executable(qp_venue_tests tests/test_binance_parser.cpp)
     target_link_libraries(qp_venue_tests PRIVATE qp_venue GTest::gtest GTest::gtest_main)
-    add_test(NAME qp_venue_tests COMMAND qp_venue_tests)
+    qp_register_test(qp_venue_tests)
 endif()
 
 if(QP_BUILD_BENCHMARKS)

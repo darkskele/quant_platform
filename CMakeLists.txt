@@ -63,12 +63,24 @@ endif()
 # Each lib is its own CMake target (qp_core, qp_source, ...) plus, where
 # it has them, its own *_tests / *_bench targets — `cmake --build build
 # --target qp_source_tests` builds exactly that and its deps, nothing
-# else in the tree. No shared test/benchmark-registration macro yet: a
-# helper for this pattern is premature until a third *top-level* lib repeats
-# it verbatim (seams first, generality later) — libs/data_source/source now
-# add_subdirectory's its remaining village (venue)
-# internally, see its CMakeLists.txt.
+# else in the tree. libs/data_source/source now add_subdirectory's its
+# remaining village (venue) internally, see its CMakeLists.txt.
+
+# Aggregate target every *_tests binary registers into via
+# qp_register_test() below, so "build everything testable" (.vscode/
+# tasks.json's "Build: all tests", the /test skill's `all` mode) is one
+# `--target qp_all_tests` instead of an enumerated list every new lib's
+# CMakeLists.txt has to remember to also go add itself to elsewhere. Past
+# the "third top-level lib repeats this verbatim" bar this file used to
+# defer the pattern on.
+add_custom_target(qp_all_tests)
+function(qp_register_test name)
+    add_test(NAME ${name} COMMAND ${name})
+    add_dependencies(qp_all_tests ${name})
+endfunction()
+
 add_subdirectory(libs/core)
+add_subdirectory(libs/clock)               # Clock concept + WallClock/SimClock, depends on core only
 add_subdirectory(libs/data_source/wire)    # codec substrate shared by source (read) and sink (write)
 add_subdirectory(libs/data_source/sink)
 # sink before source: qp_file_replay_tests test-only links qp_sink (real

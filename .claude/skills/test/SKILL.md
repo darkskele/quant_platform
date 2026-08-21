@@ -13,6 +13,7 @@ what's confirmed working here.
 | Lib | Test target(s) | Depends on (transitively re-test if this changed) |
 |---|---|---|
 | `libs/core` | `qp_core_tests` | — |
+| `libs/clock` | `qp_clock_tests` | core |
 | `libs/data_source/wire` | `qp_wire_tests` | core |
 | `libs/data_source/source` | `qp_source_tests`, `qp_source_integration_tests`, `qp_file_replay_tests`, `qp_venue_tests` | core, wire |
 | `libs/data_source/sink` | `qp_sink_integration_tests` | core, wire |
@@ -29,9 +30,11 @@ target name (`/test qp_venue_tests`) when only that village changed. For the
 build step, `cmake --build build/debug --target qp_prod_streamer_tests -j`
 is equivalent to listing all four target names — either works.
 
-Every target above is registered with CTest as `add_test(NAME <target>
-COMMAND <target>)` in its lib's `CMakeLists.txt` — the test name equals the
-CMake target name, so `ctest -R` can filter on the same names as this table.
+Every target above is registered with CTest via `qp_register_test(<target>)`
+(root `CMakeLists.txt`'s helper — wraps `add_test` and adds the target to
+the `qp_all_tests` aggregate) in its lib's `CMakeLists.txt` — the test name
+equals the CMake target name, so `ctest -R` can filter on the same names as
+this table.
 
 ## Selecting what to run
 
@@ -53,7 +56,9 @@ CMake target name, so `ctest -R` can filter on the same names as this table.
 2. `cmake --build build/debug --target <selected targets> -j` — pass the
    exact selected target names, space-separated. Don't fall back to a bare
    `cmake --build build/debug -j` for a targeted run — that silently builds
-   the whole tree regardless of what was actually selected.
+   the whole tree regardless of what was actually selected. For `all`,
+   `cmake --build build/debug --target qp_all_tests -j` is equivalent to
+   and simpler than listing every target in the table above.
 3. `ctest --test-dir build/debug --output-on-failure -R '<target1|target2|...>'`
    for a targeted/lib-specific run; omit `-R` entirely for `all`.
 4. Report tersely: pass/fail counts per target run. On failure, include the

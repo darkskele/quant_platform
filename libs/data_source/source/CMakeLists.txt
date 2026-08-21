@@ -19,7 +19,7 @@ if(BUILD_TESTING)
         tests/test_resync_coordinator.cpp
     )
     target_link_libraries(qp_source_tests PRIVATE qp_source_pure GTest::gtest GTest::gtest_main)
-    add_test(NAME qp_source_tests COMMAND qp_source_tests)
+    qp_register_test(qp_source_tests)
 endif()
 
 add_subdirectory(venue)
@@ -40,7 +40,7 @@ if(BUILD_TESTING)
     target_link_libraries(qp_file_replay_tests
         PRIVATE qp_file_replay qp_sink qp_core_test_support GTest::gtest GTest::gtest_main
     )
-    add_test(NAME qp_file_replay_tests COMMAND qp_file_replay_tests)
+    qp_register_test(qp_file_replay_tests)
 endif()
 
 if(QP_BUILD_BENCHMARKS)
@@ -96,7 +96,7 @@ if(Boost_FOUND AND OpenSSL_FOUND)
         target_link_libraries(qp_source_integration_tests
             PRIVATE qp_source_test_support GTest::gtest GTest::gtest_main
         )
-        add_test(NAME qp_source_integration_tests COMMAND qp_source_integration_tests)
+        qp_register_test(qp_source_integration_tests)
     endif()
 
     set(QP_SOURCE_LIVE_BUILT TRUE)

@@ -24,7 +24,7 @@ if(BUILD_TESTING)
         tests/test_zstd_stream.cpp
     )
     target_link_libraries(qp_wire_tests PRIVATE qp_wire qp_core_test_support GTest::gtest GTest::gtest_main)
-    add_test(NAME qp_wire_tests COMMAND qp_wire_tests)
+    qp_register_test(qp_wire_tests)
 endif()
 
 if(QP_BUILD_BENCHMARKS)

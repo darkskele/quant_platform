@@ -23,5 +23,5 @@ if(BUILD_TESTING)
     target_link_libraries(qp_sink_integration_tests
         PRIVATE qp_sink qp_core_test_support GTest::gtest GTest::gtest_main
     )
-    add_test(NAME qp_sink_integration_tests COMMAND qp_sink_integration_tests)
+    qp_register_test(qp_sink_integration_tests)
 endif()

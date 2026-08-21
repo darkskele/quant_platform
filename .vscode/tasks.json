@@ -363,6 +363,39 @@
             "problemMatcher": []
         },
         {
+            "label": "Build: qp_clock_tests",
+            "type": "shell",
+            "command": "cmake --build build/debug --target qp_clock_tests -j",
+            "dependsOn": "Configure (debug)",
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "Clock concept satisfaction, SimClock advance() semantics, WallClock real-time/no-op checks."
+        },
+        {
+            "label": "Test: qp_clock_tests",
+            "type": "shell",
+            "command": "./build/debug/libs/clock/qp_clock_tests",
+            "dependsOn": "Build: qp_clock_tests",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "Build: qp_clock_tests (release)",
+            "type": "shell",
+            "command": "cmake --build build/release --target qp_clock_tests -j",
+            "dependsOn": "Configure (release)",
+            "group": "build",
+            "problemMatcher": ["$gcc"]
+        },
+        {
+            "label": "Test: qp_clock_tests (release)",
+            "type": "shell",
+            "command": "./build/release/libs/clock/qp_clock_tests",
+            "dependsOn": "Build: qp_clock_tests (release)",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
             "label": "Build: qp_sink_integration_tests",
             "type": "shell",
             "command": "cmake --build build/debug --target qp_sink_integration_tests -j",
@@ -418,11 +451,11 @@
         {
             "label": "Build: all tests (debug)",
             "type": "shell",
-            "command": "cmake --build build/debug --target qp_core_tests qp_wire_tests qp_source_tests qp_source_integration_tests qp_file_replay_tests qp_venue_tests qp_sink_integration_tests qp_collector_integration_tests qp_parity_tests -j",
+            "command": "cmake --build build/debug --target qp_all_tests -j",
             "dependsOn": "Configure (debug)",
             "group": "build",
             "problemMatcher": ["$gcc"],
-            "detail": "Every registered test target, debug build."
+            "detail": "Every registered test target (qp_all_tests, CMakeLists.txt), debug build."
         },
         {
             "label": "Test: all (debug)",
@@ -435,11 +468,11 @@
         {
             "label": "Build: all tests (release)",
             "type": "shell",
-            "command": "cmake --build build/release --target qp_core_tests qp_wire_tests qp_source_tests qp_source_integration_tests qp_file_replay_tests qp_venue_tests qp_sink_integration_tests qp_collector_integration_tests qp_parity_tests -j",
+            "command": "cmake --build build/release --target qp_all_tests -j",
             "dependsOn": "Configure (release)",
             "group": "build",
             "problemMatcher": ["$gcc"],
-            "detail": "Every registered test target, release build."
+            "detail": "Every registered test target (qp_all_tests, CMakeLists.txt), release build."
         },
         {
             "label": "Test: all (release)",

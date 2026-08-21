@@ -18,7 +18,7 @@ if(BUILD_TESTING)
     find_package(Threads REQUIRED)
     add_executable(qp_core_tests tests/test_spsc_queue.cpp tests/test_spmc_ring.cpp)
     target_link_libraries(qp_core_tests PRIVATE qp_core Threads::Threads GTest::gtest GTest::gtest_main)
-    add_test(NAME qp_core_tests COMMAND qp_core_tests)
+    qp_register_test(qp_core_tests)
 endif()
 
 if(QP_BUILD_BENCHMARKS)

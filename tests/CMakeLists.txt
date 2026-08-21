@@ -11,5 +11,5 @@ if(BUILD_TESTING)
     target_link_libraries(qp_parity_tests
         PRIVATE qp_sink qp_file_replay qp_core_test_support GTest::gtest GTest::gtest_main
     )
-    add_test(NAME qp_parity_tests COMMAND qp_parity_tests)
+    qp_register_test(qp_parity_tests)
 endif()

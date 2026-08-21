@@ -150,3 +150,18 @@ collector separately. Docs-only for now (`docs/architecture-principles.md`,
 `docs/repo-layout.md`) — `libs/data_source/source/include/source.hpp`'s
 `Source` concept keeps its current name until Engine/the ring-reading
 adapter are actually built, to avoid doc/code drift in the meantime.
+
+## D23 — `Clock` gets its own `libs/clock`, not folded into `core`
+`docs/repo-layout.md` originally scoped "Clock concept" to `core`, but
+every other seam in this repo keeps its concept and concrete adapters
+together in one lib (`Source`/its adapters in `source`; `Sink`/its
+adapters in `sink`) — splitting `Clock`'s concept into `core` while its
+adapters lived elsewhere would be the odd one out. `core` stays scoped to
+the zero-dep lingua franca + the SPSC queue; `libs/clock` holds `Clock` +
+`SimClock`, depending on `core` only for `Timestamp` — same shape as `wire`
+being a substrate scoped to `source`/`sink` rather than folded into either.
+`WallClock` deliberately not built yet: a live wall clock that's safe
+against `system_clock`'s non-monotonicity (NTP sync, manual changes) wants
+an anchor-plus-`steady_clock` design, not a bare `system_clock::now()` —
+designing that now, ahead of Phase 2's actual live requirements, is
+guessing. `SimClock` is all Phase 1 (backtest) needs.

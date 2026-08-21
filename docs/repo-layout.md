@@ -21,7 +21,9 @@ quant-platform/
 │
 ├── libs/                   # each is a CMake target = a seam (or group)
 │   ├── core/               # LINGUA FRANCA: MarketEvent, Order, Fill, Intent, Timestamp,
-│   │                       # Clock concept, Portfolio/StateView. Header-only. Depends on NOTHING.
+│   │                       # Portfolio/StateView. Header-only. Depends on NOTHING.
+│   ├── clock/              # Clock concept + SimClock (D23). Header-only, depends on
+│   │                       # core only. WallClock deferred to the live milestone.
 │   ├── data_source/        # "source" + "sinks" cities — coequal, independent seams
 │   │   │                   # (Source vs Sink), grouped as sibling dirs for
 │   │   │                   # filesystem convenience only — see DESIGN.md's "Cities today".
@@ -150,8 +152,8 @@ ever live there.
 
 ## Scaffold status
 
-`core`, `data_source/wire`, `data_source/source` (town-level + its `venue`
-village, now including `FileReplaySource`), `data_source/sink`,
+`core`, `clock`, `data_source/wire`, `data_source/source` (town-level + its
+`venue` village, now including `FileReplaySource`), `data_source/sink`,
 `apps/collector`, and root `tests/` (cross-lib parity) are implemented,
 building, and tested — this is no longer folders-only. Trader libs
 (`execution`, `risk`, `strategy`, `engine`) remain scaffold-only, arriving
