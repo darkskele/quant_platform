@@ -16,3 +16,6 @@ locks. Header-only, depends on nothing — everything else depends on this.
 3. ~~**Event schema stays plain data.**~~ No behavior, no venue-specifics, no
    virtual dispatch — matches `docs/architecture-principles.md`'s "seam 1."
 4. ~~**`SpmcRing<T, Capacity, NumConsumers>`: single-producer, multi-consumer, gated.**~~
+5. ~~**`RoundRobinPool<NumWorkers, Context, Result, Tasks...>`: generic round-robin worker pool.**~~
+   Domain-agnostic (no `MarketEvent`/`Strategy` in it) — `libs/engine` is
+   its first consumer (D33).

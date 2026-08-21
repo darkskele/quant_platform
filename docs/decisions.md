@@ -213,3 +213,54 @@ and every already-tested record/replay path — a dedicated pass (real
 representation choice: fixed-point scale, per-symbol precision from
 `exchangeInfo`, etc.), not a rushed redefinition as a side effect of
 unrelated work.
+
+## D33 — `Engine` dispatches `Strategy`s across a generic `RoundRobinPool` (`libs/core`), not one thread per strategy
+Cross-strategy ordering only matters once something downstream is
+order-sensitive: a `RiskGate` with capacity shared across strategies
+(an exposure cap, a kill-switch budget — whoever's checked first wins the
+remaining room), or a book-depth-aware `Matcher` (D25's stated future
+direction for `Matcher` — whoever fills first gets the better price, the
+next order eats the slippage). Neither exists yet — `LastTradeMatcher`
+fixes its price before any strategy runs, and no `RiskGate` shares state
+across strategies — so today this can't change an outcome. It's cheap
+insurance for when one does exist, not a fix for a live bug: `Engine`
+risk-checks/submits each `Intent` **single-threaded, in fixed
+strategy-index order**, never the order results happen to arrive in.
+
+The first design (thread-per-`Strategy`, two `std::barrier`s) was wrong on
+its own terms, independent of the ordering question: `sizeof...(Strategies)`
+persistent OS threads double-barrier-synced on every event doesn't scale —
+20 strategies means 20 threads, most idle, cycling wake/sleep every single
+event. Replaced with `RoundRobinPool<NumWorkers, Context, Result, Tasks...>`
+(`libs/core`): a **shared**, compile-time-sized pool (`NumWorkers`, an
+explicit `Engine` template parameter — not defaulted, since a following
+`Strategies...` pack means a default before it can't be omitted positionally
+anyway; not queried from `hardware_concurrency()`, since everything else on
+this path already resolves at compile time). Strategies are assigned
+round-robin (`strategy i → worker i % NumWorkers`, resolved via `if
+constexpr` over an index sequence — zero runtime branching for indices a
+worker doesn't own), so `NumWorkers` can be smaller than the strategy count.
+
+Built as a generic primitive in `core`, not inline in `Engine` — the
+mechanics (round-robin assignment, wake, ordered collection) have nothing
+to do with `MarketEvent`/`Strategy`; `core` already holds exactly this
+category of thing (`SpscQueue`, `SpmcRing`). Wake/collect reuses
+`SpscQueue` (one per task, producer = the owning worker, consumer = the
+caller of `run_round()`) instead of a new `std::barrier`-based handshake:
+draining queue `i` **is** both the wait for task `i` and, done strictly in
+index order, the deterministic collection — one mechanism, not two. `Engine`
+adapts each `Strategy`'s 2-arg `on_event(event, state)` to the pool's 1-arg
+`Result operator()(const Context&)` shape via a small `StrategyTask<S>`
+wrapper holding a pointer to the strategy (not a copy) — `Context` bundles
+`{const MarketEvent&, StateView}`.
+
+Verified outside the normal `ctest` path (per CLAUDE.md's build policy, no
+`ctest`/`ctest`-suite run was triggered for this): a standalone compile
+against the real headers — single-strategy, 2 strategies over 1 worker
+(fewer workers than tasks), 2 strategies over 2 workers, and `run()` over
+50 events — clean under ThreadSanitizer (ASLR disabled per
+`docs/environment.md`'s documented WSL2 TSan workaround). `qp_core_tests`
+gains `test_round_robin_pool.cpp` (pool mechanics in isolation, no
+`Strategy`/`Engine` scaffolding needed); `qp_engine_tests` gains a
+2-strategy/1-worker case proving `Engine`'s own commit loop aggregates both
+strategies' fills correctly.

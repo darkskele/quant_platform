@@ -4,6 +4,7 @@
 - [x] G2 — SPSC queue proven under TSan + benchmarked
 - [x] G3 — event schema stays plain data
 - [x] G4 — SpmcRing<T, Capacity, NumConsumers> implemented, gated multi-cursor fan-out
+- [x] G5 — RoundRobinPool<NumWorkers, Context, Result, Tasks...> implemented
 
 ## Last proof
 
@@ -32,3 +33,18 @@ sanitizer-specific test exists — `qp_core_tests` itself is what runs under
 the `tsan` preset). `qp_core_bench` measures SPSC push/pop round-trip —
 numbers are relative-only per `docs/environment.md`'s WSL caveat, not quoted
 here since they drift run to run; re-run `/bench core` for current numbers.
+
+`RoundRobinPool<NumWorkers, Context, Result, Tasks...>`
+(`libs/core/include/round_robin_pool.hpp`) added (D33): a fixed,
+compile-time task set (each `Result operator()(const Context&)`) assigned
+round-robin across `NumWorkers` persistent threads (`NumWorkers` may be
+less than the task count); results collected via one `SpscQueue<Result,2>`
+per task, drained in strict task-index order — the drain is simultaneously
+the wait for that task and the deterministic ordering, no separate barrier.
+Wake signal is a single `generation_` atomic counter, not `std::barrier` —
+smaller, reuses the same acquire/release handoff pattern `SpscQueue` itself
+already uses. Built generic (no trading types) specifically so `libs/engine`
+can depend on it without coupling this primitive to `Strategy`/`Intent`.
+`qp_core_tests`: heterogeneous tasks with fewer workers than tasks, one
+worker for all tasks, one worker per task, and successive rounds seeing
+fresh context rather than stale results — 4/4 passing.

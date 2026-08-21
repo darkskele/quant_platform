@@ -104,6 +104,7 @@ if(QP_BUILD_BENCHMARKS)
         libs/data_source/source/benchmarks/bench_file_replay_source.cpp
         libs/data_source/source/venue/benchmarks/bench_binance_parser.cpp
         libs/data_source/wire/benchmarks/bench_wire.cpp
+        libs/core/benchmarks/bench_round_robin_pool.cpp
     )
     target_link_libraries(qp_bench PRIVATE
         qp_core qp_core_test_support qp_source_pure qp_file_replay qp_venue qp_wire benchmark::benchmark_main
