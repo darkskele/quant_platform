@@ -1,21 +1,10 @@
 #include <gtest/gtest.h>
 
 #include "portfolio.hpp"
+#include "support/fill_builders.hpp"
 #include "types.hpp"
 
-namespace {
-
-qp::Fill make_fill(qp::SymbolId symbol, qp::Side side, qp::Qty qty) {
-    return qp::Fill{.order_id = 1,
-                    .symbol   = symbol,
-                    .ts       = 0,
-                    .side     = side,
-                    .price    = 100.0,
-                    .qty      = qty,
-                    .fee      = 0.0};
-}
-
-}  // namespace
+using qp::test::make_fill;
 
 TEST(Portfolio, FlatUntilAnyFillArrives) {
     qp::Portfolio portfolio;

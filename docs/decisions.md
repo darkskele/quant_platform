@@ -16,9 +16,11 @@ Backtest and live are one Engine template with different policy types
 (source/clock/execution/sink). Kills backtest-live divergence — the main way
 retail quant projects die.
 
-## D4 — Compile-time policies on hot/fixed seams, virtual on cold/runtime seams
-Static dispatch: source, clock, execution, recorder. Virtual: strategy, risk.
-Justified by cross-frequency-vs-latency-budget, not dogma.
+## ~~D4 — Compile-time policies on hot/fixed seams, virtual on cold/runtime seams~~
+~~Static dispatch: source, clock, execution, recorder. Virtual: strategy,~~
+~~risk. Justified by cross-frequency-vs-latency-budget, not dogma.~~
+**Superseded by D27** — the "huge budget" premise was wrong; strategy/risk
+move to static dispatch too.
 
 ## D5 — Production streamer first; collector is that streamer + a recorder sink
 L2 order-book history isn't free and can't be backfilled — but rather than a
@@ -283,3 +285,34 @@ config/venue mismatch, not user input to validate against (CLAUDE.md:
 trust internal guarantees, validate only at system boundaries). No
 allocation, no hashing, on either call — same D27 discipline applied to
 `Portfolio`'s own hot path.
+
+## D27 — Every seam we control gets static dispatch, not just source/clock/execution/recorder; D4's "virtual: strategy, risk" was wrong
+D4 justified virtual dispatch on `Strategy`/`RiskGate` by "the strategy
+seam is crossed rarely against a huge budget"
+(`docs/architecture-principles.md`) — wrong. This project isn't opting out
+of latency sensitivity; D1's "not HFT" rules out *hardware* we can't
+afford (colo, kernel-bypass, FPGAs), it doesn't say we stop caring about
+latency on the software we do control. A vtable indirection and a
+`unique_ptr` allocation per strategy are both self-inflicted, avoidable
+costs on the one part of the budget we actually own — "the budget is huge
+so it doesn't matter" is the same optimism this repo's honest-cost
+discipline (`SimExecution`, D25/D26) exists to reject elsewhere. `Strategy`
+and `RiskGate` become C++20 concepts (like `Clock`/`ExecutionGateway`), not
+virtual base classes. `Engine` will dispatch `Strategy`s through a shared
+`RoundRobinPool` (D33, `libs/core`) rather than a vtable/heap per strategy
+— still one `RiskGate`/`Portfolio` shared across all of them (needed so a
+kill-switch sees aggregate drawdown, not per-strategy). Non-goals unchanged
+(D1/D2, `MISSION.md`): no market making, no latency arbitrage, no
+colocated/specialized hardware, holding periods stay minutes-to-days —
+this is about not wasting the latency we already have, not about entering
+a race we can't win.
+
+## D34 — `Intent` shape; `Strategy` stays a bare `qp` namespace concept
+`Intent` (`core/types.hpp`): a target position, not a delta or a venue
+order ("be +2 BTC", not "buy 2 BTC") — `RiskGate` computes the delta
+itself against current `StateView`. No `ts` field, matching `Order`'s own
+precedent — timestamps are call-site parameters, not struct fields.
+`Strategy` stays bare namespace `qp` (one concept, no supporting types,
+matching `Clock`'s precedent) rather than `qp::strategy` — contrast
+`risk`, expected to get its own namespace once it lands `RiskGate` +
+`RiskDecision` + `RiskOutcome` together.

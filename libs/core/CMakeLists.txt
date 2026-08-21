@@ -23,7 +23,8 @@ if(BUILD_TESTING)
     find_package(Threads REQUIRED)
     add_executable(qp_core_tests tests/test_spsc_queue.cpp tests/test_spmc_ring.cpp tests/test_portfolio.cpp
                                   tests/test_round_robin_pool.cpp)
-    target_link_libraries(qp_core_tests PRIVATE qp_core Threads::Threads GTest::gtest GTest::gtest_main)
+    target_link_libraries(qp_core_tests PRIVATE qp_core qp_core_test_support Threads::Threads GTest::gtest
+                                                 GTest::gtest_main)
     qp_register_test(qp_core_tests)
 endif()
 

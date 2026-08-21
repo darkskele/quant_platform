@@ -64,6 +64,16 @@ static_assert(!std::is_trivially_copyable_v<MarketEvent>);
 using OrderId  = std::uint64_t;  ///< Caller-assigned; unique per submitted Order.
 using Notional = double;         ///< Quote-currency amount (fees, PnL).
 
+/// A strategy's desired end-state for one symbol — a target position, not
+/// a delta or a venue order ("be +2 BTC", not "buy 2 BTC"). RiskGate turns
+/// this into concrete Order(s), computing the delta itself against current
+/// StateView. No ts field — same as Order, timestamps are call-site
+/// parameters where actually consumed, not struct fields.
+struct Intent {
+    SymbolId symbol{};
+    Qty      target_position{};  ///< Signed: positive = net long, negative = net short.
+};
+
 /// A request to trade. Market order only — no price/type field yet; earns
 /// its place when limit orders do.
 struct Order {

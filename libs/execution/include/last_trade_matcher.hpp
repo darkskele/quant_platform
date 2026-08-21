@@ -25,8 +25,8 @@ class LastTradeMatcher {
             return Reject{
                 .order_id = o.id,
                 .symbol   = o.symbol,
-                .ts       = ts,
                 .reason   = RejectReason::NoPriceAvailable,
+                .ts       = ts,
             };
         }
 
@@ -40,8 +40,8 @@ class LastTradeMatcher {
         return Fill{
             .order_id = o.id,
             .symbol   = o.symbol,
-            .ts       = ts,
             .side     = o.side,
+            .ts       = ts,
             .price    = price,
             .qty      = o.qty,
             .fee      = price * o.qty * kTakerFeeRate,
