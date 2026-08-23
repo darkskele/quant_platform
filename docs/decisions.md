@@ -389,3 +389,23 @@ change.
 Still not built: any P&L/cash-balance dimension to actually apply a computed
 funding payment against — `Portfolio` only tracks position (D31/D28). That's
 the next real gap for backtesting carry honestly, not this change.
+
+## D37 — `Portfolio` gains a cash balance; still no margin/leverage/liquidation modeling
+Fills already carry `price`/`qty`/`fee`; `apply_fill` now debits/credits
+`cash_` alongside the existing position update (buying costs `qty*price +
+fee`, selling credits `qty*price - fee`, same `delta` already computed for
+the position, no new state needed to do it). Funding gets a second write
+path, `apply_funding(const MarketEvent&)`: `cash_ -= position(symbol) *
+mark_price * funding_rate` — positive funding means longs pay shorts, so a
+positive (long) position debits, negative (short) credits. `Engine::step()`
+calls it right after `exec_.on_market_event()`, *before* the strategy pool
+runs on that same event — settlement uses the position as it stood before
+any decision made *because of* this funding rate, not after.
+
+Deliberately not modeled: margin, leverage, liquidation price. Those answer
+"could this position get forced closed," a risk question for a future
+`RiskGate`, not a backtest-P&L one — guessing at leverage/liquidation rules
+now wouldn't change whether a strategy's PnL curve is honest, only add
+unforced assumptions. Equity isn't stored either — `Portfolio` doesn't track
+prices, so `cash + Σ(position_i * current_price_i)` is a derived quantity
+for whoever has those prices (a future analytics layer), not this class.

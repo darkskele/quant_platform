@@ -2,9 +2,11 @@
 
 #include "portfolio.hpp"
 #include "support/fill_builders.hpp"
+#include "support/market_event_builders.hpp"
 #include "types.hpp"
 
 using qp::test::make_fill;
+using qp::test::make_funding;
 
 TEST(Portfolio, FlatUntilAnyFillArrives) {
     qp::Portfolio portfolio;
@@ -43,4 +45,41 @@ TEST(Portfolio, StateViewReflectsFillsAppliedAfterConstruction) {
     EXPECT_EQ(view.position(1), 0.0);
     portfolio.apply_fill(make_fill(1, qp::Side::Buy, 5.0));
     EXPECT_EQ(view.position(1), 5.0);
+}
+
+TEST(Portfolio, BuyingCostsCashPlusFee) {
+    qp::Portfolio portfolio;
+    portfolio.apply_fill(make_fill(1, qp::Side::Buy, 2.0, /*price=*/100.0, /*order_id=*/1, /*ts=*/0,
+                                   /*fee=*/1.5));
+    EXPECT_EQ(portfolio.cash(), -201.5);  // -(2*100) - 1.5
+}
+
+TEST(Portfolio, SellingCreditsCashMinusFee) {
+    qp::Portfolio portfolio;
+    portfolio.apply_fill(make_fill(1, qp::Side::Sell, 2.0, /*price=*/100.0, /*order_id=*/1,
+                                   /*ts=*/0,
+                                   /*fee=*/1.5));
+    EXPECT_EQ(portfolio.cash(), 198.5);  // (2*100) - 1.5
+}
+
+TEST(Portfolio, PositiveFundingRateDebitsALongPosition) {
+    qp::Portfolio portfolio;
+    portfolio.apply_fill(make_fill(1, qp::Side::Buy, 2.0));  // now long 2
+
+    portfolio.apply_funding(make_funding(1, 0, /*rate=*/0.0001, /*mark_price=*/100.0));
+    EXPECT_DOUBLE_EQ(portfolio.cash(), -200.0 - 0.02);  // -(2*100) buy cost, then -2*100*0.0001
+}
+
+TEST(Portfolio, PositiveFundingRateCreditsAShortPosition) {
+    qp::Portfolio portfolio;
+    portfolio.apply_fill(make_fill(1, qp::Side::Sell, 2.0));  // now short 2
+
+    portfolio.apply_funding(make_funding(1, 0, /*rate=*/0.0001, /*mark_price=*/100.0));
+    EXPECT_DOUBLE_EQ(portfolio.cash(), 200.0 + 0.02);  // +(2*100) sell proceeds, then +2*100*0.0001
+}
+
+TEST(Portfolio, FundingHasNoEffectOnAFlatPosition) {
+    qp::Portfolio portfolio;
+    portfolio.apply_funding(make_funding(1, 0, 0.0001, 100.0));
+    EXPECT_EQ(portfolio.cash(), 0.0);
 }

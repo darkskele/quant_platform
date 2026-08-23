@@ -129,3 +129,17 @@ TEST(Engine, MultipleStrategiesEachContributeAndFillDeterministically) {
     EXPECT_TRUE(engine.step());
     EXPECT_EQ(engine.view().position(1), 5.0);  // both orders filled: 2 + 3
 }
+
+TEST(Engine, FundingEventSettlesAgainstCurrentPositionBeforeStrategyReacts) {
+    std::vector<qp::MarketEvent> events{
+        make_trade(1, 1000, 100.0),
+        make_funding(1, 2000, 0.0001, 100.0),
+    };
+    SingleTest engine{FakeTransport{events}, qp::SimClock{}, TestExec{}, AlwaysApproveRiskGate{},
+                      SingleIntentStrategy{.symbol = 1, .target_position = 2.0}};
+
+    EXPECT_TRUE(engine.step());  // Trade -> intent -> fill: position 2, cash -200 - taker fee
+    EXPECT_TRUE(engine.step());  // Funding -> settles against that position
+    // -(2*100) buy cost, -0.08 LastTradeMatcher's taker fee (100*2*0.0004), -0.02 funding.
+    EXPECT_DOUBLE_EQ(engine.view().cash(), -200.0 - 0.08 - 0.02);
+}
