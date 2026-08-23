@@ -27,7 +27,9 @@ MarketEvent trade(qp::Price price, qp::Qty qty, Side side) {
     return qp::test::make_trade(3, 1'700'000'001'000, price, qty, side);
 }
 
-MarketEvent funding(double rate) { return qp::test::make_funding(1, 1'700'000'002'000, rate); }
+MarketEvent funding(double rate, qp::Price mark_price = 0.0) {
+    return qp::test::make_funding(1, 1'700'000'002'000, rate, mark_price);
+}
 
 void expect_equal(const MarketEvent& a, const MarketEvent& b) {
     EXPECT_EQ(a.kind, b.kind);
@@ -49,6 +51,7 @@ void expect_equal(const MarketEvent& a, const MarketEvent& b) {
     EXPECT_EQ(a.price, b.price);
     EXPECT_EQ(a.qty, b.qty);
     EXPECT_EQ(a.side, b.side);
+    EXPECT_EQ(a.mark_price, b.mark_price);
     EXPECT_EQ(a.funding_rate, b.funding_rate);
 }
 
@@ -93,7 +96,7 @@ TEST(Wire, RoundTripsTrade) {
 }
 
 TEST(Wire, RoundTripsFunding) {
-    auto ev = funding(0.0001);
+    auto ev = funding(0.0001, 50123.45);
 
     std::vector<std::byte> buf;
     qp::wire::write_event(buf, ev);
@@ -167,7 +170,7 @@ TEST(Wire, TruncatedAfterLevelsButBeforeTrailingFieldsReturnsNullopt) {
 
     std::vector<std::byte> buf;
     qp::wire::write_event(buf, ev);
-    buf.resize(buf.size() - 1);  // chop the very last byte (funding_rate's tail)
+    buf.resize(buf.size() - 1);  // chop the very last byte (of the trailing fixed-field group)
 
     std::span<const std::byte> cursor{buf};
     auto                       decoded = qp::wire::read_event(cursor);

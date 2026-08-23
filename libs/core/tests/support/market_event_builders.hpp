@@ -35,12 +35,14 @@ inline MarketEvent make_trade(SymbolId symbol, Timestamp ts, Price price, Qty qt
     return ev;
 }
 
-inline MarketEvent make_funding(SymbolId symbol, Timestamp ts, double rate) {
+inline MarketEvent make_funding(SymbolId symbol, Timestamp ts, double rate,
+                                Price mark_price = 0.0) {
     MarketEvent ev;
     ev.kind         = EventKind::Funding;
     ev.ts           = ts;
     ev.symbol       = symbol;
     ev.funding_rate = rate;
+    ev.mark_price   = mark_price;
     return ev;
 }
 

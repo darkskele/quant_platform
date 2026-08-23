@@ -83,7 +83,8 @@ std::string build_stream_path(const std::vector<std::string>& symbols,
     for (const auto& raw : symbols) {
         const std::string s = lower(raw);
         if (!first) path += '/';
-        path += s + "@depth@" + std::string(depth_speed) + "/" + s + "@aggTrade";
+        path +=
+            s + "@depth@" + std::string(depth_speed) + "/" + s + "@aggTrade/" + s + "@markPrice";
         first = false;
     }
     return path;
@@ -190,7 +191,25 @@ bool parse_message(std::string_view msg, SymbolTable& symbols, MarketEvent& out)
             return true;
         }
 
-        return false;  // unrecognized event type (markPrice, etc. — not wired up yet)
+        if (event_type == "markPriceUpdate") {
+            out.kind = EventKind::Funding;
+
+            std::int64_t event_time_ms = 0;
+            data["E"].get(event_time_ms);
+            out.ts = event_time_ms * 1'000'000;
+
+            std::string_view mark_px, rate;
+            if (data["p"].get(mark_px) != simdjson::SUCCESS) return false;
+            if (data["r"].get(rate) != simdjson::SUCCESS) return false;
+            auto mp = to_double(mark_px);
+            auto fr = to_double(rate);
+            if (!mp || !fr) return false;
+            out.mark_price   = *mp;
+            out.funding_rate = *fr;
+            return true;
+        }
+
+        return false;  // unrecognized event type (forceOrder, etc. — not wired up)
     } catch (const simdjson::simdjson_error&) {
         return false;
     }

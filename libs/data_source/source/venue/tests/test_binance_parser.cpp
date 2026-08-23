@@ -126,8 +126,32 @@ TEST(BinanceParser, RejectsMalformedJson) {
 TEST(BinanceParser, RejectsUnrecognizedEventType) {
     SymbolTable symbols;
     MarketEvent ev;
-    const char* msg =
-        R"({"stream":"btcusdt@markPrice","data":{"e":"markPriceUpdate","s":"BTCUSDT"}})";
+    const char* msg = R"({"stream":"btcusdt@forceOrder","data":{"e":"forceOrder","s":"BTCUSDT"}})";
+    EXPECT_FALSE(parse_message(msg, symbols, ev));
+}
+
+TEST(BinanceParser, MarkPriceUpdate) {
+    SymbolTable symbols;
+    const char* msg = R"({"stream":"btcusdt@markPrice","data":{)"
+                      R"("e":"markPriceUpdate","E":1723660802000,"s":"BTCUSDT",)"
+                      R"("p":"61005.12345678","i":"61000.00000000","P":"61002.00000000",)"
+                      R"("r":"0.00010000","T":1723686000000}})";
+
+    MarketEvent ev;
+    ASSERT_TRUE(parse_message(msg, symbols, ev));
+    EXPECT_EQ(ev.kind, EventKind::Funding);
+    EXPECT_EQ(ev.ts, 1723660802000LL * 1'000'000);
+    EXPECT_DOUBLE_EQ(ev.mark_price, 61005.12345678);
+    EXPECT_DOUBLE_EQ(ev.funding_rate, 0.0001);
+    EXPECT_EQ(symbols.name(ev.symbol), "BTCUSDT");
+}
+
+TEST(BinanceParser, MarkPriceUpdateRejectsMissingFundingRate) {
+    SymbolTable symbols;
+    MarketEvent ev;
+    const char* msg = R"({"stream":"btcusdt@markPrice","data":{)"
+                      R"("e":"markPriceUpdate","E":1723660802000,"s":"BTCUSDT",)"
+                      R"("p":"61005.12345678"}})";
     EXPECT_FALSE(parse_message(msg, symbols, ev));
 }
 
@@ -146,17 +170,19 @@ TEST(BinanceParser, HandlesEmptySideDiff) {
 
 TEST(BinanceParser, BuildStreamPath) {
     EXPECT_EQ(build_stream_path({"BTCUSDT", "ethusdt"}),
-              "/stream?streams=btcusdt@depth@100ms/btcusdt@aggTrade/"
-              "ethusdt@depth@100ms/ethusdt@aggTrade");
+              "/stream?streams=btcusdt@depth@100ms/btcusdt@aggTrade/btcusdt@markPrice/"
+              "ethusdt@depth@100ms/ethusdt@aggTrade/ethusdt@markPrice");
     EXPECT_EQ(build_stream_path({"BTCUSDT"}, "250ms"),
-              "/stream?streams=btcusdt@depth@250ms/btcusdt@aggTrade");
+              "/stream?streams=btcusdt@depth@250ms/btcusdt@aggTrade/btcusdt@markPrice");
 }
 
 TEST(BinanceParser, BuildStreamUrlRespectsEndpoint) {
     EXPECT_EQ(build_stream_url({"BTCUSDT"}),
-              "wss://fstream.binance.com/stream?streams=btcusdt@depth@100ms/btcusdt@aggTrade");
+              "wss://fstream.binance.com/stream?streams=btcusdt@depth@100ms/btcusdt@aggTrade/"
+              "btcusdt@markPrice");
     EXPECT_EQ(build_stream_url({"BTCUSDT"}, kFuturesWsTestnet),
-              "wss://stream.binancefuture.com/stream?streams=btcusdt@depth@100ms/btcusdt@aggTrade");
+              "wss://stream.binancefuture.com/stream?streams=btcusdt@depth@100ms/btcusdt@aggTrade/"
+              "btcusdt@markPrice");
 }
 
 TEST(BinanceParser, DepthSnapshotUrlRespectsEndpoint) {

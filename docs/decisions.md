@@ -363,3 +363,29 @@ gains `test_round_robin_pool.cpp` (pool mechanics in isolation, no
 `Strategy`/`Engine` scaffolding needed); `qp_engine_tests` gains a
 2-strategy/1-worker case proving `Engine`'s own commit loop aggregates both
 strategies' fills correctly.
+
+## D36 — `MarketEvent` gains `mark_price`; live source now subscribes to `@markPrice`
+Funding-carry's return *is* the funding payment, and honestly modeling one
+needs the mark price it settles against (Binance computes
+`payment = position × mark_price × funding_rate` at each interval) — last-trade
+price isn't it, and nothing carried mark price before this. `mark_price`
+added to `MarketEvent` next to `funding_rate` (`core/types.hpp`) — both come
+off Binance's single `markPriceUpdate` message, not two separate events, so
+one `Funding`-kind event carries both, matching what the exchange actually
+sends. `wire.hpp`'s fixed trailing field group grows by one `double`
+(on-disk format change — no compat shim, nothing has recorded `Funding`
+events yet since the parser never emitted them before this). Live source:
+`build_stream_path` subscribes to `<symbol>@markPrice` per symbol (default
+~3s cadence — carry's decision cadence is hours, no reason to reach for the
+faster `@markPrice@1s` variant); `parse_message` gains a `markPriceUpdate`
+branch, additive to the existing `depthUpdate`/`aggTrade` dispatch, no
+resync/gap-detection involvement (not a sequenced diff stream). Backtest
+replay needs no new mechanism — `FileReplaySource`'s existing per-symbol
+timestamp merge already handles arbitrary event kinds; sourcing *historical*
+mark price/funding rate (Binance's free `markPriceKlines`/`fundingRate` REST
+history) is separate, not-yet-built tooling (`tools/`), not a replay-path
+change.
+
+Still not built: any P&L/cash-balance dimension to actually apply a computed
+funding payment against — `Portfolio` only tracks position (D31/D28). That's
+the next real gap for backtesting carry honestly, not this change.

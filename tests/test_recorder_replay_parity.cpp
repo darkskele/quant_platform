@@ -62,6 +62,7 @@ void expect_equal(const MarketEvent& a, const MarketEvent& b) {
     EXPECT_EQ(a.price, b.price);
     EXPECT_EQ(a.qty, b.qty);
     EXPECT_EQ(a.side, b.side);
+    EXPECT_EQ(a.mark_price, b.mark_price);
     EXPECT_EQ(a.funding_rate, b.funding_rate);
 }
 

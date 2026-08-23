@@ -50,7 +50,9 @@ struct MarketEvent {
     Price price{};
     Qty   qty{};
 
-    // Funding:
+    // Funding: both come off Binance's markPriceUpdate stream/event together
+    // (the same message carries both fields), not two separate events.
+    Price mark_price{};  ///< Binance's mark price — funding settles against this, not last trade.
     double funding_rate{};
 
     // BookDiff:

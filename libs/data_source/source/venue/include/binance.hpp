@@ -39,8 +39,9 @@ inline constexpr RestEndpoint kFuturesRestTestnet{"https://testnet.binancefuture
 std::string build_stream_path(const std::vector<std::string>& symbols,
                               std::string_view                depth_speed = "100ms");
 
-// Full combined WebSocket stream URL for depth-diff + aggTrade, one connection
-// for all symbols. `symbols` are exchange symbols, any case (lowercased here).
+// Full combined WebSocket stream URL for depth-diff + aggTrade + markPrice,
+// one connection for all symbols. `symbols` are exchange symbols, any case
+// (lowercased here).
 std::string build_stream_url(const std::vector<std::string>& symbols,
                              WsEndpoint                      endpoint    = kFuturesWsProduction,
                              std::string_view                depth_speed = "100ms");
@@ -56,9 +57,11 @@ std::string depth_snapshot_url(std::string_view symbol, int limit,
 std::optional<DepthSnapshot> parse_depth_snapshot(std::string_view json_body);
 
 // Parses one combined-stream message (`{"stream":...,"data":{...}}`) into
-// `out`. Handles depthUpdate -> BookDiff and aggTrade -> Trade. Returns false
-// for anything else (subscription acks, ping frames, unrecognized event
-// types, malformed JSON) — caller should just skip the message.
+// `out`. Handles depthUpdate -> BookDiff, aggTrade -> Trade, and
+// markPriceUpdate -> Funding (mark_price + funding_rate together — Binance
+// sends both in the same message). Returns false for anything else
+// (subscription acks, ping frames, unrecognized event types, malformed
+// JSON) — caller should just skip the message.
 bool parse_message(std::string_view msg, SymbolTable& symbols, MarketEvent& out);
 
 // Satisfies qp::source::Parser (libs/data_source/source/include/parser.hpp) —
