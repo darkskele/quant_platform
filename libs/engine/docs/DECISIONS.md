@@ -13,7 +13,12 @@ first, generality later" warns against — it waits for a concrete strategy
 that actually needs a wall-clock or bar-close trigger to shape what that
 mechanism should look like.
 
-## D30 — Engine's `Tx` stays constrained on `source::Source`, not renamed `Transport`
+## ~~D30 — Engine's `Tx` stays constrained on `source::Source`, not renamed `Transport`~~
+**Superseded by D39** (`libs/data_source/transport/docs/DECISIONS.md`) — a
+new `transport` city now provides a real `Transport` concept +
+`InProcessTransport` (fixed to actually satisfy it) + `CombinedTransport`;
+`Engine`'s `Tx` is constrained on `transport::Transport`.
+
 `docs/decisions.md` D22 renamed the *concept* Engine depends on from
 `Source` to `Transport` in the docs, but deliberately left
 `libs/data_source/source/include/source.hpp`'s `Source` concept unrenamed

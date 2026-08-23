@@ -11,10 +11,12 @@
 #if defined(QP_VENUE_BINANCE)
 
 #include "binance.hpp"
+#include "resync_policy.hpp"
 
 namespace qp::collector {
 
-using SelectedParser = venue::binance::BinanceParser;
+using SelectedParser    = venue::binance::BinanceParser;
+using SelectedAlignment = source::FuturesAlignment;  // D13/D36: USD-M futures only today
 
 inline constexpr auto kDefaultWsEndpoint   = venue::binance::kFuturesWsProduction;
 inline constexpr auto kDefaultWsTestnet    = venue::binance::kFuturesWsTestnet;

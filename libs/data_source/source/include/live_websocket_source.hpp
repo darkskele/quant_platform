@@ -10,6 +10,7 @@
 #include "binance.hpp"
 #include "parser.hpp"
 #include "resync_coordinator.hpp"
+#include "resync_policy.hpp"
 #include "spsc_queue.hpp"
 #include "types.hpp"
 #include "venue_types.hpp"
@@ -41,6 +42,11 @@ namespace qp::source {
 // metric accessors (dropped_count() etc.) are plain atomic loads and are
 // fine to call from any thread, any number of them, concurrently.
 //
+// Templated on Rule (resync_policy.hpp, D13) in addition to Parser — the
+// resync alignment check differs by market. No default: every instantiation
+// names its rule explicitly, so a new venue can't silently inherit whatever
+// rule happened to be default (the exact class of mistake D13 already was).
+//
 // Resync (docs/decisions.md D10): a fresh connection or a detected sequence
 // gap puts that symbol into Buffering — its diffs are held in a small
 // per-symbol ring rather than forwarded, while a *second* thread fetches a
@@ -55,7 +61,7 @@ namespace qp::source {
 // for a live source). This differs from FileReplaySource, where nullopt
 // means end-of-file. Both satisfy Source syntactically; a caller that
 // treats nullopt as "done" is only correct for replay.
-template <Parser P>
+template <Parser P, AlignmentRule Rule>
 class GenericLiveWebSocketSource {
    public:
     explicit GenericLiveWebSocketSource(
@@ -141,7 +147,7 @@ class GenericLiveWebSocketSource {
     void drain_resync_responses();
     void sample_queue_depths();
 
-    static constexpr std::size_t kMaxSymbols = ResyncCoordinator::kMaxSymbols;
+    static constexpr std::size_t kMaxSymbols = ResyncCoordinator<Rule>::kMaxSymbols;
 
     // Sized for jitter, not outages. This queue's actual job is a short-term
     // handoff to a sink that's continuously draining it (next() called in a
@@ -192,7 +198,7 @@ class GenericLiveWebSocketSource {
     // be driven and proven correct directly (tests/test_resync_coordinator.cpp)
     // rather than only through real sockets and real thread timing. I/O-thread
     // only — same as symbol_table_.
-    ResyncCoordinator coordinator_;
+    ResyncCoordinator<Rule> coordinator_;
 
     // Embedded, not heap-allocated: at sizeof(MarketEvent) == 128 and
     // kQueueCapacity == 2048, this is 256KB — a real but small fraction of
@@ -226,9 +232,9 @@ class GenericLiveWebSocketSource {
 
 // Compiled once, in live_websocket_source.cpp, via explicit instantiation — not
 // header-only. Every existing call site says qp::source::LiveWebSocketSource;
-// only code that ever wants a *different* Parser (no such code exists) would
-// need to spell out GenericLiveWebSocketSource<OtherParser>.
-extern template class GenericLiveWebSocketSource<venue::binance::BinanceParser>;
-using LiveWebSocketSource = GenericLiveWebSocketSource<venue::binance::BinanceParser>;
+// only code that ever wants a *different* Parser/Rule (e.g. a spot venue)
+// would need to spell out GenericLiveWebSocketSource<OtherParser, OtherRule>.
+extern template class GenericLiveWebSocketSource<venue::binance::BinanceParser, FuturesAlignment>;
+using LiveWebSocketSource = GenericLiveWebSocketSource<venue::binance::BinanceParser, FuturesAlignment>;
 
 }  // namespace qp::source

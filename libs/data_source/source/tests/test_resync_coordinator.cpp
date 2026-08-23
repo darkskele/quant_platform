@@ -5,8 +5,10 @@
 using qp::EventKind;
 using qp::MarketEvent;
 using qp::PriceLevel;
+using qp::source::FuturesAlignment;
 using qp::source::ResyncCoordinator;
-using Action = qp::source::ResyncCoordinator::Action;
+using qp::source::SpotAlignment;
+using Action = qp::source::ResyncCoordinator<qp::source::FuturesAlignment>::Action;
 
 namespace {
 
@@ -29,8 +31,8 @@ MarketEvent diff(qp::SymbolId symbol, std::uint64_t first_seq, std::uint64_t seq
 // --- Fresh connect: buffering starts immediately, one request per round ---
 
 TEST(ResyncCoordinator, FirstEventForASymbolBuffersAndRequests) {
-    ResyncCoordinator coord;
-    auto              v = coord.on_event(diff(kBtc, 1, 100, 0));
+    ResyncCoordinator<FuturesAlignment> coord;
+    auto                                v = coord.on_event(diff(kBtc, 1, 100, 0));
     EXPECT_EQ(v.action, Action::BufferAndRequest);
     EXPECT_EQ(v.symbol, kBtc);
     EXPECT_FALSE(v.event.has_value());
@@ -38,7 +40,7 @@ TEST(ResyncCoordinator, FirstEventForASymbolBuffersAndRequests) {
 }
 
 TEST(ResyncCoordinator, SubsequentEventsWhileBufferingDontRequestAgain) {
-    ResyncCoordinator coord;
+    ResyncCoordinator<FuturesAlignment> coord;
     ASSERT_EQ(coord.on_event(diff(kBtc, 1, 100, 0)).action, Action::BufferAndRequest);
     EXPECT_EQ(coord.on_event(diff(kBtc, 101, 105, 100)).action, Action::Buffer);
     EXPECT_EQ(coord.on_event(diff(kBtc, 106, 110, 105)).action, Action::Buffer);
@@ -47,7 +49,7 @@ TEST(ResyncCoordinator, SubsequentEventsWhileBufferingDontRequestAgain) {
 // --- The actual ask: snapshot -> correct delta -> correct replayed sequence ---
 
 TEST(ResyncCoordinator, SnapshotThatBracketsFirstBufferedEventReplaysEverythingInOrder) {
-    ResyncCoordinator coord;
+    ResyncCoordinator<FuturesAlignment> coord;
     coord.on_event(diff(kBtc, 1, 100, 0));
     coord.on_event(diff(kBtc, 101, 105, 100));
     coord.on_event(diff(kBtc, 106, 110, 105));
@@ -65,10 +67,10 @@ TEST(ResyncCoordinator, SnapshotThatBracketsFirstBufferedEventReplaysEverythingI
 }
 
 TEST(ResyncCoordinator, SnapshotEventCarriesTheForwardedLevels) {
-    ResyncCoordinator coord;
-    auto              first = diff(kBtc, 1, 100, 0);
-    first.ts                = 1786742884159;  // non-zero: proves .ts is actually copied, not just
-                                              // left at its (also zero) default
+    ResyncCoordinator<FuturesAlignment> coord;
+    auto                                first = diff(kBtc, 1, 100, 0);
+    first.ts = 1786742884159;  // non-zero: proves .ts is actually copied, not just
+                               // left at its (also zero) default
     coord.on_event(first);
 
     auto outcome = coord.on_snapshot(kBtc, 50, {{100.0, 1.5}, {99.5, 2.0}}, {{100.5, 3.0}});
@@ -91,7 +93,7 @@ TEST(ResyncCoordinator, SnapshotEventCarriesTheForwardedLevels) {
 }
 
 TEST(ResyncCoordinator, SnapshotThatBracketsAMiddleEventDropsTheStaleOnesBeforeIt) {
-    ResyncCoordinator coord;
+    ResyncCoordinator<FuturesAlignment> coord;
     coord.on_event(diff(kBtc, 1, 100, 0));
     coord.on_event(diff(kBtc, 101, 105, 100));
     coord.on_event(diff(kBtc, 106, 110, 105));
@@ -108,7 +110,7 @@ TEST(ResyncCoordinator, SnapshotThatBracketsAMiddleEventDropsTheStaleOnesBeforeI
 }
 
 TEST(ResyncCoordinator, StreamingAfterResyncForwardsDirectlyWithoutBuffering) {
-    ResyncCoordinator coord;
+    ResyncCoordinator<FuturesAlignment> coord;
     coord.on_event(diff(kBtc, 1, 100, 0));
     auto outcome = coord.on_snapshot(kBtc, 50);
     ASSERT_FALSE(outcome.need_retry);
@@ -124,7 +126,7 @@ TEST(ResyncCoordinator, StreamingAfterResyncForwardsDirectlyWithoutBuffering) {
 // --- Recovering from a gap while already Streaming ---
 
 TEST(ResyncCoordinator, GapWhileStreamingTriggersANewBufferingRound) {
-    ResyncCoordinator coord;
+    ResyncCoordinator<FuturesAlignment> coord;
     coord.on_event(diff(kBtc, 1, 100, 0));
     coord.on_snapshot(kBtc, 50);  // now Streaming, anchored at seq=100
 
@@ -137,7 +139,7 @@ TEST(ResyncCoordinator, GapWhileStreamingTriggersANewBufferingRound) {
 }
 
 TEST(ResyncCoordinator, RecoversFullyAfterAGap) {
-    ResyncCoordinator coord;
+    ResyncCoordinator<FuturesAlignment> coord;
     coord.on_event(diff(kBtc, 1, 100, 0));
     coord.on_snapshot(kBtc, 50);  // Streaming, anchored at 100
 
@@ -159,7 +161,7 @@ TEST(ResyncCoordinator, RecoversFullyAfterAGap) {
 // --- Snapshot that doesn't align: the retry path ---
 
 TEST(ResyncCoordinator, SnapshotAheadOfEverythingBufferedNeedsRetry) {
-    ResyncCoordinator coord;
+    ResyncCoordinator<FuturesAlignment> coord;
     coord.on_event(diff(kBtc, 1, 100, 0));
 
     auto outcome = coord.on_snapshot(kBtc, 500);  // every buffered event predates this
@@ -168,7 +170,7 @@ TEST(ResyncCoordinator, SnapshotAheadOfEverythingBufferedNeedsRetry) {
 }
 
 TEST(ResyncCoordinator, SnapshotInAHoleNeedsRetry) {
-    ResyncCoordinator coord;
+    ResyncCoordinator<FuturesAlignment> coord;
     coord.on_event(diff(kBtc, 1, 100, 0));
     coord.on_event(
         diff(kBtc, 200, 210, 199));  // a gap inside the buffer itself, contrived on purpose
@@ -180,7 +182,7 @@ TEST(ResyncCoordinator, SnapshotInAHoleNeedsRetry) {
 }
 
 TEST(ResyncCoordinator, RetryClearsTheBufferSoOnlyFreshEventsCountTowardTheNextAlignment) {
-    ResyncCoordinator coord;
+    ResyncCoordinator<FuturesAlignment> coord;
     coord.on_event(diff(kBtc, 1, 100, 0));
     ASSERT_TRUE(coord.on_snapshot(kBtc, 500).need_retry);  // discarded, doesn't align
 
@@ -202,12 +204,12 @@ TEST(ResyncCoordinator, RetryClearsTheBufferSoOnlyFreshEventsCountTowardTheNextA
 // --- Buffer overflow: the other retry trigger ---
 
 TEST(ResyncCoordinator, BufferOverflowClearsAndKeepsBufferingRatherThanGrowingUnbounded) {
-    ResyncCoordinator coord;
-    std::uint64_t     seq = 0;
+    ResyncCoordinator<FuturesAlignment> coord;
+    std::uint64_t                       seq = 0;
 
     // Fill to exactly capacity. Only the very first event (i == 0) should
     // request; the rest are ordinary Buffer actions accumulating.
-    for (std::size_t i = 0; i < ResyncCoordinator::kBufferCapacity; ++i) {
+    for (std::size_t i = 0; i < ResyncCoordinator<FuturesAlignment>::kBufferCapacity; ++i) {
         auto v = coord.on_event(diff(kBtc, seq + 1, seq + 5, seq));
         EXPECT_EQ(v.action, i == 0 ? Action::BufferAndRequest : Action::Buffer);
         EXPECT_FALSE(v.buffer_overflowed);  // none of these are the capacity-driven restart
@@ -231,10 +233,36 @@ TEST(ResyncCoordinator, BufferOverflowClearsAndKeepsBufferingRatherThanGrowingUn
     EXPECT_EQ(outcome.to_replay.size(), 2u);  // +1 for the BookSnapshot anchor
 }
 
+// --- SpotAlignment, through the full coordinator, not just
+// find_resync_point in isolation (test_resync.cpp) — proves the policy
+// parameter actually changes ResyncCoordinator's real behavior end to end.
+
+TEST(ResyncCoordinator, SpotPolicyRejectsTheExactBoundaryFuturesAccepts) {
+    ResyncCoordinator<SpotAlignment> coord;
+    coord.on_event(diff(kBtc, 996, 1000, 995));
+
+    // Same buffered event + last_update_id as the futures
+    // SnapshotThatBracketsFirstBufferedEventReplaysEverythingInOrder-style
+    // case would accept; spot's +1 rule pushes past `u` here and finds a
+    // hole instead.
+    auto outcome = coord.on_snapshot(kBtc, 1000);
+    EXPECT_TRUE(outcome.need_retry);
+}
+
+TEST(ResyncCoordinator, SpotPolicyResyncsSuccessfullyOneBelowThatBoundary) {
+    ResyncCoordinator<SpotAlignment> coord;
+    coord.on_event(diff(kBtc, 996, 1000, 995));
+
+    auto outcome = coord.on_snapshot(kBtc, 999);  // 999+1 == 1000 == u: spot brackets
+    ASSERT_FALSE(outcome.need_retry);
+    ASSERT_EQ(outcome.to_replay.size(), 2u);  // +1 for the BookSnapshot anchor
+    EXPECT_EQ(outcome.to_replay[1].seq, 1000u);
+}
+
 // --- Symbols are independent ---
 
 TEST(ResyncCoordinator, OneSymbolResyncingDoesNotAffectAnother) {
-    ResyncCoordinator coord;
+    ResyncCoordinator<FuturesAlignment> coord;
     coord.on_event(diff(kBtc, 1, 100, 0));
     coord.on_snapshot(kBtc, 50);  // BTC now Streaming
 

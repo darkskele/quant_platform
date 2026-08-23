@@ -1,12 +1,12 @@
 # engine — the Engine<Tx,Clk,Exec,Risk,NumWorkers,Strategies...> composition
-# root (see libs/engine/docs/DESIGN.md; docs/decisions.md D27, D33). Header-
-# only, depends on the seam concepts only — never a concrete adapter.
-# qp_source_pure, not qp_source: Engine only needs the Source concept, not
-# GenericLiveWebSocketSource's Boost/OpenSSL dependency.
+# root (see libs/engine/docs/DESIGN.md; docs/decisions.md D27, D33, D38).
+# Header-only, depends on the seam concepts only — never a concrete adapter.
+# qp_transport, not qp_source_pure: Engine is constrained on transport::Transport
+# (D22/D38), not source::Source — it never needs venue-specific Source machinery.
 
 add_library(qp_engine INTERFACE)
 target_include_directories(qp_engine INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(qp_engine INTERFACE qp_core qp_clock qp_execution qp_strategy qp_risk qp_source_pure)
+target_link_libraries(qp_engine INTERFACE qp_core qp_clock qp_execution qp_strategy qp_risk qp_transport)
 
 # InfiniteTransport — Engine-specific (never-exhausts Source double), shared
 # between engine's own tests and benchmarks. Unconditional, same convention

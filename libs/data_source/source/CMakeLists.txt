@@ -2,12 +2,16 @@
 # resync.hpp/gap_detector.hpp/backoff.hpp/parser.hpp/source.hpp/
 # live_websocket_source.hpp are pure logic plus the one concrete live
 # transport (Boost.Beast) — venue-agnostic, live_websocket_source.cpp is the
-# only piece that needs Boost/OpenSSL. One remaining village: venue (Binance
-# glue), independently buildable/testable, add_subdirectory'd so the town
-# aggregates it.
+# only piece that needs Boost/OpenSSL. Two villages: venue (Binance glue,
+# independently buildable/testable, add_subdirectory'd) and resync (the
+# AlignmentRule concept + concrete market policies, D13/D36 — header-only,
+# no separate target needed, just another include path).
 
 add_library(qp_source_pure INTERFACE)
-target_include_directories(qp_source_pure INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(qp_source_pure INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/resync/include
+)
 target_link_libraries(qp_source_pure INTERFACE qp_core)
 
 if(BUILD_TESTING)
@@ -17,6 +21,7 @@ if(BUILD_TESTING)
         tests/test_backoff.cpp
         tests/test_resync.cpp
         tests/test_resync_coordinator.cpp
+        tests/test_resync_policy.cpp
     )
     target_link_libraries(qp_source_tests PRIVATE qp_source_pure GTest::gtest GTest::gtest_main)
     qp_register_test(qp_source_tests)

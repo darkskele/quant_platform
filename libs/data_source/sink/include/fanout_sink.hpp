@@ -13,9 +13,9 @@ namespace qp::sink {
 /// (record(MarketEvent)) as the persistence Sink, but redistributes to
 /// NumConsumers in-process readers instead of writing to disk. Consumer
 /// side is deliberately not built in here: attach() only hands out a
-/// cursor id; InProcessTransport (queue_source.hpp) is built around it at
-/// the wiring layer, keeping source and sink from depending on each other
-/// (matches D19's rule).
+/// cursor id; InProcessTransport (libs/data_source/transport) is built
+/// around it at the wiring layer, keeping source and sink from depending
+/// on each other (matches D19's rule).
 template <std::size_t Capacity, std::size_t NumConsumers>
 class FanoutSink {
    public:

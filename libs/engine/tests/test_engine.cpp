@@ -14,6 +14,7 @@
 #include "strategy.hpp"
 #include "support/market_event_builders.hpp"
 #include "support/risk_gate_doubles.hpp"
+#include "transport.hpp"
 #include "types.hpp"
 
 using qp::test::AlwaysApproveRiskGate;
@@ -70,7 +71,7 @@ using TwoStratTest = qp::Engine<FakeTransport, qp::SimClock, TestExec, AlwaysApp
 
 }  // namespace
 
-static_assert(qp::source::Source<FakeTransport>);
+static_assert(qp::transport::Transport<FakeTransport>);
 static_assert(qp::Strategy<SingleIntentStrategy>);
 static_assert(qp::Strategy<CountingStrategy>);
 static_assert(qp::risk::RiskGate<AlwaysApproveRiskGate>);

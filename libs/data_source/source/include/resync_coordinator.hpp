@@ -7,6 +7,7 @@
 
 #include "gap_detector.hpp"
 #include "resync.hpp"
+#include "resync_policy.hpp"
 #include "types.hpp"
 
 namespace qp::source {
@@ -24,6 +25,7 @@ namespace qp::source {
 // event now, hold it, or hold it and tell the caller a snapshot request is
 // needed. The caller (LiveWebSocketSource) is what actually dispatches
 // requests and moves bytes.
+template <AlignmentRule Rule>
 class ResyncCoordinator {
    public:
     enum class Action { Forward, Buffer, BufferAndRequest };
@@ -109,7 +111,7 @@ class ResyncCoordinator {
                                 std::vector<PriceLevel> asks = {}) {
         assert(symbol < kMaxSymbols);
         auto& buf = buffers_[symbol];
-        auto  idx = find_resync_point(last_update_id, buf);
+        auto  idx = find_resync_point<Rule>(last_update_id, buf);
 
         SnapshotOutcome outcome;
         if (!idx) {

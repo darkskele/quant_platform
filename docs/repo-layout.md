@@ -24,9 +24,9 @@ quant-platform/
 │   │                       # Portfolio/StateView. Header-only. Depends on NOTHING.
 │   ├── clock/              # Clock concept + SimClock (D23). Header-only, depends on
 │   │                       # core only. WallClock deferred to the live milestone.
-│   ├── data_source/        # "source" + "sinks" cities — coequal, independent seams
-│   │   │                   # (Source vs Sink), grouped as sibling dirs for
-│   │   │                   # filesystem convenience only — see DESIGN.md's "Cities today".
+│   ├── data_source/        # "source"/"sink"/"transport" cities — coequal, independent
+│   │   │                   # seams, grouped as sibling dirs for filesystem convenience
+│   │   │                   # only — see DESIGN.md's "Cities today".
 │   │   ├── wire/            # codec substrate (like core, but scoped to data_source):
 │   │   │                    # wire.hpp (MarketEvent<->bytes), zstd_stream.hpp
 │   │   │                    # (bytes<->zstd bytes), partition.hpp (day/segment naming).
@@ -35,12 +35,20 @@ quant-platform/
 │   │   │   │               # ResyncCoordinator/gap-detection/backoff, the Parser concept,
 │   │   │   │               # GenericLiveWebSocketSource (Boost.Beast transport),
 │   │   │   │               # FileReplaySource (backtest Source, reads via wire) — all
-│   │   │   │               # town-level now, venue-agnostic. One village nested below:
-│   │   │   └── venue/               # "venue" village: Binance glue (REST
-│   │   │                        # snapshot, symbol table, stream URLs). Flat --
-│   │   │                        # a leaf, no separate docs/. Only venue today.
-│   │   └── sink/            # "sinks" city: Sink concept + FileRecorder, NullSink.
-│   │                        # No further nesting.
+│   │   │   │               # town-level now, venue-agnostic. Two villages nested below:
+│   │   │   ├── venue/               # "venue" village: Binance glue (REST
+│   │   │   │                    # snapshot, symbol table, stream URLs). Flat --
+│   │   │   │                    # a leaf, no separate docs/. Only venue today.
+│   │   │   └── resync/              # "resync" village: AlignmentRule concept +
+│   │   │                        # FuturesAlignment/SpotAlignment policies (D38). Flat --
+│   │   │                        # a leaf, no separate docs/.
+│   │   ├── sink/            # "sinks" city: Sink concept + FileRecorder, NullSink.
+│   │   │                    # No further nesting.
+│   │   └── transport/       # "transport" city: Transport concept, the seam Engine
+│   │                        # actually consumes (D39), + InProcessTransport (fan-out
+│   │                        # ring reader) and CombinedTransport (round-robin merge of
+│   │                        # N Transports into one, e.g. a spot+perp carry backtest).
+│   │                        # Depends on core only. No further nesting.
 │   ├── execution/          # ExecutionGateway/Matcher concepts + SimExecution (D25);
 │   │                       # LiveExecution deferred to the live milestone.
 │   ├── risk/               # RiskGate interface + impls (+ kill-switch)               (trader milestone)
@@ -66,9 +74,10 @@ Dependencies point **inward toward `core`**; concrete adapters do **not** depend
 on each other.
 
 - `core` depends on nothing.
-- `data_source/source`, `execution`, `risk`, `strategy`, `data_source/sink`
-  depend on `core` only — never on each other. `strategy` cannot see
-  `execution`; it knows only `Intent` / `StateView` / `MarketEvent`.
+- `data_source/source`, `execution`, `risk`, `strategy`, `data_source/sink`,
+  `data_source/transport` depend on `core` only — never on each other.
+  `strategy` cannot see `execution`; it knows only `Intent` / `StateView` /
+  `MarketEvent`.
 - `data_source/wire` is substrate too, like `core`, but scoped to
   `data_source`'s two cities rather than the whole repo: depends on `core`
   only. Both `data_source/source` (`FileReplaySource`'s read side) and
@@ -80,7 +89,9 @@ on each other.
   `GenericLiveWebSocketSource`) depends on `venue`
   **publicly** (its own public header names venue types in the class
   interface — see `docs/environment.md`'s PUBLIC/PRIVATE rule).
-- `engine` depends on the seam concepts, not concrete adapters.
+- `engine` depends on the seam concepts, not concrete adapters — `Tx` is
+  `transport::Transport` (D39), so `engine` depends on `data_source/transport`,
+  not `data_source/source`.
 - `apps/*` are the only place concrete types meet — all compile-time wiring
   happens in one thin file per binary.
 

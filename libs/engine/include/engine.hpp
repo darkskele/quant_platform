@@ -10,8 +10,8 @@
 #include "portfolio.hpp"
 #include "risk_gate.hpp"
 #include "round_robin_pool.hpp"
-#include "source.hpp"
 #include "strategy.hpp"
+#include "transport.hpp"
 #include "types.hpp"
 
 namespace qp {
@@ -19,8 +19,12 @@ namespace qp {
 /// The trader composition root (D27). Each Strategy runs on a
 /// shared RoundRobinPool (D33) — risk-check/submit stays single-threaded,
 /// strategy-index-ordered, so a backtest's decision sequence never depends
-/// on thread scheduling.
-template <source::Source Tx, Clock Clk, execution::ExecutionGateway Exec, risk::RiskGate Risk,
+/// on thread scheduling. Tx is transport::Transport (D22/D38), not
+/// source::Source — Engine consumes whatever hands it MarketEvents one at a
+/// time (a live/replay Source directly, an InProcessTransport over a
+/// fan-out ring, or a CombinedTransport merging several legs), not
+/// specifically a "source".
+template <transport::Transport Tx, Clock Clk, execution::ExecutionGateway Exec, risk::RiskGate Risk,
           std::size_t NumWorkers, Strategy... Strategies>
 class Engine {
     struct EventContext {

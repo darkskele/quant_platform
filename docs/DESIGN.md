@@ -14,27 +14,34 @@ loops would have caught earlier or prevented outright.
 
 ## Cities today
 
-Two, coequal — independent seams (`Source` vs `Sink`, separate
-consumers), physically grouped as sibling directories under `libs/data_source/`
-for filesystem convenience only, not merged into one concern:
+Three, coequal — independent seams (`Source` vs `Sink` vs `Transport`,
+separate consumers), physically grouped as sibling directories under
+`libs/data_source/` for filesystem convenience only, not merged into one
+concern:
 
 - **source** — everything behind `Source`. Today: the **prod
   streamer** town (`libs/data_source/source/`) — generic resync/gap-detection
   machinery plus the live Boost.Beast transport (`GenericLiveWebSocketSource`)
   and the backtest replay `Source` (`FileReplaySource`), both town-level (D18)
-  — with one **venue** village (`venue/`, Binance glue) nested below.
+  — with two villages nested below: **venue** (`venue/`, Binance glue) and
+  **resync** (`resync/`, the `AlignmentRule` concept + `FuturesAlignment`/
+  `SpotAlignment` policies, D38).
 - **sinks** (`libs/data_source/sink/`) — everything behind `Sink`/`Recorder`. No
   further nesting — one `Sink` implementation (`FileRecorder`) today.
+- **transport** (`libs/data_source/transport/`) — everything behind
+  `Transport`, the seam `Engine` actually consumes: `InProcessTransport`
+  (fan-out ring reader) and `CombinedTransport` (round-robin merge of N
+  `Transport`s into one, D39). No further nesting.
 
-`libs/core/` is the lingua franca substrate both cities depend on — not
+`libs/core/` is the lingua franca substrate all three cities depend on — not
 itself a city. `libs/data_source/wire/` is a second substrate, scoped to
-these two cities rather than the whole repo: the on-disk `MarketEvent` codec
-(`wire.hpp`/`zstd_stream.hpp`/`partition.hpp`) `source` and `sink` both
-depend on instead of on each other (D19). `apps/collector/` composes prod
-streamer + `FileRecorder` ("what it's made of") — described at root, not a
-city/town itself.
-Execution/risk/strategy/engine (per `docs/repo-layout.md`'s planned tree)
-arrive with the trader milestone — not built yet, not goals here.
+source and sink rather than the whole repo: the on-disk `MarketEvent` codec
+(`wire.hpp`/`zstd_stream.hpp`/`partition.hpp`) those two depend on instead of
+on each other (D19) — `transport` doesn't depend on it. `apps/collector/`
+composes prod streamer + `FileRecorder` ("what it's made of") — described at
+root, not a city/town itself.
+Execution/risk/strategy/engine (per `docs/repo-layout.md`'s tree) are built
+now, part of the trader milestone.
 
 ## Goals (this initiative)
 

@@ -55,6 +55,26 @@ assertions all passed regardless. Fixed by borrowing the first replayed
 diff's `.ts`. Same lesson as D13: live smoke-test the resync/recording path,
 mocks alone miss this class of bug.
 
+## D38 — Resync alignment is a compile-time `AlignmentRule` policy, closing the D13-class risk for spot
+Until now `find_resync_point`/`ResyncCoordinator`/`GenericLiveWebSocketSource` hardcoded the futures
+bracket rule inline (`U <= last_update_id <= u`) with no spot variant — fine while only futures
+existed, but a landmine for funding-carry's planned spot+perp leg: adding spot later would mean
+someone hand-special-casing the rule, exactly the silent mistake D13 already was.
+
+New `resync/` village (sibling to `venue/`): `resync_policy.hpp` defines the `AlignmentRule` concept
+(`static bool brackets(U, last_update_id, u)`) plus `FuturesAlignment` (no offset) and
+`SpotAlignment` (+1 offset, spot's real documented rule). `find_resync_point`/`ResyncCoordinator`
+are now templated on `AlignmentRule Rule`, no default — deliberate, so a new venue can't silently
+inherit whatever rule happened to be default. `GenericLiveWebSocketSource<Parser P, AlignmentRule
+Rule>` picks up the second parameter; `LiveWebSocketSource` and `apps/collector`'s `venue.hpp` both
+pin `FuturesAlignment` explicitly (this project is futures-only today). Verified at three levels —
+raw `brackets()`, `find_resync_point<Rule>`, full `ResyncCoordinator<Rule>` — each with a case at
+the exact D13 boundary showing the two rules diverge (`test_resync_policy.cpp`, `test_resync.cpp`,
+`test_resync_coordinator.cpp`).
+
+Not built here: no real spot venue (endpoints, `Parser`) exists yet. This only makes wiring one in
+later type-safe, it doesn't stand one up.
+
 ## D16 — `SymbolTable`/`WsEndpoint`/`RestEndpoint`/`DepthSnapshot` moved out of `venue::binance`
 Finishes the genericization `parser.hpp`'s own comment deferred: these 4
 types had zero Binance-specific content already (pure string<->id interning,

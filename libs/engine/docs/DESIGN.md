@@ -41,10 +41,11 @@ remain the only place concrete adapters meet the concepts.
 
 ## Generic components
 
-- **`Tx` (`source::Source`)** — pulls the next `MarketEvent`, or signals
-  exhaustion (`std::nullopt`). `LiveWebSocketSource`/`FileReplaySource` are
-  the real adapters (`libs/data_source/source`); `Engine` depends on the
-  concept only (`qp_source_pure`).
+- **`Tx` (`transport::Transport`, D39)** — pulls the next `MarketEvent`, or
+  signals exhaustion (`std::nullopt`). `LiveWebSocketSource`/
+  `FileReplaySource` (`libs/data_source/source`), `InProcessTransport`, and
+  `CombinedTransport` (`libs/data_source/transport`) all satisfy it;
+  `Engine` depends on the concept only (`qp_transport`).
 - **`Clk` (`qp::Clock`)** — `now()`/`advance(ts)`. `SimClock`
   (`libs/clock`) is the only adapter today; `WallClock` is deferred to the
   live milestone.

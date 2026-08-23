@@ -23,6 +23,7 @@ runs.
 | `libs/data_source/source` | `qp_file_replay_bench` | `libs/data_source/source/qp_file_replay_bench` | FileReplaySource: single-symbol BookDiff/Trade replay throughput, multi-symbol merge overhead |
 | `libs/data_source/source` (venue village) | `qp_venue_bench` | `libs/data_source/source/venue/qp_venue_bench` | Binance message parsing |
 | `libs/data_source/wire` | `qp_wire_bench` | `libs/data_source/wire/qp_wire_bench` | wire format write/read/round-trip |
+| `libs/data_source/transport` | `qp_transport_bench` | `libs/data_source/transport/qp_transport_bench` | InProcessTransport::next() vs bare ring; CombinedTransport dispatch overhead, single and 2-source round-robin |
 
 Binary output paths mirror the source tree, not always `libs/<lib>/<target>`
 — use the Path column, not a guessed pattern.

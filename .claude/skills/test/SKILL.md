@@ -18,6 +18,7 @@ what's confirmed working here.
 | `libs/data_source/wire` | `qp_wire_tests` | core |
 | `libs/data_source/source` | `qp_source_tests`, `qp_source_integration_tests`, `qp_file_replay_tests`, `qp_venue_tests` | core, wire |
 | `libs/data_source/sink` | `qp_sink_integration_tests` | core, wire |
+| `libs/data_source/transport` | `qp_transport_tests` | core |
 | `apps/collector` | `qp_collector_integration_tests` | core, source, sink, wire |
 | `tests` (root) | `qp_parity_tests` | core, wire, source, sink |
 

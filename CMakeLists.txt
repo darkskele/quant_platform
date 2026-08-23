@@ -91,6 +91,7 @@ add_subdirectory(libs/data_source/sink)
 # already exist by the time source's CMakeLists.txt runs. No production
 # dependency between them either way (sink depends on core+wire only).
 add_subdirectory(libs/data_source/source)  # degrades gracefully without Boost — see its CMakeLists.txt
+add_subdirectory(libs/data_source/transport)  # Transport concept + InProcessTransport/CombinedTransport, depends on core only
 add_subdirectory(libs/engine)     # Engine<Tx,Clk,Exec,Risk,Strategies...> composition root, seam concepts only
 add_subdirectory(apps/collector)  # degrades gracefully without Boost — see its CMakeLists.txt
 add_subdirectory(tests)           # cross-lib integration/parity tests — see its CMakeLists.txt
@@ -109,10 +110,11 @@ if(QP_BUILD_BENCHMARKS)
         libs/data_source/wire/benchmarks/bench_wire.cpp
         libs/core/benchmarks/bench_round_robin_pool.cpp
         libs/engine/benchmarks/bench_engine.cpp
+        libs/data_source/transport/benchmarks/bench_transport.cpp
     )
     target_link_libraries(qp_bench PRIVATE
         qp_core qp_core_test_support qp_source_pure qp_file_replay qp_venue qp_wire qp_engine
-        qp_strategy_test_support qp_risk_test_support qp_engine_test_support
+        qp_transport qp_strategy_test_support qp_risk_test_support qp_engine_test_support
         benchmark::benchmark_main
     )
 endif()

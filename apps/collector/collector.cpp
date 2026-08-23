@@ -86,9 +86,10 @@ int run(const Config& config, std::atomic<bool>& stop_requested) {
     static constexpr auto kIdleSleep    = std::chrono::milliseconds(10);
 
     // source -> recorder directly, not an Engine (docs/architecture-principles.md);
-    // SelectedParser is venue.hpp's compile-time pick (QP_COLLECTOR_VENUE).
-    source::GenericLiveWebSocketSource<SelectedParser> source(config.symbols, config.ws_endpoint,
-                                                              config.rest_endpoint);
+    // SelectedParser/SelectedAlignment are venue.hpp's compile-time picks
+    // (QP_COLLECTOR_VENUE).
+    source::GenericLiveWebSocketSource<SelectedParser, SelectedAlignment> source(
+        config.symbols, config.ws_endpoint, config.rest_endpoint);
     sink::Sink auto recorder = sink::FileRecorder(config.data_dir, source.symbol_names());
 
     const auto start = std::chrono::steady_clock::now();
