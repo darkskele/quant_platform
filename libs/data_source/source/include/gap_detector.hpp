@@ -4,21 +4,30 @@
 #include <cstdint>
 #include <optional>
 
+#include "resync_policy.hpp"
 #include "types.hpp"
 
 namespace qp::source {
 
-// Details of a detected discontinuity, for logging.
+// Details of a detected discontinuity, for logging. Carries the raw inputs
+// Rule::continues compared rather than a precomputed "expected"/"actual"
+// pair, since which fields actually mattered is market-specific (D40):
+// FuturesAlignment compares prev_seq against last_seq; SpotAlignment
+// compares first_seq against last_seq + 1 (prev_seq is always 0 there,
+// spot's diffs carry no `pu`). The caller already knows which Rule is
+// active and can format accordingly.
 struct GapInfo {
-    std::uint64_t expected_prev_seq;
-    std::uint64_t actual_prev_seq;
+    std::uint64_t last_seq;   // this symbol's last recorded seq before the gap
+    std::uint64_t first_seq;  // the new event's first_seq (U)
+    std::uint64_t prev_seq;   // the new event's prev_seq (pu; 0 if the market has no such field)
 };
 
 // Tracks the last final-update-id (seq) seen per symbol and flags when a new
-// BookDiff event doesn't continue from it (event.prev_seq != last seq). Pure
-// bookkeeping, no I/O — the caller decides what a gap means (log it, trigger
-// a resync, etc.); this only detects. Not thread-safe: one owner (the I/O
-// thread) only.
+// BookDiff event doesn't continue from it, per the caller's AlignmentRule
+// (D40 — what "continues" means is market-specific). Pure bookkeeping, no
+// I/O — the caller decides what a gap means (log it, trigger a resync,
+// etc.); this only detects. Not thread-safe: one owner (the I/O thread)
+// only.
 //
 // `symbol` is a dense index into the venue's symbol table (SymbolTable::
 // intern() hands out sequential 0, 1, 2...), so this is a fixed-capacity
@@ -40,12 +49,16 @@ class SequenceGapDetector {
    public:
     static constexpr std::size_t kMaxSymbols = 64;
 
-    // Returns gap details if `prev_seq` doesn't continue from the last
-    // recorded seq for this symbol; nullopt if continuous (or this is the
+    // Returns gap details if the event doesn't continue from the last
+    // recorded seq for this symbol, per Rule::continues (D40 — what
+    // "continues" means is market-specific: futures compares `pu` against
+    // the last seq, spot compares `U` against last seq + 1, since spot's
+    // diffs carry no `pu` at all); nullopt if continuous (or this is the
     // first event ever seen for the symbol). Always records `seq`
     // afterward, gap or not, so the next call continues from here.
-    std::optional<GapInfo> check_and_record(SymbolId symbol, std::uint64_t prev_seq,
-                                            std::uint64_t seq) {
+    template <AlignmentRule Rule>
+    std::optional<GapInfo> check_and_record(SymbolId symbol, std::uint64_t first_seq,
+                                            std::uint64_t prev_seq, std::uint64_t seq) {
         assert(symbol < kMaxSymbols &&
                "more symbols than SequenceGapDetector::kMaxSymbols — raise the cap");
 
@@ -56,8 +69,8 @@ class SequenceGapDetector {
         // that, an actual discontinuity is the rare one — a healthy
         // connection hits neither branch's cold path essentially ever.
         if (last.has_value()) [[likely]] {
-            if (prev_seq != *last) [[unlikely]] {
-                gap = GapInfo{*last, prev_seq};
+            if (!Rule::continues(first_seq, prev_seq, *last)) [[unlikely]] {
+                gap = GapInfo{*last, first_seq, prev_seq};
             }
         }
         last = seq;

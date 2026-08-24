@@ -9,6 +9,11 @@ using qp::source::FuturesAlignment;
 using qp::source::ResyncCoordinator;
 using qp::source::SpotAlignment;
 using Action = qp::source::ResyncCoordinator<qp::source::FuturesAlignment>::Action;
+// Action is a nested type of the class template, not a free enum — each
+// Rule instantiation has its own distinct Action type (same enumerator
+// names, not the same type), so a SpotAlignment-coordinator's .action needs
+// its own alias rather than comparing against FuturesAlignment's Action.
+using SpotAction = qp::source::ResyncCoordinator<qp::source::SpotAlignment>::Action;
 
 namespace {
 
@@ -257,6 +262,36 @@ TEST(ResyncCoordinator, SpotPolicyResyncsSuccessfullyOneBelowThatBoundary) {
     ASSERT_FALSE(outcome.need_retry);
     ASSERT_EQ(outcome.to_replay.size(), 2u);  // +1 for the BookSnapshot anchor
     EXPECT_EQ(outcome.to_replay[1].seq, 1000u);
+}
+
+// --- D40: continuity checking (gap_detector, not find_resync_point) is
+// also market-specific — spot diffs carry no `pu`, so continuity has to
+// read off `U` chaining instead of a `pu` comparison.
+
+TEST(ResyncCoordinator, SpotStreamingEventWithNoPuForwardsInsteadOfFalsePositivingAGap) {
+    ResyncCoordinator<SpotAlignment> coord;
+    coord.on_event(diff(kBtc, 996, 1000, /*prev_seq=*/0));  // spot: pu always 0
+    ASSERT_FALSE(coord.on_snapshot(kBtc, 999).need_retry);  // now Streaming, anchored at seq=1000
+
+    // Continuous by spot's rule (U == last seq + 1 == 1001), despite
+    // prev_seq still being 0 — a real spot stream never sets it.
+    auto v = coord.on_event(diff(kBtc, 1001, 1010, /*prev_seq=*/0));
+    EXPECT_EQ(v.action, SpotAction::Forward);
+    EXPECT_FALSE(v.gap_detected);
+}
+
+TEST(ResyncCoordinator, SameSpotShapedEventWouldFalsePositiveUnderFuturesAlignment) {
+    // Same U/seq/prev_seq sequence as above, but through FuturesAlignment's
+    // pu-based check — demonstrates why the rule has to be a real parameter,
+    // not just defaulted: this would silently misfire if spot were ever
+    // wired to the wrong rule.
+    ResyncCoordinator<FuturesAlignment> coord;
+    coord.on_event(diff(kBtc, 996, 1000, /*prev_seq=*/0));
+    ASSERT_FALSE(coord.on_snapshot(kBtc, 1000).need_retry);  // futures: no +1 offset
+
+    auto v = coord.on_event(diff(kBtc, 1001, 1010, /*prev_seq=*/0));
+    EXPECT_EQ(v.action, Action::BufferAndRequest);  // pu (0) != last seq (1000): false gap
+    EXPECT_TRUE(v.gap_detected);
 }
 
 // --- Symbols are independent ---

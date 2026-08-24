@@ -232,9 +232,19 @@ class GenericLiveWebSocketSource {
 
 // Compiled once, in live_websocket_source.cpp, via explicit instantiation — not
 // header-only. Every existing call site says qp::source::LiveWebSocketSource;
-// only code that ever wants a *different* Parser/Rule (e.g. a spot venue)
-// would need to spell out GenericLiveWebSocketSource<OtherParser, OtherRule>.
-extern template class GenericLiveWebSocketSource<venue::binance::BinanceParser, FuturesAlignment>;
-using LiveWebSocketSource = GenericLiveWebSocketSource<venue::binance::BinanceParser, FuturesAlignment>;
+// a *different* Parser/Rule combination needs its own extern template
+// declaration here AND its own explicit instantiation in the .cpp — naming
+// the template alone isn't enough to get linkable symbols (D40/D41: this
+// bit the first version of the spot combo below, caught by a real link
+// failure, not by inspection).
+extern template class GenericLiveWebSocketSource<
+    venue::binance::BinanceParser<venue::binance::FuturesMarket>, FuturesAlignment>;
+using LiveWebSocketSource =
+    GenericLiveWebSocketSource<venue::binance::BinanceParser<venue::binance::FuturesMarket>,
+                               FuturesAlignment>;
+
+// apps/collector/venue.hpp's spot leg (D41) — same treatment.
+extern template class GenericLiveWebSocketSource<
+    venue::binance::BinanceParser<venue::binance::SpotMarket>, SpotAlignment>;
 
 }  // namespace qp::source

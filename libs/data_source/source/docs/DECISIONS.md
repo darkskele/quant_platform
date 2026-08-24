@@ -72,6 +72,43 @@ raw `brackets()`, `find_resync_point<Rule>`, full `ResyncCoordinator<Rule>` — 
 the exact D13 boundary showing the two rules diverge (`test_resync_policy.cpp`, `test_resync.cpp`,
 `test_resync_coordinator.cpp`).
 
+## D40 — Gap-continuity checking is a policy too; `BinanceMarket` policy stands up the real spot `Parser`
+D38 made resync's one-time boundary check (`brackets`) a policy but left the every-diff
+continuity check hardcoded to futures' `pu` field: `SequenceGapDetector::check_and_record` compared
+`event.prev_seq` against the last recorded `seq` unconditionally. Verified against Binance's actual
+spot docs (not assumed from futures — D13's exact lesson): spot's `depthUpdate` carries **no `pu`
+field at all**. Under the old code, `prev_seq` would read as `0` on every real spot message, so
+every diff after the first would false-positive a gap, forever — a second D13-class landmine,
+found by checking the docs before wiring spot in rather than after.
+
+Fixed by extending `AlignmentRule` (not a second concept — same subject, "is this market's
+sequencing intact," at a different moment) with `continues(first_seq, prev_seq, last_seq)`.
+`FuturesAlignment::continues` keeps comparing `prev_seq == last_seq` (Binance's own `pu` contract,
+unchanged behavior); `SpotAlignment::continues` compares `first_seq == last_seq + 1` (spot's
+documented steady-state rule — no `pu` to read). Deliberately not unified into one formula for both
+markets: `pu` isn't guaranteed to always equal `first_seq - 1` on futures, so forcing futures
+through the spot formula risked a silent regression on the venue already in production.
+`SequenceGapDetector::check_and_record` is now a template method on `AlignmentRule Rule`, called
+from both `ResyncCoordinator::on_event` and `on_snapshot`'s replay loop. `GapInfo`'s fields renamed
+from `expected_prev_seq`/`actual_prev_seq` to `last_seq`/`first_seq`/`prev_seq` — the old names
+implied a `prev_seq`-only comparison that isn't true for `SpotAlignment`.
+
+Separately: the real spot `Parser`. Verified against Binance's docs what actually differs from
+futures — WS/REST hosts, the REST snapshot path prefix (`/api/v3` vs `/fapi/v1`), and that spot
+never subscribes to `@markPrice` (no funding concept). Combined-stream URL format, the `@100ms`
+speed suffix, and `aggTrade`'s field set are identical, confirmed rather than assumed; `pu`'s
+absence is handled above, not here. `parse_message`/`parse_depth_snapshot` needed **no changes** —
+already market-agnostic. New `BinanceMarket` concept (`binance.hpp`): `FuturesMarket`/`SpotMarket`
+carry `kRestPathPrefix`/`kSubscribesFunding`; `build_stream_path`/`build_stream_url`/
+`depth_snapshot_url` are now templated on it, and `BinanceParser` becomes
+`template <BinanceMarket M> struct BinanceParser` forwarding to them — `BinanceParser<SpotMarket>`
+and `BinanceParser<FuturesMarket>` are distinct `Parser`-satisfying types, no runtime market flag.
+No default endpoint parameter on the templated URL-building functions (same "no default" reasoning
+as D38's `AlignmentRule`) — every call site names its endpoint explicitly.
+
+Not built here: standing up an actual live spot connection end-to-end (that's
+`apps/collector`, D41) — this decision covers the library-level machinery only.
+
 Not built here: no real spot venue (endpoints, `Parser`) exists yet. This only makes wiring one in
 later type-safe, it doesn't stand one up.
 

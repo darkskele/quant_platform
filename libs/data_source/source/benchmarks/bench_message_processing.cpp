@@ -42,7 +42,8 @@ void BM_ProcessMessage(benchmark::State& state) {
         benchmark::DoNotOptimize(ok);
 
         if (ev.kind == EventKind::BookDiff) {
-            auto gap = gaps.check_and_record(ev.symbol, ev.prev_seq, ev.seq);
+            auto gap = gaps.check_and_record<FuturesAlignment>(ev.symbol, ev.first_seq, ev.prev_seq,
+                                                               ev.seq);
             benchmark::DoNotOptimize(gap);
         }
 
@@ -61,10 +62,12 @@ BENCHMARK(BM_ProcessMessage);
 // index + [[likely]] path, not parse/queue overhead mixed in.
 void BM_GapDetectorSteadyState(benchmark::State& state) {
     SequenceGapDetector gaps;
-    gaps.check_and_record(1, 0, 100);  // seed — first event, establishes the tracked baseline
+    // seed — first event, establishes the tracked baseline (first_seq unused
+    // by FuturesAlignment::continues, 0 is just a filler value here).
+    gaps.check_and_record<FuturesAlignment>(1, 0, 0, 100);
     std::uint64_t seq = 100;
     for (auto _ : state) {
-        auto gap = gaps.check_and_record(1, seq, seq + 5);
+        auto gap = gaps.check_and_record<FuturesAlignment>(1, 0, seq, seq + 5);
         benchmark::DoNotOptimize(gap);
         seq += 5;
     }

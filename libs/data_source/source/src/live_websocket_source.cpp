@@ -281,8 +281,8 @@ std::optional<DepthSnapshot> fetch_depth_snapshot(RestEndpoint       endpoint,
 
 template <Parser P, AlignmentRule Rule>
 GenericLiveWebSocketSource<P, Rule>::GenericLiveWebSocketSource(std::vector<std::string> symbols,
-                                                          WsEndpoint               ws_endpoint,
-                                                          RestEndpoint             rest_endpoint)
+                                                                WsEndpoint   ws_endpoint,
+                                                                RestEndpoint rest_endpoint)
     : symbols_(std::move(symbols)), ws_endpoint_(ws_endpoint), rest_endpoint_(rest_endpoint) {
     // Pre-intern up front rather than leaving it to lazy first-message
     // interning: makes SymbolId assignment deterministic (matches symbols_'s
@@ -360,7 +360,8 @@ std::size_t GenericLiveWebSocketSource<P, Rule>::output_queue_high_water_mark() 
 }
 
 template <Parser P, AlignmentRule Rule>
-std::size_t GenericLiveWebSocketSource<P, Rule>::resync_request_queue_high_water_mark() const noexcept {
+std::size_t GenericLiveWebSocketSource<P, Rule>::resync_request_queue_high_water_mark()
+    const noexcept {
     return resync_request_queue_high_water_.load(std::memory_order_relaxed);
 }
 
@@ -553,8 +554,12 @@ void GenericLiveWebSocketSource<P, Rule>::resync_run() {
     }
 }
 
-// Sole instantiation today — see live_websocket_source.hpp's extern template
-// declaration.
-template class GenericLiveWebSocketSource<venue::binance::BinanceParser, FuturesAlignment>;
+// See live_websocket_source.hpp's extern template declarations — one per
+// combination actually used (futures: apps/collector's default leg; spot:
+// apps/collector's second leg, D41).
+template class GenericLiveWebSocketSource<
+    venue::binance::BinanceParser<venue::binance::FuturesMarket>, FuturesAlignment>;
+template class GenericLiveWebSocketSource<venue::binance::BinanceParser<venue::binance::SpotMarket>,
+                                          SpotAlignment>;
 
 }  // namespace qp::source

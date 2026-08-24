@@ -76,7 +76,8 @@ class ResyncCoordinator {
                 .buffer_overflowed = result.was_overflow};
         }
 
-        if (gap_detector_.check_and_record(symbol, event.prev_seq, event.seq)) {
+        if (gap_detector_.check_and_record<Rule>(symbol, event.first_seq, event.prev_seq,
+                                                 event.seq)) {
             buffer(symbol,
                    std::move(event));  // buffer was empty (Streaming until now) -> always requests,
                                        // never an overflow (nothing was in it to overflow)
@@ -149,7 +150,8 @@ class ResyncCoordinator {
         outcome.to_replay.reserve(buf.size() - *idx + 1);
         outcome.to_replay.push_back(std::move(snapshot_event));
         for (std::size_t i = *idx; i < buf.size(); ++i) {
-            if (gap_detector_.check_and_record(symbol, buf[i].prev_seq, buf[i].seq)) {
+            if (gap_detector_.check_and_record<Rule>(symbol, buf[i].first_seq, buf[i].prev_seq,
+                                                     buf[i].seq)) {
                 ++outcome.internal_gaps;
             }
             outcome.to_replay.push_back(std::move(buf[i]));

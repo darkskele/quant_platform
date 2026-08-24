@@ -76,6 +76,7 @@ void read_levels(Json&& obj, std::string_view field, std::vector<PriceLevel>& ou
 // SymbolTable is fully inline in venue_types.hpp (aliased here
 // as venue::binance::SymbolTable) — nothing to define out-of-line here.
 
+template <BinanceMarket M>
 std::string build_stream_path(const std::vector<std::string>& symbols,
                               std::string_view                depth_speed) {
     std::string path  = "/stream?streams=";
@@ -83,22 +84,35 @@ std::string build_stream_path(const std::vector<std::string>& symbols,
     for (const auto& raw : symbols) {
         const std::string s = lower(raw);
         if (!first) path += '/';
-        path +=
-            s + "@depth@" + std::string(depth_speed) + "/" + s + "@aggTrade/" + s + "@markPrice";
+        path += s + "@depth@" + std::string(depth_speed) + "/" + s + "@aggTrade";
+        if constexpr (M::kSubscribesFunding) path += "/" + s + "@markPrice";
         first = false;
     }
     return path;
 }
 
+template <BinanceMarket M>
 std::string build_stream_url(const std::vector<std::string>& symbols, WsEndpoint endpoint,
                              std::string_view depth_speed) {
-    return "wss://" + std::string(endpoint.host) + build_stream_path(symbols, depth_speed);
+    return "wss://" + std::string(endpoint.host) + build_stream_path<M>(symbols, depth_speed);
 }
 
+template <BinanceMarket M>
 std::string depth_snapshot_url(std::string_view symbol, int limit, RestEndpoint endpoint) {
-    return std::string(endpoint.base_url) + "/fapi/v1/depth?symbol=" + upper(symbol) +
-           "&limit=" + std::to_string(limit);
+    return std::string(endpoint.base_url) + std::string(M::kRestPathPrefix) +
+           "/depth?symbol=" + upper(symbol) + "&limit=" + std::to_string(limit);
 }
+
+template std::string build_stream_path<FuturesMarket>(const std::vector<std::string>&,
+                                                      std::string_view);
+template std::string build_stream_path<SpotMarket>(const std::vector<std::string>&,
+                                                   std::string_view);
+template std::string build_stream_url<FuturesMarket>(const std::vector<std::string>&, WsEndpoint,
+                                                     std::string_view);
+template std::string build_stream_url<SpotMarket>(const std::vector<std::string>&, WsEndpoint,
+                                                  std::string_view);
+template std::string depth_snapshot_url<FuturesMarket>(std::string_view, int, RestEndpoint);
+template std::string depth_snapshot_url<SpotMarket>(std::string_view, int, RestEndpoint);
 
 std::optional<DepthSnapshot> parse_depth_snapshot(std::string_view json_body) {
     try {

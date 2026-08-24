@@ -15,13 +15,24 @@
 
 namespace qp::collector {
 
-using SelectedParser    = venue::binance::BinanceParser;
+using SelectedParser    = venue::binance::BinanceParser<venue::binance::FuturesMarket>;
 using SelectedAlignment = source::FuturesAlignment;  // D13/D36: USD-M futures only today
 
 inline constexpr auto kDefaultWsEndpoint   = venue::binance::kFuturesWsProduction;
 inline constexpr auto kDefaultWsTestnet    = venue::binance::kFuturesWsTestnet;
 inline constexpr auto kDefaultRestEndpoint = venue::binance::kFuturesRestProduction;
 inline constexpr auto kDefaultRestTestnet  = venue::binance::kFuturesRestTestnet;
+
+// D40/D41: the collector's second leg — carry needs both spot and perp.
+// Kept alongside the futures selections above rather than replacing them
+// (existing names stay futures-scoped, smallest diff).
+using SelectedSpotParser    = venue::binance::BinanceParser<venue::binance::SpotMarket>;
+using SelectedSpotAlignment = source::SpotAlignment;
+
+inline constexpr auto kDefaultSpotWsEndpoint   = venue::binance::kSpotWsProduction;
+inline constexpr auto kDefaultSpotWsTestnet    = venue::binance::kSpotWsTestnet;
+inline constexpr auto kDefaultSpotRestEndpoint = venue::binance::kSpotRestProduction;
+inline constexpr auto kDefaultSpotRestTestnet  = venue::binance::kSpotRestTestnet;
 
 }  // namespace qp::collector
 

@@ -169,27 +169,86 @@ TEST(BinanceParser, HandlesEmptySideDiff) {
 }
 
 TEST(BinanceParser, BuildStreamPath) {
-    EXPECT_EQ(build_stream_path({"BTCUSDT", "ethusdt"}),
+    EXPECT_EQ(build_stream_path<FuturesMarket>({"BTCUSDT", "ethusdt"}),
               "/stream?streams=btcusdt@depth@100ms/btcusdt@aggTrade/btcusdt@markPrice/"
               "ethusdt@depth@100ms/ethusdt@aggTrade/ethusdt@markPrice");
-    EXPECT_EQ(build_stream_path({"BTCUSDT"}, "250ms"),
+    EXPECT_EQ(build_stream_path<FuturesMarket>({"BTCUSDT"}, "250ms"),
               "/stream?streams=btcusdt@depth@250ms/btcusdt@aggTrade/btcusdt@markPrice");
 }
 
 TEST(BinanceParser, BuildStreamUrlRespectsEndpoint) {
-    EXPECT_EQ(build_stream_url({"BTCUSDT"}),
+    EXPECT_EQ(build_stream_url<FuturesMarket>({"BTCUSDT"}, kFuturesWsProduction),
               "wss://fstream.binance.com/stream?streams=btcusdt@depth@100ms/btcusdt@aggTrade/"
               "btcusdt@markPrice");
-    EXPECT_EQ(build_stream_url({"BTCUSDT"}, kFuturesWsTestnet),
+    EXPECT_EQ(build_stream_url<FuturesMarket>({"BTCUSDT"}, kFuturesWsTestnet),
               "wss://stream.binancefuture.com/stream?streams=btcusdt@depth@100ms/btcusdt@aggTrade/"
               "btcusdt@markPrice");
 }
 
 TEST(BinanceParser, DepthSnapshotUrlRespectsEndpoint) {
-    EXPECT_EQ(depth_snapshot_url("btcusdt", 1000),
+    EXPECT_EQ(depth_snapshot_url<FuturesMarket>("btcusdt", 1000, kFuturesRestProduction),
               "https://fapi.binance.com/fapi/v1/depth?symbol=BTCUSDT&limit=1000");
-    EXPECT_EQ(depth_snapshot_url("btcusdt", 1000, kFuturesRestTestnet),
+    EXPECT_EQ(depth_snapshot_url<FuturesMarket>("btcusdt", 1000, kFuturesRestTestnet),
               "https://testnet.binancefuture.com/fapi/v1/depth?symbol=BTCUSDT&limit=1000");
+}
+
+// D40: spot never subscribes to markPrice (no funding concept) and uses a
+// different REST snapshot path prefix — everything else about wire-protocol
+// construction is identical to futures, verified against Binance's docs.
+
+TEST(BinanceParser, SpotBuildStreamPathHasNoMarkPrice) {
+    EXPECT_EQ(build_stream_path<SpotMarket>({"BTCUSDT", "ethusdt"}),
+              "/stream?streams=btcusdt@depth@100ms/btcusdt@aggTrade/"
+              "ethusdt@depth@100ms/ethusdt@aggTrade");
+}
+
+TEST(BinanceParser, SpotBuildStreamUrlRespectsEndpoint) {
+    EXPECT_EQ(build_stream_url<SpotMarket>({"BTCUSDT"}, kSpotWsProduction),
+              "wss://stream.binance.com/stream?streams=btcusdt@depth@100ms/btcusdt@aggTrade");
+    EXPECT_EQ(build_stream_url<SpotMarket>({"BTCUSDT"}, kSpotWsTestnet),
+              "wss://stream.testnet.binance.vision/stream?streams=btcusdt@depth@100ms/"
+              "btcusdt@aggTrade");
+}
+
+TEST(BinanceParser, SpotDepthSnapshotUrlUsesSpotRestPrefix) {
+    EXPECT_EQ(depth_snapshot_url<SpotMarket>("btcusdt", 1000, kSpotRestProduction),
+              "https://api.binance.com/api/v3/depth?symbol=BTCUSDT&limit=1000");
+    EXPECT_EQ(depth_snapshot_url<SpotMarket>("btcusdt", 1000, kSpotRestTestnet),
+              "https://testnet.binance.vision/api/v3/depth?symbol=BTCUSDT&limit=1000");
+}
+
+// Real-shaped spot payloads through the SHARED (unchanged, market-agnostic)
+// parse_message — proves it tolerates spot's actual wire shape (no `pu` on
+// depthUpdate; aggTrade identical to futures') without needing a spot
+// branch. Field values follow the same convention as this file's other
+// captures; the depthUpdate body mirrors Binance's real spot payload shape
+// (no `pu` key at all, not just a null one).
+TEST(BinanceParser, SpotDepthUpdateHasNoPuAndDefaultsPrevSeqToZero) {
+    SymbolTable symbols;
+    const char* msg = R"({"stream":"btcusdt@depth","data":{)"
+                      R"("e":"depthUpdate","E":1723660800123,"s":"BTCUSDT",)"
+                      R"("U":157,"u":160,)"
+                      R"("b":[["61000.10","1.500"]],"a":[["61000.20","2.300"]]}})";
+
+    MarketEvent ev;
+    ASSERT_TRUE(parse_message(msg, symbols, ev));
+    EXPECT_EQ(ev.kind, EventKind::BookDiff);
+    EXPECT_EQ(ev.first_seq, 157u);
+    EXPECT_EQ(ev.seq, 160u);
+    EXPECT_EQ(ev.prev_seq, 0u);  // no `pu` on spot; AlignmentRule::continues never reads it there
+}
+
+TEST(BinanceParser, SpotAggTradeParsesIdenticallyToFutures) {
+    SymbolTable symbols;
+    const char* msg = R"({"stream":"btcusdt@aggTrade","data":{)"
+                      R"("e":"aggTrade","E":1723660801000,"s":"BTCUSDT","a":5933014,)"
+                      R"("p":"61000.55","q":"0.200","f":100,"l":105,"T":1723660800987,"m":false}})";
+
+    MarketEvent ev;
+    ASSERT_TRUE(parse_message(msg, symbols, ev));
+    EXPECT_EQ(ev.kind, EventKind::Trade);
+    EXPECT_DOUBLE_EQ(ev.price, 61000.55);
+    EXPECT_EQ(ev.side, Side::Buy);
 }
 
 // Real capture from GET /fapi/v1/depth?symbol=BTCUSDT&limit=5 on 2026-08-14.

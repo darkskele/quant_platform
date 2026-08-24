@@ -12,10 +12,16 @@
 namespace qp::collector {
 
 struct Config {
-    std::vector<std::string>            symbols;
-    std::filesystem::path               data_dir;
-    source::WsEndpoint                  ws_endpoint   = kDefaultWsEndpoint;
-    source::RestEndpoint                rest_endpoint = kDefaultRestEndpoint;
+    std::vector<std::string> symbols;  // same list applies to both legs (D41: carry's actual
+                                       // need — matching underlying instruments on both markets)
+    std::filesystem::path data_dir;    // root; recordings land in data_dir/futures/
+                                       // and data_dir/spot/ (D41 — FileRecorder writes
+                                       // data_dir/symbols.manifest unconditionally,
+                                       // so two recorders can't share one data_dir)
+    source::WsEndpoint                  ws_endpoint        = kDefaultWsEndpoint;
+    source::RestEndpoint                rest_endpoint      = kDefaultRestEndpoint;
+    source::WsEndpoint                  spot_ws_endpoint   = kDefaultSpotWsEndpoint;
+    source::RestEndpoint                spot_rest_endpoint = kDefaultSpotRestEndpoint;
     std::optional<std::chrono::seconds> run_duration;  // nullopt = run indefinitely
 };
 
