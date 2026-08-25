@@ -43,11 +43,41 @@ something reads *both* legs into one `Engine` (a backtest/live wiring
 concern via `CombinedTransport`, `libs/data_source/transport`), not a
 collector one. Keeping each leg's `SymbolTable`/manifest/recording fully
 separate here is exactly what avoids that collision ever arising in this
-file. The single poll loop (`Leg::poll()` called for both legs every
+file.
+
+~~The single poll loop (`Leg::poll()` called for both legs every
 iteration, sleeping only when neither had anything) needed no new
 threading: each `GenericLiveWebSocketSource` already runs its own I/O +
 resync threads (D10), so `source.next()` was already a cheap non-blocking
-poll on either leg.
+poll on either leg.~~ **Superseded by D42** — the hand-written `Leg` struct
+and its poll loop were replaced once `run_data_source` existed generically.
+
+## D42 — `run()` adopts `run_data_source` instead of its own hand-written poll loop
+The `Leg<Parser, Rule>` struct (D41) — one leg's `GenericLiveWebSocketSource`
++ `FileRecorder` pair, plus a hand-written `poll()` calling `source.next()`
+then `recorder.record(...)` for both legs every iteration — was exactly the
+pattern `run_data_source` (`libs/data_source`, D44) was built to generalize:
+pair N sources with N sinks positionally, without a human writing out the
+pairing by hand. Adopted here once that existed.
+
+`Leg` is gone. `run()` now constructs each leg's `GenericLiveWebSocketSource`/
+`FileRecorder` as plain locals (unchanged shape otherwise — same
+constructor args, same `data_dir/<leg>/` subdirectory split from D41),
+bundles them into two `std::tie`'d tuples (never owning/moving/copying
+either type — both are non-movable), and hands them to `run_data_source`
+running on its own thread.
+
+That thread ownership split is the real design point: `run_data_source` is
+generic over any `Source`/`Sink` pair and deliberately knows nothing about
+`GenericLiveWebSocketSource`'s gap/resync counters or `FileRecorder`'s
+drop/queue counters — the periodic status line and `--duration`/
+`stop_requested` handling stay collector's own concern, now running on
+`run()`'s own thread instead of interleaved into the same loop that used
+to also do the polling. `run()`'s loop is simpler as a result: check the
+deadline/stop flag, sleep briefly, occasionally log — it does no event
+handling itself anymore. Shutdown: `run()` flips `running` to false and
+`.join()`s the driver thread before returning, so the source/recorder
+locals are never destroyed while the driver could still be touching them.
 
 ## Collector is a thin composition, not an `Engine`
 Bundling `ExecutionGateway` into `Engine` as a policy would mean an

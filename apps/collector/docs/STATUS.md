@@ -27,7 +27,18 @@
   production Binance).
 
 ## Last proof
-- `qp_collector_integration_tests` → 2/2 tests updated for two legs.
+
+**D42 (run_data_source adoption)** — `run()`'s hand-written `Leg`/poll loop
+replaced with `run_data_source` (`libs/data_source`, D44) on its own
+thread; `run()`'s own thread now just watches `stop_requested`/
+`config.run_duration` and logs periodic status. Same observable behavior
+intended (same constructor args, same `data_dir/<leg>/` split, same status
+line format) — not yet built/re-run against this specific change (see
+CLAUDE.md's build workflow); the "2/2 passing" note below is from the
+prior `Leg`-based implementation, not re-verified against this one yet.
+
+- `qp_collector_integration_tests` → 2/2 tests updated for two legs (prior,
+  `Leg`-based implementation).
 
 **D17 (venue-select macro)** — `Config`/`run()` now generic over the
 venue.hpp-selected `SelectedParser`/`WsEndpoint`/`RestEndpoint` instead of

@@ -18,13 +18,13 @@ parse_args() ──▶ Config
         │   SelectedAlignment      / SelectedSpotAlignment   │
         │   kDefaultWs/RestEndpoint / kDefaultSpotWs/Rest...  │
         └──────────┬──────────────────────────────────────┘
-                   │ instantiates two Legs (D41)
+                   │ constructs both legs' source+recorder (D41)
         ┌──────────┴──────────────────┐
         ▼                              ▼
-  Leg<SelectedParser,             Leg<SelectedSpotParser,
-      SelectedAlignment>              SelectedSpotAlignment>
+  GenericLiveWebSocketSource      GenericLiveWebSocketSource
+  <SelectedParser,                <SelectedSpotParser,
+   SelectedAlignment>              SelectedSpotAlignment>
   ("futures")                     ("spot")
-    GenericLiveWebSocketSource      GenericLiveWebSocketSource
     (libs/data_source/source)       (libs/data_source/source)
     connect, resync, gap-detect       "
     1 I/O thread + 1 resync thread    "
@@ -33,13 +33,22 @@ parse_args() ──▶ Config
     FileRecorder ->                   FileRecorder ->
     data_dir/futures/                 data_dir/spot/
     (libs/data_source/sink)           (libs/data_source/sink)
+         │                                 │
+         └────────────────┬────────────────┘
+                           ▼
+           run_data_source(sources, sinks, running)
+           (libs/data_source, D44) — its own thread; pairs
+           source i with sink i positionally, stamps
+           MarketEvent::venue=i as it does
 ```
 
-`run()`'s loop polls both `Leg`s every iteration (`Leg::poll()`, non-
-blocking either way — each `GenericLiveWebSocketSource` already runs its
-own I/O/resync threads, D10) and sleeps only when neither had an event;
-each leg's `MarketEvent` stream goes straight to that leg's own
-`FileRecorder`, never merged (D41) — no `Engine`, no shared `SymbolTable`.
+`run_data_source` (D44) owns the poll/record loop on its own thread —
+generic over any `Source`/`Sink` pair, so it knows nothing about
+`GenericLiveWebSocketSource`'s specific gap/resync counters. `run()`'s own
+thread is freed up to just watch `stop_requested`/the `--duration`
+deadline and print periodic per-leg status; each leg's `MarketEvent`
+stream goes straight to that leg's own `FileRecorder`, never merged
+(D41) — no `Engine`, no shared `SymbolTable`.
 
 Which macro compiles which concrete variant — today `QP_COLLECTOR_VENUE`
 only selects **venue** (which `Parser`); the transport is fixed to
@@ -70,19 +79,22 @@ own content (D18, `libs/data_source/source/docs/DECISIONS.md`):
   `SelectedSpotParser`/`SelectedSpotAlignment` (spot, D40/D41), plus each
   leg's `kDefault*` endpoint constants; every other file in this directory
   reads only those generic names.
-- **`Leg<Parser, Rule>`** (`collector.cpp`, internal) — one leg's
-  `GenericLiveWebSocketSource` + `FileRecorder` pair plus its retry-count
-  bookkeeping (D41). `poll()` is non-blocking; `log_status_if_due()` prints
-  that leg's periodic/warning status, prefixed by leg name.
 - **`GenericLiveWebSocketSource<P, Rule>`** (`libs/data_source/source`) —
   the **source**: connects, resyncs after gaps/reconnects, emits a
   `MarketEvent` stream on its own I/O thread. One instance per leg.
 - **`FileRecorder`** (`libs/data_source/sink`) — the **sink**: writes the
   `MarketEvent` stream to disk (zstd, partitioned by symbol+date) on its own
   thread. One instance per leg, writing to that leg's own subdirectory.
-- **`run()`** — the composition loop: polls both `Leg`s every iteration,
-  each straight to its own recorder, logs periodic status per leg, stops on
-  `stop_requested` or `config.run_duration`.
+- **`run_data_source`** (`libs/data_source`, D44) — pairs the two legs'
+  sources with their recorders positionally (`std::tie`'d tuples) and
+  stamps `MarketEvent::venue` as it drives them, on its own thread.
+- **`log_status_if_due`** (`collector.cpp`, internal, templated on
+  source/recorder type) — one leg's periodic/warning status line, prefixed
+  by leg name, called from `run()`'s own thread once per `kPollInterval`.
+- **`run()`** — constructs both legs' source+recorder, hands them to
+  `run_data_source` on a background thread, then watches
+  `stop_requested`/`config.run_duration` and logs periodic status itself
+  until either fires, at which point it stops the driver and joins it.
 
 ## High-level implementation
 
