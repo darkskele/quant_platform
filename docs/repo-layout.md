@@ -26,7 +26,11 @@ quant-platform/
 │   │                       # core only. WallClock deferred to the live milestone.
 │   ├── data_source/        # "source"/"sink"/"transport" cities — coequal, independent
 │   │   │                   # seams, grouped as sibling dirs for filesystem convenience
-│   │   │                   # only — see DESIGN.md's "Cities today".
+│   │   │                   # only — see DESIGN.md's "Cities today". include/ directly
+│   │   │                   # here (not a city) holds run_data_source.hpp (D44) — the
+│   │   │                   # driver that pairs N Sources with N Sinks positionally and
+│   │   │                   # stamps MarketEvent::venue, depends on both source and sink
+│   │   │                   # so it can't live inside either.
 │   │   ├── wire/            # codec substrate (like core, but scoped to data_source):
 │   │   │                    # wire.hpp (MarketEvent<->bytes), zstd_stream.hpp
 │   │   │                    # (bytes<->zstd bytes), partition.hpp (day/segment naming).
@@ -42,7 +46,7 @@ quant-platform/
 │   │   │   └── resync/              # "resync" village: AlignmentRule concept +
 │   │   │                        # FuturesAlignment/SpotAlignment policies (D38). Flat --
 │   │   │                        # a leaf, no separate docs/.
-│   │   ├── sink/            # "sinks" city: Sink concept + FileRecorder, NullSink.
+│   │   ├── sink/            # "sinks" city: Sink concept + FileRecorder, FanoutSink.
 │   │   │                    # No further nesting.
 │   │   └── transport/       # "transport" city: Transport concept, the seam Engine
 │   │                        # actually consumes (D39), + InProcessTransport (fan-out

@@ -91,6 +91,9 @@ add_subdirectory(libs/data_source/sink)
 # already exist by the time source's CMakeLists.txt runs. No production
 # dependency between them either way (sink depends on core+wire only).
 add_subdirectory(libs/data_source/source)  # degrades gracefully without Boost — see its CMakeLists.txt
+# run_data_source.hpp (D44) needs both source::Source and sink::Sink, so
+# libs/data_source (the parent, not its own "city") comes after both.
+add_subdirectory(libs/data_source)
 add_subdirectory(libs/data_source/transport)  # Transport concept + InProcessTransport/CombinedTransport, depends on core only
 add_subdirectory(libs/engine)     # Engine<Tx,Clk,Exec,Risk,Strategies...> composition root, seam concepts only
 add_subdirectory(apps/collector)  # degrades gracefully without Boost — see its CMakeLists.txt

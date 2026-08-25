@@ -53,6 +53,7 @@ void expect_equal(const MarketEvent& a, const MarketEvent& b) {
     EXPECT_EQ(a.side, b.side);
     EXPECT_EQ(a.mark_price, b.mark_price);
     EXPECT_EQ(a.funding_rate, b.funding_rate);
+    EXPECT_EQ(a.venue, b.venue);
 }
 
 }  // namespace
@@ -81,6 +82,23 @@ TEST(Wire, RoundTripsBookDiffWithNoLevels) {
     ASSERT_TRUE(decoded.has_value());
     expect_equal(ev, *decoded);
     EXPECT_TRUE(cursor.empty());
+}
+
+TEST(Wire, RoundTripsNonZeroVenue) {
+    // Every other round-trip test uses venue's default (0) — real proof the
+    // byte actually gets read back, not just written and silently defaulted
+    // to 0 on both sides (D43: FanoutSink stamps this per-leg).
+    auto ev  = book_diff(101, 105, 100, {}, {});
+    ev.venue = 1;
+
+    std::vector<std::byte> buf;
+    qp::wire::write_event(buf, ev);
+
+    std::span<const std::byte> cursor{buf};
+    auto                       decoded = qp::wire::read_event(cursor);
+    ASSERT_TRUE(decoded.has_value());
+    EXPECT_EQ(decoded->venue, 1);
+    expect_equal(ev, *decoded);
 }
 
 TEST(Wire, RoundTripsTrade) {

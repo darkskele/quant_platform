@@ -31,6 +31,7 @@ namespace qp::wire {
 //   Side      side        (1 byte, Side's underlying type is uint8_t)
 //   double    mark_price
 //   double    funding_rate
+//   VenueId   venue       (1 byte, D43)
 //
 // Every event carries every field regardless of kind (e.g. price/qty/side
 // on a BookDiff go unused) — a fixed, branch-free layout in exchange for a
@@ -123,7 +124,7 @@ inline void write_event(std::vector<std::byte>& out, const MarketEvent& event) {
     }
 
     detail::append_fields(out, event.price, event.qty, event.side, event.mark_price,
-                          event.funding_rate);
+                          event.funding_rate, event.venue);
 }
 
 // Returns nullopt if `in` doesn't hold one complete record — the deliberate
@@ -151,7 +152,7 @@ inline std::optional<MarketEvent> read_event(std::span<const std::byte>& in) {
     if (!detail::read_levels(cursor, event.asks, ask_count)) return std::nullopt;
 
     if (!detail::read_fields(cursor, event.price, event.qty, event.side, event.mark_price,
-                             event.funding_rate)) {
+                             event.funding_rate, event.venue)) {
         return std::nullopt;
     }
 

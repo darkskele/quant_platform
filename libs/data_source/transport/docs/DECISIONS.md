@@ -36,3 +36,35 @@ already use) — no vtable, per D27.
 `qp_source_pure`. `source::Source` itself stays unrenamed — still no
 reason to touch it, same as D22/D30 already decided; the two concepts stay
 structurally identical, deliberately named for their own city.
+
+## ~~D42 — `OffsetTransport<Tx, Offset>`: two legs share one `SymbolId` space via a compile-time offset, not a shared `SymbolTable`~~
+**Superseded by D43** (`libs/data_source/sink/docs/DECISIONS.md`) —
+`MarketEvent` gained a `venue` field, stamped by `FanoutSink::record<I>()`
+at the point events are pushed into their leg's ring. `(symbol, venue)`
+identifies an instrument directly; no `SymbolId` numbering scheme (offset
+ranges or otherwise) is needed at all. `offset_transport.hpp` removed.
+
+`FundingCarryStrategy` needs to hold spot and perp positions independently
+in one `Portfolio`, but each leg's `GenericLiveWebSocketSource`/
+`FileReplaySource` owns its own private `SymbolTable` — both would
+independently intern "BTCUSDT" to `SymbolId 0`, colliding once merged
+(flagged as a deferred problem in `apps/collector/docs/DECISIONS.md` D41,
+resolved by D43).
+
+Considered and rejected: a single `SymbolTable` shared across both legs,
+qualifying each leg's raw exchange string before interning (e.g.
+`"PERP:BTCUSDT"`/`"SPOT:BTCUSDT"`). Rejected because it needs a per-message
+allocation to build the qualified string for the lookup — `SymbolTable::
+intern`'s steady-state cost is deliberately allocation-free today
+(`venue_types.hpp`), and this would regress that on the I/O hot path. It
+would also require `GenericLiveWebSocketSource`/`FileReplaySource` to take
+an externally-owned `SymbolTable&` instead of owning one privately — a
+real, unnecessary structural change to already-working code.
+
+Resolved instead, briefly, with `offset_transport.hpp`: `OffsetTransport<Tx,
+Offset>` wrapped any `Transport`, adding a compile-time-constant `SymbolId`
+offset to every event before returning it — no allocation, no string
+handling, no change to any `Source`'s ownership model, but still required
+picking non-overlapping offset ranges by hand (a caller invariant the type
+system couldn't check). D43's `venue` field is strictly simpler: no
+numbering scheme to get right at all.

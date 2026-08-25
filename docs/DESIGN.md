@@ -27,7 +27,8 @@ concern:
   **resync** (`resync/`, the `AlignmentRule` concept + `FuturesAlignment`/
   `SpotAlignment` policies, D38).
 - **sinks** (`libs/data_source/sink/`) — everything behind `Sink`/`Recorder`. No
-  further nesting — one `Sink` implementation (`FileRecorder`) today.
+  further nesting — two `Sink` implementations (`FileRecorder`, `FanoutSink`)
+  today.
 - **transport** (`libs/data_source/transport/`) — everything behind
   `Transport`, the seam `Engine` actually consumes: `InProcessTransport`
   (fan-out ring reader) and `CombinedTransport` (round-robin merge of N
@@ -37,9 +38,15 @@ concern:
 itself a city. `libs/data_source/wire/` is a second substrate, scoped to
 source and sink rather than the whole repo: the on-disk `MarketEvent` codec
 (`wire.hpp`/`zstd_stream.hpp`/`partition.hpp`) those two depend on instead of
-on each other (D19) — `transport` doesn't depend on it. `apps/collector/`
-composes prod streamer + `FileRecorder` ("what it's made of") — described at
-root, not a city/town itself.
+on each other (D19) — `transport` doesn't depend on it.
+`libs/data_source/include/run_data_source.hpp` is a third, thinner
+substrate directly at the `data_source` parent level (not a city — one
+header, no further structure): the driver that pairs N `Source`s with N
+`Sink`s positionally and stamps `MarketEvent::venue` as it does (D44) —
+depends on both `source` and `sink`, which is exactly why it can't live
+inside either.
+`apps/collector/` composes prod streamer + `FileRecorder` ("what it's made
+of") — described at root, not a city/town itself.
 Execution/risk/strategy/engine (per `docs/repo-layout.md`'s tree) are built
 now, part of the trader milestone.
 

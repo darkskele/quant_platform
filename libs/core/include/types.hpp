@@ -9,6 +9,11 @@ using Timestamp = std::int64_t;   ///< Nanoseconds since epoch.
 using Price     = double;         ///< TODO: fixed-point ticks for exactness — see D26.
 using Qty       = double;         ///< Same exactness gap as Price (D26): step size, not tick size.
 using SymbolId  = std::uint32_t;  ///< Index into venue symbol table.
+using VenueId   = std::uint8_t;   ///< Which leg/venue produced this event — meaningless on its
+                                  ///< own (like SymbolId), interpreted by whoever wired the
+                                  ///< producing FanoutSink (D43). (SymbolId, VenueId) together
+                                  ///< identify an instrument; SymbolId alone does not, since two
+                                  ///< venues each intern "BTCUSDT" to their own SymbolId 0.
 
 enum class Side : std::uint8_t { Buy, Sell };
 
@@ -38,8 +43,10 @@ enum class EventKind : std::uint8_t { BookDiff, Trade, Funding, BookSnapshot };
 /// padding (128 -> 112) versus declaration order. wire.hpp encodes
 /// field-by-field, not memcpy, so this doesn't touch the on-disk format.
 struct MarketEvent {
-    EventKind     kind{};
-    Side          side{};  ///< Trade only.
+    EventKind kind{};
+    Side      side{};   ///< Trade only.
+    VenueId   venue{};  ///< Stamped by FanoutSink::record<I>() (D43); 0 for single-venue paths
+                        ///< (collector, FileRecorder) that never disambiguate.
     SymbolId      symbol{};
     Timestamp     ts{};         ///< Exchange/event time.
     std::uint64_t first_seq{};  ///< First seq in event (Binance's U); BookDiff only.
