@@ -37,12 +37,12 @@ parse_args() ──▶ Config
          └────────────────┬────────────────┘
                            ▼
            run_data_source(sources, sinks, running)
-           (libs/data_source, D44) — its own thread; pairs
+           (libs/data_source, D43) — its own thread; pairs
            source i with sink i positionally, stamps
            MarketEvent::venue=i as it does
 ```
 
-`run_data_source` (D44) owns the poll/record loop on its own thread —
+`run_data_source` (D43) owns the poll/record loop on its own thread —
 generic over any `Source`/`Sink` pair, so it knows nothing about
 `GenericLiveWebSocketSource`'s specific gap/resync counters. `run()`'s own
 thread is freed up to just watch `stop_requested`/the `--duration`
@@ -85,7 +85,7 @@ own content (D18, `libs/data_source/source/docs/DECISIONS.md`):
 - **`FileRecorder`** (`libs/data_source/sink`) — the **sink**: writes the
   `MarketEvent` stream to disk (zstd, partitioned by symbol+date) on its own
   thread. One instance per leg, writing to that leg's own subdirectory.
-- **`run_data_source`** (`libs/data_source`, D44) — pairs the two legs'
+- **`run_data_source`** (`libs/data_source`, D43) — pairs the two legs'
   sources with their recorders positionally (`std::tie`'d tuples) and
   stamps `MarketEvent::venue` as it drives them, on its own thread.
 - **`log_status_if_due`** (`collector.cpp`, internal, templated on

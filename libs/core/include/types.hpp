@@ -84,8 +84,12 @@ using Notional = double;         ///< Quote-currency amount (fees, PnL).
 /// parameters where actually consumed, not struct fields.
 struct Intent {
     SymbolId symbol{};
-    Qty      target_position{};  ///< Signed: positive = net long, negative = net short.
+    VenueId  venue{};  ///< Which leg (D44) — (symbol, venue) together identify an instrument;
+                       ///< symbol alone doesn't, same reasoning as MarketEvent::venue (D43).
+    Qty target_position{};  ///< Signed: positive = net long, negative = net short.
 };
+
+static_assert(sizeof(Intent) == 16, "unexpected padding/size regression");
 
 /// A request to trade. Market order only — no price/type field yet; earns
 /// its place when limit orders do.
@@ -93,16 +97,21 @@ struct Order {
     OrderId  id{};
     SymbolId symbol{};
     Side     side{};
+    VenueId  venue{};  ///< Which leg (D44); see Intent::venue.
     Qty      qty{};
 };
 
+static_assert(sizeof(Order) == 24, "unexpected padding/size regression");
+
 /// What happened to a submitted Order: filled. Field order is
-/// alignment-driven (D32): symbol/side grouped right after order_id saves
-/// 8 bytes of padding (56 -> 48) versus declaration order.
+/// alignment-driven (D32): symbol/side/venue grouped right after order_id
+/// saves 8 bytes of padding (56 -> 48) versus declaration order; venue
+/// (D44) slots into the same gap side already left, no size change.
 struct Fill {
     OrderId   order_id{};
     SymbolId  symbol{};
     Side      side{};
+    VenueId   venue{};  ///< Which leg (D44); see Intent::venue.
     Timestamp ts{};
     Price     price{};
     Qty       qty{};  ///< == Order::qty always, for now — no partials.
@@ -116,12 +125,14 @@ static_assert(sizeof(Fill) == 48, "unexpected padding/size regression");
 enum class RejectReason : std::uint8_t { NoPriceAvailable };
 
 /// What happened to a submitted Order: didn't. Field order is
-/// alignment-driven (D32): symbol/reason grouped right after order_id
-/// saves 8 bytes of padding (32 -> 24) versus declaration order.
+/// alignment-driven (D32): symbol/reason/venue grouped right after
+/// order_id saves 8 bytes of padding (32 -> 24) versus declaration order;
+/// venue (D44) slots into the same gap reason already left.
 struct Reject {
     OrderId      order_id{};
     SymbolId     symbol{};
     RejectReason reason{};
+    VenueId      venue{};  ///< Which leg (D44); see Intent::venue.
     Timestamp    ts{};
 };
 

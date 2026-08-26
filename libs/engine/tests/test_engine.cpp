@@ -89,7 +89,7 @@ TEST(Engine, TradeThenIntentApprovedFillsAndUpdatesPortfolio) {
                       SingleIntentStrategy{.symbol = 1, .target_position = 2.0}};
 
     EXPECT_TRUE(engine.step());
-    EXPECT_EQ(engine.view().position(1), 2.0);
+    EXPECT_EQ(engine.view().position(1, 0), 2.0);
     EXPECT_FALSE(engine.step());  // transport now exhausted
 }
 
@@ -99,7 +99,7 @@ TEST(Engine, NoPriceSeenYetRejectsAndLeavesPortfolioUnaffected) {
                       SingleIntentStrategy{.symbol = 1, .target_position = 2.0}};
 
     EXPECT_TRUE(engine.step());
-    EXPECT_EQ(engine.view().position(1), 0.0);
+    EXPECT_EQ(engine.view().position(1, 0), 0.0);
 }
 
 TEST(Engine, RunDrainsEveryEventInTheTransport) {
@@ -128,7 +128,7 @@ TEST(Engine, MultipleStrategiesEachContributeAndFillDeterministically) {
                         SingleIntentStrategy{.symbol = 1, .target_position = 3.0}};
 
     EXPECT_TRUE(engine.step());
-    EXPECT_EQ(engine.view().position(1), 5.0);  // both orders filled: 2 + 3
+    EXPECT_EQ(engine.view().position(1, 0), 5.0);  // both orders filled: 2 + 3
 }
 
 TEST(Engine, FundingEventSettlesAgainstCurrentPositionBeforeStrategyReacts) {

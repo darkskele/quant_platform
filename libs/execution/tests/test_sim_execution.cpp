@@ -98,3 +98,25 @@ TEST(SimExecution, DifferentSymbolsTrackIndependentPrices) {
 
     EXPECT_TRUE(std::holds_alternative<Reject>(*gateway.next_outcome()));
 }
+
+// D44: two venues intern the same underlying instrument to the same
+// SymbolId — the matcher must key on (symbol, venue), or a spot trade's
+// price and a perp trade's price for "symbol 7" would collide into one
+// slot, silently filling one leg's order at the other leg's price.
+TEST(SimExecution, DifferentVenuesTrackIndependentPricesForTheSameSymbol) {
+    auto gateway = make_gateway();
+
+    gateway.on_market_event(qp::test::make_trade(7, 10, 100.0, 1.0, Side::Buy, /*venue=*/0));
+    gateway.on_market_event(qp::test::make_trade(7, 10, 200.0, 1.0, Side::Buy, /*venue=*/1));
+
+    gateway.submit(Order{.id = 1, .symbol = 7, .side = Side::Buy, .venue = 0, .qty = 1.0}, 20);
+    gateway.submit(Order{.id = 2, .symbol = 7, .side = Side::Buy, .venue = 1, .qty = 1.0}, 20);
+
+    auto fill_0 = std::get<qp::Fill>(*gateway.next_outcome());
+    EXPECT_EQ(fill_0.venue, 0);
+    EXPECT_DOUBLE_EQ(fill_0.price, 100.0);
+
+    auto fill_1 = std::get<qp::Fill>(*gateway.next_outcome());
+    EXPECT_EQ(fill_1.venue, 1);
+    EXPECT_DOUBLE_EQ(fill_1.price, 200.0);
+}

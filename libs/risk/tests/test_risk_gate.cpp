@@ -24,6 +24,17 @@ TEST(RiskGate, ApprovedDecisionCarriesAnOrderSizedFromIntent) {
     EXPECT_EQ(decision.order->qty, 2.0);
 }
 
+TEST(RiskGate, ApprovedOrderCarriesTheIntentsVenue) {
+    qp::Portfolio         portfolio;
+    AlwaysApproveRiskGate gate;
+
+    auto decision =
+        gate.check(qp::Intent{.symbol = 1, .venue = 1, .target_position = 2.0}, portfolio.view());
+
+    ASSERT_TRUE(decision.order.has_value());
+    EXPECT_EQ(decision.order->venue, 1);
+}
+
 TEST(RiskGate, RejectedDecisionCarriesNoOrder) {
     qp::Portfolio        portfolio;
     AlwaysRejectRiskGate gate;

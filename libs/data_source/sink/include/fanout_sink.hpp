@@ -18,7 +18,7 @@ namespace qp::sink {
 /// on each other (matches D19's rule). One ring per instance — a
 /// multi-venue setup (e.g. a carry strategy's spot + perp) uses one
 /// FanoutSink per venue, paired with its source by run_data_source
-/// (libs/data_source/include/run_data_source.hpp, D44), which is also
+/// (libs/data_source/include/run_data_source.hpp, D43), which is also
 /// what stamps MarketEvent::venue — FanoutSink itself stays venue-agnostic.
 template <std::size_t Capacity, std::size_t NumConsumers>
 class FanoutSink {

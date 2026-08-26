@@ -56,7 +56,7 @@ and its poll loop were replaced once `run_data_source` existed generically.
 The `Leg<Parser, Rule>` struct (D41) — one leg's `GenericLiveWebSocketSource`
 + `FileRecorder` pair, plus a hand-written `poll()` calling `source.next()`
 then `recorder.record(...)` for both legs every iteration — was exactly the
-pattern `run_data_source` (`libs/data_source`, D44) was built to generalize:
+pattern `run_data_source` (`libs/data_source`, D43) was built to generalize:
 pair N sources with N sinks positionally, without a human writing out the
 pairing by hand. Adopted here once that existed.
 

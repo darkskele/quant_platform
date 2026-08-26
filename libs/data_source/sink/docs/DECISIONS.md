@@ -53,7 +53,7 @@ Resolved with the simplest version: `MarketEvent` gains `VenueId venue{}`
 (`libs/core/include/types.hpp`, a plain `uint8_t`, meaningless on its own
 like `SymbolId`) — `(symbol, venue)` together identify an instrument,
 `symbol` alone doesn't — and it's stamped by `run_data_source`
-(`libs/data_source/include/run_data_source.hpp`, D44), the driver that
+(`libs/data_source/include/run_data_source.hpp`, D43), the driver that
 already pairs a `Source` at index `i` with a `Sink` at index `i`. Since the
 driver already knows `i` from the same fold expansion that does the
 pairing, it just sets `event.venue = i` before calling `sink.record(event)`

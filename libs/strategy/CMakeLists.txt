@@ -19,3 +19,5 @@ if(BUILD_TESTING)
                                                      GTest::gtest_main)
     qp_register_test(qp_strategy_tests)
 endif()
+
+add_subdirectory(carry)

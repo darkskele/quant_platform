@@ -462,6 +462,39 @@
             "problemMatcher": []
         },
         {
+            "label": "Build: qp_carry_tests",
+            "type": "shell",
+            "command": "cmake --build build/debug --target qp_carry_tests -j",
+            "dependsOn": "Configure (debug)",
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "FundingCarryStrategy: entry/exit/hold thresholds against synthetic funding events."
+        },
+        {
+            "label": "Test: qp_carry_tests",
+            "type": "shell",
+            "command": "./build/debug/libs/strategy/carry/qp_carry_tests",
+            "dependsOn": "Build: qp_carry_tests",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "Build: qp_carry_tests (release)",
+            "type": "shell",
+            "command": "cmake --build build/release --target qp_carry_tests -j",
+            "dependsOn": "Configure (release)",
+            "group": "build",
+            "problemMatcher": ["$gcc"]
+        },
+        {
+            "label": "Test: qp_carry_tests (release)",
+            "type": "shell",
+            "command": "./build/release/libs/strategy/carry/qp_carry_tests",
+            "dependsOn": "Build: qp_carry_tests (release)",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
             "label": "Build: qp_risk_tests",
             "type": "shell",
             "command": "cmake --build build/debug --target qp_risk_tests -j",
@@ -558,6 +591,24 @@
             "type": "shell",
             "command": "./build/release/libs/data_source/wire/qp_wire_bench",
             "dependsOn": "Build: qp_wire_bench (release)",
+            "group": "test",
+            "problemMatcher": [],
+            "detail": "Release build — still WSL2, so trust deltas over absolutes (docs/environment.md)."
+        },
+        {
+            "label": "Build: qp_carry_bench (release)",
+            "type": "shell",
+            "command": "cmake --build build/release --target qp_carry_bench -j",
+            "dependsOn": "Configure (release)",
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "FundingCarryStrategy::on_event entry/hold/reject paths, release build."
+        },
+        {
+            "label": "Run carry bench",
+            "type": "shell",
+            "command": "./build/release/libs/strategy/carry/qp_carry_bench",
+            "dependsOn": "Build: qp_carry_bench (release)",
             "group": "test",
             "problemMatcher": [],
             "detail": "Release build — still WSL2, so trust deltas over absolutes (docs/environment.md)."

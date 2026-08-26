@@ -1,0 +1,77 @@
+#include <benchmark/benchmark.h>
+
+#include "funding_carry_strategy.hpp"
+#include "portfolio.hpp"
+#include "support/market_event_builders.hpp"
+
+namespace {
+
+using qp::strategy::carry::Config;
+using qp::strategy::carry::FundingCarryStrategy;
+
+constexpr qp::SymbolId kSymbol       = 1;
+constexpr qp::VenueId  kSpotVenue    = 0;
+constexpr qp::VenueId  kFuturesVenue = 1;
+
+Config make_config() {
+    return Config{.symbol             = kSymbol,
+                  .spot_venue         = kSpotVenue,
+                  .futures_venue      = kFuturesVenue,
+                  .target_qty         = 2.0,
+                  .entry_funding_rate = 0.0001,
+                  .exit_funding_rate  = 0.0};
+}
+
+// Entry path: funding_rate clears the threshold, two Intents built/returned.
+// Not latency-critical live (funding ticks every ~8h) — this matters for
+// backtest sweep throughput, called once per historical Funding event per
+// swept config.
+void BM_OnEventEntersPosition(benchmark::State& state) {
+    FundingCarryStrategy strategy{make_config()};
+    qp::Portfolio        portfolio;
+    auto                 event = qp::test::make_funding(kSymbol, 0, 0.0002, 0.0, kFuturesVenue);
+
+    for (auto _ : state) {
+        auto intents = strategy.on_event(event, portfolio.view());
+        benchmark::DoNotOptimize(intents);
+    }
+}
+
+BENCHMARK(BM_OnEventEntersPosition);
+
+// Hold path: same shape (still 2 Intents), reads the current position off
+// StateView instead of a constant — the branch a real run takes most often,
+// since funding rarely crosses a threshold on every tick.
+void BM_OnEventHoldsPosition(benchmark::State& state) {
+    FundingCarryStrategy strategy{make_config()};
+    qp::Portfolio        portfolio;
+    portfolio.apply_fill(
+        qp::Fill{.symbol = kSymbol, .side = qp::Side::Buy, .venue = kSpotVenue, .qty = 2.0});
+    portfolio.apply_fill(
+        qp::Fill{.symbol = kSymbol, .side = qp::Side::Sell, .venue = kFuturesVenue, .qty = 2.0});
+    auto event = qp::test::make_funding(kSymbol, 0, 0.00005, 0.0, kFuturesVenue);
+
+    for (auto _ : state) {
+        auto intents = strategy.on_event(event, portfolio.view());
+        benchmark::DoNotOptimize(intents);
+    }
+}
+
+BENCHMARK(BM_OnEventHoldsPosition);
+
+// Reject path: wrong kind/symbol/venue — the early return every other case
+// pays on top of, isolated here as the floor.
+void BM_OnEventIgnoresNonMatchingEvent(benchmark::State& state) {
+    FundingCarryStrategy strategy{make_config()};
+    qp::Portfolio        portfolio;
+    auto                 event = qp::test::make_trade(kSymbol, 0, 100.0);
+
+    for (auto _ : state) {
+        auto intents = strategy.on_event(event, portfolio.view());
+        benchmark::DoNotOptimize(intents);
+    }
+}
+
+BENCHMARK(BM_OnEventIgnoresNonMatchingEvent);
+
+}  // namespace

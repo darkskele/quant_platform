@@ -42,7 +42,7 @@ on each other (D19) — `transport` doesn't depend on it.
 `libs/data_source/include/run_data_source.hpp` is a third, thinner
 substrate directly at the `data_source` parent level (not a city — one
 header, no further structure): the driver that pairs N `Source`s with N
-`Sink`s positionally and stamps `MarketEvent::venue` as it does (D44) —
+`Sink`s positionally and stamps `MarketEvent::venue` as it does (D43) —
 depends on both `source` and `sink`, which is exactly why it can't live
 inside either.
 `apps/collector/` composes prod streamer + `FileRecorder` ("what it's made

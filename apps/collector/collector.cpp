@@ -141,7 +141,7 @@ int run(const Config& config, std::atomic<bool>& stop_requested) {
         config.symbols, config.spot_ws_endpoint, config.spot_rest_endpoint);
     sink::FileRecorder spot_recorder(config.data_dir / "spot", spot_source.symbol_names());
 
-    // run_data_source (libs/data_source, D44) owns the poll/record loop —
+    // run_data_source (libs/data_source, D43) owns the poll/record loop —
     // std::tie, not owning tuples: neither GenericLiveWebSocketSource nor
     // FileRecorder is movable/copyable, so the tuples just reference the
     // locals above, never construct/move them. Runs on its own thread so

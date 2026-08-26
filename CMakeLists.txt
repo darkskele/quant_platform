@@ -114,10 +114,12 @@ if(QP_BUILD_BENCHMARKS)
         libs/core/benchmarks/bench_round_robin_pool.cpp
         libs/engine/benchmarks/bench_engine.cpp
         libs/data_source/transport/benchmarks/bench_transport.cpp
+        libs/strategy/carry/benchmarks/bench_funding_carry_strategy.cpp
     )
     target_link_libraries(qp_bench PRIVATE
         qp_core qp_core_test_support qp_source_pure qp_file_replay qp_venue qp_wire qp_engine
         qp_transport qp_strategy_test_support qp_risk_test_support qp_engine_test_support
+        qp_strategy_carry
         benchmark::benchmark_main
     )
 endif()

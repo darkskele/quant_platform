@@ -27,7 +27,7 @@ quant-platform/
 │   ├── data_source/        # "source"/"sink"/"transport" cities — coequal, independent
 │   │   │                   # seams, grouped as sibling dirs for filesystem convenience
 │   │   │                   # only — see DESIGN.md's "Cities today". include/ directly
-│   │   │                   # here (not a city) holds run_data_source.hpp (D44) — the
+│   │   │                   # here (not a city) holds run_data_source.hpp (D43) — the
 │   │   │                   # driver that pairs N Sources with N Sinks positionally and
 │   │   │                   # stamps MarketEvent::venue, depends on both source and sink
 │   │   │                   # so it can't live inside either.
@@ -170,7 +170,8 @@ ever live there.
 
 `core`, `clock`, `execution`, `data_source/wire`, `data_source/source`
 (town-level + its `venue` village, now including `FileReplaySource`),
-`data_source/sink`, `apps/collector`, and root `tests/` (cross-lib parity)
-are implemented, building, and tested — this is no longer folders-only.
-Trader libs (`risk`, `strategy`, `engine`) remain scaffold-only, arriving
-with the trader milestone.
+`data_source/sink`, `apps/collector`, `strategy` (concept + its `carry`
+village, `FundingCarryStrategy`), `engine`, and root `tests/` (cross-lib
+parity) are implemented, building, and tested — this is no longer
+folders-only. `risk` remains scaffold-only (concept only, no concrete
+`RiskGate`), arriving with the trader milestone.

@@ -10,23 +10,23 @@ using qp::test::make_funding;
 
 TEST(Portfolio, FlatUntilAnyFillArrives) {
     qp::Portfolio portfolio;
-    EXPECT_EQ(portfolio.position(1), 0.0);
-    EXPECT_EQ(portfolio.view().position(1), 0.0);
+    EXPECT_EQ(portfolio.position(1, 0), 0.0);
+    EXPECT_EQ(portfolio.view().position(1, 0), 0.0);
 }
 
 TEST(Portfolio, BuyIncreasesSellDecreasesPosition) {
     qp::Portfolio portfolio;
     portfolio.apply_fill(make_fill(1, qp::Side::Buy, 2.0));
-    EXPECT_EQ(portfolio.position(1), 2.0);
+    EXPECT_EQ(portfolio.position(1, 0), 2.0);
 
     portfolio.apply_fill(make_fill(1, qp::Side::Sell, 0.5));
-    EXPECT_EQ(portfolio.position(1), 1.5);
+    EXPECT_EQ(portfolio.position(1, 0), 1.5);
 }
 
 TEST(Portfolio, RepeatedFillsAccumulate) {
     qp::Portfolio portfolio;
     for (int i = 0; i < 3; ++i) portfolio.apply_fill(make_fill(1, qp::Side::Buy, 1.0));
-    EXPECT_EQ(portfolio.position(1), 3.0);
+    EXPECT_EQ(portfolio.position(1, 0), 3.0);
 }
 
 TEST(Portfolio, SymbolsAreIndependent) {
@@ -34,17 +34,31 @@ TEST(Portfolio, SymbolsAreIndependent) {
     portfolio.apply_fill(make_fill(1, qp::Side::Buy, 2.0));
     portfolio.apply_fill(make_fill(2, qp::Side::Sell, 1.0));
 
-    EXPECT_EQ(portfolio.position(1), 2.0);
-    EXPECT_EQ(portfolio.position(2), -1.0);
+    EXPECT_EQ(portfolio.position(1, 0), 2.0);
+    EXPECT_EQ(portfolio.position(2, 0), -1.0);
+}
+
+// D44: the actual property FundingCarryStrategy depends on — the same
+// symbol on two different venues (e.g. spot + perp BTCUSDT) must hold
+// independent positions, not collide into one slot.
+TEST(Portfolio, SameSymbolOnDifferentVenuesIsIndependent) {
+    qp::Portfolio portfolio;
+    portfolio.apply_fill(make_fill(1, qp::Side::Buy, 2.0, /*price=*/100.0, /*order_id=*/1,
+                                   /*ts=*/0, /*fee=*/0.0, /*venue=*/0));
+    portfolio.apply_fill(make_fill(1, qp::Side::Sell, 1.0, /*price=*/100.0, /*order_id=*/2,
+                                   /*ts=*/0, /*fee=*/0.0, /*venue=*/1));
+
+    EXPECT_EQ(portfolio.position(1, 0), 2.0);
+    EXPECT_EQ(portfolio.position(1, 1), -1.0);
 }
 
 TEST(Portfolio, StateViewReflectsFillsAppliedAfterConstruction) {
     qp::Portfolio portfolio;
     qp::StateView view = portfolio.view();  // non-owning — live window, not a snapshot
 
-    EXPECT_EQ(view.position(1), 0.0);
+    EXPECT_EQ(view.position(1, 0), 0.0);
     portfolio.apply_fill(make_fill(1, qp::Side::Buy, 5.0));
-    EXPECT_EQ(view.position(1), 5.0);
+    EXPECT_EQ(view.position(1, 0), 5.0);
 }
 
 TEST(Portfolio, BuyingCostsCashPlusFee) {

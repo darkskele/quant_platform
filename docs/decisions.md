@@ -409,3 +409,22 @@ now wouldn't change whether a strategy's PnL curve is honest, only add
 unforced assumptions. Equity isn't stored either — `Portfolio` doesn't track
 prices, so `cash + Σ(position_i * current_price_i)` is a derived quantity
 for whoever has those prices (a future analytics layer), not this class.
+
+## D44 — `Intent`/`Order`/`Fill`/`Reject` gain `venue`; `Portfolio` indexes by `(symbol, venue)`, not `symbol` alone
+D43 fixed the `SymbolId` collision (two venues interning "BTCUSDT" to the
+same id) at the `MarketEvent` layer only — `Intent`/`Order`/`Fill`/`Reject`
+and `Portfolio::positions_` still keyed on bare `SymbolId`, so a carry
+strategy's long-spot/short-perp BTCUSDT legs would still net into one
+`Portfolio` slot, silently reading flat instead of delta-neutral. Found
+before any `FundingCarryStrategy` code was written; fixed first.
+`VenueId venue{}` added to all four structs, placed to consume existing
+padding (`static_assert(sizeof(...) == N)` unchanged on each).
+`Portfolio::positions_` becomes `std::array<Qty, kMaxSymbols * kMaxVenues>`
+(extends D31's fixed-array reasoning to the composite key);
+`StateView::position(symbol, venue)` takes `venue` with no default, same
+convention as `AlignmentRule`/`BinanceMarket`. Caught a real bug in the
+process: `LastTradeMatcher::last_price_` was keyed on `symbol` alone, so
+two venues' trades for the same instrument would silently overwrite each
+other's last-traded price — now keyed on `(symbol, venue)`. `cash_` stays
+a single aggregate (no per-venue split) — same "no margin modeling yet"
+boundary as D37, not a gap this pass closes.
