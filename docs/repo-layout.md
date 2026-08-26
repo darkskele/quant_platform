@@ -64,7 +64,8 @@ quant-platform/
 ├── apps/                   # thin mains; the ONLY place concrete types are named
 │   ├── collector/main.cpp  # LiveWebSocketSource -> FileRecorder  (NOT an Engine)
 │   ├── live/main.cpp       # Engine<LiveWebSocketSource, WallClock, LiveExecution>  (later)
-│   └── backtest/main.cpp   # Engine<FileReplaySource,    SimClock,  SimExecution>   (later)
+│   └── backtest/main.cpp   # Engine<CombinedTransport<FileReplaySource x2>, SimClock,
+│                           # SimExecution, BasicRiskGate, FundingCarryStrategy> (D48)
 │
 ├── research/               # Python subtree — stat-arb, ML training; reads the `wire` format
 ├── tools/                  # data-download scripts, ops
@@ -171,7 +172,8 @@ ever live there.
 `core`, `clock`, `execution`, `data_source/wire`, `data_source/source`
 (town-level + its `venue` village, now including `FileReplaySource`),
 `data_source/sink`, `apps/collector`, `strategy` (concept + its `carry`
-village, `FundingCarryStrategy`), `engine`, and root `tests/` (cross-lib
-parity) are implemented, building, and tested — this is no longer
-folders-only. `risk` remains scaffold-only (concept only, no concrete
-`RiskGate`), arriving with the trader milestone.
+village, `FundingCarryStrategy`), `risk` (concept + `BasicRiskGate`),
+`engine`, `apps/backtest`, and root `tests/` (cross-lib parity) are
+implemented, building, and tested — no lib is folders-only anymore. `live`
+is the one milestone left (`WallClock`/`LiveExecution`, real order
+execution).

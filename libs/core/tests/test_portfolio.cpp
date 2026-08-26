@@ -5,8 +5,10 @@
 #include "support/market_event_builders.hpp"
 #include "types.hpp"
 
+using qp::test::make_book_diff;
 using qp::test::make_fill;
 using qp::test::make_funding;
+using qp::test::make_trade;
 
 TEST(Portfolio, FlatUntilAnyFillArrives) {
     qp::Portfolio portfolio;
@@ -96,4 +98,36 @@ TEST(Portfolio, FundingHasNoEffectOnAFlatPosition) {
     qp::Portfolio portfolio;
     portfolio.apply_funding(make_funding(1, 0, 0.0001, 100.0));
     EXPECT_EQ(portfolio.cash(), 0.0);
+}
+
+// D46: equity() is what a drawdown/kill-switch RiskGate actually needs —
+// cash() alone can't tell "bought an asset" from "lost money".
+TEST(Portfolio, EquityIsCashUntilAnyPriceIsMarked) {
+    qp::Portfolio portfolio;
+    portfolio.apply_fill(make_fill(1, qp::Side::Buy, 2.0, /*price=*/100.0));
+    EXPECT_DOUBLE_EQ(portfolio.equity(), portfolio.cash());
+}
+
+TEST(Portfolio, EquityAddsMarkToMarketValueOfHeldPositions) {
+    qp::Portfolio portfolio;
+    portfolio.apply_fill(make_fill(1, qp::Side::Buy, 2.0, /*price=*/100.0));  // cash -= 200
+    portfolio.apply_mark_price(make_trade(1, 0, /*price=*/110.0));
+
+    EXPECT_DOUBLE_EQ(portfolio.equity(), -200.0 + 2.0 * 110.0);  // up 20 on paper
+}
+
+TEST(Portfolio, EquityMarksFromFundingEventsMarkPriceToo) {
+    qp::Portfolio portfolio;
+    portfolio.apply_fill(make_fill(1, qp::Side::Sell, 2.0, /*price=*/100.0));  // cash += 200
+    portfolio.apply_mark_price(make_funding(1, 0, /*rate=*/0.0, /*mark_price=*/90.0));
+
+    EXPECT_DOUBLE_EQ(portfolio.equity(), 200.0 + (-2.0) * 90.0);  // short, price fell: up 20
+}
+
+TEST(Portfolio, ApplyMarkPriceIgnoresBookDiffEvents) {
+    qp::Portfolio portfolio;
+    portfolio.apply_fill(make_fill(1, qp::Side::Buy, 2.0, /*price=*/100.0));
+    portfolio.apply_mark_price(make_book_diff(1, 0, 0, 0, 0));
+
+    EXPECT_DOUBLE_EQ(portfolio.equity(), portfolio.cash());  // no scalar price on a BookDiff
 }

@@ -91,12 +91,13 @@ add_subdirectory(libs/data_source/sink)
 # already exist by the time source's CMakeLists.txt runs. No production
 # dependency between them either way (sink depends on core+wire only).
 add_subdirectory(libs/data_source/source)  # degrades gracefully without Boost — see its CMakeLists.txt
-# run_data_source.hpp (D44) needs both source::Source and sink::Sink, so
+# run_data_source.hpp (D43) needs both source::Source and sink::Sink, so
 # libs/data_source (the parent, not its own "city") comes after both.
 add_subdirectory(libs/data_source)
 add_subdirectory(libs/data_source/transport)  # Transport concept + InProcessTransport/CombinedTransport, depends on core only
 add_subdirectory(libs/engine)     # Engine<Tx,Clk,Exec,Risk,Strategies...> composition root, seam concepts only
 add_subdirectory(apps/collector)  # degrades gracefully without Boost — see its CMakeLists.txt
+add_subdirectory(apps/backtest)   # FileReplaySource -> Engine<...FundingCarryStrategy> (D48), no Boost needed
 add_subdirectory(tests)           # cross-lib integration/parity tests — see its CMakeLists.txt
 
 if(QP_BUILD_BENCHMARKS)
@@ -115,11 +116,12 @@ if(QP_BUILD_BENCHMARKS)
         libs/engine/benchmarks/bench_engine.cpp
         libs/data_source/transport/benchmarks/bench_transport.cpp
         libs/strategy/carry/benchmarks/bench_funding_carry_strategy.cpp
+        libs/risk/benchmarks/bench_basic_risk_gate.cpp
     )
     target_link_libraries(qp_bench PRIVATE
         qp_core qp_core_test_support qp_source_pure qp_file_replay qp_venue qp_wire qp_engine
         qp_transport qp_strategy_test_support qp_risk_test_support qp_engine_test_support
-        qp_strategy_carry
+        qp_strategy_carry qp_risk
         benchmark::benchmark_main
     )
 endif()

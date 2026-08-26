@@ -25,6 +25,7 @@ runs.
 | `libs/data_source/wire` | `qp_wire_bench` | `libs/data_source/wire/qp_wire_bench` | wire format write/read/round-trip |
 | `libs/data_source/transport` | `qp_transport_bench` | `libs/data_source/transport/qp_transport_bench` | InProcessTransport::next() vs bare ring; CombinedTransport dispatch overhead, single and 2-source round-robin |
 | `libs/strategy` (carry village) | `qp_carry_bench` | `libs/strategy/carry/qp_carry_bench` | FundingCarryStrategy::on_event: entry/hold/reject paths |
+| `libs/risk` | `qp_risk_bench` | `libs/risk/qp_risk_bench` | BasicRiskGate::check (approve/resize), on_tick (no-drawdown fast path) |
 
 Binary output paths mirror the source tree, not always `libs/<lib>/<target>`
 — use the Path column, not a guessed pattern.

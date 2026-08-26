@@ -143,6 +143,23 @@
             "problemMatcher": []
         },
         {
+            "label": "Build: qp_backtest_integration_tests",
+            "type": "shell",
+            "command": "cmake --build build/debug --target qp_backtest_integration_tests -j",
+            "dependsOn": "Configure (debug)",
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "End-to-end: synthetic FileRecorder data -> FileReplaySource -> Engine<...FundingCarryStrategy>."
+        },
+        {
+            "label": "Test: qp_backtest_integration_tests",
+            "type": "shell",
+            "command": "./build/debug/apps/backtest/qp_backtest_integration_tests",
+            "dependsOn": "Build: qp_backtest_integration_tests",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
             "label": "Build: qp_parity_tests",
             "type": "shell",
             "command": "cmake --build build/debug --target qp_parity_tests -j",
@@ -501,7 +518,7 @@
             "dependsOn": "Configure (debug)",
             "group": "build",
             "problemMatcher": ["$gcc"],
-            "detail": "RiskGate concept satisfaction, RiskDecision shape: approve carries an Order, reject carries none."
+            "detail": "RiskGate concept satisfaction, RiskDecision shape, and BasicRiskGate (exposure cap + drawdown kill switch)."
         },
         {
             "label": "Test: qp_risk_tests",
@@ -526,6 +543,24 @@
             "dependsOn": "Build: qp_risk_tests (release)",
             "group": "test",
             "problemMatcher": []
+        },
+        {
+            "label": "Build: qp_risk_bench (release)",
+            "type": "shell",
+            "command": "cmake --build build/release --target qp_risk_bench -j",
+            "dependsOn": "Configure (release)",
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "BasicRiskGate::check/on_tick cost, release build."
+        },
+        {
+            "label": "Run risk bench",
+            "type": "shell",
+            "command": "./build/release/libs/risk/qp_risk_bench",
+            "dependsOn": "Build: qp_risk_bench (release)",
+            "group": "test",
+            "problemMatcher": [],
+            "detail": "Release build — still WSL2, so trust deltas over absolutes (docs/environment.md)."
         },
         {
             "label": "Build: qp_engine_tests",

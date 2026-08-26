@@ -21,7 +21,7 @@ string(TOUPPER "${QP_COLLECTOR_VENUE}" QP_COLLECTOR_VENUE_UPPER)
 
 if(Boost_FOUND AND OpenSSL_FOUND)
     add_library(qp_collector_core collector.cpp)
-    # qp_data_source: run_data_source.hpp (D44), the driver that pairs the
+    # qp_data_source: run_data_source.hpp (D43), the driver that pairs the
     # two legs' sources with their recorders and stamps MarketEvent::venue.
     target_link_libraries(qp_collector_core PUBLIC qp_source qp_sink qp_data_source)
     target_compile_definitions(qp_collector_core PUBLIC QP_VENUE_${QP_COLLECTOR_VENUE_UPPER})

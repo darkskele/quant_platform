@@ -428,3 +428,34 @@ two venues' trades for the same instrument would silently overwrite each
 other's last-traded price — now keyed on `(symbol, venue)`. `cash_` stays
 a single aggregate (no per-venue split) — same "no margin modeling yet"
 boundary as D37, not a gap this pass closes.
+
+## D46 — `Portfolio` gains `equity()`, fed by a new `apply_mark_price(MarketEvent)` write path
+A real `RiskGate`'s kill-switch (CLAUDE.md: "autonomous authority —
+kill-switch / drawdown flatten") needs equity to detect an actual drawdown;
+`cash()` alone can't — buying an asset drops cash immediately without being
+a loss, and a profitable open position is invisible to it. D37 explicitly
+punted on this ("a derived quantity for whoever has those prices... not
+this class") rather than guess. `apply_mark_price` marks `(symbol, venue)`
+at whichever scalar price a `MarketEvent` actually carries — `Trade.price`
+or `Funding.mark_price`; `BookDiff`/`BookSnapshot` have no single scalar
+price and are ignored. `Engine::step()` calls it on every event, same
+cadence as `apply_funding`. `equity() = cash() + Σ(position_i ×
+mark_price_i)`, a plain `O(kMaxSymbols × kMaxVenues)` scan — not tracked
+incrementally, since it's only read once per `step()` (`RiskGate::on_tick`),
+far less often than the two write paths that would have to maintain a
+running total. `mark_price_` starts at 0 like `positions_`/`cash_` — a
+position held before its first `Trade`/`Funding` event understates
+`equity()` until one arrives, same "no never-touched-vs-zero" tradeoff
+already made elsewhere in this class.
+
+## D49 — Roadmap restructured: analytics and research infra split out of the old Phase 1 into their own milestones
+Old Phase 1 bundled "backtest mechanically works" with "walk-forward +
+PnL/Sharpe/max-drawdown reporting" as one phase — understated how much
+work the reporting side actually is, and gave no separate checkpoint for
+it. `docs/roadmap.md` renumbered Phase 0-4 to Milestone 1-6: M1 (data tap +
+backtester + first strategy + risk gate, done this session) absorbs old
+Phase 0 plus old Phase 1's backtest mechanics plus the `RiskGate` slice
+pulled forward from old Phase 2; M2 is analytics alone; M3 is research
+infra (Python/pybind11 sweeps) + actual parameter tuning, now explicitly
+gated on M2's analytics existing to score against; M4-M6 are old Phase
+2-4, renumbered, contents unchanged.

@@ -14,7 +14,13 @@ target_link_libraries(qp_risk_test_support INTERFACE qp_risk)
 
 if(BUILD_TESTING)
     find_package(GTest CONFIG REQUIRED)
-    add_executable(qp_risk_tests tests/test_risk_gate.cpp)
-    target_link_libraries(qp_risk_tests PRIVATE qp_risk qp_risk_test_support GTest::gtest GTest::gtest_main)
+    add_executable(qp_risk_tests tests/test_risk_gate.cpp tests/test_basic_risk_gate.cpp)
+    target_link_libraries(qp_risk_tests PRIVATE qp_risk qp_risk_test_support qp_core_test_support
+                                                 GTest::gtest GTest::gtest_main)
     qp_register_test(qp_risk_tests)
+endif()
+
+if(QP_BUILD_BENCHMARKS)
+    add_executable(qp_risk_bench benchmarks/bench_basic_risk_gate.cpp)
+    target_link_libraries(qp_risk_bench PRIVATE qp_risk qp_core_test_support benchmark::benchmark_main)
 endif()

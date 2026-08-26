@@ -23,6 +23,7 @@ class StateView {
     /// "venue 0" for a caller that forgot to think about which leg it means.
     Qty      position(SymbolId symbol, VenueId venue) const noexcept;
     Notional cash() const noexcept;
+    Notional equity() const noexcept;
 
    private:
     const Portfolio* portfolio_;
@@ -67,6 +68,25 @@ class Portfolio {
             positions_[index(event.symbol, event.venue)] * event.mark_price * event.funding_rate;
     }
 
+    /// Marks (symbol, venue) at whichever scalar price `event` actually
+    /// carries — Trade's `price` or Funding's `mark_price` (D46); BookDiff/
+    /// BookSnapshot have no single scalar price and are ignored. Feeds
+    /// equity(), which otherwise has no notion of unrealized PnL — cash()
+    /// alone reflects realized trading cash flow, not what a held position
+    /// is currently worth. Starts at 0 (unmarked) like positions_/cash_: a
+    /// position held before its first Trade/Funding event understates
+    /// equity() until one arrives, same "no never-touched-vs-zero
+    /// distinction" as the rest of this class.
+    void apply_mark_price(const MarketEvent& event) noexcept {
+        assert(event.symbol < kMaxSymbols);
+        assert(event.venue < kMaxVenues);
+        if (event.kind == EventKind::Trade) {
+            mark_price_[index(event.symbol, event.venue)] = event.price;
+        } else if (event.kind == EventKind::Funding) {
+            mark_price_[index(event.symbol, event.venue)] = event.mark_price;
+        }
+    }
+
     Qty position(SymbolId symbol, VenueId venue) const noexcept {
         assert(symbol < kMaxSymbols);
         assert(venue < kMaxVenues);
@@ -75,6 +95,21 @@ class Portfolio {
 
     Notional cash() const noexcept { return cash_; }
 
+    /// cash() plus every position's mark-to-market value (D46) — the actual
+    /// figure a drawdown/kill-switch RiskGate needs; cash() alone treats
+    /// "bought an asset" indistinguishably from "lost money". O(kMaxSymbols
+    /// * kMaxVenues) linear scan, not tracked incrementally: called at most
+    /// once per Engine::step() (RiskGate::on_tick), and 512 flat-array
+    /// entries is cheap next to that cadence — no reason to pay bookkeeping
+    /// cost on every apply_fill/apply_mark_price for a value read this
+    /// rarely.
+    Notional equity() const noexcept {
+        Notional total = cash_;
+        for (std::size_t i = 0; i < kMaxSymbols * kMaxVenues; ++i)
+            total += positions_[i] * mark_price_[i];
+        return total;
+    }
+
     StateView view() const noexcept { return StateView{*this}; }
 
    private:
@@ -82,8 +117,9 @@ class Portfolio {
         return static_cast<std::size_t>(symbol) * kMaxVenues + venue;
     }
 
-    std::array<Qty, kMaxSymbols * kMaxVenues> positions_{};
-    Notional                                  cash_{0.0};
+    std::array<Qty, kMaxSymbols * kMaxVenues>   positions_{};
+    std::array<Price, kMaxSymbols * kMaxVenues> mark_price_{};
+    Notional                                    cash_{0.0};
 };
 
 inline Qty StateView::position(SymbolId symbol, VenueId venue) const noexcept {
@@ -91,5 +127,7 @@ inline Qty StateView::position(SymbolId symbol, VenueId venue) const noexcept {
 }
 
 inline Notional StateView::cash() const noexcept { return portfolio_->cash(); }
+
+inline Notional StateView::equity() const noexcept { return portfolio_->equity(); }
 
 }  // namespace qp

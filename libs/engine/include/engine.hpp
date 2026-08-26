@@ -64,6 +64,7 @@ class Engine {
         clock_.advance(event->ts);
         exec_.on_market_event(*event);
         if (event->kind == EventKind::Funding) state_.apply_funding(*event);
+        state_.apply_mark_price(*event);
 
         EventContext ctx{*event, state_.view()};
         pool_.run_round(ctx, [&](std::size_t, std::vector<Intent> intents) {

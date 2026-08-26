@@ -19,7 +19,12 @@ what's confirmed working here.
 | `libs/data_source/source` | `qp_source_tests`, `qp_source_integration_tests`, `qp_file_replay_tests`, `qp_venue_tests` | core, wire |
 | `libs/data_source/sink` | `qp_sink_integration_tests` | core, wire |
 | `libs/data_source/transport` | `qp_transport_tests` | core |
+| `libs/strategy` | `qp_strategy_tests` | core |
+| `libs/strategy` (carry village) | `qp_carry_tests` | core, strategy |
+| `libs/risk` | `qp_risk_tests` | core |
+| `libs/engine` | `qp_engine_tests` | core, clock, execution, risk, strategy, transport |
 | `apps/collector` | `qp_collector_integration_tests` | core, source, sink, wire |
+| `apps/backtest` | `qp_backtest_integration_tests` | core, wire, source, sink, transport, engine, risk, strategy |
 | `tests` (root) | `qp_parity_tests` | core, wire, source, sink |
 
 `libs/data_source/source`'s row covers its nested village too (`venue` — see

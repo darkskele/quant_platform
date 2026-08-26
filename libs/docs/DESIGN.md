@@ -28,6 +28,7 @@ goals, per the city/town/village convention.
    (`core`), `strategy`'s `Strategy` concept, `risk`'s `RiskGate` concept +
    `RiskDecision`, and `engine`'s `Engine<Tx,Clk,Exec,Risk,Strategies...>`
    (D27/D28), proven by `qp_strategy_tests`/`qp_risk_tests`/
-   `qp_engine_tests`. Interfaces + composition only — no concrete
-   funding-carry `Strategy`, no real kill-switch `RiskGate`, no `WallClock`,
-   no `apps/backtest` wiring yet; those are separate later milestones.
+   `qp_engine_tests`. Interfaces + composition only at the time — the
+   concrete `FundingCarryStrategy` (D45) and `BasicRiskGate` (D46) landed
+   later, in `strategy`'s own `docs/` and this doc's sibling `risk/docs/`.
+   `WallClock`/`apps/backtest` wiring remain separate later milestones.
