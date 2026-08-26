@@ -1,123 +1,34 @@
-# Root design — engineering process & infrastructure
+# libs — every seam, one lib each
 
-This is the root level of the city/town/village doc hierarchy (see
-`docs/repo-layout.md` for the convention itself). It doesn't restate the
-product mission — that's [`MISSION.md`](MISSION.md) — or the high-level
-seams — that's [`docs/architecture-principles.md`](docs/architecture-principles.md).
-This file states the root's *other* standing concern: that the engineering
-process itself — docs, build, tests, benchmarks, comment standard — is
-provably in good order at every level, not just the product code.
+Not itself a city — the parent directory holding every lib (`core`'s
+substrate, `data_source`'s cities, `clock`, and the trader-milestone libs
+still to come). Topology and dependency direction live in
+`docs/repo-layout.md`; the seams themselves in
+`docs/architecture-principles.md`. This file states only this level's own
+goals, per the city/town/village convention.
 
-Trigger: repeated regressions this session (two `PUBLIC`/`PRIVATE` CMake
-bugs, D13's resync protocol bug) that better structure and tighter proof
-loops would have caught earlier or prevented outright.
+## Goals
 
-## Cities today
-
-Three, coequal — independent seams (`Source` vs `Sink` vs `Transport`,
-separate consumers), physically grouped as sibling directories under
-`libs/data_source/` for filesystem convenience only, not merged into one
-concern:
-
-- **source** — everything behind `Source`. Today: the **prod
-  streamer** town (`libs/data_source/source/`) — generic resync/gap-detection
-  machinery plus the live Boost.Beast transport (`GenericLiveWebSocketSource`)
-  and the backtest replay `Source` (`FileReplaySource`), both town-level (D18)
-  — with two villages nested below: **venue** (`venue/`, Binance glue) and
-  **resync** (`resync/`, the `AlignmentRule` concept + `FuturesAlignment`/
-  `SpotAlignment` policies, D38).
-- **sinks** (`libs/data_source/sink/`) — everything behind `Sink`/`Recorder`. No
-  further nesting — two `Sink` implementations (`FileRecorder`, `FanoutSink`)
-  today.
-- **transport** (`libs/data_source/transport/`) — everything behind
-  `Transport`, the seam `Engine` actually consumes: `InProcessTransport`
-  (fan-out ring reader) and `CombinedTransport` (round-robin merge of N
-  `Transport`s into one, D39). No further nesting.
-
-`libs/core/` is the lingua franca substrate all three cities depend on — not
-itself a city. `libs/data_source/wire/` is a second substrate, scoped to
-source and sink rather than the whole repo: the on-disk `MarketEvent` codec
-(`wire.hpp`/`zstd_stream.hpp`/`partition.hpp`) those two depend on instead of
-on each other (D19) — `transport` doesn't depend on it.
-`libs/data_source/include/run_data_source.hpp` is a third, thinner
-substrate directly at the `data_source` parent level (not a city — one
-header, no further structure): the driver that pairs N `Source`s with N
-`Sink`s positionally and stamps `MarketEvent::venue` as it does (D43) —
-depends on both `source` and `sink`, which is exactly why it can't live
-inside either.
-`apps/collector/` composes prod streamer + `FileRecorder` ("what it's made
-of") — described at root, not a city/town itself.
-Execution/risk/strategy/engine (per `docs/repo-layout.md`'s tree) are built
-now, part of the trader milestone.
-
-## Goals (this initiative)
-
-1. **Doc hierarchy matches code hierarchy.** City → town → village → leaf.
-   Non-leaf directories get `DESIGN.md` (mission/goals/success-metrics for
-   that level) + `STATUS.md` (milestones, last proof, tagged to commit).
-   Leaves get code comments only, no doc file. Decisions are logged nearest
-   the code they concern; a superseded decision is struck through
-   (Markdown `~~...~~`) with a pointer to where it moved, not deleted.
-   - **Success metric:** every non-leaf directory has both files.
-     `docs/decisions.md`'s marketdata/record-specific entries (D10, D11,
-     D12, D13, D14) relocated to their nearest new home, struck through at
-     the old location.
-
-2. **`libs/data_source/source` becomes venue-agnostic.** `LiveWebSocketSource`
-   templated on a minimal `Parser` concept (C++20, structural) capturing
-   exactly what it calls on `venue::binance::*` today — nothing speculative
-   added for a venue that doesn't exist. `ResyncCoordinator::on_snapshot`
-   narrowed from the full `venue::binance::DepthSnapshot` to just
-   `last_update_id`, the only field it uses.
-   - **Success metric:** `qp_source_tests`, `qp_source_integration_tests`,
-     `qp_collector_integration_tests` all pass; TSan clean on the
-     multi-threaded ones; no `venue::binance::` name appears inside the
-     generic transport/resync code paths — only inside the concept-satisfying
-     implementation and `apps/collector`'s own composition.
-
-3. **Build granularity matches the hierarchy.** Every town/village/leaf
-   buildable and testable individually, and testing a town includes its
-   children's tests.
-   - **Success metric:** one command per level runs that level's full test
-     set, children included (e.g. testing the `source` town runs
-     `qp_source_tests` + `qp_source_integration_tests` +
-     `qp_venue_tests`). Same for benchmarks.
-
-4. **Benchmarks are required for hot-path code, not optional.** Cold-path
-   components may state N/A in their `DESIGN.md`'s success metrics — but
-   that's a stated, deliberate exemption, never silence.
-   - **Success metric:** every current hot-path component already has one
-     (parser, gap detector, SPSC queue, wire format) — stays true as new
-     hot-path code is added, checked by `/audit`.
-
-5. **Agentic support stays token-conscious.** Decisions terse for agent
-   consumption; status highly formatted but bulleted/terse; a `/audit`
-   skill reads only what's needed (a level's `DESIGN.md` goals + `STATUS.md`
-   last proof + targeted test/bench output) rather than the whole tree.
-   - **Success metric:** `/audit` exists, deriving scope from staged
-     changes (no path arg), explicit-invocation-only (same standing rule as
-     `/test`/`/bench` — never self-triggered), produces a terse per-goal
-     pass/fail report.
-
-6. **Baseline stays green.** All tests and all benchmarks pass — not a
-   one-time check, the standing bar `STATUS.md` reports against.
-
-## Also in scope (smaller, same pass)
-
-- **CMake audit**: re-verify the refactor in (2) doesn't reintroduce a
-  `PUBLIC`/`PRIVATE` or `find_package`-scoping bug (both now documented in
-  `docs/environment.md`); consider a "public header self-containment" build
-  check; look at silencing the recurring cosmetic RPATH warning properly.
-- **Comment standard**: Doxygen-compatible tag syntax (`///`, `@param`,
-  `@return`, `@pre`, `@warning` — clangd renders these as hover tooltips),
-  applied per the existing terse/why-only philosophy (`CLAUDE.md`), not
-  Doxygen's typical exhaustive default. New code going forward, not a
-  retrofit.
-- **Computational-latency door stays open.** A line in
-  `docs/architecture-principles.md` distinguishing "not competing on
-  network/hardware latency" from "computational efficiency doesn't
-  matter" — SIMD/cache-conscious/lock-free work is welcome (Phase 4's
-  feature engine is the natural home), just not infrastructure racing.
-- **README.md**: stale ("design locked, Phase 0 not started") — needs
-  real build/run instructions for what exists now, written extensibly for
-  future apps.
+1. ~~**A working data source.**~~ `core` + `data_source/wire` + `.../source`
+   + `.../sink`, proven end-to-end by `apps/collector` and
+   `tests/test_recorder_replay_parity.cpp` (real record → replay agreement,
+   not just unit tests in isolation).
+2. ~~**SimClock.**~~ `clock`'s `Clock` concept + `SimClock` (D22/D23),
+   proven by `qp_clock_tests`. `WallClock` deliberately deferred to the live
+   milestone (D23). No `Engine` consumer yet — arrives with the trader
+   milestone.
+3. ~~**SimExecution.**~~ `execution`'s `ExecutionGateway`/`Matcher`
+   concepts + `SimExecution<M>` + `LastTradeMatcher` (D25), proven by
+   `qp_execution_tests`. Deliberately one `Matcher` today — more (book-aware,
+   slippage-modeling) are the expected direction as strategy families need
+   them, sibling files under `execution` (D25). `LiveExecution` — real order
+   execution, not simulated — deferred to the live milestone. No `Engine`
+   consumer yet — arrives with the trader milestone.
+4. ~~**Trader-milestone skeleton.**~~ `Intent`/`Portfolio`/`StateView`
+   (`core`), `strategy`'s `Strategy` concept, `risk`'s `RiskGate` concept +
+   `RiskDecision`, and `engine`'s `Engine<Tx,Clk,Exec,Risk,Strategies...>`
+   (D27/D28), proven by `qp_strategy_tests`/`qp_risk_tests`/
+   `qp_engine_tests`. Interfaces + composition only at the time — the
+   concrete `FundingCarryStrategy` (D45) and `BasicRiskGate` (D46) landed
+   later, in `strategy`'s own `docs/` and this doc's sibling `risk/docs/`.
+   `WallClock`/`apps/backtest` wiring remain separate later milestones.

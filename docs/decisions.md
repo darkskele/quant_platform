@@ -1,6 +1,8 @@
 # Decision log
 
 Lightweight ADRs — the decisions made and why. Append, don't rewrite history.
+As of D50, entries are one line (decision + reason, no rationale essay) —
+D1–D49 predate this convention and stay as originally written.
 
 ## D1 — Target medium-frequency (MFT), not HFT
 Cloud VMs are ms-latency; HFT needs colo + kernel-bypass + FPGAs. Compete on
@@ -459,3 +461,6 @@ pulled forward from old Phase 2; M2 is analytics alone; M3 is research
 infra (Python/pybind11 sweeps) + actual parameter tuning, now explicitly
 gated on M2's analytics existing to score against; M4-M6 are old Phase
 2-4, renumbered, contents unchanged.
+
+## D50 — Repo flattened to content-type root dirs (`src`/`include`/`tests`/`benchmarks`/`docs`/`cmake`/`integration`/`tools`), each mirroring one module tree; `libs/` dropped as a path segment, `apps/` kept
+Each root now holds exactly one kind of thing, easier to reason about than a module owning a mixed directory of code+docs+tests+build files.
