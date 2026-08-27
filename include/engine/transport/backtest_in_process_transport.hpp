@@ -56,8 +56,15 @@ class BacktestInProcessTransport {
           control_consumer_(control_consumer) {}
 
     std::optional<MarketEvent> next() {
-        if (!stopped_ && control_->poll(control_consumer_) == ControlCommand::Stop) {
-            stopped_ = true;
+        if (!stopped_) {
+            // pump() before poll(): request_stop() alone only lands in
+            // ControlChannel's request inbox — nothing broadcasts it to
+            // this consumer's ring until something calls pump(). This is
+            // "whichever loop is already polling the channel" (its own
+            // doc comment), so it does its own pumping rather than relying
+            // on the composition root to remember to.
+            control_->pump();
+            if (control_->poll(control_consumer_) == ControlCommand::Stop) stopped_ = true;
         }
 
         bool any_missing = false;
@@ -83,6 +90,21 @@ class BacktestInProcessTransport {
         MarketEvent out = *lookahead_[*earliest];
         lookahead_[*earliest].reset();
         return out;
+    }
+
+    /// True once Stop has been observed and every ring/lookahead slot is
+    /// genuinely drained — the caller's own driving loop needs this to
+    /// tell "next() returned nullopt because it's mid-run and waiting" from
+    /// "next() returned nullopt because there's truly nothing left", since
+    /// Engine::run()'s while(step()){} can't make that distinction itself.
+    /// Reflects state as of the last next() call, not a fresh ring check —
+    /// call next() first, same way every other read of this class works.
+    bool is_done() const noexcept {
+        if (!stopped_) return false;
+        for (std::size_t i = 0; i < N; ++i) {
+            if (lookahead_[i]) return false;
+        }
+        return true;
     }
 
    private:

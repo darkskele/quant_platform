@@ -131,10 +131,16 @@ TEST(BacktestInProcessTransport, StopFlushesBufferedEventsInsteadOfStallingForev
     EXPECT_EQ(t.next()->ts, 10);   // fills a=10,b=20 -> a's 10 wins
     EXPECT_EQ(t.next()->ts, 20);   // refills a=30 (its 2nd event); b's already-buffered 20 still wins
     EXPECT_FALSE(t.next().has_value());  // a's buffered 30 remains; b's ring empty -> stall, not stopped yet
+    EXPECT_FALSE(t.is_done());
 
-    control.broadcast(ControlCommand::Stop);
+    control.request_stop();  // real usage: request_stop(), not broadcast() directly -- next() must pump() itself
+    EXPECT_FALSE(t.is_done());  // requested, but not yet pumped+observed (stopped_ still false)
     auto flushed = t.next();
     ASSERT_TRUE(flushed.has_value());
-    EXPECT_EQ(flushed->ts, 30);          // stopped -> flush a's buffered 30
+    EXPECT_EQ(flushed->ts, 30);  // stopped -> flush a's buffered 30
+    // b's lookahead was already empty going into this call (its ring drained earlier),
+    // so returning a's last buffered value also leaves everything fully drained now.
+    EXPECT_TRUE(t.is_done());
     EXPECT_FALSE(t.next().has_value());  // truly nothing left anywhere
+    EXPECT_TRUE(t.is_done());
 }

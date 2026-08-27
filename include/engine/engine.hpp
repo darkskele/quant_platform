@@ -85,6 +85,14 @@ class Engine {
 
     StateView view() const noexcept { return state_.view(); }
 
+    /// Direct access to the owned Transport — for a driving loop that
+    /// needs to distinguish "nothing right now" from "genuinely finished"
+    /// itself (e.g. BacktestInProcessTransport::is_done()), which run()'s
+    /// own while(step()){} can't: it treats any false from step() as done,
+    /// correct only for a Transport whose next() is permanently nullopt
+    /// once exhausted.
+    Tx& transport() noexcept { return transport_; }
+
    private:
     template <std::size_t... Is>
     Pool make_pool(std::index_sequence<Is...>) {

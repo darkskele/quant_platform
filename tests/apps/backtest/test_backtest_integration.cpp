@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "../backtest.hpp"
+#include "backtest.hpp"
 #include "file_recorder.hpp"
 #include "partition.hpp"
 #include "support/market_event_builders.hpp"

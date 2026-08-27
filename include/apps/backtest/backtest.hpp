@@ -42,9 +42,14 @@ struct Results {
 };
 
 /// Replays data_dir/futures + data_dir/spot (filtered to config.symbol on
-/// both legs) through Engine<CombinedTransport<FileReplaySource,
-/// FileReplaySource>, SimClock, SimExecution<LastTradeMatcher>,
-/// BasicRiskGate, 1, FundingCarryStrategy> to completion.
+/// both legs) to completion, through the same mechanism a live composition
+/// uses (D3): each leg's FileReplaySource feeds its own FanoutSink, both
+/// driven by a driver thread exactly like run_data_source's; Engine
+/// consumes both legs merged in timestamp order via
+/// BacktestInProcessTransport. A ControlChannel coordinates the driver
+/// thread's "both legs exhausted" signal with Engine's own driving loop —
+/// never engine.run()'s plain while(step()){}, which can't distinguish
+/// "nothing right now" from "genuinely done" for a ring-fed Transport.
 /// @throws std::runtime_error on a missing/mismatched symbols.manifest
 ///     (D48) — a config problem, not a normal "no data" case.
 Results run(const Config& config);

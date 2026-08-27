@@ -5,12 +5,15 @@
 #include <iostream>
 #include <stdexcept>
 #include <string_view>
+#include <thread>
 #include <vector>
 
+#include "backtest_in_process_transport.hpp"
 #include "clock.hpp"
-#include "combined_transport.hpp"
+#include "control_channel.hpp"
 #include "engine.hpp"
 #include "execution_gateway.hpp"
+#include "fanout_sink.hpp"
 #include "file_replay_source.hpp"
 #include "last_trade_matcher.hpp"
 #include "portfolio.hpp"
@@ -29,6 +32,11 @@ namespace {
 // two directories, so it has to reuse the same convention, not invent one.
 constexpr VenueId kFuturesVenue = 0;
 constexpr VenueId kSpotVenue    = 1;
+
+// Sized for a research backtest's replay rate, not tuned against real
+// numbers yet — same "placeholder, not validated" status as SpmcRing's own
+// backoff constants until this path gets benchmarked for real.
+constexpr std::size_t kRingCapacity = 1024;
 
 void print_usage(const char* prog) {
     std::cerr
@@ -192,15 +200,72 @@ Results run(const Config& config) {
     carry_config.futures_venue           = kFuturesVenue;
     carry_config.spot_venue              = kSpotVenue;
 
-    using Tx   = transport::CombinedTransport<source::FileReplaySource, source::FileReplaySource>;
+    using FanSink = sink::FanoutSink<kRingCapacity, 1>;  // one consumer: this backtest's own Engine
+    FanSink     futures_fanout;
+    FanSink     spot_fanout;
+    std::size_t futures_consumer = futures_fanout.attach();
+    std::size_t spot_consumer    = spot_fanout.attach();
+
+    ControlChannel<1> control;  // one attached participant: Engine's own transport
+    std::size_t        engine_ctrl_idx = control.attach();
+
+    // Drives both legs into their rings on its own thread, exactly like
+    // run_data_source does for collector — same mechanism, backtest and
+    // live alike (D3). Unlike run_data_source (which runs until an
+    // external stop_requested), this loop knows FileReplaySource's own
+    // next()==nullopt is *permanent* end-of-data (unlike a live source's,
+    // which just means "queue empty right now" — see file_replay_source.hpp),
+    // so it can detect true exhaustion itself and request_stop() once both
+    // legs are done, closing the loop BacktestInProcessTransport needs.
+    std::thread driver([&] {
+        bool futures_done = false;
+        bool spot_done    = false;
+        while (!(futures_done && spot_done)) {
+            bool any = false;
+            if (!futures_done) {
+                if (auto ev = futures_source.next()) {
+                    ev->venue = kFuturesVenue;
+                    futures_fanout.record(std::move(*ev));
+                    any = true;
+                } else {
+                    futures_done = true;
+                }
+            }
+            if (!spot_done) {
+                if (auto ev = spot_source.next()) {
+                    ev->venue = kSpotVenue;
+                    spot_fanout.record(std::move(*ev));
+                    any = true;
+                } else {
+                    spot_done = true;
+                }
+            }
+            if (!any && !(futures_done && spot_done)) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+        }
+        control.request_stop();
+    });
+
+    using Tx = transport::BacktestInProcessTransport<FanSink::Ring, 2, 1>;
+    Tx transport({&futures_fanout.ring(), &spot_fanout.ring()}, {futures_consumer, spot_consumer},
+                 control, engine_ctrl_idx);
+
     using Exec = execution::SimExecution<execution::LastTradeMatcher>;
 
-    Engine<Tx, SimClock, Exec, risk::BasicRiskGate, 1, strategy::carry::FundingCarryStrategy>
-        engine{Tx{std::move(futures_source), std::move(spot_source)}, SimClock{}, Exec{},
-               risk::BasicRiskGate{config.risk},
-               strategy::carry::FundingCarryStrategy{carry_config}};
+    Engine<Tx, SimClock, Exec, risk::BasicRiskGate, 1, strategy::carry::FundingCarryStrategy> engine{
+        std::move(transport), SimClock{}, Exec{}, risk::BasicRiskGate{config.risk},
+        strategy::carry::FundingCarryStrategy{carry_config}};
 
-    engine.run();
+    // Not engine.run(): its plain while(step()){} stops on the first
+    // nullopt, which for a ring-fed Transport can mean "nothing right now"
+    // as easily as "genuinely done". is_done() is the ring/ControlChannel-
+    // aware signal that actually distinguishes them (see backtest.hpp).
+    while (!engine.transport().is_done()) {
+        if (!engine.step()) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+
+    driver.join();
 
     StateView state = engine.view();
     return Results{.final_cash             = state.cash(),

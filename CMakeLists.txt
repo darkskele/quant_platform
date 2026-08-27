@@ -98,12 +98,7 @@ add_subdirectory(cmake/data_source/source)  # degrades gracefully without Boost 
 add_subdirectory(cmake/data_source)
 add_subdirectory(cmake/engine)     # Engine<Tx,Clk,Exec,Risk,Strategies...> composition root; add_subdirectory's its own transport/ child
 add_subdirectory(cmake/apps/collector)  # degrades gracefully without Boost — see its CMakeLists.txt
-# apps/backtest parked: its composition still needs rewriting against
-# BacktestInProcessTransport/ControlChannel (D5x) — everything it would
-# depend on (engine, transport, risk, strategy) is already built and
-# tested above; only backtest's own CMakeLists.txt/backtest.cpp are stale
-# (pre-D50 colocated-layout paths, pre-redesign Transport usage).
-# add_subdirectory(cmake/apps/backtest)
+add_subdirectory(cmake/apps/backtest)   # each leg's FileReplaySource -> FanoutSink -> BacktestInProcessTransport -> Engine (D48/D5x)
 add_subdirectory(integration)           # cross-lib integration/parity tests — see its CMakeLists.txt
 
 if(QP_BUILD_BENCHMARKS)
