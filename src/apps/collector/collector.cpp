@@ -122,7 +122,7 @@ void log_status_if_due(const char* name, SourceT& source, RecorderT& recorder,
 
 }  // namespace
 
-int run(const Config& config, std::atomic<bool>& stop_requested) {
+int run(const Config& config, ControlChannel<1>& control, std::size_t consumer) {
     static constexpr auto kPollInterval = std::chrono::seconds(5);
     static constexpr auto kWatcherSleep = std::chrono::milliseconds(50);
 
@@ -145,9 +145,9 @@ int run(const Config& config, std::atomic<bool>& stop_requested) {
     // std::tie, not owning tuples: neither GenericLiveWebSocketSource nor
     // FileRecorder is movable/copyable, so the tuples just reference the
     // locals above, never construct/move them. Runs on its own thread so
-    // this one is free to watch stop_requested/the --duration deadline and
-    // print periodic status — concerns run_data_source deliberately knows
-    // nothing about (it's generic over any Source/Sink, not specifically
+    // this one is free to watch `control`/the --duration deadline and print
+    // periodic status — concerns run_data_source deliberately knows nothing
+    // about (it's generic over any Source/Sink, not specifically
     // GenericLiveWebSocketSource/FileRecorder's own counters).
     auto sources = std::tie(futures_source, spot_source);
     auto sinks   = std::tie(futures_recorder, spot_recorder);
@@ -166,7 +166,14 @@ int run(const Config& config, std::atomic<bool>& stop_requested) {
     std::cerr << "[collector] starting: " << config.symbols.size() << " symbol(s) x 2 legs -> "
               << config.data_dir << " (futures/, spot/)\n";
 
-    while (!stop_requested.load(std::memory_order_acquire)) {
+    while (true) {
+        // pump() before poll(): a signal handler's request_stop() only
+        // lands in ControlChannel's request inbox — nothing broadcasts it
+        // without a pump(), and this loop is "whichever loop is already
+        // polling the channel" (its own contract), so it does its own
+        // pumping rather than trusting the caller to remember to.
+        control.pump();
+        if (control.poll(consumer) == ControlCommand::Stop) break;
         if (deadline && std::chrono::steady_clock::now() >= *deadline) break;
 
         auto now = std::chrono::steady_clock::now();

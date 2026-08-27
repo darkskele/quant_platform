@@ -117,8 +117,9 @@ TEST(CollectorIntegration, RecordsBothLegsToSeparateDirectoriesEndToEnd) {
     config.run_duration =
         std::chrono::seconds(2);  // the actual --duration feature, exercised directly
 
-    std::atomic<bool> stop_requested{false};  // never set — run_duration alone stops this run
-    int               rc = qp::collector::run(config, stop_requested);
+    qp::ControlChannel<1> control;  // never requests Stop — run_duration alone stops this run
+    auto                   consumer = control.attach();
+    int                     rc      = qp::collector::run(config, control, consumer);
     EXPECT_EQ(rc, 0);
 
     auto futures_dir = dir.path / "futures" / "BTCUSDT";
@@ -180,14 +181,15 @@ TEST(CollectorIntegration, StopRequestedStopsBeforeTheDurationDeadline) {
     config.run_duration =
         std::chrono::seconds(60);  // deliberately long — must NOT be why this returns
 
-    std::atomic<bool> stop_requested{false};
-    std::thread       stopper([&] {
+    qp::ControlChannel<1> control;
+    auto                   consumer = control.attach();
+    std::thread             stopper([&] {
         std::this_thread::sleep_for(std::chrono::milliseconds(300));
-        stop_requested.store(true, std::memory_order_release);
+        control.request_stop();
     });
 
     auto start   = std::chrono::steady_clock::now();
-    int  rc      = qp::collector::run(config, stop_requested);
+    int  rc      = qp::collector::run(config, control, consumer);
     auto elapsed = std::chrono::steady_clock::now() - start;
     stopper.join();
 
