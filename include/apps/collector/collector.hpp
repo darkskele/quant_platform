@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include "venue.hpp"
+#include "collector_venue.hpp"
 #include "venue_types.hpp"
 
 namespace qp::collector {

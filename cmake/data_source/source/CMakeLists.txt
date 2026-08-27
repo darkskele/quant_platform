@@ -6,22 +6,26 @@
 # independently buildable/testable, add_subdirectory'd) and resync (the
 # AlignmentRule concept + concrete market policies, D13/D36 — header-only,
 # no separate target needed, just another include path).
+qp_dir(include QP_INC)
+qp_dir(src QP_SRC)
+qp_dir(tests QP_TESTS)
+qp_dir(benchmarks QP_BENCH)
 
 add_library(qp_source_pure INTERFACE)
 target_include_directories(qp_source_pure INTERFACE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/resync/include
+    ${QP_INC}
+    ${QP_INC}/resync
 )
 target_link_libraries(qp_source_pure INTERFACE qp_core)
 
 if(BUILD_TESTING)
     find_package(GTest CONFIG REQUIRED)
     add_executable(qp_source_tests
-        tests/test_gap_detector.cpp
-        tests/test_backoff.cpp
-        tests/test_resync.cpp
-        tests/test_resync_coordinator.cpp
-        tests/test_resync_policy.cpp
+        ${QP_TESTS}/test_gap_detector.cpp
+        ${QP_TESTS}/test_backoff.cpp
+        ${QP_TESTS}/test_resync.cpp
+        ${QP_TESTS}/test_resync_coordinator.cpp
+        ${QP_TESTS}/test_resync_policy.cpp
     )
     target_link_libraries(qp_source_tests PRIVATE qp_source_pure GTest::gtest GTest::gtest_main)
     qp_register_test(qp_source_tests)
@@ -33,11 +37,11 @@ add_subdirectory(venue)
 # back what FileRecorder wrote, via the shared wire codec (qp_wire) rather
 # than a second implementation of the format. No Boost/OpenSSL needed (no
 # live transport), so this builds unconditionally, unlike qp_source below.
-add_library(qp_file_replay src/file_replay_source.cpp)
+add_library(qp_file_replay ${QP_SRC}/file_replay_source.cpp)
 target_link_libraries(qp_file_replay PUBLIC qp_source_pure qp_wire)
 
 if(BUILD_TESTING)
-    add_executable(qp_file_replay_tests tests/test_file_replay_source.cpp)
+    add_executable(qp_file_replay_tests ${QP_TESTS}/test_file_replay_source.cpp)
     # qp_sink is test-only here: fixtures are written via a real FileRecorder
     # (not a hand-rolled copy of its write logic — see the test file's own
     # comment), never linked into qp_file_replay itself. Production
@@ -49,10 +53,10 @@ if(BUILD_TESTING)
 endif()
 
 if(QP_BUILD_BENCHMARKS)
-    add_executable(qp_source_bench benchmarks/bench_message_processing.cpp)
+    add_executable(qp_source_bench ${QP_BENCH}/bench_message_processing.cpp)
     target_link_libraries(qp_source_bench PRIVATE qp_source_pure qp_venue benchmark::benchmark_main)
 
-    add_executable(qp_file_replay_bench benchmarks/bench_file_replay_source.cpp)
+    add_executable(qp_file_replay_bench ${QP_BENCH}/bench_file_replay_source.cpp)
     target_link_libraries(qp_file_replay_bench
         PRIVATE qp_file_replay qp_core_test_support benchmark::benchmark_main
     )
@@ -63,18 +67,18 @@ endif()
 # town's pure pieces still configure/test on a machine without vcpkg/Boost
 # wired up yet. Formerly its own "protocol" village/subdirectory; collapsed
 # up into this town directly now that it's the only transport that exists
-# (see docs/DECISIONS.md).
+# (see docs/data_source/source/DECISIONS.md).
 find_package(Boost QUIET COMPONENTS system)
 find_package(OpenSSL QUIET)
 
 if(Boost_FOUND AND OpenSSL_FOUND)
     find_package(Threads REQUIRED)
 
-    add_library(qp_source src/live_websocket_source.cpp)
-    # No target_include_directories here: live_websocket_source.hpp now lives
-    # in this same directory's include/, already exported by qp_source_pure
-    # (linked PUBLIC below) — a second target_include_directories call would
-    # just duplicate that path.
+    add_library(qp_source ${QP_SRC}/live_websocket_source.cpp)
+    # No target_include_directories here: live_websocket_source.hpp lives in
+    # this same include/, already exported by qp_source_pure (linked PUBLIC
+    # below) — a second target_include_directories call would just
+    # duplicate that path.
     target_link_libraries(qp_source
         # qp_venue is PUBLIC, not PRIVATE: live_websocket_source.hpp (the public
         # header) itself includes binance.hpp and uses
@@ -89,15 +93,15 @@ if(Boost_FOUND AND OpenSSL_FOUND)
     # Mock WS/HTTP server test infrastructure (tests/support/), exposed as its
     # own target so apps/collector's integration test can reuse it — written
     # once for this lib's own integration test, needed a second time there,
-    # not duplicated a third time. include dir is tests/ itself (not
-    # tests/support/) so #include "support/mock_binance_server.hpp" resolves
-    # the same way from any consumer.
+    # not duplicated a third time. Include dir is the shared top-level tests/
+    # root (D50), so #include "support/mock_binance_server.hpp" resolves the
+    # same way from any consumer.
     add_library(qp_source_test_support INTERFACE)
-    target_include_directories(qp_source_test_support INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
+    target_include_directories(qp_source_test_support INTERFACE ${CMAKE_SOURCE_DIR}/tests)
     target_link_libraries(qp_source_test_support INTERFACE qp_source Boost::system Threads::Threads)
 
     if(BUILD_TESTING)
-        add_executable(qp_source_integration_tests tests/test_live_websocket_source_integration.cpp)
+        add_executable(qp_source_integration_tests ${QP_TESTS}/test_live_websocket_source_integration.cpp)
         target_link_libraries(qp_source_integration_tests
             PRIVATE qp_source_test_support GTest::gtest GTest::gtest_main
         )

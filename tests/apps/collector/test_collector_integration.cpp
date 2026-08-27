@@ -10,7 +10,7 @@
 #include <thread>
 #include <vector>
 
-#include "../collector.hpp"
+#include "collector.hpp"
 #include "support/mock_binance_server.hpp"
 #include "support/real_captures.hpp"
 #include "support/scratch_dir.hpp"

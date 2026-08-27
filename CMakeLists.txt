@@ -36,6 +36,8 @@ if(CCACHE_PROGRAM)
     set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
 endif()
 
+include(cmake/utils.cmake)                      # qp_dir() — cmake/<mod> -> src|include|tests|benchmarks/<mod>
+
 include(CTest)                                  # BUILD_TESTING, default ON
 option(QP_BUILD_BENCHMARKS "Build Google Benchmark suites" ON)
 
@@ -63,7 +65,7 @@ endif()
 # Each lib is its own CMake target (qp_core, qp_source, ...) plus, where
 # it has them, its own *_tests / *_bench targets — `cmake --build build
 # --target qp_source_tests` builds exactly that and its deps, nothing
-# else in the tree. libs/data_source/source now add_subdirectory's its
+# else in the tree. data_source/source now add_subdirectory's its
 # remaining village (venue) internally, see its CMakeLists.txt.
 
 # Aggregate target every *_tests binary registers into via
@@ -79,26 +81,30 @@ function(qp_register_test name)
     add_dependencies(qp_all_tests ${name})
 endfunction()
 
-add_subdirectory(libs/core)
-add_subdirectory(libs/clock)               # Clock concept + SimClock (WallClock deferred), depends on core only
-add_subdirectory(libs/execution)           # ExecutionGateway/Matcher concepts + SimExecution, depends on core only
-add_subdirectory(libs/strategy)            # Strategy concept, depends on core only
-add_subdirectory(libs/risk)                # RiskGate concept + RiskDecision, depends on core only
-add_subdirectory(libs/data_source/wire)    # codec substrate shared by source (read) and sink (write)
-add_subdirectory(libs/data_source/sink)
+add_subdirectory(cmake/core)
+add_subdirectory(cmake/clock)               # Clock concept + SimClock (WallClock deferred), depends on core only
+add_subdirectory(cmake/execution)           # ExecutionGateway/Matcher concepts + SimExecution, depends on core only
+add_subdirectory(cmake/strategy)            # Strategy concept, depends on core only
+add_subdirectory(cmake/risk)                # RiskGate concept + RiskDecision, depends on core only
+add_subdirectory(cmake/data_source/wire)    # codec substrate shared by source (read) and sink (write)
+add_subdirectory(cmake/data_source/sink)
 # sink before source: qp_file_replay_tests test-only links qp_sink (real
 # FileRecorder for fixtures — see source's CMakeLists.txt), so qp_sink must
 # already exist by the time source's CMakeLists.txt runs. No production
 # dependency between them either way (sink depends on core+wire only).
-add_subdirectory(libs/data_source/source)  # degrades gracefully without Boost — see its CMakeLists.txt
+add_subdirectory(cmake/data_source/source)  # degrades gracefully without Boost — see its CMakeLists.txt
 # run_data_source.hpp (D43) needs both source::Source and sink::Sink, so
-# libs/data_source (the parent, not its own "city") comes after both.
-add_subdirectory(libs/data_source)
-add_subdirectory(libs/data_source/transport)  # Transport concept + InProcessTransport/CombinedTransport, depends on core only
-add_subdirectory(libs/engine)     # Engine<Tx,Clk,Exec,Risk,Strategies...> composition root, seam concepts only
-add_subdirectory(apps/collector)  # degrades gracefully without Boost — see its CMakeLists.txt
-add_subdirectory(apps/backtest)   # FileReplaySource -> Engine<...FundingCarryStrategy> (D48), no Boost needed
-add_subdirectory(tests)           # cross-lib integration/parity tests — see its CMakeLists.txt
+# data_source (the parent, not its own "city") comes after both.
+add_subdirectory(cmake/data_source)
+add_subdirectory(cmake/engine)     # Engine<Tx,Clk,Exec,Risk,Strategies...> composition root; add_subdirectory's its own transport/ child
+add_subdirectory(cmake/apps/collector)  # degrades gracefully without Boost — see its CMakeLists.txt
+# apps/backtest parked: its composition still needs rewriting against
+# BacktestInProcessTransport/ControlChannel (D5x) — everything it would
+# depend on (engine, transport, risk, strategy) is already built and
+# tested above; only backtest's own CMakeLists.txt/backtest.cpp are stale
+# (pre-D50 colocated-layout paths, pre-redesign Transport usage).
+# add_subdirectory(cmake/apps/backtest)
+add_subdirectory(integration)           # cross-lib integration/parity tests — see its CMakeLists.txt
 
 if(QP_BUILD_BENCHMARKS)
     # One binary, every benchmark case, one results table. Per-lib *_bench
@@ -106,17 +112,17 @@ if(QP_BUILD_BENCHMARKS)
     # builds — this just also links them into one executable; Google
     # Benchmark's own --benchmark_filter narrows a single run when needed.
     add_executable(qp_bench
-        libs/core/benchmarks/bench_spsc_queue.cpp
-        libs/core/benchmarks/bench_spmc_ring.cpp
-        libs/data_source/source/benchmarks/bench_message_processing.cpp
-        libs/data_source/source/benchmarks/bench_file_replay_source.cpp
-        libs/data_source/source/venue/benchmarks/bench_binance_parser.cpp
-        libs/data_source/wire/benchmarks/bench_wire.cpp
-        libs/core/benchmarks/bench_round_robin_pool.cpp
-        libs/engine/benchmarks/bench_engine.cpp
-        libs/data_source/transport/benchmarks/bench_transport.cpp
-        libs/strategy/carry/benchmarks/bench_funding_carry_strategy.cpp
-        libs/risk/benchmarks/bench_basic_risk_gate.cpp
+        benchmarks/core/bench_spsc_queue.cpp
+        benchmarks/core/bench_spmc_ring.cpp
+        benchmarks/data_source/source/bench_message_processing.cpp
+        benchmarks/data_source/source/bench_file_replay_source.cpp
+        benchmarks/data_source/source/venue/bench_binance_parser.cpp
+        benchmarks/data_source/wire/bench_wire.cpp
+        benchmarks/core/bench_round_robin_pool.cpp
+        benchmarks/engine/bench_engine.cpp
+        benchmarks/engine/transport/bench_transport.cpp
+        benchmarks/strategy/carry/bench_funding_carry_strategy.cpp
+        benchmarks/risk/bench_basic_risk_gate.cpp
     )
     target_link_libraries(qp_bench PRIVATE
         qp_core qp_core_test_support qp_source_pure qp_file_replay qp_venue qp_wire qp_engine

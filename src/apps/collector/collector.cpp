@@ -6,8 +6,8 @@
 #include <thread>
 #include <tuple>
 
-#include "file_recorder.hpp"
 #include "live_websocket_source.hpp"
+#include "recorder.hpp"
 #include "run_data_source.hpp"
 
 namespace qp::collector {
@@ -135,11 +135,11 @@ int run(const Config& config, std::atomic<bool>& stop_requested) {
     // collision two venues interning the same string would otherwise hit.
     source::GenericLiveWebSocketSource<SelectedParser, SelectedAlignment> futures_source(
         config.symbols, config.ws_endpoint, config.rest_endpoint);
-    sink::FileRecorder futures_recorder(config.data_dir / "futures", futures_source.symbol_names());
+    SelectedRecorder futures_recorder(config.data_dir / "futures", futures_source.symbol_names());
 
     source::GenericLiveWebSocketSource<SelectedSpotParser, SelectedSpotAlignment> spot_source(
         config.symbols, config.spot_ws_endpoint, config.spot_rest_endpoint);
-    sink::FileRecorder spot_recorder(config.data_dir / "spot", spot_source.symbol_names());
+    SelectedRecorder spot_recorder(config.data_dir / "spot", spot_source.symbol_names());
 
     // run_data_source (libs/data_source, D43) owns the poll/record loop —
     // std::tie, not owning tuples: neither GenericLiveWebSocketSource nor
