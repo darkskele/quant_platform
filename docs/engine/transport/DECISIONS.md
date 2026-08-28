@@ -68,3 +68,15 @@ handling, no change to any `Source`'s ownership model, but still required
 picking non-overlapping offset ranges by hand (a caller invariant the type
 system couldn't check). D43's `venue` field is strictly simpler: no
 numbering scheme to get right at all.
+
+## D52 — `CombinedTransport` deleted; `BacktestInProcessTransport` is the only `Transport` merge implementation
+Auditing every real (non-test, non-benchmark) reference found zero actual
+callers: `apps/backtest` uses `BacktestInProcessTransport` (timestamp-order
+merge); `apps/collector` has no `Transport`-merging side at all. Built
+ahead of a live multi-source `Engine` composition (Milestone 4) that
+doesn't exist yet. Removed rather than kept as untested-by-use code —
+`combined_transport.hpp`, its test, its benchmark cases;
+`benchmarks/engine/transport/bench_transport.cpp` renamed to
+`bench_backtest_in_process_transport.cpp`. Rebuild it if/when a live
+composition actually needs round-robin merging of heterogeneous
+`Transport`s.

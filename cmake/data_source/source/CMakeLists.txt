@@ -53,7 +53,13 @@ if(BUILD_TESTING)
 endif()
 
 if(QP_BUILD_BENCHMARKS)
-    add_executable(qp_source_bench ${QP_BENCH}/bench_message_processing.cpp)
+    add_executable(qp_source_bench
+        ${QP_BENCH}/bench_gap_detector.cpp
+        ${QP_BENCH}/bench_venue_types.cpp
+        ${QP_BENCH}/bench_backoff.cpp
+        ${QP_BENCH}/resync/bench_resync_policy.cpp
+        ${QP_BENCH}/bench_resync_coordinator.cpp
+    )
     target_link_libraries(qp_source_bench PRIVATE qp_source_pure qp_venue benchmark::benchmark_main)
 
     add_executable(qp_file_replay_bench ${QP_BENCH}/bench_file_replay_source.cpp)
@@ -109,6 +115,14 @@ if(Boost_FOUND AND OpenSSL_FOUND)
     endif()
 
     set(QP_SOURCE_LIVE_BUILT TRUE)
+
+    # No qp_source_live_bench: on_message() is private and only reachable by
+    # standing up a real mock WS+HTTP server pair per iteration, which times
+    # server startup/socket/handshake overhead, not the parse/gap-check/
+    # queue-push logic actually worth measuring — needs a throughput-style
+    # harness, not GBench's per-iteration model. Tried, deleted (see
+    # docs/decisions.md D53); revisit with a different harness shape, not a
+    # patch on this one.
 else()
     message(STATUS "source: Boost/OpenSSL not found — qp_source "
                     "(LiveWebSocketSource) and its integration test skipped. Needed once vcpkg is "
@@ -131,5 +145,7 @@ endif()
 add_custom_target(qp_prod_streamer_tests DEPENDS ${_qp_prod_streamer_test_deps})
 
 if(QP_BUILD_BENCHMARKS)
-    add_custom_target(qp_prod_streamer_bench DEPENDS qp_source_bench qp_file_replay_bench qp_venue_bench)
+    add_custom_target(qp_prod_streamer_bench
+        DEPENDS qp_source_bench qp_file_replay_bench qp_venue_bench
+    )
 endif()

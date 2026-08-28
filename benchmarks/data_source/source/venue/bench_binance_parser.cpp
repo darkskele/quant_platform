@@ -42,7 +42,7 @@ constexpr const char* kAggTradeMsg =
 // so this matches its intended calling convention and avoids charging the
 // benchmark for an allocation pattern the API isn't actually optimized for.
 
-void BM_ParseSmallDepthUpdate(benchmark::State& state) {
+void BM_BinanceParser_SmallDepthUpdate(benchmark::State& state) {
     SymbolTable symbols;
     MarketEvent ev;
     for (auto _ : state) {
@@ -52,9 +52,9 @@ void BM_ParseSmallDepthUpdate(benchmark::State& state) {
     state.SetItemsProcessed(state.iterations());
 }
 
-BENCHMARK(BM_ParseSmallDepthUpdate);
+BENCHMARK(BM_BinanceParser_SmallDepthUpdate);
 
-void BM_ParseRealDepthUpdate(benchmark::State& state) {
+void BM_BinanceParser_RealDepthUpdate(benchmark::State& state) {
     SymbolTable symbols;
     MarketEvent ev;
     for (auto _ : state) {
@@ -64,9 +64,9 @@ void BM_ParseRealDepthUpdate(benchmark::State& state) {
     state.SetItemsProcessed(state.iterations());
 }
 
-BENCHMARK(BM_ParseRealDepthUpdate);
+BENCHMARK(BM_BinanceParser_RealDepthUpdate);
 
-void BM_ParseAggTrade(benchmark::State& state) {
+void BM_BinanceParser_AggTrade(benchmark::State& state) {
     SymbolTable symbols;
     MarketEvent ev;
     for (auto _ : state) {
@@ -76,6 +76,6 @@ void BM_ParseAggTrade(benchmark::State& state) {
     state.SetItemsProcessed(state.iterations());
 }
 
-BENCHMARK(BM_ParseAggTrade);
+BENCHMARK(BM_BinanceParser_AggTrade);
 
 }  // namespace

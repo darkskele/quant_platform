@@ -6,6 +6,7 @@
 # Header-only.
 qp_dir(include QP_INC)
 qp_dir(tests QP_TESTS)
+qp_dir(benchmarks QP_BENCH)
 
 add_library(qp_data_source INTERFACE)
 target_include_directories(qp_data_source INTERFACE ${QP_INC})
@@ -19,4 +20,9 @@ if(BUILD_TESTING)
         PRIVATE qp_data_source Threads::Threads GTest::gtest GTest::gtest_main
     )
     qp_register_test(qp_data_source_tests)
+endif()
+
+if(QP_BUILD_BENCHMARKS)
+    add_executable(qp_data_source_bench ${QP_BENCH}/bench_run_data_source.cpp)
+    target_link_libraries(qp_data_source_bench PRIVATE qp_data_source benchmark::benchmark_main)
 endif()

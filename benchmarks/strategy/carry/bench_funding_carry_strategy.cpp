@@ -26,7 +26,7 @@ Config make_config() {
 // Not latency-critical live (funding ticks every ~8h) — this matters for
 // backtest sweep throughput, called once per historical Funding event per
 // swept config.
-void BM_OnEventEntersPosition(benchmark::State& state) {
+void BM_FundingCarryStrategy_EntersPosition(benchmark::State& state) {
     FundingCarryStrategy strategy{make_config()};
     qp::Portfolio        portfolio;
     auto                 event = qp::test::make_funding(kSymbol, 0, 0.0002, 0.0, kFuturesVenue);
@@ -37,12 +37,12 @@ void BM_OnEventEntersPosition(benchmark::State& state) {
     }
 }
 
-BENCHMARK(BM_OnEventEntersPosition);
+BENCHMARK(BM_FundingCarryStrategy_EntersPosition);
 
 // Hold path: same shape (still 2 Intents), reads the current position off
 // StateView instead of a constant — the branch a real run takes most often,
 // since funding rarely crosses a threshold on every tick.
-void BM_OnEventHoldsPosition(benchmark::State& state) {
+void BM_FundingCarryStrategy_HoldsPosition(benchmark::State& state) {
     FundingCarryStrategy strategy{make_config()};
     qp::Portfolio        portfolio;
     portfolio.apply_fill(
@@ -57,11 +57,11 @@ void BM_OnEventHoldsPosition(benchmark::State& state) {
     }
 }
 
-BENCHMARK(BM_OnEventHoldsPosition);
+BENCHMARK(BM_FundingCarryStrategy_HoldsPosition);
 
 // Reject path: wrong kind/symbol/venue — the early return every other case
 // pays on top of, isolated here as the floor.
-void BM_OnEventIgnoresNonMatchingEvent(benchmark::State& state) {
+void BM_FundingCarryStrategy_IgnoresNonMatchingEvent(benchmark::State& state) {
     FundingCarryStrategy strategy{make_config()};
     qp::Portfolio        portfolio;
     auto                 event = qp::test::make_trade(kSymbol, 0, 100.0);
@@ -72,6 +72,6 @@ void BM_OnEventIgnoresNonMatchingEvent(benchmark::State& state) {
     }
 }
 
-BENCHMARK(BM_OnEventIgnoresNonMatchingEvent);
+BENCHMARK(BM_FundingCarryStrategy_IgnoresNonMatchingEvent);
 
 }  // namespace

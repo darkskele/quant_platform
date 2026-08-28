@@ -20,7 +20,7 @@
         {
             "label": "Test: qp_venue_tests",
             "type": "shell",
-            "command": "./build/debug/libs/data_source/source/venue/qp_venue_tests",
+            "command": "./build/debug/cmake/data_source/source/venue/qp_venue_tests",
             "dependsOn": "Build: qp_venue_tests",
             "group": { "kind": "test", "isDefault": true },
             "problemMatcher": []
@@ -44,7 +44,7 @@
         {
             "label": "Run parser bench",
             "type": "shell",
-            "command": "./build/release/libs/data_source/source/venue/qp_venue_bench",
+            "command": "./build/release/cmake/data_source/source/venue/qp_venue_bench",
             "dependsOn": "Build: qp_venue_bench (release)",
             "group": "test",
             "problemMatcher": [],
@@ -62,7 +62,7 @@
         {
             "label": "Test: qp_venue_tests (release)",
             "type": "shell",
-            "command": "./build/release/libs/data_source/source/venue/qp_venue_tests",
+            "command": "./build/release/cmake/data_source/source/venue/qp_venue_tests",
             "dependsOn": "Build: qp_venue_tests (release)",
             "group": "test",
             "problemMatcher": []
@@ -79,7 +79,7 @@
         {
             "label": "Test: qp_core_tests",
             "type": "shell",
-            "command": "./build/debug/libs/core/qp_core_tests",
+            "command": "./build/debug/cmake/core/qp_core_tests",
             "dependsOn": "Build: qp_core_tests",
             "group": "test",
             "problemMatcher": []
@@ -102,7 +102,7 @@
         {
             "label": "Test: qp_core_tests (tsan)",
             "type": "shell",
-            "command": "setarch $(uname -m) -R ./build/tsan/libs/core/qp_core_tests",
+            "command": "setarch $(uname -m) -R ./build/tsan/cmake/core/qp_core_tests",
             "dependsOn": "Build: qp_core_tests (tsan)",
             "group": "test",
             "problemMatcher": [],
@@ -120,7 +120,7 @@
         {
             "label": "Test: qp_source_integration_tests (tsan)",
             "type": "shell",
-            "command": "setarch $(uname -m) -R ./build/tsan/libs/data_source/source/qp_source_integration_tests",
+            "command": "setarch $(uname -m) -R ./build/tsan/cmake/data_source/source/qp_source_integration_tests",
             "dependsOn": "Build: qp_source_integration_tests (tsan)",
             "group": "test",
             "problemMatcher": []
@@ -137,7 +137,7 @@
         {
             "label": "Test: qp_collector_integration_tests",
             "type": "shell",
-            "command": "./build/debug/apps/collector/qp_collector_integration_tests",
+            "command": "./build/debug/cmake/apps/collector/qp_collector_integration_tests",
             "dependsOn": "Build: qp_collector_integration_tests",
             "group": "test",
             "problemMatcher": []
@@ -154,7 +154,7 @@
         {
             "label": "Test: qp_backtest_integration_tests",
             "type": "shell",
-            "command": "./build/debug/apps/backtest/qp_backtest_integration_tests",
+            "command": "./build/debug/cmake/apps/backtest/qp_backtest_integration_tests",
             "dependsOn": "Build: qp_backtest_integration_tests",
             "group": "test",
             "problemMatcher": []
@@ -171,7 +171,7 @@
         {
             "label": "Test: qp_parity_tests",
             "type": "shell",
-            "command": "./build/debug/tests/qp_parity_tests",
+            "command": "./build/debug/integration/qp_parity_tests",
             "dependsOn": "Build: qp_parity_tests",
             "group": "test",
             "problemMatcher": []
@@ -205,7 +205,7 @@
         {
             "label": "Test: qp_core_tests (release)",
             "type": "shell",
-            "command": "./build/release/libs/core/qp_core_tests",
+            "command": "./build/release/cmake/core/qp_core_tests",
             "dependsOn": "Build: qp_core_tests (release)",
             "group": "test",
             "problemMatcher": []
@@ -222,8 +222,80 @@
         {
             "label": "Run queue bench",
             "type": "shell",
-            "command": "./build/release/libs/core/qp_core_bench",
+            "command": "./build/release/cmake/core/qp_core_bench",
             "dependsOn": "Build: qp_core_bench (release)",
+            "group": "test",
+            "problemMatcher": [],
+            "detail": "Release build — still WSL2, so trust deltas over absolutes (docs/environment.md)."
+        },
+        {
+            "label": "Build: qp_clock_bench (release)",
+            "type": "shell",
+            "command": "cmake --build build/release --target qp_clock_bench -j",
+            "dependsOn": "Configure (release)",
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "SimClock now()/advance() benchmark, release build."
+        },
+        {
+            "label": "Run clock bench",
+            "type": "shell",
+            "command": "./build/release/cmake/clock/qp_clock_bench",
+            "dependsOn": "Build: qp_clock_bench (release)",
+            "group": "test",
+            "problemMatcher": [],
+            "detail": "Release build — still WSL2, so trust deltas over absolutes (docs/environment.md)."
+        },
+        {
+            "label": "Build: qp_execution_bench (release)",
+            "type": "shell",
+            "command": "cmake --build build/release --target qp_execution_bench -j",
+            "dependsOn": "Configure (release)",
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "LastTradeMatcher/SimExecution benchmarks, release build."
+        },
+        {
+            "label": "Run execution bench",
+            "type": "shell",
+            "command": "./build/release/cmake/execution/qp_execution_bench",
+            "dependsOn": "Build: qp_execution_bench (release)",
+            "group": "test",
+            "problemMatcher": [],
+            "detail": "Release build — still WSL2, so trust deltas over absolutes (docs/environment.md)."
+        },
+        {
+            "label": "Build: qp_sink_bench (release)",
+            "type": "shell",
+            "command": "cmake --build build/release --target qp_sink_bench -j",
+            "dependsOn": "Configure (release)",
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "FanoutSink/FileRecorder benchmarks, release build."
+        },
+        {
+            "label": "Run sink bench",
+            "type": "shell",
+            "command": "./build/release/cmake/data_source/sink/qp_sink_bench",
+            "dependsOn": "Build: qp_sink_bench (release)",
+            "group": "test",
+            "problemMatcher": [],
+            "detail": "Release build — still WSL2, so trust deltas over absolutes (docs/environment.md)."
+        },
+        {
+            "label": "Build: qp_data_source_bench (release)",
+            "type": "shell",
+            "command": "cmake --build build/release --target qp_data_source_bench -j",
+            "dependsOn": "Configure (release)",
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "run_data_source() benchmarks, release build."
+        },
+        {
+            "label": "Run data_source bench",
+            "type": "shell",
+            "command": "./build/release/cmake/data_source/qp_data_source_bench",
+            "dependsOn": "Build: qp_data_source_bench (release)",
             "group": "test",
             "problemMatcher": [],
             "detail": "Release build — still WSL2, so trust deltas over absolutes (docs/environment.md)."
@@ -240,7 +312,7 @@
         {
             "label": "Test: qp_source_tests",
             "type": "shell",
-            "command": "./build/debug/libs/data_source/source/qp_source_tests",
+            "command": "./build/debug/cmake/data_source/source/qp_source_tests",
             "dependsOn": "Build: qp_source_tests",
             "group": "test",
             "problemMatcher": []
@@ -256,7 +328,7 @@
         {
             "label": "Test: qp_source_tests (release)",
             "type": "shell",
-            "command": "./build/release/libs/data_source/source/qp_source_tests",
+            "command": "./build/release/cmake/data_source/source/qp_source_tests",
             "dependsOn": "Build: qp_source_tests (release)",
             "group": "test",
             "problemMatcher": []
@@ -273,7 +345,7 @@
         {
             "label": "Run marketdata bench",
             "type": "shell",
-            "command": "./build/release/libs/data_source/source/qp_source_bench",
+            "command": "./build/release/cmake/data_source/source/qp_source_bench",
             "dependsOn": "Build: qp_source_bench (release)",
             "group": "test",
             "problemMatcher": []
@@ -290,7 +362,7 @@
         {
             "label": "Run file replay bench",
             "type": "shell",
-            "command": "./build/release/libs/data_source/source/qp_file_replay_bench",
+            "command": "./build/release/cmake/data_source/source/qp_file_replay_bench",
             "dependsOn": "Build: qp_file_replay_bench (release)",
             "group": "test",
             "problemMatcher": [],
@@ -308,7 +380,7 @@
         {
             "label": "Test: qp_source_integration_tests",
             "type": "shell",
-            "command": "./build/debug/libs/data_source/source/qp_source_integration_tests",
+            "command": "./build/debug/cmake/data_source/source/qp_source_integration_tests",
             "dependsOn": "Build: qp_source_integration_tests",
             "group": "test",
             "problemMatcher": []
@@ -325,7 +397,7 @@
         {
             "label": "Test: qp_file_replay_tests",
             "type": "shell",
-            "command": "./build/debug/libs/data_source/source/qp_file_replay_tests",
+            "command": "./build/debug/cmake/data_source/source/qp_file_replay_tests",
             "dependsOn": "Build: qp_file_replay_tests",
             "group": "test",
             "problemMatcher": []
@@ -341,7 +413,7 @@
         {
             "label": "Test: qp_file_replay_tests (release)",
             "type": "shell",
-            "command": "./build/release/libs/data_source/source/qp_file_replay_tests",
+            "command": "./build/release/cmake/data_source/source/qp_file_replay_tests",
             "dependsOn": "Build: qp_file_replay_tests (release)",
             "group": "test",
             "problemMatcher": []
@@ -358,7 +430,7 @@
         {
             "label": "Test: qp_wire_tests",
             "type": "shell",
-            "command": "./build/debug/libs/data_source/wire/qp_wire_tests",
+            "command": "./build/debug/cmake/data_source/wire/qp_wire_tests",
             "dependsOn": "Build: qp_wire_tests",
             "group": "test",
             "problemMatcher": []
@@ -374,7 +446,7 @@
         {
             "label": "Test: qp_wire_tests (release)",
             "type": "shell",
-            "command": "./build/release/libs/data_source/wire/qp_wire_tests",
+            "command": "./build/release/cmake/data_source/wire/qp_wire_tests",
             "dependsOn": "Build: qp_wire_tests (release)",
             "group": "test",
             "problemMatcher": []
@@ -391,7 +463,7 @@
         {
             "label": "Test: qp_clock_tests",
             "type": "shell",
-            "command": "./build/debug/libs/clock/qp_clock_tests",
+            "command": "./build/debug/cmake/clock/qp_clock_tests",
             "dependsOn": "Build: qp_clock_tests",
             "group": "test",
             "problemMatcher": []
@@ -407,7 +479,7 @@
         {
             "label": "Test: qp_clock_tests (release)",
             "type": "shell",
-            "command": "./build/release/libs/clock/qp_clock_tests",
+            "command": "./build/release/cmake/clock/qp_clock_tests",
             "dependsOn": "Build: qp_clock_tests (release)",
             "group": "test",
             "problemMatcher": []
@@ -424,7 +496,7 @@
         {
             "label": "Test: qp_execution_tests",
             "type": "shell",
-            "command": "./build/debug/libs/execution/qp_execution_tests",
+            "command": "./build/debug/cmake/execution/qp_execution_tests",
             "dependsOn": "Build: qp_execution_tests",
             "group": "test",
             "problemMatcher": []
@@ -440,7 +512,7 @@
         {
             "label": "Test: qp_execution_tests (release)",
             "type": "shell",
-            "command": "./build/release/libs/execution/qp_execution_tests",
+            "command": "./build/release/cmake/execution/qp_execution_tests",
             "dependsOn": "Build: qp_execution_tests (release)",
             "group": "test",
             "problemMatcher": []
@@ -457,7 +529,7 @@
         {
             "label": "Test: qp_strategy_tests",
             "type": "shell",
-            "command": "./build/debug/libs/strategy/qp_strategy_tests",
+            "command": "./build/debug/cmake/strategy/qp_strategy_tests",
             "dependsOn": "Build: qp_strategy_tests",
             "group": "test",
             "problemMatcher": []
@@ -473,7 +545,7 @@
         {
             "label": "Test: qp_strategy_tests (release)",
             "type": "shell",
-            "command": "./build/release/libs/strategy/qp_strategy_tests",
+            "command": "./build/release/cmake/strategy/qp_strategy_tests",
             "dependsOn": "Build: qp_strategy_tests (release)",
             "group": "test",
             "problemMatcher": []
@@ -490,7 +562,7 @@
         {
             "label": "Test: qp_carry_tests",
             "type": "shell",
-            "command": "./build/debug/libs/strategy/carry/qp_carry_tests",
+            "command": "./build/debug/cmake/strategy/carry/qp_carry_tests",
             "dependsOn": "Build: qp_carry_tests",
             "group": "test",
             "problemMatcher": []
@@ -506,7 +578,7 @@
         {
             "label": "Test: qp_carry_tests (release)",
             "type": "shell",
-            "command": "./build/release/libs/strategy/carry/qp_carry_tests",
+            "command": "./build/release/cmake/strategy/carry/qp_carry_tests",
             "dependsOn": "Build: qp_carry_tests (release)",
             "group": "test",
             "problemMatcher": []
@@ -523,7 +595,7 @@
         {
             "label": "Test: qp_risk_tests",
             "type": "shell",
-            "command": "./build/debug/libs/risk/qp_risk_tests",
+            "command": "./build/debug/cmake/risk/qp_risk_tests",
             "dependsOn": "Build: qp_risk_tests",
             "group": "test",
             "problemMatcher": []
@@ -539,7 +611,7 @@
         {
             "label": "Test: qp_risk_tests (release)",
             "type": "shell",
-            "command": "./build/release/libs/risk/qp_risk_tests",
+            "command": "./build/release/cmake/risk/qp_risk_tests",
             "dependsOn": "Build: qp_risk_tests (release)",
             "group": "test",
             "problemMatcher": []
@@ -556,7 +628,7 @@
         {
             "label": "Run risk bench",
             "type": "shell",
-            "command": "./build/release/libs/risk/qp_risk_bench",
+            "command": "./build/release/cmake/risk/qp_risk_bench",
             "dependsOn": "Build: qp_risk_bench (release)",
             "group": "test",
             "problemMatcher": [],
@@ -574,7 +646,7 @@
         {
             "label": "Test: qp_engine_tests",
             "type": "shell",
-            "command": "./build/debug/libs/engine/qp_engine_tests",
+            "command": "./build/debug/cmake/engine/qp_engine_tests",
             "dependsOn": "Build: qp_engine_tests",
             "group": "test",
             "problemMatcher": []
@@ -590,7 +662,7 @@
         {
             "label": "Test: qp_engine_tests (release)",
             "type": "shell",
-            "command": "./build/release/libs/engine/qp_engine_tests",
+            "command": "./build/release/cmake/engine/qp_engine_tests",
             "dependsOn": "Build: qp_engine_tests (release)",
             "group": "test",
             "problemMatcher": []
@@ -607,7 +679,7 @@
         {
             "label": "Test: qp_sink_integration_tests",
             "type": "shell",
-            "command": "./build/debug/libs/data_source/sink/qp_sink_integration_tests",
+            "command": "./build/debug/cmake/data_source/sink/qp_sink_integration_tests",
             "dependsOn": "Build: qp_sink_integration_tests",
             "group": "test",
             "problemMatcher": []
@@ -624,7 +696,7 @@
         {
             "label": "Run wire bench",
             "type": "shell",
-            "command": "./build/release/libs/data_source/wire/qp_wire_bench",
+            "command": "./build/release/cmake/data_source/wire/qp_wire_bench",
             "dependsOn": "Build: qp_wire_bench (release)",
             "group": "test",
             "problemMatcher": [],
@@ -642,7 +714,7 @@
         {
             "label": "Run carry bench",
             "type": "shell",
-            "command": "./build/release/libs/strategy/carry/qp_carry_bench",
+            "command": "./build/release/cmake/strategy/carry/qp_carry_bench",
             "dependsOn": "Build: qp_carry_bench (release)",
             "group": "test",
             "problemMatcher": [],

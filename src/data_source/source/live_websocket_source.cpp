@@ -421,8 +421,8 @@ void GenericLiveWebSocketSource<P, Rule>::on_message(std::string_view msg) {
 
     // Fresh MarketEvent per message rather than reusing one across calls —
     // pays a bids/asks vector reallocation every message. Known, not yet
-    // fixed; see qp_core_bench's BM_PushPopMarketEvent, which measures this
-    // cost.
+    // fixed; see qp_core_bench's BM_Spsc_PushPopMarketEvent, which measures
+    // this cost.
     MarketEvent ev;
     if (!P::parse_message(msg, symbol_table_, ev)) return;
 

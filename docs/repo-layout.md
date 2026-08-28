@@ -49,9 +49,10 @@ quant-platform/
 │   │   ├── sink/            # "sinks" city: Sink concept + FileRecorder, FanoutSink.
 │   │   │                    # No further nesting.
 │   │   └── transport/       # "transport" city: Transport concept, the seam Engine
-│   │                        # actually consumes (D39), + InProcessTransport (fan-out
-│   │                        # ring reader) and CombinedTransport (round-robin merge of
-│   │                        # N Transports into one, e.g. a spot+perp carry backtest).
+│   │                        # actually consumes (D39) + BacktestInProcessTransport
+│   │                        # (merges a fixed set of fan-out rings in MarketEvent::ts
+│   │                        # order, e.g. a spot+perp carry backtest). CombinedTransport
+│   │                        # (round-robin merge) removed, no real caller (D52).
 │   │                        # Depends on core only. No further nesting.
 │   ├── execution/          # ExecutionGateway/Matcher concepts + SimExecution (D25);
 │   │                       # LiveExecution deferred to the live milestone.
@@ -64,7 +65,7 @@ quant-platform/
 ├── apps/                   # thin mains; the ONLY place concrete types are named
 │   ├── collector/main.cpp  # LiveWebSocketSource -> FileRecorder  (NOT an Engine)
 │   ├── live/main.cpp       # Engine<LiveWebSocketSource, WallClock, LiveExecution>  (later)
-│   └── backtest/main.cpp   # Engine<CombinedTransport<FileReplaySource x2>, SimClock,
+│   └── backtest/main.cpp   # Engine<BacktestInProcessTransport<Ring, 2, 1>, SimClock,
 │                           # SimExecution, BasicRiskGate, FundingCarryStrategy> (D48)
 │
 ├── research/               # Python subtree — stat-arb, ML training; reads the `wire` format

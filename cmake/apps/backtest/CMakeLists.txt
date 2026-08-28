@@ -26,3 +26,10 @@ if(BUILD_TESTING)
     )
     qp_register_test(qp_backtest_integration_tests)
 endif()
+
+# No qp_backtest_bench: apps/ is thin composition wiring, not its own
+# thing to benchmark — every component it wires (FileReplaySource,
+# FanoutSink, BacktestInProcessTransport, Engine, FundingCarryStrategy,
+# BasicRiskGate) already has its own benchmark. A full-pipeline benchmark
+# here would just be a slower, noisier re-measurement of the same
+# components' costs bundled together (see docs/decisions.md D53).

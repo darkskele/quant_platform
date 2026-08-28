@@ -85,7 +85,7 @@ void drain(FileReplaySource& source) {
 // One symbol, BookDiff-heavy — the realistic case: this record type
 // dominates an actual recording (bids/asks dwarf the fixed portion, see
 // wire.hpp), so it's what replay throughput actually lives or dies on.
-void BM_ReplaySingleSymbolBookDiffs(benchmark::State& state) {
+void BM_FileReplaySource_SingleSymbolBookDiffs(benchmark::State& state) {
     static constexpr std::size_t kEvents = 20'000;
 
     ScratchDir dir;
@@ -106,12 +106,12 @@ void BM_ReplaySingleSymbolBookDiffs(benchmark::State& state) {
     state.SetItemsProcessed(state.iterations() * kEvents);
 }
 
-BENCHMARK(BM_ReplaySingleSymbolBookDiffs);
+BENCHMARK(BM_FileReplaySource_SingleSymbolBookDiffs);
 
 // One symbol, Trade-only — cheap, fixed-size records (no bid/ask levels):
 // isolates per-event/per-call overhead (decompress-loop, wire::read_event,
 // the k-way-merge scan) from the level-copying cost BookDiff adds on top.
-void BM_ReplaySingleSymbolTrades(benchmark::State& state) {
+void BM_FileReplaySource_SingleSymbolTrades(benchmark::State& state) {
     static constexpr std::size_t kEvents = 50'000;
 
     ScratchDir dir;
@@ -131,14 +131,14 @@ void BM_ReplaySingleSymbolTrades(benchmark::State& state) {
     state.SetItemsProcessed(state.iterations() * kEvents);
 }
 
-BENCHMARK(BM_ReplaySingleSymbolTrades);
+BENCHMARK(BM_FileReplaySource_SingleSymbolTrades);
 
 // Same total event count as the single-symbol trade case, spread across 4
 // symbols with interleaved timestamps — isolates the k-way merge's
 // per-event linear scan (next()'s cost of picking the earliest of N
 // cursors) from the single-cursor case above. Difference between this and
-// BM_ReplaySingleSymbolTrades' per-item cost is roughly the merge overhead.
-void BM_ReplayMultiSymbolMerge(benchmark::State& state) {
+// BM_FileReplaySource_SingleSymbolTrades' per-item cost is roughly the merge overhead.
+void BM_FileReplaySource_MultiSymbolMerge(benchmark::State& state) {
     static constexpr std::size_t kSymbols         = 4;
     static constexpr std::size_t kEventsPerSymbol = 12'500;
     static constexpr std::size_t kTotalEvents     = kSymbols * kEventsPerSymbol;
@@ -168,4 +168,4 @@ void BM_ReplayMultiSymbolMerge(benchmark::State& state) {
     state.SetItemsProcessed(state.iterations() * kTotalEvents);
 }
 
-BENCHMARK(BM_ReplayMultiSymbolMerge);
+BENCHMARK(BM_FileReplaySource_MultiSymbolMerge);

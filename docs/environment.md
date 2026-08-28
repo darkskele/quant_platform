@@ -70,6 +70,12 @@ latency numbers measured under WSL2 are suspect.
 
 Rule: trust deltas in WSL, take absolutes on the VM.
 
+**Variance**: `--benchmark_repetitions=N` (Google Benchmark's own mean/
+median/stddev/cv aggregates), not a hand-rolled per-iteration sampler — the
+latter's clock-call overhead and WSL2/Hyper-V scheduling noise swamp the
+signal (D51). `tools/bench/bench_to_md.py` renders a
+`--benchmark_out_format=json` report to Markdown for a root `BENCHMARKS.md`.
+
 ## Agentic assist (Claude Code)
 
 - Installs/runs natively in WSL Ubuntu (npm). **Included in Claude Pro** — no

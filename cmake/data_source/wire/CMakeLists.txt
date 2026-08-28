@@ -31,6 +31,10 @@ if(BUILD_TESTING)
 endif()
 
 if(QP_BUILD_BENCHMARKS)
-    add_executable(qp_wire_bench ${QP_BENCH}/bench_wire.cpp)
-    target_link_libraries(qp_wire_bench PRIVATE qp_wire benchmark::benchmark_main)
+    add_executable(qp_wire_bench
+        ${QP_BENCH}/bench_wire.cpp
+        ${QP_BENCH}/bench_zstd_stream.cpp
+        ${QP_BENCH}/bench_partition.cpp
+    )
+    target_link_libraries(qp_wire_bench PRIVATE qp_wire qp_core_test_support benchmark::benchmark_main)
 endif()

@@ -21,9 +21,9 @@ namespace qp {
 /// strategy-index-ordered, so a backtest's decision sequence never depends
 /// on thread scheduling. Tx is transport::Transport (D22/D38), not
 /// source::Source — Engine consumes whatever hands it MarketEvents one at a
-/// time (a live/replay Source directly, an InProcessTransport over a
-/// fan-out ring, or a CombinedTransport merging several legs), not
-/// specifically a "source".
+/// time (a live/replay Source directly, or a BacktestInProcessTransport
+/// merging several fan-out rings in timestamp order), not specifically a
+/// "source".
 template <transport::Transport Tx, Clock Clk, execution::ExecutionGateway Exec, risk::RiskGate Risk,
           std::size_t NumWorkers, Strategy... Strategies>
 class Engine {

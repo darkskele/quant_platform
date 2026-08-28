@@ -12,13 +12,13 @@ namespace qp::transport {
 /// leg's fan-out ring, at whichever consumer index this Engine was handed
 /// by that leg's FanoutSink::attach() (D43: indices can differ leg-to-leg,
 /// since each FanoutSink's attach() counter is independent) — in ascending
-/// MarketEvent::ts order, not round-robin (CombinedTransport's policy).
-/// Exchange-provided event timestamps are comparable across venues on the
-/// same exchange (verified against binance.cpp: futures and spot both
-/// stamp MarketEvent::ts from Binance's own server-side event/trade time,
-/// not local receipt time) — so this gives a deterministic merge order
-/// that depends only on the data, never on producer-thread scheduling,
-/// which a scheduling-driven round-robin merge can't guarantee once each
+/// MarketEvent::ts order, not round-robin. Exchange-provided event
+/// timestamps are comparable across venues on the same exchange (verified
+/// against binance.cpp: futures and spot both stamp MarketEvent::ts from
+/// Binance's own server-side event/trade time, not local receipt time) —
+/// so this gives a deterministic merge order that depends only on the
+/// data, never on producer-thread scheduling, which a scheduling-driven
+/// round-robin merge can't guarantee once each
 /// leg runs on its own thread (run_data_source).
 ///
 /// next() buffers one popped-but-unreturned element per ring (a lookahead
@@ -49,7 +49,8 @@ class BacktestInProcessTransport {
     /// control_consumer is this Engine's own index on `control`, from
     /// ControlChannel::attach().
     BacktestInProcessTransport(std::array<Ring*, N> rings, std::array<std::size_t, N> consumers,
-                               ControlChannel<NumControlConsumers>& control, std::size_t control_consumer)
+                               ControlChannel<NumControlConsumers>& control,
+                               std::size_t                          control_consumer)
         : rings_(rings),
           consumers_(consumers),
           control_(&control),
@@ -70,8 +71,10 @@ class BacktestInProcessTransport {
         bool any_missing = false;
         for (std::size_t i = 0; i < N; ++i) {
             if (!lookahead_[i]) {
-                if (auto ptr = rings_[i]->try_pop(consumers_[i])) lookahead_[i] = **ptr;
-                else any_missing = true;
+                if (auto ptr = rings_[i]->try_pop(consumers_[i]))
+                    lookahead_[i] = **ptr;
+                else
+                    any_missing = true;
             }
         }
 
@@ -113,7 +116,7 @@ class BacktestInProcessTransport {
     std::array<std::optional<MarketEvent>, N> lookahead_{};
     ControlChannel<NumControlConsumers>*      control_;
     std::size_t                               control_consumer_;
-    bool                                       stopped_ = false;
+    bool                                      stopped_ = false;
 };
 
 }  // namespace qp::transport

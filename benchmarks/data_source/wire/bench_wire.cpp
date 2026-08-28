@@ -50,7 +50,7 @@ MarketEvent make_trade() {
 // capacity covers the record, so this measures steady-state append cost,
 // not allocator noise.
 
-void BM_WriteEventSmallBookDiff(benchmark::State& state) {
+void BM_Wire_WriteSmallBookDiff(benchmark::State& state) {
     auto                   ev = make_book_diff(2, 1);  // a couple of levels, quiet-book update
     std::vector<std::byte> buf;
     for (auto _ : state) {
@@ -61,9 +61,9 @@ void BM_WriteEventSmallBookDiff(benchmark::State& state) {
     state.SetItemsProcessed(state.iterations());
 }
 
-BENCHMARK(BM_WriteEventSmallBookDiff);
+BENCHMARK(BM_Wire_WriteSmallBookDiff);
 
-void BM_WriteEventRealBookDiff(benchmark::State& state) {
+void BM_Wire_WriteRealBookDiff(benchmark::State& state) {
     auto ev = make_book_diff(16, 8);  // same shape as the parser bench's real capture
     std::vector<std::byte> buf;
     for (auto _ : state) {
@@ -74,9 +74,9 @@ void BM_WriteEventRealBookDiff(benchmark::State& state) {
     state.SetItemsProcessed(state.iterations());
 }
 
-BENCHMARK(BM_WriteEventRealBookDiff);
+BENCHMARK(BM_Wire_WriteRealBookDiff);
 
-void BM_WriteEventTrade(benchmark::State& state) {
+void BM_Wire_WriteTrade(benchmark::State& state) {
     auto                   ev = make_trade();
     std::vector<std::byte> buf;
     for (auto _ : state) {
@@ -87,9 +87,9 @@ void BM_WriteEventTrade(benchmark::State& state) {
     state.SetItemsProcessed(state.iterations());
 }
 
-BENCHMARK(BM_WriteEventTrade);
+BENCHMARK(BM_Wire_WriteTrade);
 
-void BM_ReadEventRealBookDiff(benchmark::State& state) {
+void BM_Wire_ReadRealBookDiff(benchmark::State& state) {
     auto                   ev = make_book_diff(16, 8);
     std::vector<std::byte> buf;
     write_event(buf, ev);
@@ -101,14 +101,14 @@ void BM_ReadEventRealBookDiff(benchmark::State& state) {
     state.SetItemsProcessed(state.iterations());
 }
 
-BENCHMARK(BM_ReadEventRealBookDiff);
+BENCHMARK(BM_Wire_ReadRealBookDiff);
 
 // End-to-end cost of what FileRecorder/FileReplaySource actually do per
 // event: encode, then (on the read side, later) decode. Not the same as
 // write+read summed in isolation once compression enters the picture, but
 // today (pre-zstd) it's the real number for "cost of moving one event
 // through the format."
-void BM_RoundTripRealBookDiff(benchmark::State& state) {
+void BM_Wire_RoundTripRealBookDiff(benchmark::State& state) {
     auto                   ev = make_book_diff(16, 8);
     std::vector<std::byte> buf;
     for (auto _ : state) {
@@ -121,9 +121,9 @@ void BM_RoundTripRealBookDiff(benchmark::State& state) {
     state.SetItemsProcessed(state.iterations());
 }
 
-BENCHMARK(BM_RoundTripRealBookDiff);
+BENCHMARK(BM_Wire_RoundTripRealBookDiff);
 
-void BM_WriteEventFullDepthSnapshot(benchmark::State& state) {
+void BM_Wire_WriteFullDepthSnapshot(benchmark::State& state) {
     auto                   ev = make_book_snapshot(1000);
     std::vector<std::byte> buf;
     for (auto _ : state) {
@@ -134,9 +134,9 @@ void BM_WriteEventFullDepthSnapshot(benchmark::State& state) {
     state.SetItemsProcessed(state.iterations());
 }
 
-BENCHMARK(BM_WriteEventFullDepthSnapshot);
+BENCHMARK(BM_Wire_WriteFullDepthSnapshot);
 
-void BM_ReadEventFullDepthSnapshot(benchmark::State& state) {
+void BM_Wire_ReadFullDepthSnapshot(benchmark::State& state) {
     auto                   ev = make_book_snapshot(1000);
     std::vector<std::byte> buf;
     write_event(buf, ev);
@@ -148,9 +148,9 @@ void BM_ReadEventFullDepthSnapshot(benchmark::State& state) {
     state.SetItemsProcessed(state.iterations());
 }
 
-BENCHMARK(BM_ReadEventFullDepthSnapshot);
+BENCHMARK(BM_Wire_ReadFullDepthSnapshot);
 
-void BM_RoundTripFullDepthSnapshot(benchmark::State& state) {
+void BM_Wire_RoundTripFullDepthSnapshot(benchmark::State& state) {
     auto                   ev = make_book_snapshot(1000);
     std::vector<std::byte> buf;
     for (auto _ : state) {
@@ -163,6 +163,6 @@ void BM_RoundTripFullDepthSnapshot(benchmark::State& state) {
     state.SetItemsProcessed(state.iterations());
 }
 
-BENCHMARK(BM_RoundTripFullDepthSnapshot);
+BENCHMARK(BM_Wire_RoundTripFullDepthSnapshot);
 
 }  // namespace

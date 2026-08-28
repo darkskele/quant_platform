@@ -102,27 +102,53 @@ add_subdirectory(cmake/apps/backtest)   # each leg's FileReplaySource -> FanoutS
 add_subdirectory(integration)           # cross-lib integration/parity tests — see its CMakeLists.txt
 
 if(QP_BUILD_BENCHMARKS)
-    # One binary, every benchmark case, one results table. Per-lib *_bench
-    # targets (above, in each lib's own CMakeLists.txt) stay for targeted
-    # builds — this just also links them into one executable; Google
-    # Benchmark's own --benchmark_filter narrows a single run when needed.
+    # One binary, every benchmark case, one results table, one launch — see
+    # benchmarks/qp_bench_main.cpp: runs with the repo's standard
+    # --benchmark_repetitions=5 --benchmark_report_aggregates_only=true
+    # baked in as defaults (still overridable) and regenerates the
+    # checked-in root BENCHMARKS.md every time it's run, no separate
+    # tools/bench/bench_to_md.py step. Per-lib *_bench targets (above, in
+    # each lib's own CMakeLists.txt) stay for targeted builds during dev —
+    # this is the one binary that's actually meant to be run standalone;
+    # Google Benchmark's own --benchmark_filter narrows a single run when
+    # only a subset is wanted, still through this same binary.
     add_executable(qp_bench
+        benchmarks/qp_bench_main.cpp
+        benchmarks/clock/bench_sim_clock.cpp
         benchmarks/core/bench_spsc_queue.cpp
         benchmarks/core/bench_spmc_ring.cpp
-        benchmarks/data_source/source/bench_message_processing.cpp
+        benchmarks/core/bench_mpsc_queue.cpp
+        benchmarks/core/bench_control_channel.cpp
+        benchmarks/core/bench_portfolio.cpp
+        benchmarks/data_source/source/bench_gap_detector.cpp
+        benchmarks/data_source/source/bench_venue_types.cpp
+        benchmarks/data_source/source/bench_backoff.cpp
+        benchmarks/data_source/source/resync/bench_resync_policy.cpp
+        benchmarks/data_source/source/bench_resync_coordinator.cpp
         benchmarks/data_source/source/bench_file_replay_source.cpp
         benchmarks/data_source/source/venue/bench_binance_parser.cpp
         benchmarks/data_source/wire/bench_wire.cpp
+        benchmarks/data_source/wire/bench_zstd_stream.cpp
+        benchmarks/data_source/wire/bench_partition.cpp
         benchmarks/core/bench_round_robin_pool.cpp
         benchmarks/engine/bench_engine.cpp
-        benchmarks/engine/transport/bench_transport.cpp
+        benchmarks/engine/transport/bench_backtest_in_process_transport.cpp
         benchmarks/strategy/carry/bench_funding_carry_strategy.cpp
         benchmarks/risk/bench_basic_risk_gate.cpp
+        benchmarks/execution/bench_last_trade_matcher.cpp
+        benchmarks/execution/bench_sim_execution.cpp
+        benchmarks/data_source/sink/bench_fanout_sink.cpp
+        benchmarks/data_source/sink/bench_file_recorder.cpp
+        benchmarks/data_source/bench_run_data_source.cpp
     )
     target_link_libraries(qp_bench PRIVATE
-        qp_core qp_core_test_support qp_source_pure qp_file_replay qp_venue qp_wire qp_engine
-        qp_transport qp_strategy_test_support qp_risk_test_support qp_engine_test_support
-        qp_strategy_carry qp_risk
-        benchmark::benchmark_main
+        qp_core qp_core_test_support qp_clock qp_execution qp_source_pure qp_file_replay qp_venue qp_wire
+        qp_sink qp_data_source qp_engine qp_transport qp_strategy_test_support qp_risk_test_support
+        qp_engine_test_support qp_strategy_carry qp_risk
+        benchmark::benchmark
     )
+    # benchmark::benchmark, not benchmark::benchmark_main: qp_bench_main.cpp
+    # provides its own main() (defaults + BENCHMARKS.md regeneration), not
+    # the stock one-liner benchmark_main.a supplies.
+    target_compile_definitions(qp_bench PRIVATE QP_REPO_ROOT="${CMAKE_SOURCE_DIR}")
 endif()

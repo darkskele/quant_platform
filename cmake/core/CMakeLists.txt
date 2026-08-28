@@ -43,7 +43,10 @@ if(QP_BUILD_BENCHMARKS)
     add_executable(qp_core_bench
         ${QP_BENCH}/bench_spsc_queue.cpp
         ${QP_BENCH}/bench_spmc_ring.cpp
+        ${QP_BENCH}/bench_mpsc_queue.cpp
         ${QP_BENCH}/bench_round_robin_pool.cpp
+        ${QP_BENCH}/bench_control_channel.cpp
+        ${QP_BENCH}/bench_portfolio.cpp
     )
     target_link_libraries(qp_core_bench PRIVATE qp_core benchmark::benchmark_main)
 endif()

@@ -55,6 +55,12 @@ if(Boost_FOUND AND OpenSSL_FOUND)
         )
         qp_register_test(qp_collector_integration_tests)
     endif()
+
+    # No qp_collector_bench: apps/ is thin composition wiring, not its own
+    # thing to benchmark — GenericLiveWebSocketSource and FileRecorder
+    # already have their own benchmarks. A full-collector-run benchmark
+    # here would just be a slower, noisier re-measurement of the same two
+    # components' costs bundled together (see docs/decisions.md D53).
 else()
     message(STATUS "collector: Boost/OpenSSL not found — apps/collector skipped (needs qp_source).")
 endif()

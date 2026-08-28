@@ -130,9 +130,10 @@ int run(const Config& config, ControlChannel<1>& control, std::size_t consumer) 
     // Two legs, futures + spot (D41 — carry needs both), each independent:
     // own SymbolTable, own FileRecorder, own data_dir/<leg>/symbols.manifest.
     // Nothing merges them here — that's a backtest/live Engine wiring
-    // concern (CombinedTransport), not a collector one; each leg staying
-    // fully independent on disk is exactly what avoids the SymbolId
-    // collision two venues interning the same string would otherwise hit.
+    // concern (BacktestInProcessTransport), not a collector one; each leg
+    // staying fully independent on disk is exactly what avoids the
+    // SymbolId collision two venues interning the same string would
+    // otherwise hit.
     source::GenericLiveWebSocketSource<SelectedParser, SelectedAlignment> futures_source(
         config.symbols, config.ws_endpoint, config.rest_endpoint);
     SelectedRecorder futures_recorder(config.data_dir / "futures", futures_source.symbol_names());

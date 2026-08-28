@@ -6,6 +6,7 @@
 qp_dir(include QP_INC)
 qp_dir(src QP_SRC)
 qp_dir(tests QP_TESTS)
+qp_dir(benchmarks QP_BENCH)
 
 find_package(Threads REQUIRED)
 
@@ -32,4 +33,14 @@ if(BUILD_TESTING)
     add_executable(qp_sink_tests ${QP_TESTS}/test_fanout_sink.cpp)
     target_link_libraries(qp_sink_tests PRIVATE qp_sink GTest::gtest GTest::gtest_main)
     qp_register_test(qp_sink_tests)
+endif()
+
+if(QP_BUILD_BENCHMARKS)
+    add_executable(qp_sink_bench
+        ${QP_BENCH}/bench_fanout_sink.cpp
+        ${QP_BENCH}/bench_file_recorder.cpp
+    )
+    target_link_libraries(qp_sink_bench
+        PRIVATE qp_sink qp_core_test_support benchmark::benchmark_main
+    )
 endif()
