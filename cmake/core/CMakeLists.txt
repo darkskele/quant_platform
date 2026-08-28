@@ -47,6 +47,7 @@ if(QP_BUILD_BENCHMARKS)
         ${QP_BENCH}/bench_round_robin_pool.cpp
         ${QP_BENCH}/bench_control_channel.cpp
         ${QP_BENCH}/bench_portfolio.cpp
+        ${QP_BENCH}/bench_viewable_pool.cpp
     )
     target_link_libraries(qp_core_bench PRIVATE qp_core benchmark::benchmark_main)
 endif()

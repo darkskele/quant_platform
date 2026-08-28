@@ -1,5 +1,5 @@
 #pragma once
-#include <vector>
+#include <span>
 
 #include "portfolio.hpp"
 #include "types.hpp"
@@ -7,9 +7,9 @@
 namespace qp::test {
 
 struct NoopStrategy {
-    std::vector<Intent> on_event(const MarketEvent&, StateView) { return {}; }
+    std::span<const Intent> on_event(const MarketEvent&, StateView) { return {}; }
 
-    std::vector<Intent> on_timer(Timestamp, StateView) { return {}; }
+    std::span<const Intent> on_timer(Timestamp, StateView) { return {}; }
 };
 
 /// Emits the same Intent every call — for exercising the full
@@ -18,12 +18,14 @@ struct NoopStrategy {
 struct AlwaysIntentStrategy {
     SymbolId symbol          = 1;
     Qty      target_position = 1.0;
+    Intent   intent_{};
 
-    std::vector<Intent> on_event(const MarketEvent&, StateView) {
-        return {Intent{.symbol = symbol, .target_position = target_position}};
+    std::span<const Intent> on_event(const MarketEvent&, StateView) {
+        intent_ = Intent{.symbol = symbol, .target_position = target_position};
+        return {&intent_, 1};
     }
 
-    std::vector<Intent> on_timer(Timestamp, StateView) { return {}; }
+    std::span<const Intent> on_timer(Timestamp, StateView) { return {}; }
 };
 
 }  // namespace qp::test

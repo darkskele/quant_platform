@@ -1,9 +1,9 @@
 #pragma once
 #include <cstddef>
+#include <span>
 #include <tuple>
 #include <utility>
 #include <variant>
-#include <vector>
 
 #include "clock.hpp"
 #include "execution_gateway.hpp"
@@ -39,13 +39,13 @@ class Engine {
     struct StrategyTask {
         S* strategy;
 
-        std::vector<Intent> operator()(const EventContext& ctx) {
+        std::span<const Intent> operator()(const EventContext& ctx) {
             return strategy->on_event(ctx.event, ctx.state);
         }
     };
 
-    using Pool =
-        RoundRobinPool<NumWorkers, EventContext, std::vector<Intent>, StrategyTask<Strategies>...>;
+    using Pool = RoundRobinPool<NumWorkers, EventContext, std::span<const Intent>,
+                                StrategyTask<Strategies>...>;
 
    public:
     Engine(Tx transport, Clk clock, Exec exec, Risk risk, Strategies... strategies)
@@ -67,7 +67,7 @@ class Engine {
         state_.apply_mark_price(*event);
 
         EventContext ctx{*event, state_.view()};
-        pool_.run_round(ctx, [&](std::size_t, std::vector<Intent> intents) {
+        pool_.run_round(ctx, [&](std::size_t, std::span<const Intent> intents) {
             for (const auto& intent : intents)
                 submit_if_approved(risk_.check(intent, state_.view()));
         });

@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <optional>
+#include <span>
 #include <vector>
 
 #include "clock.hpp"
@@ -40,25 +41,27 @@ struct SingleIntentStrategy {
     qp::SymbolId symbol;
     qp::Qty      target_position;
     bool         fired = false;
+    qp::Intent   intent_{};
 
-    std::vector<qp::Intent> on_event(const qp::MarketEvent&, qp::StateView) {
+    std::span<const qp::Intent> on_event(const qp::MarketEvent&, qp::StateView) {
         if (fired) return {};
-        fired = true;
-        return {qp::Intent{.symbol = symbol, .target_position = target_position}};
+        fired   = true;
+        intent_ = qp::Intent{.symbol = symbol, .target_position = target_position};
+        return {&intent_, 1};
     }
 
-    std::vector<qp::Intent> on_timer(qp::Timestamp, qp::StateView) { return {}; }
+    std::span<const qp::Intent> on_timer(qp::Timestamp, qp::StateView) { return {}; }
 };
 
 struct CountingStrategy {
     int* calls;
 
-    std::vector<qp::Intent> on_event(const qp::MarketEvent&, qp::StateView) {
+    std::span<const qp::Intent> on_event(const qp::MarketEvent&, qp::StateView) {
         ++*calls;
         return {};
     }
 
-    std::vector<qp::Intent> on_timer(qp::Timestamp, qp::StateView) { return {}; }
+    std::span<const qp::Intent> on_timer(qp::Timestamp, qp::StateView) { return {}; }
 };
 
 using TestExec   = qp::execution::SimExecution<qp::execution::LastTradeMatcher>;
