@@ -1,7 +1,7 @@
 #pragma once
 #include <cmath>
 #include <optional>
-#include <vector>
+#include <span>
 
 #include "portfolio.hpp"
 #include "risk_gate.hpp"
@@ -22,7 +22,7 @@ struct AlwaysApproveRiskGate {
                                  .qty    = std::abs(intent.target_position)}};
     }
 
-    std::vector<Order> on_tick(StateView) { return {}; }
+    std::span<const Order> on_tick(StateView) { return {}; }
 };
 
 struct AlwaysRejectRiskGate {
@@ -30,7 +30,7 @@ struct AlwaysRejectRiskGate {
         return {.outcome = risk::RiskOutcome::Rejected, .order = std::nullopt};
     }
 
-    std::vector<Order> on_tick(StateView) { return {}; }
+    std::span<const Order> on_tick(StateView) { return {}; }
 };
 
 }  // namespace qp::test

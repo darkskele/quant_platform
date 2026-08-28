@@ -135,7 +135,7 @@ if(QP_BUILD_BENCHMARKS)
         benchmarks/engine/bench_engine.cpp
         benchmarks/engine/transport/bench_backtest_in_process_transport.cpp
         benchmarks/strategy/carry/bench_funding_carry_strategy.cpp
-        benchmarks/risk/bench_basic_risk_gate.cpp
+        benchmarks/risk/basic/bench_basic_risk_gate.cpp
         benchmarks/execution/bench_last_trade_matcher.cpp
         benchmarks/execution/bench_sim_execution.cpp
         benchmarks/data_source/sink/bench_fanout_sink.cpp
@@ -145,7 +145,7 @@ if(QP_BUILD_BENCHMARKS)
     target_link_libraries(qp_bench PRIVATE
         qp_core qp_core_test_support qp_clock qp_execution qp_source_pure qp_file_replay qp_venue qp_wire
         qp_sink qp_data_source qp_engine qp_transport qp_strategy_test_support qp_risk_test_support
-        qp_engine_test_support qp_strategy_carry qp_risk
+        qp_engine_test_support qp_strategy_carry qp_risk qp_risk_basic
         benchmark::benchmark
     )
     # benchmark::benchmark, not benchmark::benchmark_main: qp_bench_main.cpp

@@ -16,12 +16,12 @@ namespace qp::backtest {
 /// futures_venue are filled in by run() (D48) — only the runtime-swept
 /// threshold/size fields are meant to be set here.
 struct Config {
-    std::filesystem::path     data_dir;
-    std::string               symbol;
-    wire::DayKey              first_day{};
-    wire::DayKey              last_day{};
-    strategy::carry::Config   carry{};
-    risk::BasicRiskGateConfig risk{};
+    std::filesystem::path            data_dir;
+    std::string                      symbol;
+    wire::DayKey                     first_day{};
+    wire::DayKey                     last_day{};
+    strategy::carry::Config          carry{};
+    risk::basic::BasicRiskGateConfig risk{};
 };
 
 /// @return nullopt on bad/missing args (usage already printed to stderr) —

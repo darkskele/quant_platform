@@ -200,6 +200,9 @@ Results run(const Config& config) {
     carry_config.futures_venue           = kFuturesVenue;
     carry_config.spot_venue              = kSpotVenue;
 
+    risk::basic::BasicRiskGateConfig risk_config = config.risk;
+    risk_config.tracked                          = {{symbol, kSpotVenue}, {symbol, kFuturesVenue}};
+
     using FanSink = sink::FanoutSink<kRingCapacity, 1>;  // one consumer: this backtest's own Engine
     FanSink     futures_fanout;
     FanSink     spot_fanout;
@@ -207,7 +210,7 @@ Results run(const Config& config) {
     std::size_t spot_consumer    = spot_fanout.attach();
 
     ControlChannel<1> control;  // one attached participant: Engine's own transport
-    std::size_t        engine_ctrl_idx = control.attach();
+    std::size_t       engine_ctrl_idx = control.attach();
 
     // Drives both legs into their rings on its own thread, exactly like
     // run_data_source does for collector — same mechanism, backtest and
@@ -253,9 +256,9 @@ Results run(const Config& config) {
 
     using Exec = execution::SimExecution<execution::LastTradeMatcher>;
 
-    Engine<Tx, SimClock, Exec, risk::BasicRiskGate, 1, strategy::carry::FundingCarryStrategy> engine{
-        std::move(transport), SimClock{}, Exec{}, risk::BasicRiskGate{config.risk},
-        strategy::carry::FundingCarryStrategy{carry_config}};
+    Engine<Tx, SimClock, Exec, risk::basic::BasicRiskGate, 1, strategy::carry::FundingCarryStrategy>
+        engine{std::move(transport), SimClock{}, Exec{}, risk::basic::BasicRiskGate{risk_config},
+               strategy::carry::FundingCarryStrategy{carry_config}};
 
     // Not engine.run(): its plain while(step()){} stops on the first
     // nullopt, which for a ring-fed Transport can mean "nothing right now"

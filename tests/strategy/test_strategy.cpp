@@ -7,7 +7,7 @@
 
 using qp::test::NoopStrategy;
 
-static_assert(qp::Strategy<NoopStrategy>);
+static_assert(qp::strategy::Strategy<NoopStrategy>);
 
 TEST(Strategy, NoopStrategyEmitsNoIntents) {
     qp::Portfolio portfolio;

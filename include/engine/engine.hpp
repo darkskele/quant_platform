@@ -25,7 +25,7 @@ namespace qp {
 /// merging several fan-out rings in timestamp order), not specifically a
 /// "source".
 template <transport::Transport Tx, Clock Clk, execution::ExecutionGateway Exec, risk::RiskGate Risk,
-          std::size_t NumWorkers, Strategy... Strategies>
+          std::size_t NumWorkers, strategy::Strategy... Strategies>
 class Engine {
     struct EventContext {
         const MarketEvent& event;

@@ -6,9 +6,9 @@
 #include "support/market_event_builders.hpp"
 #include "types.hpp"
 
-using qp::risk::BasicRiskGate;
-using qp::risk::BasicRiskGateConfig;
 using qp::risk::RiskOutcome;
+using qp::risk::basic::BasicRiskGate;
+using qp::risk::basic::BasicRiskGateConfig;
 using qp::test::make_fill;
 using qp::test::make_trade;
 
@@ -70,11 +70,11 @@ TEST(BasicRiskGate, OnTickReturnsNoOrdersWhenEquityHasNotDrawnDown) {
     EXPECT_TRUE(gate.on_tick(portfolio.view()).empty());
 }
 
-TEST(BasicRiskGate, OnTickFlattensKnownPositionsOnceEquityDrawsDownPastTheThreshold) {
+TEST(BasicRiskGate, OnTickFlattensTrackedPositionsOnceEquityDrawsDownPastTheThreshold) {
     qp::Portfolio portfolio;
-    BasicRiskGate gate{BasicRiskGateConfig{.max_position_qty = 10.0, .max_drawdown = 50.0}};
+    BasicRiskGate gate{
+        BasicRiskGateConfig{.max_position_qty = 10.0, .max_drawdown = 50.0, .tracked = {{1, 0}}}};
 
-    // Registers (1, 0) as "known" without yet changing the actual position —
     // check() and the resulting fill are independent steps in the real
     // pipeline (RiskGate -> ExecutionGateway -> Portfolio::apply_fill).
     gate.check(qp::Intent{.symbol = 1, .venue = 0, .target_position = 2.0}, portfolio.view());
@@ -95,13 +95,14 @@ TEST(BasicRiskGate, OnTickFlattensKnownPositionsOnceEquityDrawsDownPastTheThresh
 
 TEST(BasicRiskGate, OnTickReturnsNoFurtherOrdersOnceAlreadyTripped) {
     qp::Portfolio portfolio;
-    BasicRiskGate gate{BasicRiskGateConfig{.max_position_qty = 10.0, .max_drawdown = 0.0}};
+    BasicRiskGate gate{
+        BasicRiskGateConfig{.max_position_qty = 10.0, .max_drawdown = 0.0, .tracked = {{1, 0}}}};
     gate.check(qp::Intent{.symbol = 1, .venue = 0, .target_position = 1.0}, portfolio.view());
     portfolio.apply_fill(
         make_fill(1, qp::Side::Buy, 1.0, /*price=*/100.0, /*order_id=*/1, /*ts=*/0, /*fee=*/1.0));
 
     auto first = gate.on_tick(portfolio.view());
-    ASSERT_FALSE(first.empty());  // trips and flattens the known (1, 0) position
+    ASSERT_FALSE(first.empty());  // trips and flattens the tracked (1, 0) position
 
     EXPECT_TRUE(gate.on_tick(portfolio.view()).empty());
 }

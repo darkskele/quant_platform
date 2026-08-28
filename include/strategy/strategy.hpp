@@ -7,7 +7,7 @@
 #include "types.hpp"
 #include "viewable_pool.hpp"
 
-namespace qp {
+namespace qp::strategy {
 
 template <std::size_t N>
 using IntentBuffer = ViewablePool<Intent, N>;
@@ -22,4 +22,4 @@ concept Strategy = requires(T s, const MarketEvent& event, StateView state, Time
     { s.on_timer(now, state) } -> std::same_as<std::span<const Intent>>;
 };
 
-}  // namespace qp
+}  // namespace qp::strategy

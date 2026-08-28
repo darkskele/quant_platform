@@ -2,7 +2,7 @@
 #include <concepts>
 #include <cstdint>
 #include <optional>
-#include <vector>
+#include <span>
 
 #include "portfolio.hpp"
 #include "types.hpp"
@@ -26,7 +26,7 @@ struct RiskDecision {
 template <class T>
 concept RiskGate = requires(T r, Intent intent, StateView state) {
     { r.check(intent, state) } -> std::same_as<RiskDecision>;
-    { r.on_tick(state) } -> std::same_as<std::vector<Order>>;
+    { r.on_tick(state) } -> std::same_as<std::span<const Order>>;
 };
 
 }  // namespace qp::risk

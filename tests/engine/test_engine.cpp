@@ -75,8 +75,8 @@ using TwoStratTest = qp::Engine<FakeTransport, qp::SimClock, TestExec, AlwaysApp
 }  // namespace
 
 static_assert(qp::transport::Transport<FakeTransport>);
-static_assert(qp::Strategy<SingleIntentStrategy>);
-static_assert(qp::Strategy<CountingStrategy>);
+static_assert(qp::strategy::Strategy<SingleIntentStrategy>);
+static_assert(qp::strategy::Strategy<CountingStrategy>);
 static_assert(qp::risk::RiskGate<AlwaysApproveRiskGate>);
 
 TEST(Engine, StepReturnsFalseWhenTransportExhausted) {

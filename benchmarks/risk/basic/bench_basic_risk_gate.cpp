@@ -7,8 +7,8 @@
 
 namespace {
 
-using qp::risk::BasicRiskGate;
-using qp::risk::BasicRiskGateConfig;
+using qp::risk::basic::BasicRiskGate;
+using qp::risk::basic::BasicRiskGateConfig;
 using qp::test::make_fill;
 using qp::test::make_trade;
 
@@ -57,15 +57,15 @@ void BM_BasicRiskGate_OnTickNoDrawdown(benchmark::State& state) {
 BENCHMARK(BM_BasicRiskGate_OnTickNoDrawdown);
 
 // on_tick() when it actually trips: the full kill-switch path — the
-// equity() scan, the known-positions scan, building each flatten Order.
+// equity() scan, the tracked-positions walk, building each flatten Order.
 // tripped_ latches (fires at most once per gate's lifetime), so each
-// iteration uses a fresh gate registering two known (symbol, venue) legs
-// (spot + futures shape, matching FundingCarryStrategy) against a shared
-// Portfolio pre-loaded with a large enough decline to trip on the first
-// call. Gate construction + the two check() calls are cheap (~ns) and left
-// inside the timed region rather than paused around — PauseTiming/
-// ResumeTiming are themselves slow enough (see bench_spsc_queue.cpp) that
-// pausing every iteration would leak into the very cost being measured.
+// iteration uses a fresh gate tracking two (symbol, venue) legs (spot +
+// futures shape, matching FundingCarryStrategy) against a shared Portfolio
+// pre-loaded with a large enough decline to trip on the first call. Gate
+// construction + the two check() calls are cheap (~ns) and left inside the
+// timed region rather than paused around — PauseTiming/ResumeTiming are
+// themselves slow enough (see bench_spsc_queue.cpp) that pausing every
+// iteration would leak into the very cost being measured.
 void BM_BasicRiskGate_OnTickTripsAndFlattens(benchmark::State& state) {
     qp::Portfolio portfolio;
     portfolio.apply_fill(make_fill(1, qp::Side::Buy, 2.0, /*price=*/100.0, /*order_id=*/1, /*ts=*/0,
@@ -76,7 +76,8 @@ void BM_BasicRiskGate_OnTickTripsAndFlattens(benchmark::State& state) {
     portfolio.apply_mark_price(make_trade(1, 0, /*price=*/20.0, 1.0, qp::Side::Buy, 1));
 
     for (auto _ : state) {
-        BasicRiskGate gate{BasicRiskGateConfig{.max_position_qty = 10.0, .max_drawdown = 50.0}};
+        BasicRiskGate gate{BasicRiskGateConfig{
+            .max_position_qty = 10.0, .max_drawdown = 50.0, .tracked = {{1, 0}, {1, 1}}}};
         gate.check(qp::Intent{.symbol = 1, .venue = 0, .target_position = 2.0}, portfolio.view());
         gate.check(qp::Intent{.symbol = 1, .venue = 1, .target_position = 3.0}, portfolio.view());
 
