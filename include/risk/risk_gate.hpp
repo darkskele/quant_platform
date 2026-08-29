@@ -4,7 +4,6 @@
 #include <optional>
 #include <span>
 
-#include "portfolio.hpp"
 #include "types.hpp"
 
 namespace qp::risk {
@@ -22,11 +21,15 @@ struct RiskDecision {
 
 /// Where Intent becomes sized Order(s) — has its own authority, not a
 /// pass-through (seam 5). on_tick() acts autonomously (kill-switch/
-/// drawdown flatten), with no Intent input. Static dispatch (D27).
+/// drawdown flatten), with no Intent input. Static dispatch (D27). No
+/// StateView parameter: a concrete RiskGate that needs live account state
+/// holds its own PortfolioLike Book& (same reference Engine holds),
+/// wired at construction by the composition root — not handed a fresh
+/// snapshot by Engine every call.
 template <class T>
-concept RiskGate = requires(T r, Intent intent, StateView state) {
-    { r.check(intent, state) } -> std::same_as<RiskDecision>;
-    { r.on_tick(state) } -> std::same_as<std::span<const Order>>;
+concept RiskGate = requires(T r, Intent intent) {
+    { r.check(intent) } -> std::same_as<RiskDecision>;
+    { r.on_tick() } -> std::same_as<std::span<const Order>>;
 };
 
 }  // namespace qp::risk

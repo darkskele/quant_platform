@@ -1,59 +1,52 @@
 #pragma once
-#include <cstddef>
 #include <span>
-#include <tuple>
 #include <utility>
 
 #include "clock.hpp"
 #include "execution_gateway.hpp"
 #include "portfolio.hpp"
 #include "risk_gate.hpp"
-#include "round_robin_pool.hpp"
 #include "strategy.hpp"
 #include "transport.hpp"
 #include "types.hpp"
 
 namespace qp {
 
-/// The trader composition root (D27). Each Strategy runs on a
-/// shared RoundRobinPool (D33) — risk-check/submit stays single-threaded,
-/// strategy-index-ordered, so a backtest's decision sequence never depends
-/// on thread scheduling. Tx is transport::Transport (D22/D38), not
-/// source::Source — Engine consumes whatever hands it MarketEvents one at a
-/// time (a live/replay Source directly, or a BacktestInProcessTransport
-/// merging several fan-out rings in timestamp order), not specifically a
-/// "source".
+/// The trader composition root (D27). One Strategy, one Risk, one shared
+/// Book. Previously a variadic Strategies... pack running on a shared
+/// RoundRobinPool (D33) — removed: nothing in this codebase ever
+/// instantiated more than one Strategy except to exercise the pool's own
+/// concurrency, and paying a cross-thread handshake (generation-counter
+/// wakeup, SpscQueue round-trip) every step() for that never-otherwise-used
+/// parallelism cost more than it saved (BENCHMARKS.md:
+/// TwoNoopStrategiesTwoWorkers is *slower* than OneWorker for identical
+/// work). "Several strategies sharing one account's risk/equity" — the
+/// real reason the pack existed — is now a composition-root concern:
+/// run several single-Strategy Engines against one shared Book&, on
+/// however many threads (or none) the composition root chooses. Engine no
+/// longer has an opinion.
+///
+/// Book is PortfolioLike, not the concrete Portfolio, and held by
+/// reference, not owned — same "seam, not concrete adapter" discipline as
+/// every other Engine dependency (D27), extended to account state. A
+/// paired RiskGate gets its own reference to the identical Book at its own
+/// construction, wired by the composition root — Engine never forwards it.
+///
+/// Tx is transport::Transport (D22/D38), not source::Source — Engine
+/// consumes whatever hands it MarketEvents one at a time (a live/replay
+/// Source directly, or a BacktestInProcessTransport merging several
+/// fan-out rings in timestamp order), not specifically a "source".
 template <transport::Transport Tx, Clock Clk, execution::ExecutionGateway Exec, risk::RiskGate Risk,
-          std::size_t NumWorkers, strategy::Strategy... Strategies>
+          strategy::Strategy S, PortfolioLike Book>
 class Engine {
-    struct EventContext {
-        const MarketEvent& event;
-        StateView          state;
-    };
-
-    // Adapts one Strategy (2-arg on_event) to the pool's 1-arg Task shape
-    // (Result operator()(const Context&)) — holds a pointer, not the
-    // strategy itself, so it stays cheap to construct per Engine instance.
-    template <class S>
-    struct StrategyTask {
-        S* strategy;
-
-        std::span<const Intent> operator()(const EventContext& ctx) {
-            return strategy->on_event(ctx.event, ctx.state);
-        }
-    };
-
-    using Pool = RoundRobinPool<NumWorkers, EventContext, std::span<const Intent>,
-                                StrategyTask<Strategies>...>;
-
    public:
-    Engine(Tx transport, Clk clock, Exec exec, Risk risk, Strategies... strategies)
+    Engine(Tx transport, Clk clock, Exec exec, Risk risk, S strategy, Book& portfolio)
         : transport_{std::move(transport)},
           clock_{std::move(clock)},
           exec_{std::move(exec)},
           risk_{std::move(risk)},
-          strategies_{std::move(strategies)...},
-          pool_{make_pool(std::index_sequence_for<Strategies...>{})} {}
+          strategy_{std::move(strategy)},
+          state_{portfolio} {}
 
     /// Processes exactly one pulled event; false = transport exhausted.
     bool step() {
@@ -65,13 +58,10 @@ class Engine {
         if (event->kind == EventKind::Funding) state_.apply_funding(*event);
         state_.apply_mark_price(*event);
 
-        EventContext ctx{*event, state_.view()};
-        pool_.run_round(ctx, [&](std::size_t, std::span<const Intent> intents) {
-            for (const auto& intent : intents)
-                submit_if_approved(risk_.check(intent, state_.view()));
-        });
+        for (const auto& intent : strategy_.on_event(*event, state_.view()))
+            submit_if_approved(risk_.check(intent));
 
-        for (const auto& order : risk_.on_tick(state_.view())) submit(order);
+        for (const auto& order : risk_.on_tick()) submit(order);
 
         drain_outcomes();
         return true;
@@ -93,11 +83,6 @@ class Engine {
     Tx& transport() noexcept { return transport_; }
 
    private:
-    template <std::size_t... Is>
-    Pool make_pool(std::index_sequence<Is...>) {
-        return Pool{StrategyTask<Strategies>{&std::get<Is>(strategies_)}...};
-    }
-
     void submit(const Order& order) { exec_.submit(order, clock_.now()); }
 
     void submit_if_approved(const risk::RiskDecision& decision) {
@@ -110,14 +95,12 @@ class Engine {
         // Reject: no Portfolio effect yet — exec_.rejects() is there when it is.
     }
 
-    Tx   transport_;
-    Clk  clock_;
-    Exec exec_;
-    Risk risk_;
-    std::tuple<Strategies...>
-              strategies_;  // must precede pool_: make_pool() takes addresses into it
-    Portfolio state_;
-    Pool      pool_;
+    Tx    transport_;
+    Clk   clock_;
+    Exec  exec_;
+    Risk  risk_;
+    S     strategy_;
+    Book& state_;
 };
 
 }  // namespace qp

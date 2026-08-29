@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <cassert>
+#include <concepts>
 
 #include "types.hpp"
 
@@ -129,5 +130,42 @@ inline Qty StateView::position(SymbolId symbol, VenueId venue) const noexcept {
 inline Notional StateView::cash() const noexcept { return portfolio_->cash(); }
 
 inline Notional StateView::equity() const noexcept { return portfolio_->equity(); }
+
+/// The seam Engine (and any RiskGate that needs live account state) depend
+/// on instead of the concrete Portfolio — same "seam, not concrete
+/// adapter" discipline as every other Engine dependency (D27), extended to
+/// account state. Describes exactly Engine's own write/read calls, plus
+/// position()/equity() directly (not just view()): a RiskGate that's
+/// already templated on Book — unlike Strategy, which stays fixed on
+/// StateView so it never needs to know the concrete Book type — has no
+/// reason to route through a StateView it's only going to immediately call
+/// through, same destination either way (see the StateView:: forwarders
+/// just above). view() stays required for Engine's own sake: Strategy's
+/// concept is fixed on StateView, so Engine needs a way to produce one.
+/// kMaxSymbols/kMaxVenues are required too — BasicRiskGate<Book> already
+/// reaches for Book::kMaxSymbols/kMaxVenues to size its own orders_ pool,
+/// so that dependency belongs in the concept's contract, not left as an
+/// implicit assumption true only because Portfolio is still the one Book
+/// that exists. A plain Portfolio satisfies all of this trivially. The
+/// point isn't swapping implementations (there's still exactly one) —
+/// it's that Engine holds Book by reference, not by value, so a
+/// composition root can point several Engines/RiskGates at one shared
+/// instance (one account, several strategies, one true equity/position
+/// book) without Engine's own code caring how that sharing is implemented
+/// underneath.
+template <class T>
+concept PortfolioLike =
+    requires(T p, const Fill& fill, const MarketEvent& event, SymbolId symbol, VenueId venue) {
+        { T::kMaxSymbols } -> std::convertible_to<std::size_t>;
+        { T::kMaxVenues } -> std::convertible_to<std::size_t>;
+        { p.apply_fill(fill) } -> std::same_as<void>;
+        { p.apply_funding(event) } -> std::same_as<void>;
+        { p.apply_mark_price(event) } -> std::same_as<void>;
+        { p.position(symbol, venue) } -> std::same_as<Qty>;
+        { p.equity() } -> std::same_as<Notional>;
+        { p.view() } -> std::same_as<StateView>;
+    };
+
+static_assert(PortfolioLike<Portfolio>);
 
 }  // namespace qp

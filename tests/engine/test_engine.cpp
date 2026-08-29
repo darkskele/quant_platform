@@ -66,12 +66,10 @@ struct CountingStrategy {
 
 using TestExec =
     qp::execution::sim::SimExecution<qp::execution::sim::matcher::last_trade::LastTradeMatcher>;
-using SingleTest = qp::Engine<FakeTransport, qp::SimClock, TestExec, AlwaysApproveRiskGate, 1,
-                              SingleIntentStrategy>;
-using CountTest =
-    qp::Engine<FakeTransport, qp::SimClock, TestExec, AlwaysApproveRiskGate, 1, CountingStrategy>;
-using TwoStratTest = qp::Engine<FakeTransport, qp::SimClock, TestExec, AlwaysApproveRiskGate, 1,
-                                SingleIntentStrategy, SingleIntentStrategy>;
+using SingleTest = qp::Engine<FakeTransport, qp::SimClock, TestExec, AlwaysApproveRiskGate,
+                              SingleIntentStrategy, qp::Portfolio>;
+using CountTest  = qp::Engine<FakeTransport, qp::SimClock, TestExec, AlwaysApproveRiskGate,
+                              CountingStrategy, qp::Portfolio>;
 
 }  // namespace
 
@@ -81,16 +79,26 @@ static_assert(qp::strategy::Strategy<CountingStrategy>);
 static_assert(qp::risk::RiskGate<AlwaysApproveRiskGate>);
 
 TEST(Engine, StepReturnsFalseWhenTransportExhausted) {
-    SingleTest engine{FakeTransport{}, qp::SimClock{}, TestExec{}, AlwaysApproveRiskGate{},
-                      SingleIntentStrategy{.symbol = 1, .target_position = 2.0}};
+    qp::Portfolio portfolio;
+    SingleTest    engine{FakeTransport{},
+                      qp::SimClock{},
+                      TestExec{},
+                      AlwaysApproveRiskGate{},
+                      SingleIntentStrategy{.symbol = 1, .target_position = 2.0},
+                      portfolio};
 
     EXPECT_FALSE(engine.step());
 }
 
 TEST(Engine, TradeThenIntentApprovedFillsAndUpdatesPortfolio) {
     std::vector<qp::MarketEvent> events{make_trade(1, 1000, 100.0)};
-    SingleTest engine{FakeTransport{events}, qp::SimClock{}, TestExec{}, AlwaysApproveRiskGate{},
-                      SingleIntentStrategy{.symbol = 1, .target_position = 2.0}};
+    qp::Portfolio                portfolio;
+    SingleTest                   engine{FakeTransport{events},
+                      qp::SimClock{},
+                      TestExec{},
+                      AlwaysApproveRiskGate{},
+                      SingleIntentStrategy{.symbol = 1, .target_position = 2.0},
+                      portfolio};
 
     EXPECT_TRUE(engine.step());
     EXPECT_EQ(engine.view().position(1, 0), 2.0);
@@ -99,8 +107,13 @@ TEST(Engine, TradeThenIntentApprovedFillsAndUpdatesPortfolio) {
 
 TEST(Engine, NoPriceSeenYetRejectsAndLeavesPortfolioUnaffected) {
     std::vector<qp::MarketEvent> events{make_funding(1, 1000, 0.0)};  // not a Trade -> no price
-    SingleTest engine{FakeTransport{events}, qp::SimClock{}, TestExec{}, AlwaysApproveRiskGate{},
-                      SingleIntentStrategy{.symbol = 1, .target_position = 2.0}};
+    qp::Portfolio                portfolio;
+    SingleTest                   engine{FakeTransport{events},
+                      qp::SimClock{},
+                      TestExec{},
+                      AlwaysApproveRiskGate{},
+                      SingleIntentStrategy{.symbol = 1, .target_position = 2.0},
+                      portfolio};
 
     EXPECT_TRUE(engine.step());
     EXPECT_EQ(engine.view().position(1, 0), 0.0);
@@ -113,26 +126,12 @@ TEST(Engine, RunDrainsEveryEventInTheTransport) {
         make_funding(1, 2000, 0.0),
         make_funding(1, 3000, 0.0),
     };
-    CountTest engine{FakeTransport{events}, qp::SimClock{}, TestExec{}, AlwaysApproveRiskGate{},
-                     CountingStrategy{&calls}};
+    qp::Portfolio portfolio;
+    CountTest     engine{FakeTransport{events},   qp::SimClock{},           TestExec{},
+                     AlwaysApproveRiskGate{}, CountingStrategy{&calls}, portfolio};
 
     engine.run();
     EXPECT_EQ(calls, 3);
-}
-
-TEST(Engine, MultipleStrategiesEachContributeAndFillDeterministically) {
-    std::vector<qp::MarketEvent> events{make_trade(1, 1000, 100.0)};
-    // 2 strategies, 1 worker (NumWorkers < strategy count) -> both run on
-    // the same thread, sequentially, still both contribute.
-    TwoStratTest engine{FakeTransport{events},
-                        qp::SimClock{},
-                        TestExec{},
-                        AlwaysApproveRiskGate{},
-                        SingleIntentStrategy{.symbol = 1, .target_position = 2.0},
-                        SingleIntentStrategy{.symbol = 1, .target_position = 3.0}};
-
-    EXPECT_TRUE(engine.step());
-    EXPECT_EQ(engine.view().position(1, 0), 5.0);  // both orders filled: 2 + 3
 }
 
 TEST(Engine, FundingEventSettlesAgainstCurrentPositionBeforeStrategyReacts) {
@@ -140,11 +139,46 @@ TEST(Engine, FundingEventSettlesAgainstCurrentPositionBeforeStrategyReacts) {
         make_trade(1, 1000, 100.0),
         make_funding(1, 2000, 0.0001, 100.0),
     };
-    SingleTest engine{FakeTransport{events}, qp::SimClock{}, TestExec{}, AlwaysApproveRiskGate{},
-                      SingleIntentStrategy{.symbol = 1, .target_position = 2.0}};
+    qp::Portfolio portfolio;
+    SingleTest    engine{FakeTransport{events},
+                      qp::SimClock{},
+                      TestExec{},
+                      AlwaysApproveRiskGate{},
+                      SingleIntentStrategy{.symbol = 1, .target_position = 2.0},
+                      portfolio};
 
     EXPECT_TRUE(engine.step());  // Trade -> intent -> fill: position 2, cash -200 - taker fee
     EXPECT_TRUE(engine.step());  // Funding -> settles against that position
     // -(2*100) buy cost, -0.08 LastTradeMatcher's taker fee (100*2*0.0004), -0.02 funding.
     EXPECT_DOUBLE_EQ(engine.view().cash(), -200.0 - 0.08 - 0.02);
+}
+
+// The reason Book is a reference, not owned (D27 extended to account
+// state): two single-Strategy Engines pointed at the same Portfolio see
+// each other's fills, so an account-level view (equity, combined
+// position) is correct across both — the capability the old variadic
+// Strategies... pack used to provide inside one Engine, now at the
+// composition level instead.
+TEST(Engine, SiblingEnginesShareOnePortfolioAcrossBothStrategiesFills) {
+    std::vector<qp::MarketEvent> events_a{make_trade(1, 1000, 100.0)};
+    std::vector<qp::MarketEvent> events_b{make_trade(1, 1000, 100.0)};
+    qp::Portfolio                portfolio;
+    SingleTest                   engine_a{FakeTransport{events_a},
+                        qp::SimClock{},
+                        TestExec{},
+                        AlwaysApproveRiskGate{},
+                        SingleIntentStrategy{.symbol = 1, .target_position = 2.0},
+                        portfolio};
+    SingleTest                   engine_b{FakeTransport{events_b},
+                        qp::SimClock{},
+                        TestExec{},
+                        AlwaysApproveRiskGate{},
+                        SingleIntentStrategy{.symbol = 1, .target_position = 3.0},
+                        portfolio};
+
+    EXPECT_TRUE(engine_a.step());
+    EXPECT_TRUE(engine_b.step());
+
+    EXPECT_EQ(portfolio.view().position(1, 0), 5.0);  // both fills landed on the one shared book
+    EXPECT_EQ(engine_a.view().position(1, 0), 5.0);   // each Engine's own view sees it too
 }

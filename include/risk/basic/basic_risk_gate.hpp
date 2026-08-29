@@ -41,14 +41,22 @@ struct BasicRiskGateConfig {
 /// Once tripped, stays tripped: every subsequent check() rejects, on_tick()
 /// stops re-flattening. A real kill switch doesn't quietly resume on its
 /// own — that's an operator decision, not this class's to make.
+///
+/// Templated on Book (PortfolioLike), held by reference: the composition
+/// root wires this to the same Book instance the paired Engine holds, so a
+/// drawdown kill switch shared across several single-strategy Engines
+/// (one account, several strategies) sees the account's true combined
+/// equity, not a snapshot scoped to whichever Engine last called check().
+template <PortfolioLike Book>
 class BasicRiskGate {
    public:
-    explicit BasicRiskGate(BasicRiskGateConfig config) : config_{std::move(config)} {}
+    BasicRiskGate(BasicRiskGateConfig config, Book& portfolio)
+        : config_{std::move(config)}, portfolio_{portfolio} {}
 
-    RiskDecision check(Intent intent, StateView state) {
+    RiskDecision check(Intent intent) {
         if (tripped_) return {.outcome = RiskOutcome::Rejected, .order = std::nullopt};
 
-        Qty current = state.position(intent.symbol, intent.venue);
+        Qty current = portfolio_.position(intent.symbol, intent.venue);
         Qty target =
             std::clamp(intent.target_position, -config_.max_position_qty, config_.max_position_qty);
         Qty delta = target - current;
@@ -62,15 +70,15 @@ class BasicRiskGate {
                                .qty    = std::abs(delta)}};
     }
 
-    std::span<const Order> on_tick(StateView state) {
-        Notional equity = state.equity();
+    std::span<const Order> on_tick() {
+        Notional equity = portfolio_.equity();
         peak_equity_    = std::max(peak_equity_, equity);
         if (tripped_ || peak_equity_ - equity < config_.max_drawdown) return {};
 
         tripped_ = true;
         orders_.reset();
         for (const auto& [symbol, venue] : config_.tracked) {
-            Qty pos = state.position(symbol, venue);
+            Qty pos = portfolio_.position(symbol, venue);
             if (pos == 0.0) continue;
             orders_.push(Order{.id     = next_id(),
                                .symbol = symbol,
@@ -82,17 +90,18 @@ class BasicRiskGate {
     }
 
    private:
-    static constexpr std::size_t kMaxOrders = Portfolio::kMaxSymbols * Portfolio::kMaxVenues;
+    static constexpr std::size_t kMaxOrders = Book::kMaxSymbols * Book::kMaxVenues;
 
     OrderId next_id() noexcept { return next_id_++; }
 
     BasicRiskGateConfig                               config_;
+    Book&                                             portfolio_;
     OrderId                                           next_id_{1};
     bool                                              tripped_{false};
     Notional                                          peak_equity_{0.0};
     ViewablePool<Order, kMaxOrders, /*UseHeap=*/true> orders_;
 };
 
-static_assert(RiskGate<BasicRiskGate>);
+static_assert(RiskGate<BasicRiskGate<Portfolio>>);
 
 }  // namespace qp::risk::basic

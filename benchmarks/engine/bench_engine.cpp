@@ -25,57 +25,37 @@ using TestExec =
     qp::execution::sim::SimExecution<qp::execution::sim::matcher::last_trade::LastTradeMatcher>;
 
 // Floor: no Intent, no risk/submit/fill work — just transport pull, clock
-// advance, exec.on_market_event, and one empty pool round-trip.
-void BM_Engine_StepOneNoopStrategyOneWorker(benchmark::State& state) {
-    qp::Engine<InfiniteTransport, qp::SimClock, TestExec, AlwaysApproveRiskGate, 1, NoopStrategy>
-        engine{InfiniteTransport{qp::test::make_funding(1, 0, 0.0)}, qp::SimClock{}, TestExec{},
-               AlwaysApproveRiskGate{}, NoopStrategy{}};
+// advance, exec.on_market_event, and one direct Strategy call.
+void BM_Engine_StepOneNoopStrategy(benchmark::State& state) {
+    qp::Portfolio portfolio;
+    qp::Engine<InfiniteTransport, qp::SimClock, TestExec, AlwaysApproveRiskGate, NoopStrategy,
+               qp::Portfolio>
+        engine{InfiniteTransport{qp::test::make_funding(1, 0, 0.0)},
+               qp::SimClock{},
+               TestExec{},
+               AlwaysApproveRiskGate{},
+               NoopStrategy{},
+               portfolio};
     for (auto _ : state) engine.step();
 }
 
-BENCHMARK(BM_Engine_StepOneNoopStrategyOneWorker);
+BENCHMARK(BM_Engine_StepOneNoopStrategy);
 
 // Full cycle: Intent every step, risk-approved, submitted, matcher fills
 // against the seeded Trade price, Portfolio updated.
 void BM_Engine_StepOneStrategyFullPipeline(benchmark::State& state) {
-    qp::Engine<InfiniteTransport, qp::SimClock, TestExec, AlwaysApproveRiskGate, 1,
-               AlwaysIntentStrategy>
-        engine{InfiniteTransport{qp::test::make_trade(1, 0, 100.0)}, qp::SimClock{}, TestExec{},
-               AlwaysApproveRiskGate{}, AlwaysIntentStrategy{}};
+    qp::Portfolio portfolio;
+    qp::Engine<InfiniteTransport, qp::SimClock, TestExec, AlwaysApproveRiskGate,
+               AlwaysIntentStrategy, qp::Portfolio>
+        engine{InfiniteTransport{qp::test::make_trade(1, 0, 100.0)},
+               qp::SimClock{},
+               TestExec{},
+               AlwaysApproveRiskGate{},
+               AlwaysIntentStrategy{},
+               portfolio};
     for (auto _ : state) engine.step();
 }
 
 BENCHMARK(BM_Engine_StepOneStrategyFullPipeline);
-
-// Same floor case, 2 strategies — 1 worker (sequential) vs 2 (parallel) —
-// same comparison bench_round_robin_pool.cpp makes for the bare pool, now
-// with the rest of step() (clock/exec/risk/drain) wrapped around it.
-void BM_Engine_StepTwoNoopStrategiesOneWorker(benchmark::State& state) {
-    qp::Engine<InfiniteTransport, qp::SimClock, TestExec, AlwaysApproveRiskGate, 1, NoopStrategy,
-               NoopStrategy>
-        engine{InfiniteTransport{qp::test::make_funding(1, 0, 0.0)},
-               qp::SimClock{},
-               TestExec{},
-               AlwaysApproveRiskGate{},
-               NoopStrategy{},
-               NoopStrategy{}};
-    for (auto _ : state) engine.step();
-}
-
-BENCHMARK(BM_Engine_StepTwoNoopStrategiesOneWorker);
-
-void BM_Engine_StepTwoNoopStrategiesTwoWorkers(benchmark::State& state) {
-    qp::Engine<InfiniteTransport, qp::SimClock, TestExec, AlwaysApproveRiskGate, 2, NoopStrategy,
-               NoopStrategy>
-        engine{InfiniteTransport{qp::test::make_funding(1, 0, 0.0)},
-               qp::SimClock{},
-               TestExec{},
-               AlwaysApproveRiskGate{},
-               NoopStrategy{},
-               NoopStrategy{}};
-    for (auto _ : state) engine.step();
-}
-
-BENCHMARK(BM_Engine_StepTwoNoopStrategiesTwoWorkers);
 
 }  // namespace

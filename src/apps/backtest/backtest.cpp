@@ -256,10 +256,18 @@ Results run(const Config& config) {
 
     using Exec =
         execution::sim::SimExecution<execution::sim::matcher::last_trade::LastTradeMatcher>;
+    using Risk = risk::basic::BasicRiskGate<Portfolio>;
 
-    Engine<Tx, SimClock, Exec, risk::basic::BasicRiskGate, 1, strategy::carry::FundingCarryStrategy>
-        engine{std::move(transport), SimClock{}, Exec{}, risk::basic::BasicRiskGate{risk_config},
-               strategy::carry::FundingCarryStrategy{carry_config}};
+    Portfolio portfolio;
+    Risk      risk_gate{risk_config, portfolio};
+
+    Engine<Tx, SimClock, Exec, Risk, strategy::carry::FundingCarryStrategy, Portfolio> engine{
+        std::move(transport),
+        SimClock{},
+        Exec{},
+        std::move(risk_gate),
+        strategy::carry::FundingCarryStrategy{carry_config},
+        portfolio};
 
     // Not engine.run(): its plain while(step()){} stops on the first
     // nullopt, which for a ring-fed Transport can mean "nothing right now"

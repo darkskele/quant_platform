@@ -1,6 +1,5 @@
 #include <gtest/gtest.h>
 
-#include "portfolio.hpp"
 #include "risk_gate.hpp"
 #include "support/risk_gate_doubles.hpp"
 #include "types.hpp"
@@ -12,10 +11,9 @@ static_assert(qp::risk::RiskGate<AlwaysApproveRiskGate>);
 static_assert(qp::risk::RiskGate<AlwaysRejectRiskGate>);
 
 TEST(RiskGate, ApprovedDecisionCarriesAnOrderSizedFromIntent) {
-    qp::Portfolio         portfolio;
     AlwaysApproveRiskGate gate;
 
-    auto decision = gate.check(qp::Intent{.symbol = 1, .target_position = 2.0}, portfolio.view());
+    auto decision = gate.check(qp::Intent{.symbol = 1, .target_position = 2.0});
 
     EXPECT_EQ(decision.outcome, qp::risk::RiskOutcome::Approved);
     ASSERT_TRUE(decision.order.has_value());
@@ -25,21 +23,18 @@ TEST(RiskGate, ApprovedDecisionCarriesAnOrderSizedFromIntent) {
 }
 
 TEST(RiskGate, ApprovedOrderCarriesTheIntentsVenue) {
-    qp::Portfolio         portfolio;
     AlwaysApproveRiskGate gate;
 
-    auto decision =
-        gate.check(qp::Intent{.symbol = 1, .venue = 1, .target_position = 2.0}, portfolio.view());
+    auto decision = gate.check(qp::Intent{.symbol = 1, .venue = 1, .target_position = 2.0});
 
     ASSERT_TRUE(decision.order.has_value());
     EXPECT_EQ(decision.order->venue, 1);
 }
 
 TEST(RiskGate, RejectedDecisionCarriesNoOrder) {
-    qp::Portfolio        portfolio;
     AlwaysRejectRiskGate gate;
 
-    auto decision = gate.check(qp::Intent{.symbol = 1, .target_position = 2.0}, portfolio.view());
+    auto decision = gate.check(qp::Intent{.symbol = 1, .target_position = 2.0});
 
     EXPECT_EQ(decision.outcome, qp::risk::RiskOutcome::Rejected);
     EXPECT_FALSE(decision.order.has_value());
