@@ -10,7 +10,7 @@ using qp::ControlChannel;
 using qp::ControlCommand;
 using qp::MarketEvent;
 using qp::SpmcRing;
-using qp::transport::BacktestInProcessTransport;
+using qp::engine::transport::BacktestInProcessTransport;
 
 namespace {
 

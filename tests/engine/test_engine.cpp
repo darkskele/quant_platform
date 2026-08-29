@@ -43,37 +43,37 @@ struct SingleIntentStrategy {
     bool         fired = false;
     qp::Intent   intent_{};
 
-    std::span<const qp::Intent> on_event(const qp::MarketEvent&, qp::StateView) {
+    std::span<const qp::Intent> on_event(const qp::MarketEvent&) {
         if (fired) return {};
         fired   = true;
         intent_ = qp::Intent{.symbol = symbol, .target_position = target_position};
         return {&intent_, 1};
     }
 
-    std::span<const qp::Intent> on_timer(qp::Timestamp, qp::StateView) { return {}; }
+    std::span<const qp::Intent> on_timer(qp::Timestamp) { return {}; }
 };
 
 struct CountingStrategy {
     int* calls;
 
-    std::span<const qp::Intent> on_event(const qp::MarketEvent&, qp::StateView) {
+    std::span<const qp::Intent> on_event(const qp::MarketEvent&) {
         ++*calls;
         return {};
     }
 
-    std::span<const qp::Intent> on_timer(qp::Timestamp, qp::StateView) { return {}; }
+    std::span<const qp::Intent> on_timer(qp::Timestamp) { return {}; }
 };
 
 using TestExec =
     qp::execution::sim::SimExecution<qp::execution::sim::matcher::last_trade::LastTradeMatcher>;
-using SingleTest = qp::Engine<FakeTransport, qp::SimClock, TestExec, AlwaysApproveRiskGate,
-                              SingleIntentStrategy, qp::Portfolio>;
-using CountTest  = qp::Engine<FakeTransport, qp::SimClock, TestExec, AlwaysApproveRiskGate,
-                              CountingStrategy, qp::Portfolio>;
+using SingleTest = qp::engine::Engine<FakeTransport, qp::SimClock, TestExec, AlwaysApproveRiskGate,
+                                      SingleIntentStrategy, qp::Portfolio>;
+using CountTest  = qp::engine::Engine<FakeTransport, qp::SimClock, TestExec, AlwaysApproveRiskGate,
+                                      CountingStrategy, qp::Portfolio>;
 
 }  // namespace
 
-static_assert(qp::transport::Transport<FakeTransport>);
+static_assert(qp::engine::transport::Transport<FakeTransport>);
 static_assert(qp::strategy::Strategy<SingleIntentStrategy>);
 static_assert(qp::strategy::Strategy<CountingStrategy>);
 static_assert(qp::risk::RiskGate<AlwaysApproveRiskGate>);
@@ -101,7 +101,7 @@ TEST(Engine, TradeThenIntentApprovedFillsAndUpdatesPortfolio) {
                       portfolio};
 
     EXPECT_TRUE(engine.step());
-    EXPECT_EQ(engine.view().position(1, 0), 2.0);
+    EXPECT_EQ(portfolio.position(1, 0), 2.0);
     EXPECT_FALSE(engine.step());  // transport now exhausted
 }
 
@@ -116,7 +116,7 @@ TEST(Engine, NoPriceSeenYetRejectsAndLeavesPortfolioUnaffected) {
                       portfolio};
 
     EXPECT_TRUE(engine.step());
-    EXPECT_EQ(engine.view().position(1, 0), 0.0);
+    EXPECT_EQ(portfolio.position(1, 0), 0.0);
 }
 
 TEST(Engine, RunDrainsEveryEventInTheTransport) {
@@ -130,7 +130,8 @@ TEST(Engine, RunDrainsEveryEventInTheTransport) {
     CountTest     engine{FakeTransport{events},   qp::SimClock{},           TestExec{},
                      AlwaysApproveRiskGate{}, CountingStrategy{&calls}, portfolio};
 
-    engine.run();
+    while (engine.step()) {
+    }
     EXPECT_EQ(calls, 3);
 }
 
@@ -150,7 +151,7 @@ TEST(Engine, FundingEventSettlesAgainstCurrentPositionBeforeStrategyReacts) {
     EXPECT_TRUE(engine.step());  // Trade -> intent -> fill: position 2, cash -200 - taker fee
     EXPECT_TRUE(engine.step());  // Funding -> settles against that position
     // -(2*100) buy cost, -0.08 LastTradeMatcher's taker fee (100*2*0.0004), -0.02 funding.
-    EXPECT_DOUBLE_EQ(engine.view().cash(), -200.0 - 0.08 - 0.02);
+    EXPECT_DOUBLE_EQ(portfolio.cash(), -200.0 - 0.08 - 0.02);
 }
 
 // The reason Book is a reference, not owned (D27 extended to account
@@ -179,6 +180,5 @@ TEST(Engine, SiblingEnginesShareOnePortfolioAcrossBothStrategiesFills) {
     EXPECT_TRUE(engine_a.step());
     EXPECT_TRUE(engine_b.step());
 
-    EXPECT_EQ(portfolio.view().position(1, 0), 5.0);  // both fills landed on the one shared book
-    EXPECT_EQ(engine_a.view().position(1, 0), 5.0);   // each Engine's own view sees it too
+    EXPECT_EQ(portfolio.position(1, 0), 5.0);  // both engines' fills landed on the one shared book
 }

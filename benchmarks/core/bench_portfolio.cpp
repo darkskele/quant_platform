@@ -11,10 +11,10 @@ constexpr SymbolId kSymbol = 1;
 constexpr VenueId  kVenue  = 0;
 
 // Isolation only: Portfolio's write side (apply_fill/apply_funding/
-// apply_mark_price) is Engine-thread-only, sequenced strictly before the
-// RoundRobinPool round that reads it via StateView (D37) — never touched
-// from two threads at once in production, so there's no tandem/contention
-// tier that would measure anything real here.
+// apply_mark_price) is Engine-thread-only, sequenced strictly before
+// Strategy/RiskGate's own reads through their held const Book& (D37) —
+// never touched from two threads at once within one Engine, so there's no
+// tandem/contention tier that would measure anything real here.
 
 void BM_Portfolio_ApplyFill(benchmark::State& state) {
     Portfolio portfolio;

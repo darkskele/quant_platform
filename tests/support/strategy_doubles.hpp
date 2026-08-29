@@ -1,15 +1,14 @@
 #pragma once
 #include <span>
 
-#include "portfolio.hpp"
 #include "types.hpp"
 
 namespace qp::test {
 
 struct NoopStrategy {
-    std::span<const Intent> on_event(const MarketEvent&, StateView) { return {}; }
+    std::span<const Intent> on_event(const MarketEvent&) { return {}; }
 
-    std::span<const Intent> on_timer(Timestamp, StateView) { return {}; }
+    std::span<const Intent> on_timer(Timestamp) { return {}; }
 };
 
 /// Emits the same Intent every call — for exercising the full
@@ -20,12 +19,12 @@ struct AlwaysIntentStrategy {
     Qty      target_position = 1.0;
     Intent   intent_{};
 
-    std::span<const Intent> on_event(const MarketEvent&, StateView) {
+    std::span<const Intent> on_event(const MarketEvent&) {
         intent_ = Intent{.symbol = symbol, .target_position = target_position};
         return {&intent_, 1};
     }
 
-    std::span<const Intent> on_timer(Timestamp, StateView) { return {}; }
+    std::span<const Intent> on_timer(Timestamp) { return {}; }
 };
 
 }  // namespace qp::test

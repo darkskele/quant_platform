@@ -15,7 +15,7 @@ namespace qp::execution::sim::matcher {
 /// LastTradeMatcher (today) to a future book-aware one. Sim-only: Live
 /// doesn't need a Matcher at all, the real exchange does the matching.
 template <class T>
-concept Matcher = requires(T m, MarketEvent ev, Order o, Timestamp ts) {
+concept Matcher = requires(T m, const MarketEvent& ev, Order o, Timestamp ts) {
     { m.on_market_event(ev) } -> std::same_as<void>;
     { m.try_fill(o, ts) } -> std::same_as<std::variant<Fill, Reject>>;
 };

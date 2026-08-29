@@ -50,7 +50,7 @@ struct BasicRiskGateConfig {
 template <PortfolioLike Book>
 class BasicRiskGate {
    public:
-    BasicRiskGate(BasicRiskGateConfig config, Book& portfolio)
+    BasicRiskGate(BasicRiskGateConfig config, const Book& portfolio)
         : config_{std::move(config)}, portfolio_{portfolio} {}
 
     RiskDecision check(Intent intent) {
@@ -95,7 +95,7 @@ class BasicRiskGate {
     OrderId next_id() noexcept { return next_id_++; }
 
     BasicRiskGateConfig                               config_;
-    Book&                                             portfolio_;
+    const Book&                                       portfolio_;
     OrderId                                           next_id_{1};
     bool                                              tripped_{false};
     Notional                                          peak_equity_{0.0};

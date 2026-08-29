@@ -7,29 +7,6 @@
 
 namespace qp {
 
-class Portfolio;
-
-/// Read-only view onto a Portfolio's live state — the read half of the
-/// read/write split (architecture-principles.md seam 6). Strategy/RiskGate
-/// only ever see this, never a mutable Portfolio&. Cheap, non-owning (one
-/// pointer) — pass by value like a span. A live window, not a snapshot: it
-/// reflects apply_fill() calls made after construction.
-class StateView {
-   public:
-    explicit StateView(const Portfolio& portfolio) noexcept : portfolio_{&portfolio} {}
-
-    /// No default for `venue` (D44, matching AlignmentRule/BinanceMarket's
-    /// own "no default" precedent): (symbol, venue) together identify an
-    /// instrument, symbol alone doesn't — a default would silently answer
-    /// "venue 0" for a caller that forgot to think about which leg it means.
-    Qty      position(SymbolId symbol, VenueId venue) const noexcept;
-    Notional cash() const noexcept;
-    Notional equity() const noexcept;
-
-   private:
-    const Portfolio* portfolio_;
-};
-
 /// The feedback hub: net position per (symbol, venue) + cash balance, fed
 /// by two write paths (Engine-only): apply_fill (a trade) and apply_funding
 /// (a Funding-kind event settling against whatever position is currently
@@ -88,6 +65,10 @@ class Portfolio {
         }
     }
 
+    /// No default for `venue` (D44, matching AlignmentRule/BinanceMarket's
+    /// own "no default" precedent): (symbol, venue) together identify an
+    /// instrument, symbol alone doesn't — a default would silently answer
+    /// "venue 0" for a caller that forgot to think about which leg it means.
     Qty position(SymbolId symbol, VenueId venue) const noexcept {
         assert(symbol < kMaxSymbols);
         assert(venue < kMaxVenues);
@@ -111,8 +92,6 @@ class Portfolio {
         return total;
     }
 
-    StateView view() const noexcept { return StateView{*this}; }
-
    private:
     static constexpr std::size_t index(SymbolId symbol, VenueId venue) noexcept {
         return static_cast<std::size_t>(symbol) * kMaxVenues + venue;
@@ -123,36 +102,25 @@ class Portfolio {
     Notional                                    cash_{0.0};
 };
 
-inline Qty StateView::position(SymbolId symbol, VenueId venue) const noexcept {
-    return portfolio_->position(symbol, venue);
-}
-
-inline Notional StateView::cash() const noexcept { return portfolio_->cash(); }
-
-inline Notional StateView::equity() const noexcept { return portfolio_->equity(); }
-
-/// The seam Engine (and any RiskGate that needs live account state) depend
-/// on instead of the concrete Portfolio — same "seam, not concrete
-/// adapter" discipline as every other Engine dependency (D27), extended to
-/// account state. Describes exactly Engine's own write/read calls, plus
-/// position()/equity() directly (not just view()): a RiskGate that's
-/// already templated on Book — unlike Strategy, which stays fixed on
-/// StateView so it never needs to know the concrete Book type — has no
-/// reason to route through a StateView it's only going to immediately call
-/// through, same destination either way (see the StateView:: forwarders
-/// just above). view() stays required for Engine's own sake: Strategy's
-/// concept is fixed on StateView, so Engine needs a way to produce one.
-/// kMaxSymbols/kMaxVenues are required too — BasicRiskGate<Book> already
-/// reaches for Book::kMaxSymbols/kMaxVenues to size its own orders_ pool,
-/// so that dependency belongs in the concept's contract, not left as an
-/// implicit assumption true only because Portfolio is still the one Book
-/// that exists. A plain Portfolio satisfies all of this trivially. The
-/// point isn't swapping implementations (there's still exactly one) —
+/// The seam Engine/Strategy/RiskGate depend on instead of the concrete
+/// Portfolio (D27's "seam, not concrete adapter" discipline, extended to
+/// account state) — describes exactly the calls made against it: Engine's
+/// two write paths, plus position()/equity() for whoever only reads.
+/// Strategy/RiskGate hold `const Book&` (read-only, enforced by
+/// constness — no separate read-only wrapper type needed, that's what
+/// this concept plus `const` already give for free); Engine holds the
+/// mutable `Book&` that actually calls apply_fill/apply_funding/
+/// apply_mark_price. A plain Portfolio satisfies all of this trivially.
+/// The point isn't swapping implementations (there's still exactly one) —
 /// it's that Engine holds Book by reference, not by value, so a
-/// composition root can point several Engines/RiskGates at one shared
-/// instance (one account, several strategies, one true equity/position
-/// book) without Engine's own code caring how that sharing is implemented
-/// underneath.
+/// composition root can point several Engines/RiskGates/Strategies at one
+/// shared instance (one account, several strategies, one true equity/
+/// position book) without any of them caring how that sharing is
+/// implemented underneath. kMaxSymbols/kMaxVenues are required too —
+/// BasicRiskGate<Book> already reaches for Book::kMaxSymbols/kMaxVenues to
+/// size its own orders_ pool, so that dependency belongs in the concept's
+/// contract, not left as an implicit assumption true only because
+/// Portfolio is still the one Book that exists.
 template <class T>
 concept PortfolioLike =
     requires(T p, const Fill& fill, const MarketEvent& event, SymbolId symbol, VenueId venue) {
@@ -163,7 +131,6 @@ concept PortfolioLike =
         { p.apply_mark_price(event) } -> std::same_as<void>;
         { p.position(symbol, venue) } -> std::same_as<Qty>;
         { p.equity() } -> std::same_as<Notional>;
-        { p.view() } -> std::same_as<StateView>;
     };
 
 static_assert(PortfolioLike<Portfolio>);

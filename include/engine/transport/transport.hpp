@@ -3,7 +3,7 @@
 
 #include "types.hpp"
 
-namespace qp::transport {
+namespace qp::engine::transport {
 
 /// The seam Engine actually consumes — one MarketEvent at a time, or
 /// nullopt. Structurally identical to source::Source (D22: the two cities
@@ -18,4 +18,4 @@ concept Transport = requires(T t) {
     { t.next() } -> std::same_as<std::optional<MarketEvent>>;
 };
 
-}  // namespace qp::transport
+}  // namespace qp::engine::transport

@@ -6,7 +6,7 @@
 #include "types.hpp"
 
 using qp::MarketEvent;
-using qp::transport::Transport;
+using qp::engine::transport::Transport;
 
 namespace {
 

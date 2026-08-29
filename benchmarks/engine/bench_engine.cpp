@@ -21,6 +21,7 @@ using qp::test::AlwaysApproveRiskGate;
 using qp::test::AlwaysIntentStrategy;
 using qp::test::InfiniteTransport;
 using qp::test::NoopStrategy;
+using qp::test::SeedThenSteadyStateTransport;
 using TestExec =
     qp::execution::sim::SimExecution<qp::execution::sim::matcher::last_trade::LastTradeMatcher>;
 
@@ -28,34 +29,78 @@ using TestExec =
 // advance, exec.on_market_event, and one direct Strategy call.
 void BM_Engine_StepOneNoopStrategy(benchmark::State& state) {
     qp::Portfolio portfolio;
-    qp::Engine<InfiniteTransport, qp::SimClock, TestExec, AlwaysApproveRiskGate, NoopStrategy,
-               qp::Portfolio>
+    qp::engine::Engine<InfiniteTransport, qp::SimClock, TestExec, AlwaysApproveRiskGate,
+                       NoopStrategy, qp::Portfolio>
         engine{InfiniteTransport{qp::test::make_funding(1, 0, 0.0)},
                qp::SimClock{},
                TestExec{},
                AlwaysApproveRiskGate{},
                NoopStrategy{},
                portfolio};
-    for (auto _ : state) engine.step();
+    // DoNotOptimize(portfolio), not just the discarded step() bool: step()'s
+    // real effects are writes into portfolio's memory (apply_fill/
+    // apply_funding/apply_mark_price) that nothing here ever reads back —
+    // every object involved is header-only and fully visible in this TU, so
+    // without this the optimizer can (and does — verified by comparing
+    // against StepOneStrategyFullPipeline below, which should cost more
+    // than this floor and doesn't without the marker) prove the whole call
+    // chain dead and strip it to noise.
+    for (auto _ : state) {
+        engine.step();
+        benchmark::DoNotOptimize(portfolio);
+    }
 }
 
 BENCHMARK(BM_Engine_StepOneNoopStrategy);
 
 // Full cycle: Intent every step, risk-approved, submitted, matcher fills
-// against the seeded Trade price, Portfolio updated.
+// against the seeded Trade price, Portfolio updated (apply_fill via
+// drain_outcomes). Trade-driven — see StepFundingEventFullPipeline below
+// for the apply_funding-driven shape a real funding-reactive strategy
+// actually runs.
 void BM_Engine_StepOneStrategyFullPipeline(benchmark::State& state) {
     qp::Portfolio portfolio;
-    qp::Engine<InfiniteTransport, qp::SimClock, TestExec, AlwaysApproveRiskGate,
-               AlwaysIntentStrategy, qp::Portfolio>
+    qp::engine::Engine<InfiniteTransport, qp::SimClock, TestExec, AlwaysApproveRiskGate,
+                       AlwaysIntentStrategy, qp::Portfolio>
         engine{InfiniteTransport{qp::test::make_trade(1, 0, 100.0)},
                qp::SimClock{},
                TestExec{},
                AlwaysApproveRiskGate{},
                AlwaysIntentStrategy{},
                portfolio};
-    for (auto _ : state) engine.step();
+    for (auto _ : state) {
+        engine.step();
+        benchmark::DoNotOptimize(portfolio);
+    }
 }
 
 BENCHMARK(BM_Engine_StepOneStrategyFullPipeline);
+
+// Full cycle, Funding-driven: apply_funding() (settling against whatever
+// position drain_outcomes just applied) + intent -> risk -> submit ->
+// matcher fill -> drain_outcomes(apply_fill), every step — the shape
+// FundingCarryStrategy actually runs in production (it only ever reacts
+// to Funding events, never Trade ones, unlike StepOneStrategyFullPipeline
+// above). SeedThenSteadyStateTransport seeds the matcher with a Trade
+// price once so submit() fills instead of rejecting, then every
+// subsequent step is the Funding event under measurement.
+void BM_Engine_StepFundingEventFullPipeline(benchmark::State& state) {
+    qp::Portfolio portfolio;
+    qp::engine::Engine<SeedThenSteadyStateTransport, qp::SimClock, TestExec, AlwaysApproveRiskGate,
+                       AlwaysIntentStrategy, qp::Portfolio>
+        engine{SeedThenSteadyStateTransport{qp::test::make_trade(1, 0, 100.0),
+                                            qp::test::make_funding(1, 0, 0.0001, 100.0)},
+               qp::SimClock{},
+               TestExec{},
+               AlwaysApproveRiskGate{},
+               AlwaysIntentStrategy{},
+               portfolio};
+    for (auto _ : state) {
+        engine.step();
+        benchmark::DoNotOptimize(portfolio);
+    }
+}
+
+BENCHMARK(BM_Engine_StepFundingEventFullPipeline);
 
 }  // namespace

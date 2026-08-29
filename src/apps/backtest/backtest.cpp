@@ -1,5 +1,6 @@
 #include "backtest.hpp"
 
+#include <atomic>
 #include <chrono>
 #include <fstream>
 #include <iostream>
@@ -220,7 +221,8 @@ Results run(const Config& config) {
     // which just means "queue empty right now" — see file_replay_source.hpp),
     // so it can detect true exhaustion itself and request_stop() once both
     // legs are done, closing the loop BacktestInProcessTransport needs.
-    std::thread driver([&] {
+    std::atomic<bool> data_exhausted{false};
+    std::thread       driver([&] {
         bool futures_done = false;
         bool spot_done    = false;
         while (!(futures_done && spot_done)) {
@@ -248,42 +250,53 @@ Results run(const Config& config) {
             }
         }
         control.request_stop();
+        data_exhausted.store(true, std::memory_order_release);
     });
 
-    using Tx = transport::BacktestInProcessTransport<FanSink::Ring, 2, 1>;
+    using Tx = engine::transport::BacktestInProcessTransport<FanSink::Ring, 2, 1>;
     Tx transport({&futures_fanout.ring(), &spot_fanout.ring()}, {futures_consumer, spot_consumer},
                  control, engine_ctrl_idx);
 
     using Exec =
         execution::sim::SimExecution<execution::sim::matcher::last_trade::LastTradeMatcher>;
-    using Risk = risk::basic::BasicRiskGate<Portfolio>;
+    using Risk     = risk::basic::BasicRiskGate<Portfolio>;
+    using Strategy = strategy::carry::FundingCarryStrategy<Portfolio>;
 
     Portfolio portfolio;
     Risk      risk_gate{risk_config, portfolio};
+    Strategy  carry_strategy{carry_config, portfolio};
 
-    Engine<Tx, SimClock, Exec, Risk, strategy::carry::FundingCarryStrategy, Portfolio> engine{
-        std::move(transport),
-        SimClock{},
-        Exec{},
-        std::move(risk_gate),
-        strategy::carry::FundingCarryStrategy{carry_config},
-        portfolio};
+    engine::Engine<Tx, SimClock, Exec, Risk, Strategy, Portfolio> engine{
+        std::move(transport),      SimClock{}, Exec{}, std::move(risk_gate),
+        std::move(carry_strategy), portfolio};
 
-    // Not engine.run(): its plain while(step()){} stops on the first
-    // nullopt, which for a ring-fed Transport can mean "nothing right now"
-    // as easily as "genuinely done". is_done() is the ring/ControlChannel-
-    // aware signal that actually distinguishes them (see backtest.hpp).
-    while (!engine.transport().is_done()) {
+    // TODO: Engine no longer exposes a transport()/is_done() getter (it
+    // never forwards Book, and shouldn't forward Tx either — a driving
+    // loop only needs step()). The real replacement is an app-level
+    // coordinator that watches DataSource liveness directly and issues
+    // Stop via ControlChannel when a source dies (engine.hpp), not built
+    // yet. Interim placeholder: drive step() until the producer thread's
+    // own "both legs exhausted" signal fires, then keep draining for a
+    // grace window comfortably longer than ControlChannel's ~100ms pump
+    // interval, so Stop has time to actually propagate and flush
+    // whatever's still buffered downstream of it. Simpler than the old
+    // is_done() check but can't distinguish a truly stalled leg from one
+    // still catching up within the grace window — acceptable for now,
+    // not for a production DataSource-liveness design.
+    while (!data_exhausted.load(std::memory_order_acquire)) {
+        if (!engine.step()) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    auto grace_until = std::chrono::steady_clock::now() + std::chrono::milliseconds(250);
+    while (std::chrono::steady_clock::now() < grace_until) {
         if (!engine.step()) std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 
     driver.join();
 
-    StateView state = engine.view();
-    return Results{.final_cash             = state.cash(),
-                   .final_equity           = state.equity(),
-                   .final_spot_position    = state.position(symbol, kSpotVenue),
-                   .final_futures_position = state.position(symbol, kFuturesVenue)};
+    return Results{.final_cash             = portfolio.cash(),
+                   .final_equity           = portfolio.equity(),
+                   .final_spot_position    = portfolio.position(symbol, kSpotVenue),
+                   .final_futures_position = portfolio.position(symbol, kFuturesVenue)};
 }
 
 }  // namespace qp::backtest

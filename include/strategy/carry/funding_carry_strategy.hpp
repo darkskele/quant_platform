@@ -19,17 +19,22 @@ struct Config {
 };
 
 /// Long spot + short perp, delta-neutral, collecting funding. Stateless in
-/// the sense that matters: every decision reads StateView's current
-/// position rather than tracking its own, so the same MarketEvent always
-/// produces the same Intent regardless of which strategy instance/thread
+/// the sense that matters: every decision reads the current position off
+/// `portfolio_` rather than tracking its own, so the same MarketEvent
+/// always produces the same Intent regardless of which strategy instance
 /// runs it. `buffer_` is pure scratch output space, not decision state.
+/// Templated on Book (PortfolioLike), held by `const` reference — same
+/// object Engine holds, wired by the composition root at construction;
+/// const because this strategy only ever reads it.
+template <PortfolioLike Book>
 class FundingCarryStrategy {
    public:
     static constexpr std::size_t kMaxIntents = 2;
 
-    explicit FundingCarryStrategy(Config config) : config_{config} {}
+    FundingCarryStrategy(Config config, const Book& portfolio)
+        : config_{config}, portfolio_{portfolio} {}
 
-    std::span<const Intent> on_event(const MarketEvent& event, StateView state) {
+    std::span<const Intent> on_event(const MarketEvent& event) {
         if (event.kind != EventKind::Funding || event.symbol != config_.symbol ||
             event.venue != config_.futures_venue) {
             return {};
@@ -38,7 +43,7 @@ class FundingCarryStrategy {
         Qty target = event.funding_rate >= config_.entry_funding_rate ? config_.target_qty
                      : event.funding_rate <= config_.exit_funding_rate
                          ? 0.0
-                         : state.position(config_.symbol, config_.spot_venue);
+                         : portfolio_.position(config_.symbol, config_.spot_venue);
 
         buffer_.reset();
         buffer_.push(Intent{
@@ -48,13 +53,14 @@ class FundingCarryStrategy {
         return buffer_.view();
     }
 
-    std::span<const Intent> on_timer(Timestamp, StateView) { return {}; }
+    std::span<const Intent> on_timer(Timestamp) { return {}; }
 
    private:
     Config                    config_;
+    const Book&               portfolio_;
     IntentBuffer<kMaxIntents> buffer_{};
 };
 
-static_assert(Strategy<FundingCarryStrategy>);
+static_assert(Strategy<FundingCarryStrategy<Portfolio>>);
 
 }  // namespace qp::strategy::carry

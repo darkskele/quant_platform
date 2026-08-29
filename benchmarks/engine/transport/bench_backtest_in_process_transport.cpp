@@ -2,6 +2,7 @@
 
 #include <array>
 #include <memory>
+#include <vector>
 
 #include "backtest_in_process_transport.hpp"
 #include "control_channel.hpp"
@@ -16,6 +17,18 @@ qp::MarketEvent make_trade(qp::Timestamp ts = 0) {
     ev.ts    = ts;
     ev.price = 100.0;
     ev.qty   = 1.0;
+    return ev;
+}
+
+// kLevels matches a realistic partial-depth update (Binance's 20-level
+// partial book stream) — Trade above never carries book levels at all, so
+// it can't exercise next()'s move-vs-copy on bids/asks regardless of scale.
+qp::MarketEvent make_book_diff(qp::Timestamp ts, int kLevels = 20) {
+    qp::MarketEvent ev;
+    ev.kind = qp::EventKind::BookDiff;
+    ev.ts   = ts;
+    ev.bids.assign(kLevels, qp::PriceLevel{.price = 100.0, .qty = 1.0});
+    ev.asks.assign(kLevels, qp::PriceLevel{.price = 101.0, .qty = 1.0});
     return ev;
 }
 
@@ -39,10 +52,10 @@ void BM_BacktestInProcessTransport_NRings(benchmark::State& state) {
     std::array<std::size_t, N> consumers{};
     for (std::size_t i = 0; i < N; ++i) ring_ptrs[i] = &rings[i];
 
-    qp::ControlChannel<1>                                 control;
-    auto                                                  idx = control.attach();
-    qp::transport::BacktestInProcessTransport<Ring, N, 1> transport(ring_ptrs, consumers, control,
-                                                                    idx);
+    qp::ControlChannel<1>                                         control;
+    auto                                                          idx = control.attach();
+    qp::engine::transport::BacktestInProcessTransport<Ring, N, 1> transport(ring_ptrs, consumers,
+                                                                            control, idx);
 
     qp::Timestamp ts = 0;
     for (auto _ : state) {
@@ -59,5 +72,38 @@ BENCHMARK(BM_BacktestInProcessTransport_NRings<2>);
 BENCHMARK(BM_BacktestInProcessTransport_NRings<4>);
 BENCHMARK(BM_BacktestInProcessTransport_NRings<8>);
 BENCHMARK(BM_BacktestInProcessTransport_NRings<16>);
+
+// Populated depth, N=2 (the only shape anything real uses — not
+// re-answering the scaling question above, just isolating next()'s own
+// move-vs-copy on a realistic BookDiff). Two copies of bids/asks happen
+// per event regardless: FanoutSink's ring holds shared_ptr<const
+// MarketEvent> (multi-consumer fan-out, so that copy — into lookahead_ —
+// is real and unavoidable here), but next()'s own return used to add a
+// second, avoidable copy on top (lookahead_ -> the returned MarketEvent)
+// before it moved instead — this isolates what that second copy cost.
+void BM_BacktestInProcessTransport_TwoRingsPopulatedBookDiff(benchmark::State& state) {
+    constexpr std::size_t      N = 2;
+    std::array<Ring, N>        rings;
+    std::array<Ring*, N>       ring_ptrs;
+    std::array<std::size_t, N> consumers{};
+    for (std::size_t i = 0; i < N; ++i) ring_ptrs[i] = &rings[i];
+
+    qp::ControlChannel<1>                                         control;
+    auto                                                          idx = control.attach();
+    qp::engine::transport::BacktestInProcessTransport<Ring, N, 1> transport(ring_ptrs, consumers,
+                                                                            control, idx);
+
+    qp::Timestamp ts = 0;
+    for (auto _ : state) {
+        for (std::size_t i = 0; i < N; ++i)
+            rings[i].push(std::make_shared<const qp::MarketEvent>(make_book_diff(ts++)));
+        for (std::size_t i = 0; i < N; ++i) {
+            auto out = transport.next();
+            benchmark::DoNotOptimize(out);
+        }
+    }
+}
+
+BENCHMARK(BM_BacktestInProcessTransport_TwoRingsPopulatedBookDiff);
 
 }  // namespace

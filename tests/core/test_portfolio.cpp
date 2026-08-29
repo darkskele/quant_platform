@@ -13,7 +13,6 @@ using qp::test::make_trade;
 TEST(Portfolio, FlatUntilAnyFillArrives) {
     qp::Portfolio portfolio;
     EXPECT_EQ(portfolio.position(1, 0), 0.0);
-    EXPECT_EQ(portfolio.view().position(1, 0), 0.0);
 }
 
 TEST(Portfolio, BuyIncreasesSellDecreasesPosition) {
@@ -52,15 +51,6 @@ TEST(Portfolio, SameSymbolOnDifferentVenuesIsIndependent) {
 
     EXPECT_EQ(portfolio.position(1, 0), 2.0);
     EXPECT_EQ(portfolio.position(1, 1), -1.0);
-}
-
-TEST(Portfolio, StateViewReflectsFillsAppliedAfterConstruction) {
-    qp::Portfolio portfolio;
-    qp::StateView view = portfolio.view();  // non-owning — live window, not a snapshot
-
-    EXPECT_EQ(view.position(1, 0), 0.0);
-    portfolio.apply_fill(make_fill(1, qp::Side::Buy, 5.0));
-    EXPECT_EQ(view.position(1, 0), 5.0);
 }
 
 TEST(Portfolio, BuyingCostsCashPlusFee) {

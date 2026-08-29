@@ -2,11 +2,12 @@
 #include <array>
 #include <cstddef>
 #include <optional>
+#include <utility>
 
 #include "control_channel.hpp"
 #include "types.hpp"
 
-namespace qp::transport {
+namespace qp::engine::transport {
 
 /// Backtest's own Transport policy: merges a fixed set of rings — each a
 /// leg's fan-out ring, at whichever consumer index this Engine was handed
@@ -93,7 +94,10 @@ class BacktestInProcessTransport {
         if (any_missing && !stopped_) return std::nullopt;
         if (!earliest) return std::nullopt;  // stopped and genuinely nothing left anywhere
 
-        MarketEvent out = *lookahead_[*earliest];
+        // Move, not copy: the slot gets reset right after regardless, so
+        // there's nothing left to preserve in it — moving skips copying
+        // bids/asks (real cost for a populated BookDiff) for free.
+        MarketEvent out = std::move(*lookahead_[*earliest]);
         lookahead_[*earliest].reset();
         return out;
     }
@@ -122,4 +126,4 @@ class BacktestInProcessTransport {
     bool                                      stopped_ = false;
 };
 
-}  // namespace qp::transport
+}  // namespace qp::engine::transport

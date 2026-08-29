@@ -10,7 +10,7 @@
 #include "transport.hpp"
 #include "types.hpp"
 
-namespace qp {
+namespace qp::engine {
 
 /// The trader composition root (D27). One Strategy, one Risk, one shared
 /// Book. Previously a variadic Strategies... pack running on a shared
@@ -29,13 +29,27 @@ namespace qp {
 /// Book is PortfolioLike, not the concrete Portfolio, and held by
 /// reference, not owned — same "seam, not concrete adapter" discipline as
 /// every other Engine dependency (D27), extended to account state. A
-/// paired RiskGate gets its own reference to the identical Book at its own
-/// construction, wired by the composition root — Engine never forwards it.
+/// paired RiskGate/Strategy gets its own reference to the identical Book
+/// at its own construction, wired by the composition root — Engine never
+/// forwards it, and never exposes a getter back onto it either: nothing
+/// outside this class reads state through Engine, the composition root
+/// already holds the same Book reference it handed to everyone else.
 ///
 /// Tx is transport::Transport (D22/D38), not source::Source — Engine
 /// consumes whatever hands it MarketEvents one at a time (a live/replay
 /// Source directly, or a BacktestInProcessTransport merging several
-/// fan-out rings in timestamp order), not specifically a "source".
+/// fan-out rings in timestamp order), not specifically a "source". No
+/// run() and no transport() getter either — a driving loop only ever
+/// needs step(); "keep going until genuinely done" is the composition
+/// root's own call to make (it's the one that knows what "done" means for
+/// its own Tx), not something to reach back into Engine for.
+///
+/// TODO: apps/backtest's driving loop currently has no way to ask "is the
+/// underlying data source still alive" without a transport getter (which
+/// this class deliberately doesn't have). The real fix is an app-level
+/// coordinator that watches DataSource liveness directly and issues Stop
+/// via ControlChannel when a source dies, sitting beside Engine rather
+/// than reaching into it — not built yet.
 template <transport::Transport Tx, Clock Clk, execution::ExecutionGateway Exec, risk::RiskGate Risk,
           strategy::Strategy S, PortfolioLike Book>
 class Engine {
@@ -58,7 +72,7 @@ class Engine {
         if (event->kind == EventKind::Funding) state_.apply_funding(*event);
         state_.apply_mark_price(*event);
 
-        for (const auto& intent : strategy_.on_event(*event, state_.view()))
+        for (const auto& intent : strategy_.on_event(*event))
             submit_if_approved(risk_.check(intent));
 
         for (const auto& order : risk_.on_tick()) submit(order);
@@ -66,21 +80,6 @@ class Engine {
         drain_outcomes();
         return true;
     }
-
-    void run() {
-        while (step()) {
-        }
-    }
-
-    StateView view() const noexcept { return state_.view(); }
-
-    /// Direct access to the owned Transport — for a driving loop that
-    /// needs to distinguish "nothing right now" from "genuinely finished"
-    /// itself (e.g. BacktestInProcessTransport::is_done()), which run()'s
-    /// own while(step()){} can't: it treats any false from step() as done,
-    /// correct only for a Transport whose next() is permanently nullopt
-    /// once exhausted.
-    Tx& transport() noexcept { return transport_; }
 
    private:
     void submit(const Order& order) { exec_.submit(order, clock_.now()); }
@@ -103,4 +102,4 @@ class Engine {
     Book& state_;
 };
 
-}  // namespace qp
+}  // namespace qp::engine

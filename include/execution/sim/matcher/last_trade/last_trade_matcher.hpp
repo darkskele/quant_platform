@@ -25,7 +25,7 @@ namespace qp::execution::sim::matcher::last_trade {
 /// (D31/D44), no hashing, no heap.
 class LastTradeMatcher {
    public:
-    void on_market_event(MarketEvent ev) {
+    void on_market_event(const MarketEvent& ev) {
         if (ev.kind != EventKind::Trade) return;
         assert(ev.symbol < Portfolio::kMaxSymbols);
         assert(ev.venue < Portfolio::kMaxVenues);

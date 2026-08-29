@@ -1,6 +1,9 @@
 #include <benchmark/benchmark.h>
 
+#include <vector>
+
 #include "last_trade_matcher.hpp"
+#include "support/market_event_builders.hpp"
 #include "types.hpp"
 
 using namespace qp;
@@ -38,6 +41,30 @@ void BM_LastTradeMatcher_OnMarketEvent(benchmark::State& state) {
 }
 
 BENCHMARK(BM_LastTradeMatcher_OnMarketEvent);
+
+// Isolation, populated depth: a BookDiff — real bid/ask levels, unlike
+// Trade above which never carries any — flowing through on_market_event()
+// only to be discarded immediately (kind != Trade). This is what
+// on_market_event(const MarketEvent&) actually buys over the by-value
+// signature it used to have: no copy of bids/asks for a field this class
+// never reads. kLevels matches a realistic partial-depth update (Binance's
+// 20-level partial book stream), not the always-empty vectors every other
+// benchmark here uses (Trade/Funding never carry book levels at all, so
+// they can't exercise this cost regardless of level count).
+void BM_LastTradeMatcher_OnMarketEventDiscardsPopulatedBookDiff(benchmark::State& state) {
+    LastTradeMatcher        matcher;
+    constexpr int           kLevels = 20;
+    std::vector<PriceLevel> bids(kLevels, PriceLevel{.price = 100.0, .qty = 1.0});
+    std::vector<PriceLevel> asks(kLevels, PriceLevel{.price = 101.0, .qty = 1.0});
+    auto ev = qp::test::make_book_diff(kSymbol, /*ts=*/0, /*first_seq=*/0, /*seq=*/0,
+                                       /*prev_seq=*/0, bids, asks, kVenue);
+    for (auto _ : state) {
+        matcher.on_market_event(ev);
+        benchmark::DoNotOptimize(matcher);
+    }
+}
+
+BENCHMARK(BM_LastTradeMatcher_OnMarketEventDiscardsPopulatedBookDiff);
 
 // Isolation: try_fill(), fill path — a price has been seen for this
 // (symbol, venue).

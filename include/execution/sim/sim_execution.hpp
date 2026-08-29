@@ -42,9 +42,9 @@ class SimExecution {
     static constexpr std::size_t kMaxOutcomes = Portfolio::kMaxSymbols * Portfolio::kMaxVenues + 64;
 
    public:
-    void on_market_event(MarketEvent ev) {
+    void on_market_event(const MarketEvent& ev) {
         reset_outcomes();
-        matcher_.on_market_event(std::move(ev));
+        matcher_.on_market_event(ev);
     }
 
     void submit(Order o, Timestamp ts) {

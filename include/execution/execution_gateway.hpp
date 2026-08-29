@@ -12,7 +12,7 @@ namespace qp::execution {
 /// merged single channel would buy nothing this doesn't already give for
 /// free.
 template <class T>
-concept ExecutionGateway = requires(T e, MarketEvent ev, Order o, Timestamp ts) {
+concept ExecutionGateway = requires(T e, const MarketEvent& ev, Order o, Timestamp ts) {
     { e.on_market_event(ev) } -> std::same_as<void>;
     { e.submit(o, ts) } -> std::same_as<void>;
     { e.fills() } -> std::same_as<std::span<const Fill>>;

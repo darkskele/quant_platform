@@ -79,9 +79,9 @@ using Notional = double;         ///< Quote-currency amount (fees, PnL).
 
 /// A strategy's desired end-state for one symbol — a target position, not
 /// a delta or a venue order ("be +2 BTC", not "buy 2 BTC"). RiskGate turns
-/// this into concrete Order(s), computing the delta itself against current
-/// StateView. No ts field — same as Order, timestamps are call-site
-/// parameters where actually consumed, not struct fields.
+/// this into concrete Order(s), computing the delta itself against the
+/// current position. No ts field — same as Order, timestamps are
+/// call-site parameters where actually consumed, not struct fields.
 struct Intent {
     SymbolId symbol{};
     VenueId  venue{};  ///< Which leg (D44) — (symbol, venue) together identify an instrument;

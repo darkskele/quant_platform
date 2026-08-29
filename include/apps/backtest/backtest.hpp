@@ -48,8 +48,9 @@ struct Results {
 /// consumes both legs merged in timestamp order via
 /// BacktestInProcessTransport. A ControlChannel coordinates the driver
 /// thread's "both legs exhausted" signal with Engine's own driving loop —
-/// never engine.run()'s plain while(step()){}, which can't distinguish
-/// "nothing right now" from "genuinely done" for a ring-fed Transport.
+/// Engine only exposes step(), so run() drives it directly against that
+/// signal plus a grace window (TODO in backtest.cpp: placeholder pending
+/// an app-level DataSource-liveness coordinator, see engine.hpp).
 /// @throws std::runtime_error on a missing/mismatched symbols.manifest
 ///     (D48) — a config problem, not a normal "no data" case.
 Results run(const Config& config);

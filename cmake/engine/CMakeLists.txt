@@ -1,13 +1,14 @@
-# engine — the Engine<Tx,Clk,Exec,Risk,NumWorkers,Strategies...> composition
-# root (see docs/engine/DESIGN.md; docs/decisions.md D27, D33, D38).
+# engine — the Engine<Tx,Clk,Exec,Risk,Strategy,Book> composition root (see
+# docs/engine/DESIGN.md; docs/decisions.md D27, D33, D38).
 # Header-only, depends on the seam concepts only — never a concrete adapter.
-# qp_transport, not qp_source_pure: Engine is constrained on transport::Transport
-# (D22/D38), not source::Source — it never needs venue-specific Source machinery.
+# qp_transport, not qp_source_pure: Engine is constrained on engine::transport::
+# Transport (D22/D38), not source::Source — it never needs venue-specific
+# Source machinery.
 qp_dir(include QP_INC)
 qp_dir(tests QP_TESTS)
 qp_dir(benchmarks QP_BENCH)
 
-add_subdirectory(transport)  # Transport concept + CombinedTransport/BacktestInProcessTransport
+add_subdirectory(transport)  # Transport concept + BacktestInProcessTransport
 
 add_library(qp_engine INTERFACE)
 target_include_directories(qp_engine INTERFACE ${QP_INC})

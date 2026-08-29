@@ -30,9 +30,10 @@ void write_leg(const std::filesystem::path& leg_dir, const std::vector<qp::Marke
 }  // namespace
 
 // End-to-end proof that apps/backtest's wiring — FileReplaySource (both
-// legs) -> BacktestInProcessTransport -> Engine<..., BasicRiskGate<Portfolio>,
-// FundingCarryStrategy, Portfolio> — actually produces the delta-neutral
-// position funding carry is supposed to, not just that each piece compiles.
+// legs) -> engine::transport::BacktestInProcessTransport ->
+// engine::Engine<..., BasicRiskGate<Portfolio>, FundingCarryStrategy<Portfolio>,
+// Portfolio> — actually produces the delta-neutral position funding carry
+// is supposed to, not just that each piece compiles.
 TEST(BacktestIntegration, EntersDeltaNeutralPositionOnAFundingEventAboveThreshold) {
     ScratchDir   dir;
     std::int64_t base_ts = 1'700'000'000LL * 1'000'000'000LL;
