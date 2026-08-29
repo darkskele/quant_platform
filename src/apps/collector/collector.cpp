@@ -168,12 +168,8 @@ int run(const Config& config, ControlChannel<1>& control, std::size_t consumer) 
               << config.data_dir << " (futures/, spot/)\n";
 
     while (true) {
-        // pump() before poll(): a signal handler's request_stop() only
-        // lands in ControlChannel's request inbox — nothing broadcasts it
-        // without a pump(), and this loop is "whichever loop is already
-        // polling the channel" (its own contract), so it does its own
-        // pumping rather than trusting the caller to remember to.
-        control.pump();
+        // No pump() here: ControlChannel now pumps itself on its own
+        // thread (D5x) — see control_channel.hpp.
         if (control.poll(consumer) == ControlCommand::Stop) break;
         if (deadline && std::chrono::steady_clock::now() >= *deadline) break;
 

@@ -46,7 +46,7 @@ TEST(BacktestInProcessTransport, OrdersByTimestampNotArrivalOrder) {
     push(a, 400, 1);
     push(a, kSentinel, 1);
 
-    Harness h;
+    Harness                                h;
     BacktestInProcessTransport<Ring, 2, 1> t({&a, &b}, {0, 0}, h.control, h.idx);
 
     for (qp::Timestamp expected : {100, 200, 300, 400}) {
@@ -60,7 +60,7 @@ TEST(BacktestInProcessTransport, WaitsUntilEveryLegHasSomethingBuffered) {
     Ring a, b;
     push(a, 50, 1);
 
-    Harness h;
+    Harness                                h;
     BacktestInProcessTransport<Ring, 2, 1> t({&a, &b}, {0, 0}, h.control, h.idx);
 
     EXPECT_FALSE(t.next().has_value());  // b empty -> can't know if its next event sorts earlier
@@ -76,11 +76,12 @@ TEST(BacktestInProcessTransport, StallsRatherThanGuessingAnEmptyRingIsDone) {
     push(a, 10, 1);
     push(b, 20, 2);  // only one event, no follow-up
 
-    Harness h;
+    Harness                                h;
     BacktestInProcessTransport<Ring, 2, 1> t({&a, &b}, {0, 0}, h.control, h.idx);
 
     ASSERT_TRUE(t.next().has_value());
-    EXPECT_FALSE(t.next().has_value());  // b's ring now empty -> can't safely emit a's next event yet
+    EXPECT_FALSE(
+        t.next().has_value());  // b's ring now empty -> can't safely emit a's next event yet
 }
 
 TEST(BacktestInProcessTransport, TiesBreakToTheLowestRingIndex) {
@@ -88,7 +89,7 @@ TEST(BacktestInProcessTransport, TiesBreakToTheLowestRingIndex) {
     push(a, 500, 1);
     push(b, 500, 2);
 
-    Harness h;
+    Harness                                h;
     BacktestInProcessTransport<Ring, 2, 1> t({&a, &b}, {0, 0}, h.control, h.idx);
 
     auto out = t.next();
@@ -108,7 +109,7 @@ TEST(BacktestInProcessTransport, InterleavesThreeLegsInTimestampOrder) {
     push(c, 60, 2);
     push(c, kSentinel, 2);
 
-    Harness h;
+    Harness                                h;
     BacktestInProcessTransport<Ring, 3, 1> t({&a, &b, &c}, {0, 0, 0}, h.control, h.idx);
 
     for (qp::Timestamp expected : {10, 20, 30, 40, 50, 60}) {
@@ -124,17 +125,26 @@ TEST(BacktestInProcessTransport, StopFlushesBufferedEventsInsteadOfStallingForev
     push(a, 30, 1);
     push(b, 20, 2);  // only one event -> b's ring goes empty after the first round
 
-    ControlChannel<1> control;
-    auto              idx = control.attach();
+    ControlChannel<1>                      control;
+    auto                                   idx = control.attach();
     BacktestInProcessTransport<Ring, 2, 1> t({&a, &b}, {0, 0}, control, idx);
 
-    EXPECT_EQ(t.next()->ts, 10);   // fills a=10,b=20 -> a's 10 wins
-    EXPECT_EQ(t.next()->ts, 20);   // refills a=30 (its 2nd event); b's already-buffered 20 still wins
-    EXPECT_FALSE(t.next().has_value());  // a's buffered 30 remains; b's ring empty -> stall, not stopped yet
+    EXPECT_EQ(t.next()->ts, 10);  // fills a=10,b=20 -> a's 10 wins
+    EXPECT_EQ(t.next()->ts,
+              20);  // refills a=30 (its 2nd event); b's already-buffered 20 still wins
+    EXPECT_FALSE(
+        t.next().has_value());  // a's buffered 30 remains; b's ring empty -> stall, not stopped yet
     EXPECT_FALSE(t.is_done());
 
-    control.request_stop();  // real usage: request_stop(), not broadcast() directly -- next() must pump() itself
-    EXPECT_FALSE(t.is_done());  // requested, but not yet pumped+observed (stopped_ still false)
+    // broadcast() directly, not request_stop(): request_stop() only reaches
+    // poll() via ControlChannel's own background pump thread now (~100ms
+    // cadence, control_channel.hpp) — that round trip is ControlChannel's
+    // own concern (test_control_channel.cpp), not this transport's. This
+    // test is about next()'s flush behavior once Stop is observed, so
+    // broadcast() (still synchronous, bypasses the pump) is what actually
+    // isolates that.
+    control.broadcast(ControlCommand::Stop);
+    EXPECT_FALSE(t.is_done());  // observed by next() below, not yet
     auto flushed = t.next();
     ASSERT_TRUE(flushed.has_value());
     EXPECT_EQ(flushed->ts, 30);  // stopped -> flush a's buffered 30

@@ -58,36 +58,39 @@ class BacktestInProcessTransport {
 
     std::optional<MarketEvent> next() {
         if (!stopped_) {
-            // pump() before poll(): request_stop() alone only lands in
-            // ControlChannel's request inbox — nothing broadcasts it to
-            // this consumer's ring until something calls pump(). This is
-            // "whichever loop is already polling the channel" (its own
-            // doc comment), so it does its own pumping rather than relying
-            // on the composition root to remember to.
-            control_->pump();
+            // No pump() here: ControlChannel now pumps itself on its own
+            // thread (D5x) — several Engines each owning their own
+            // Transport would otherwise be several concurrent pump()
+            // callers racing on the same single-consumer inbox.
             if (control_->poll(control_consumer_) == ControlCommand::Stop) stopped_ = true;
         }
 
-        bool any_missing = false;
+        // Single pass: fills each empty lookahead slot and tracks the
+        // running earliest at the same time, instead of a fill pass
+        // followed by a separate earliest-scan — each slot gets touched
+        // once per call, not twice. Still can't return early on
+        // any_missing while running: a still-missing ring might yet
+        // produce a smaller timestamp than whatever's earliest so far, so
+        // earliest can only be trusted once the whole pass has completed
+        // (or once stopped_, where "missing" means "permanently gone").
+        bool                       any_missing = false;
+        std::optional<std::size_t> earliest;
         for (std::size_t i = 0; i < N; ++i) {
             if (!lookahead_[i]) {
                 if (auto ptr = rings_[i]->try_pop(consumers_[i]))
                     lookahead_[i] = **ptr;
-                else
+                else {
                     any_missing = true;
+                    continue;
+                }
             }
+            if (!earliest || lookahead_[i]->ts < lookahead_[*earliest]->ts) earliest = i;
         }
 
         // Still running and some leg has nothing buffered: can't safely
         // pick a winner without risking a later, smaller timestamp from
         // that leg. Stopped: flush whatever's available instead.
         if (any_missing && !stopped_) return std::nullopt;
-
-        std::optional<std::size_t> earliest;
-        for (std::size_t i = 0; i < N; ++i) {
-            if (!lookahead_[i]) continue;
-            if (!earliest || lookahead_[i]->ts < lookahead_[*earliest]->ts) earliest = i;
-        }
         if (!earliest) return std::nullopt;  // stopped and genuinely nothing left anywhere
 
         MarketEvent out = *lookahead_[*earliest];

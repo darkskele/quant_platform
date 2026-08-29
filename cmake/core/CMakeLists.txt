@@ -32,6 +32,7 @@ if(BUILD_TESTING)
         ${QP_TESTS}/test_spmc_ring.cpp
         ${QP_TESTS}/test_portfolio.cpp
         ${QP_TESTS}/test_round_robin_pool.cpp
+        ${QP_TESTS}/test_control_channel.cpp
     )
     target_link_libraries(qp_core_tests PRIVATE qp_core qp_core_test_support Threads::Threads GTest::gtest
                                                  GTest::gtest_main)
