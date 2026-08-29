@@ -1,5 +1,6 @@
 #include <benchmark/benchmark.h>
 
+#include <array>
 #include <memory>
 
 #include "backtest_in_process_transport.hpp"
@@ -20,30 +21,43 @@ qp::MarketEvent make_trade(qp::Timestamp ts = 0) {
 
 using Ring = qp::SpmcRing<std::shared_ptr<const qp::MarketEvent>, 1024, 1>;
 
-// The motivating shape: two real rings (a carry strategy's spot + perp
-// legs), merged in timestamp order — the only merge policy anything real
-// actually uses (apps/backtest; a live composition would use the same).
-// Monotonically increasing timestamps so every next() call finds a winner
-// immediately — isolates the merge's own steady-state cost, not the
-// empty-ring stall path.
-void BM_BacktestInProcessTransport_TwoRings(benchmark::State& state) {
-    Ring                                                  ring_a, ring_b;
+// Scaling: N rings merged in timestamp order, N a compile-time template
+// parameter (real-world N is fixed per composition — one leg per venue —
+// never a runtime count, so this mirrors how it's actually instantiated,
+// same convention as bench_spmc_ring.cpp's NumConsumers<N> tiers).
+// Monotonically increasing timestamps across all N rings each round, so
+// every next() call finds a winner immediately — isolates next()'s own
+// merge cost, not the empty-ring stall path. N=2 is the only shape
+// anything real uses today (apps/backtest: one spot + one futures leg);
+// N=4/8/16 exist to answer "does the O(N) lookahead scan in next() start
+// costing something before N gets anywhere near what this system would
+// ever actually run" (docs/strategy.md: "a handful, not hundreds").
+template <std::size_t N>
+void BM_BacktestInProcessTransport_NRings(benchmark::State& state) {
+    std::array<Ring, N>        rings;
+    std::array<Ring*, N>       ring_ptrs;
+    std::array<std::size_t, N> consumers{};
+    for (std::size_t i = 0; i < N; ++i) ring_ptrs[i] = &rings[i];
+
     qp::ControlChannel<1>                                 control;
     auto                                                  idx = control.attach();
-    qp::transport::BacktestInProcessTransport<Ring, 2, 1> transport({&ring_a, &ring_b}, {0, 0},
-                                                                    control, idx);
+    qp::transport::BacktestInProcessTransport<Ring, N, 1> transport(ring_ptrs, consumers, control,
+                                                                    idx);
 
     qp::Timestamp ts = 0;
     for (auto _ : state) {
-        ring_a.push(std::make_shared<const qp::MarketEvent>(make_trade(ts++)));
-        ring_b.push(std::make_shared<const qp::MarketEvent>(make_trade(ts++)));
-        auto first  = transport.next();
-        auto second = transport.next();
-        benchmark::DoNotOptimize(first);
-        benchmark::DoNotOptimize(second);
+        for (std::size_t i = 0; i < N; ++i)
+            rings[i].push(std::make_shared<const qp::MarketEvent>(make_trade(ts++)));
+        for (std::size_t i = 0; i < N; ++i) {
+            auto out = transport.next();
+            benchmark::DoNotOptimize(out);
+        }
     }
 }
 
-BENCHMARK(BM_BacktestInProcessTransport_TwoRings);
+BENCHMARK(BM_BacktestInProcessTransport_NRings<2>);
+BENCHMARK(BM_BacktestInProcessTransport_NRings<4>);
+BENCHMARK(BM_BacktestInProcessTransport_NRings<8>);
+BENCHMARK(BM_BacktestInProcessTransport_NRings<16>);
 
 }  // namespace
