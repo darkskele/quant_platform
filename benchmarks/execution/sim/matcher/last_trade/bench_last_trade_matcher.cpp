@@ -4,7 +4,7 @@
 #include "types.hpp"
 
 using namespace qp;
-using qp::execution::LastTradeMatcher;
+using qp::execution::sim::matcher::last_trade::LastTradeMatcher;
 
 namespace {
 

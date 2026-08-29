@@ -3,7 +3,6 @@
 #include <span>
 #include <tuple>
 #include <utility>
-#include <variant>
 
 #include "clock.hpp"
 #include "execution_gateway.hpp"
@@ -107,9 +106,8 @@ class Engine {
     }
 
     void drain_outcomes() {
-        while (auto outcome = exec_.next_outcome())
-            if (auto* fill = std::get_if<Fill>(&*outcome)) state_.apply_fill(*fill);
-        // Reject: no Portfolio effect yet.
+        for (const auto& fill : exec_.fills()) state_.apply_fill(fill);
+        // Reject: no Portfolio effect yet — exec_.rejects() is there when it is.
     }
 
     Tx   transport_;

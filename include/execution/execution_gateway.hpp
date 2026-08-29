@@ -1,21 +1,22 @@
 #pragma once
-#include <optional>
-#include <variant>
+#include <span>
 
 #include "types.hpp"
 
 namespace qp::execution {
 
-/// The prod/test switch for order execution (mirrors Source/Sink). Fills
-/// and rejects come back through one ordered poll, not separate channels —
-/// two independent queues would lose the true order outcomes happened in
-/// (a fill, then a reject, then a fill again — draining one queue then the
-/// other scrambles that).
+/// The prod/test switch for order execution (mirrors Source/Sink). Fills and
+/// rejects are separate streams, not one interleaved poll: every Fill/Reject
+/// already carries its own order_id/ts, so nothing downstream needs arrival
+/// order across the two kinds to know what happened to a given order — a
+/// merged single channel would buy nothing this doesn't already give for
+/// free.
 template <class T>
 concept ExecutionGateway = requires(T e, MarketEvent ev, Order o, Timestamp ts) {
     { e.on_market_event(ev) } -> std::same_as<void>;
     { e.submit(o, ts) } -> std::same_as<void>;
-    { e.next_outcome() } -> std::same_as<std::optional<std::variant<Fill, Reject>>>;
+    { e.fills() } -> std::same_as<std::span<const Fill>>;
+    { e.rejects() } -> std::same_as<std::span<const Reject>>;
 };
 
 }  // namespace qp::execution

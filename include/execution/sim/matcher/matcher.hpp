@@ -3,7 +3,7 @@
 
 #include "types.hpp"
 
-namespace qp::execution {
+namespace qp::execution::sim::matcher {
 
 /// The seam SimExecution's fill sophistication plugs into — bundles
 /// market-state tracking and fill computation as one policy, not two
@@ -12,11 +12,12 @@ namespace qp::execution {
 /// them would just invent a leaky interface between tightly-coupled
 /// halves. Named Matcher (the standard term for "decides how an order
 /// meets the market"), not FillModel — implementations range from
-/// LastTradeMatcher (today) to a future book-aware one.
+/// LastTradeMatcher (today) to a future book-aware one. Sim-only: Live
+/// doesn't need a Matcher at all, the real exchange does the matching.
 template <class T>
 concept Matcher = requires(T m, MarketEvent ev, Order o, Timestamp ts) {
     { m.on_market_event(ev) } -> std::same_as<void>;
     { m.try_fill(o, ts) } -> std::same_as<std::variant<Fill, Reject>>;
 };
 
-}  // namespace qp::execution
+}  // namespace qp::execution::sim::matcher

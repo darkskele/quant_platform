@@ -13,6 +13,7 @@ qp_dir(tests QP_TESTS)
 add_library(qp_backtest_core ${QP_SRC}/backtest.cpp)
 target_include_directories(qp_backtest_core PUBLIC ${QP_INC})
 target_link_libraries(qp_backtest_core PUBLIC qp_file_replay qp_sink qp_transport qp_engine
+                                               qp_execution_sim qp_execution_sim_matcher_last_trade
                                                qp_risk_basic qp_strategy_carry)
 
 add_executable(qp_backtest ${QP_SRC}/main.cpp)

@@ -15,7 +15,7 @@
 #include "execution_gateway.hpp"
 #include "fanout_sink.hpp"
 #include "file_replay_source.hpp"
-#include "last_trade_matcher.hpp"
+#include "matcher/last_trade/last_trade_matcher.hpp"
 #include "portfolio.hpp"
 #include "risk_gate.hpp"
 #include "sim_clock.hpp"
@@ -254,7 +254,8 @@ Results run(const Config& config) {
     Tx transport({&futures_fanout.ring(), &spot_fanout.ring()}, {futures_consumer, spot_consumer},
                  control, engine_ctrl_idx);
 
-    using Exec = execution::SimExecution<execution::LastTradeMatcher>;
+    using Exec =
+        execution::sim::SimExecution<execution::sim::matcher::last_trade::LastTradeMatcher>;
 
     Engine<Tx, SimClock, Exec, risk::basic::BasicRiskGate, 1, strategy::carry::FundingCarryStrategy>
         engine{std::move(transport), SimClock{}, Exec{}, risk::basic::BasicRiskGate{risk_config},

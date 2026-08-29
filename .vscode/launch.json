@@ -137,10 +137,10 @@
             "preLaunchTask": "Build: qp_clock_bench (release)"
         },
         {
-            "name": "Run execution bench",
+            "name": "Run execution sim bench",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/release/cmake/execution/qp_execution_bench",
+            "program": "${workspaceFolder}/build/release/cmake/execution/sim/qp_execution_sim_bench",
             "args": ["--benchmark_min_time=0.1s"],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
@@ -153,7 +153,26 @@
                     "value": ""
                 }
             ],
-            "preLaunchTask": "Build: qp_execution_bench (release)"
+            "preLaunchTask": "Build: qp_execution_sim_bench (release)"
+        },
+        {
+            "name": "Run last trade matcher bench",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/release/cmake/execution/sim/matcher/last_trade/qp_execution_sim_matcher_last_trade_bench",
+            "args": ["--benchmark_min_time=0.1s"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "environment": [
+                {
+                    "name": "DEBUGINFOD_URLS",
+                    "value": ""
+                }
+            ],
+            "preLaunchTask": "Build: qp_execution_sim_matcher_last_trade_bench (release)"
         },
         {
             "name": "Run sink bench",
@@ -417,10 +436,10 @@
             "preLaunchTask": "Build: qp_clock_tests (release)"
         },
         {
-            "name": "Debug: qp_execution_tests",
+            "name": "Debug: qp_execution_sim_tests",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/debug/cmake/execution/qp_execution_tests",
+            "program": "${workspaceFolder}/build/debug/cmake/execution/sim/qp_execution_sim_tests",
             "args": [],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
@@ -440,13 +459,13 @@
             "setupCommands": [
                 { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
             ],
-            "preLaunchTask": "Build: qp_execution_tests"
+            "preLaunchTask": "Build: qp_execution_sim_tests"
         },
         {
-            "name": "Release: qp_execution_tests",
+            "name": "Release: qp_execution_sim_tests",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/release/cmake/execution/qp_execution_tests",
+            "program": "${workspaceFolder}/build/release/cmake/execution/sim/qp_execution_sim_tests",
             "args": [],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
@@ -462,7 +481,7 @@
             "setupCommands": [
                 { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
             ],
-            "preLaunchTask": "Build: qp_execution_tests (release)"
+            "preLaunchTask": "Build: qp_execution_sim_tests (release)"
         },
         {
             "name": "Debug: qp_strategy_tests",

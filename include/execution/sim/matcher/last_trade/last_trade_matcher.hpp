@@ -6,7 +6,7 @@
 #include "matcher.hpp"
 #include "types.hpp"
 
-namespace qp::execution {
+namespace qp::execution::sim::matcher::last_trade {
 
 /// SimExecution's first Matcher: no order book, no slippage, no
 /// partials — fills a market order fully, instantly, at the last-seen
@@ -19,6 +19,9 @@ namespace qp::execution {
 /// recreated here if this map ignored it. Rejects with NoPriceAvailable if
 /// no Trade has been seen yet for that (symbol, venue): an honest "can't
 /// fill" beats a fabricated price.
+///
+/// unordered_map is a known-bad fit here vs. Portfolio's flat-array
+/// discipline (D31/D44) — left as-is for now, revisit separately.
 class LastTradeMatcher {
    public:
     void on_market_event(MarketEvent ev) {
@@ -68,4 +71,6 @@ class LastTradeMatcher {
     std::unordered_map<std::uint64_t, Price> last_price_;
 };
 
-}  // namespace qp::execution
+static_assert(Matcher<LastTradeMatcher>);
+
+}  // namespace qp::execution::sim::matcher::last_trade

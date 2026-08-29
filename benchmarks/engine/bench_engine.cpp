@@ -3,7 +3,7 @@
 #include "clock.hpp"
 #include "engine.hpp"
 #include "execution_gateway.hpp"
-#include "last_trade_matcher.hpp"
+#include "matcher/last_trade/last_trade_matcher.hpp"
 #include "portfolio.hpp"
 #include "risk_gate.hpp"
 #include "sim_clock.hpp"
@@ -21,7 +21,8 @@ using qp::test::AlwaysApproveRiskGate;
 using qp::test::AlwaysIntentStrategy;
 using qp::test::InfiniteTransport;
 using qp::test::NoopStrategy;
-using TestExec = qp::execution::SimExecution<qp::execution::LastTradeMatcher>;
+using TestExec =
+    qp::execution::sim::SimExecution<qp::execution::sim::matcher::last_trade::LastTradeMatcher>;
 
 // Floor: no Intent, no risk/submit/fill work — just transport pull, clock
 // advance, exec.on_market_event, and one empty pool round-trip.

@@ -1,10 +1,8 @@
 #include <gtest/gtest.h>
 
-#include <variant>
-
 #include "execution_gateway.hpp"
-#include "last_trade_matcher.hpp"
-#include "matcher.hpp"
+#include "matcher/last_trade/last_trade_matcher.hpp"
+#include "matcher/matcher.hpp"
 #include "sim_execution.hpp"
 #include "support/market_event_builders.hpp"
 #include "types.hpp"
@@ -14,13 +12,15 @@ using qp::Reject;
 using qp::RejectReason;
 using qp::Side;
 namespace exec = qp::execution;
+namespace sim  = qp::execution::sim;
 
-static_assert(exec::Matcher<exec::LastTradeMatcher>);
-static_assert(exec::ExecutionGateway<exec::SimExecution<exec::LastTradeMatcher>>);
+static_assert(sim::matcher::Matcher<sim::matcher::last_trade::LastTradeMatcher>);
+static_assert(
+    exec::ExecutionGateway<sim::SimExecution<sim::matcher::last_trade::LastTradeMatcher>>);
 
 namespace {
 
-exec::SimExecution<exec::LastTradeMatcher> make_gateway() { return {}; }
+sim::SimExecution<sim::matcher::last_trade::LastTradeMatcher> make_gateway() { return {}; }
 
 }  // namespace
 
@@ -28,11 +28,10 @@ TEST(SimExecution, RejectsWhenNoPriceSeenYet) {
     auto gateway = make_gateway();
 
     gateway.submit(Order{.id = 1, .symbol = 7, .side = Side::Buy, .qty = 1.0}, /*ts=*/100);
-    auto outcome = gateway.next_outcome();
 
-    ASSERT_TRUE(outcome.has_value());
-    ASSERT_TRUE(std::holds_alternative<Reject>(*outcome));
-    auto reject = std::get<Reject>(*outcome);
+    ASSERT_TRUE(gateway.fills().empty());
+    ASSERT_EQ(gateway.rejects().size(), 1u);
+    auto& reject = gateway.rejects()[0];
     EXPECT_EQ(reject.order_id, 1u);
     EXPECT_EQ(reject.symbol, 7u);
     EXPECT_EQ(reject.ts, 100);
@@ -44,11 +43,10 @@ TEST(SimExecution, FillsAtLastTradePriceOnceOneIsSeen) {
 
     gateway.on_market_event(qp::test::make_trade(/*symbol=*/7, /*ts=*/50, /*price=*/100.0));
     gateway.submit(Order{.id = 2, .symbol = 7, .side = Side::Buy, .qty = 2.0}, /*ts=*/60);
-    auto outcome = gateway.next_outcome();
 
-    ASSERT_TRUE(outcome.has_value());
-    ASSERT_TRUE(std::holds_alternative<qp::Fill>(*outcome));
-    auto fill = std::get<qp::Fill>(*outcome);
+    ASSERT_TRUE(gateway.rejects().empty());
+    ASSERT_EQ(gateway.fills().size(), 1u);
+    auto& fill = gateway.fills()[0];
     EXPECT_EQ(fill.order_id, 2u);
     EXPECT_EQ(fill.symbol, 7u);
     EXPECT_EQ(fill.ts, 60);
@@ -65,28 +63,34 @@ TEST(SimExecution, LaterTradeUpdatesThePriceUsedForTheNextFill) {
     gateway.on_market_event(qp::test::make_trade(7, 55, 105.0));
     gateway.submit(Order{.id = 3, .symbol = 7, .side = Side::Sell, .qty = 1.0}, 60);
 
-    auto fill = std::get<qp::Fill>(*gateway.next_outcome());
-    EXPECT_DOUBLE_EQ(fill.price, 105.0);
+    ASSERT_EQ(gateway.fills().size(), 1u);
+    EXPECT_DOUBLE_EQ(gateway.fills()[0].price, 105.0);
 }
 
-TEST(SimExecution, NextOutcomeIsNulloptWhenQueueIsEmpty) {
+TEST(SimExecution, FillsAndRejectsAreEmptyWhenNothingSubmitted) {
     auto gateway = make_gateway();
-    EXPECT_FALSE(gateway.next_outcome().has_value());
+    EXPECT_TRUE(gateway.fills().empty());
+    EXPECT_TRUE(gateway.rejects().empty());
 }
 
-TEST(SimExecution, OutcomesComeBackInSubmissionOrderNotGroupedByKind) {
+TEST(SimExecution, FillsAndRejectsAccumulateIndependentlyWithinOneMarketEvent) {
     auto gateway = make_gateway();
 
-    // First order: no price yet -> reject. Then a trade arrives. Second
-    // order: fills. The poll must return them in that order (reject, then
-    // fill) — not all rejects before all fills.
+    // Two orders, no trade seen yet: both reject. A trade arrives, then two
+    // more orders fill. Each stream preserves its own submission order.
     gateway.submit(Order{.id = 1, .symbol = 7, .side = Side::Buy, .qty = 1.0}, 10);
+    gateway.submit(Order{.id = 2, .symbol = 7, .side = Side::Buy, .qty = 1.0}, 11);
     gateway.on_market_event(qp::test::make_trade(7, 20, 50.0));
-    gateway.submit(Order{.id = 2, .symbol = 7, .side = Side::Buy, .qty = 1.0}, 30);
+    gateway.submit(Order{.id = 3, .symbol = 7, .side = Side::Buy, .qty = 1.0}, 30);
+    gateway.submit(Order{.id = 4, .symbol = 7, .side = Side::Buy, .qty = 1.0}, 31);
 
-    EXPECT_TRUE(std::holds_alternative<Reject>(*gateway.next_outcome()));
-    EXPECT_TRUE(std::holds_alternative<qp::Fill>(*gateway.next_outcome()));
-    EXPECT_FALSE(gateway.next_outcome().has_value());
+    // on_market_event() reset the pools, so only orders 3/4 remain — the
+    // per-step boundary Engine::step() relies on (on_market_event, then
+    // this step's submits, then drain).
+    ASSERT_TRUE(gateway.rejects().empty());
+    ASSERT_EQ(gateway.fills().size(), 2u);
+    EXPECT_EQ(gateway.fills()[0].order_id, 3u);
+    EXPECT_EQ(gateway.fills()[1].order_id, 4u);
 }
 
 TEST(SimExecution, DifferentSymbolsTrackIndependentPrices) {
@@ -96,7 +100,7 @@ TEST(SimExecution, DifferentSymbolsTrackIndependentPrices) {
     // Symbol 8 has no trade yet — must reject independently of symbol 7's price.
     gateway.submit(Order{.id = 1, .symbol = 8, .side = Side::Buy, .qty = 1.0}, 20);
 
-    EXPECT_TRUE(std::holds_alternative<Reject>(*gateway.next_outcome()));
+    EXPECT_EQ(gateway.rejects().size(), 1u);
 }
 
 // D44: two venues intern the same underlying instrument to the same
@@ -112,11 +116,9 @@ TEST(SimExecution, DifferentVenuesTrackIndependentPricesForTheSameSymbol) {
     gateway.submit(Order{.id = 1, .symbol = 7, .side = Side::Buy, .venue = 0, .qty = 1.0}, 20);
     gateway.submit(Order{.id = 2, .symbol = 7, .side = Side::Buy, .venue = 1, .qty = 1.0}, 20);
 
-    auto fill_0 = std::get<qp::Fill>(*gateway.next_outcome());
-    EXPECT_EQ(fill_0.venue, 0);
-    EXPECT_DOUBLE_EQ(fill_0.price, 100.0);
-
-    auto fill_1 = std::get<qp::Fill>(*gateway.next_outcome());
-    EXPECT_EQ(fill_1.venue, 1);
-    EXPECT_DOUBLE_EQ(fill_1.price, 200.0);
+    ASSERT_EQ(gateway.fills().size(), 2u);
+    EXPECT_EQ(gateway.fills()[0].venue, 0);
+    EXPECT_DOUBLE_EQ(gateway.fills()[0].price, 100.0);
+    EXPECT_EQ(gateway.fills()[1].venue, 1);
+    EXPECT_DOUBLE_EQ(gateway.fills()[1].price, 200.0);
 }

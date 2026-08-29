@@ -7,7 +7,7 @@
 #include "clock.hpp"
 #include "engine.hpp"
 #include "execution_gateway.hpp"
-#include "last_trade_matcher.hpp"
+#include "matcher/last_trade/last_trade_matcher.hpp"
 #include "portfolio.hpp"
 #include "risk_gate.hpp"
 #include "sim_clock.hpp"
@@ -64,7 +64,8 @@ struct CountingStrategy {
     std::span<const qp::Intent> on_timer(qp::Timestamp, qp::StateView) { return {}; }
 };
 
-using TestExec   = qp::execution::SimExecution<qp::execution::LastTradeMatcher>;
+using TestExec =
+    qp::execution::sim::SimExecution<qp::execution::sim::matcher::last_trade::LastTradeMatcher>;
 using SingleTest = qp::Engine<FakeTransport, qp::SimClock, TestExec, AlwaysApproveRiskGate, 1,
                               SingleIntentStrategy>;
 using CountTest =
