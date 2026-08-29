@@ -6,7 +6,7 @@
 #include "fanout_sink.hpp"
 #include "types.hpp"
 
-using qp::sink::FanoutSink;
+using qp::data_source::sink::fanout::FanoutSink;
 
 namespace {
 

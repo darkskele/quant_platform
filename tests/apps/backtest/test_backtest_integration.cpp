@@ -1,31 +1,61 @@
 #include <gtest/gtest.h>
 
+#include <fstream>
+#include <map>
+#include <utility>
+
 #include "backtest.hpp"
-#include "file_recorder.hpp"
 #include "partition.hpp"
 #include "support/market_event_builders.hpp"
 #include "support/scratch_dir.hpp"
 #include "types.hpp"
+#include "wire.hpp"
+#include "zstd_stream.hpp"
 
-using qp::sink::FileRecorder;
+using qp::data_source::wire::day_key_for;
+using qp::data_source::wire::DayKey;
 using qp::test::make_funding;
 using qp::test::make_trade;
 using qp::test::ScratchDir;
-using qp::wire::day_key_for;
 
 namespace {
 
 constexpr qp::VenueId kFuturesVenue = 0;  // D48: matches apps/collector's run_data_source pairing
 constexpr qp::VenueId kSpotVenue    = 1;
 
-// Writes one leg's recorded data — same shape apps/collector itself
-// produces (one FileRecorder per leg, D41), just constructed directly
-// rather than driven by a live/mock source, since this test only needs the
-// bytes on disk, not a real collector run.
+// Writes one leg's data directly via qp_wire's own primitives — same shape
+// apps/collector itself used to produce (one FileRecorder per leg, D41),
+// hand-rolled now that FileRecorder no longer exists as a Sink (removed
+// with the rest of the live-collector machinery). Groups `events` by day
+// (day_key_for(ts)) since a real recording is one segment per (symbol,
+// day); every test here only ever spans one day, so in practice this
+// writes exactly one segment, but it stays correct if that changes.
 void write_leg(const std::filesystem::path& leg_dir, const std::vector<qp::MarketEvent>& events) {
-    FileRecorder recorder(leg_dir, {"BTCUSDT"});
-    for (const auto& ev : events) recorder.record(ev);
-}  // destructor: drains the queue, flushes and cleanly closes the partition
+    std::filesystem::path symbol_dir = leg_dir / "BTCUSDT";
+    std::filesystem::create_directories(symbol_dir);
+
+    std::ofstream manifest(leg_dir / "symbols.manifest");
+    manifest << "BTCUSDT\n";
+
+    std::map<DayKey, std::vector<qp::MarketEvent>> by_day;
+    for (const auto& ev : events) by_day[day_key_for(ev.ts)].push_back(ev);
+
+    for (const auto& [day, day_events] : by_day) {
+        qp::data_source::wire::ZstdCompressor compressor;
+        std::vector<std::byte>                compressed;
+        for (const auto& ev : day_events) {
+            std::vector<std::byte> encoded;
+            qp::data_source::wire::write_event(encoded, ev);
+            compressor.compress(encoded, compressed);
+        }
+        compressor.finish(compressed);
+
+        std::ofstream out(qp::data_source::wire::segment_path(symbol_dir, day, 0),
+                          std::ios::binary);
+        out.write(reinterpret_cast<const char*>(compressed.data()),
+                  static_cast<std::streamsize>(compressed.size()));
+    }
+}
 
 }  // namespace
 

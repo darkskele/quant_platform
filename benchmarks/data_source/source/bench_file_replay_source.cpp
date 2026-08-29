@@ -14,9 +14,10 @@
 #include "zstd_stream.hpp"
 
 using namespace qp;
-using qp::source::FileReplaySource;
+using namespace qp::data_source;
+using qp::data_source::source::FileReplaySource;
+using qp::data_source::wire::DayKey;
 using qp::test::ScratchDir;
-using qp::wire::DayKey;
 
 namespace {
 

@@ -7,7 +7,7 @@
 #include <stdexcept>
 #include <vector>
 
-namespace qp::wire {
+namespace qp::data_source::wire {
 
 // Thin RAII wrapper around zstd's streaming compression API — not a
 // general-purpose binding, just the three operations FileRecorder needs:
@@ -129,4 +129,4 @@ class ZstdDecompressor {
     ZSTD_DCtx* ctx_;
 };
 
-}  // namespace qp::wire
+}  // namespace qp::data_source::wire

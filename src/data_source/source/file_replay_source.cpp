@@ -8,7 +8,7 @@
 
 #include "wire.hpp"
 
-namespace qp::source {
+namespace qp::data_source::source {
 
 namespace {
 constexpr std::size_t kReadChunk = 64 * 1024;
@@ -158,4 +158,4 @@ bool FileReplaySource::SymbolCursor::advance() {
     }
 }
 
-}  // namespace qp::source
+}  // namespace qp::data_source::source

@@ -8,8 +8,8 @@
 
 #include "zstd_stream.hpp"
 
-using qp::wire::ZstdCompressor;
-using qp::wire::ZstdDecompressor;
+using qp::data_source::wire::ZstdCompressor;
+using qp::data_source::wire::ZstdDecompressor;
 
 namespace {
 

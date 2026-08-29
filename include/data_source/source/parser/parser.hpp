@@ -8,7 +8,7 @@
 #include "types.hpp"
 #include "venue_types.hpp"
 
-namespace qp::source {
+namespace qp::data_source::source::parser {
 
 // The minimal shape GenericLiveWebSocketSource needs from a venue's wire-
 // protocol glue — exactly the 4 operations it calls today, nothing added
@@ -30,4 +30,4 @@ concept Parser = requires(const std::vector<std::string>& symbols, std::string_v
     { P::parse_depth_snapshot(body) } -> std::same_as<std::optional<DepthSnapshot>>;
 };
 
-}  // namespace qp::source
+}  // namespace qp::data_source::source::parser

@@ -6,8 +6,9 @@
 #include "zstd_stream.hpp"
 
 using namespace qp;
-using qp::wire::ZstdCompressor;
-using qp::wire::ZstdDecompressor;
+using qp::data_source::wire::ZstdCompressor;
+using qp::data_source::wire::ZstdDecompressor;
+using qp::data_source::wire::write_event;
 
 namespace {
 
@@ -34,7 +35,7 @@ MarketEvent make_real_book_diff() {
 void BM_ZstdCompressor_Compress(benchmark::State& state) {
     ZstdCompressor         compressor;
     std::vector<std::byte> encoded;
-    wire::write_event(encoded, make_real_book_diff());
+    write_event(encoded, make_real_book_diff());
 
     std::vector<std::byte> out;
     int                    i = 0;
@@ -57,7 +58,7 @@ BENCHMARK(BM_ZstdCompressor_Compress);
 // frame — matches FileRecorder opening a fresh ZstdCompressor per segment.
 void BM_ZstdCompressor_Finish(benchmark::State& state) {
     std::vector<std::byte> encoded;
-    wire::write_event(encoded, make_real_book_diff());
+    write_event(encoded, make_real_book_diff());
 
     std::vector<std::byte> out;
     for (auto _ : state) {
@@ -78,7 +79,7 @@ BENCHMARK(BM_ZstdCompressor_Finish);
 // the same bytes twice (that isn't a valid stream continuation).
 void BM_ZstdDecompressor_Decompress(benchmark::State& state) {
     std::vector<std::byte> encoded;
-    wire::write_event(encoded, make_real_book_diff());
+    write_event(encoded, make_real_book_diff());
     std::vector<std::byte> compressed;
     {
         ZstdCompressor compressor;
@@ -103,7 +104,7 @@ BENCHMARK(BM_ZstdDecompressor_Decompress);
 // layer above this one.
 void BM_ZstdStream_RoundTrip(benchmark::State& state) {
     std::vector<std::byte> encoded;
-    wire::write_event(encoded, make_real_book_diff());
+    write_event(encoded, make_real_book_diff());
 
     std::vector<std::byte> compressed;
     std::vector<std::byte> decompressed;

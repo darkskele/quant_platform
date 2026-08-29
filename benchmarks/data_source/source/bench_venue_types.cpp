@@ -5,7 +5,7 @@
 
 #include "venue_types.hpp"
 
-using qp::source::SymbolTable;
+using qp::data_source::source::SymbolTable;
 
 namespace {
 

@@ -2,55 +2,6 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug: qp_venue_tests",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/build/debug/cmake/data_source/source/venue/qp_venue_tests",
-            "args": [],
-            "stopAtEntry": false,
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "cwd": "${workspaceFolder}",
-            "miDebuggerPath": "/usr/bin/gdb",
-            "environment": [
-                {
-                    "name": "DEBUGINFOD_URLS",
-                    "value": ""
-                },
-                {
-                    "name": "ASAN_OPTIONS",
-                    "value": "detect_leaks=0"
-                }
-            ],
-            "setupCommands": [
-                { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
-            ],
-            "preLaunchTask": "Build: qp_venue_tests",
-            "logging": { "engineLogging": false }
-        },
-        {
-            "name": "Release: qp_venue_tests",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/build/release/cmake/data_source/source/venue/qp_venue_tests",
-            "args": [],
-            "cwd": "${workspaceFolder}",
-            "stopAtEntry": false,
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "miDebuggerPath": "/usr/bin/gdb",
-            "environment": [
-                {
-                    "name": "DEBUGINFOD_URLS",
-                    "value": ""
-                }
-            ],
-            "setupCommands": [
-                { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
-            ],
-            "preLaunchTask": "Build: qp_venue_tests (release)"
-        },
-        {
             "name": "Debug: qp_core_tests",
             "type": "cppdbg",
             "request": "launch",
@@ -72,7 +23,11 @@
                 }
             ],
             "setupCommands": [
-                { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
+                {
+                    "description": "Enable pretty-printing",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
             ],
             "preLaunchTask": "Build: qp_core_tests"
         },
@@ -94,7 +49,11 @@
                 }
             ],
             "setupCommands": [
-                { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
+                {
+                    "description": "Enable pretty-printing",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
             ],
             "preLaunchTask": "Build: qp_core_tests (release)"
         },
@@ -103,7 +62,9 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/release/cmake/core/qp_core_bench",
-            "args": ["--benchmark_min_time=0.1s"],
+            "args": [
+                "--benchmark_min_time=0.1s"
+            ],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
             "externalConsole": false,
@@ -122,7 +83,9 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/release/cmake/clock/qp_clock_bench",
-            "args": ["--benchmark_min_time=0.1s"],
+            "args": [
+                "--benchmark_min_time=0.1s"
+            ],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
             "externalConsole": false,
@@ -141,7 +104,9 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/release/cmake/execution/sim/qp_execution_sim_bench",
-            "args": ["--benchmark_min_time=0.1s"],
+            "args": [
+                "--benchmark_min_time=0.1s"
+            ],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
             "externalConsole": false,
@@ -160,7 +125,9 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/release/cmake/execution/sim/matcher/last_trade/qp_execution_sim_matcher_last_trade_bench",
-            "args": ["--benchmark_min_time=0.1s"],
+            "args": [
+                "--benchmark_min_time=0.1s"
+            ],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
             "externalConsole": false,
@@ -175,30 +142,13 @@
             "preLaunchTask": "Build: qp_execution_sim_matcher_last_trade_bench (release)"
         },
         {
-            "name": "Run sink bench",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/build/release/cmake/data_source/sink/qp_sink_bench",
-            "args": ["--benchmark_min_time=0.1s"],
-            "cwd": "${workspaceFolder}",
-            "stopAtEntry": false,
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "miDebuggerPath": "/usr/bin/gdb",
-            "environment": [
-                {
-                    "name": "DEBUGINFOD_URLS",
-                    "value": ""
-                }
-            ],
-            "preLaunchTask": "Build: qp_sink_bench (release)"
-        },
-        {
             "name": "Run data_source bench",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/release/cmake/data_source/qp_data_source_bench",
-            "args": ["--benchmark_min_time=0.1s"],
+            "args": [
+                "--benchmark_min_time=0.1s"
+            ],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
             "externalConsole": false,
@@ -213,11 +163,13 @@
             "preLaunchTask": "Build: qp_data_source_bench (release)"
         },
         {
-            "name": "Run parser bench",
+            "name": "Run source pure bench",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/release/cmake/data_source/source/venue/qp_venue_bench",
-            "args": ["--benchmark_min_time=0.1s"],
+            "program": "${workspaceFolder}/build/release/cmake/data_source/source/qp_source_pure_bench",
+            "args": [
+                "--benchmark_min_time=0.1s"
+            ],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
             "externalConsole": false,
@@ -229,14 +181,16 @@
                     "value": ""
                 }
             ],
-            "preLaunchTask": "Build: qp_venue_bench (release)"
+            "preLaunchTask": "Build: qp_source_pure_bench (release)"
         },
         {
-            "name": "Debug: qp_source_tests (all)",
+            "name": "Run sink fanout bench",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/debug/cmake/data_source/source/qp_source_tests",
-            "args": [],
+            "program": "${workspaceFolder}/build/release/cmake/data_source/sink/fanout/qp_sink_fanout_bench",
+            "args": [
+                "--benchmark_min_time=0.1s"
+            ],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
             "externalConsole": false,
@@ -246,42 +200,9 @@
                 {
                     "name": "DEBUGINFOD_URLS",
                     "value": ""
-                },
-                {
-                    "name": "ASAN_OPTIONS",
-                    "value": "detect_leaks=0"
                 }
             ],
-            "setupCommands": [
-                { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
-            ],
-            "preLaunchTask": "Build: qp_source_tests"
-        },
-        {
-            "name": "Debug: qp_source_integration_tests",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/build/debug/cmake/data_source/source/qp_source_integration_tests",
-            "args": [],
-            "cwd": "${workspaceFolder}",
-            "stopAtEntry": false,
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "miDebuggerPath": "/usr/bin/gdb",
-            "environment": [
-                {
-                    "name": "DEBUGINFOD_URLS",
-                    "value": ""
-                },
-                {
-                    "name": "ASAN_OPTIONS",
-                    "value": "detect_leaks=0"
-                }
-            ],
-            "setupCommands": [
-                { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
-            ],
-            "preLaunchTask": "Build: qp_source_integration_tests"
+            "preLaunchTask": "Build: qp_sink_fanout_bench (release)"
         },
         {
             "name": "Debug: qp_file_replay_tests",
@@ -305,15 +226,19 @@
                 }
             ],
             "setupCommands": [
-                { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
+                {
+                    "description": "Enable pretty-printing",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
             ],
             "preLaunchTask": "Build: qp_file_replay_tests"
         },
         {
-            "name": "Debug: qp_collector_integration_tests",
+            "name": "Debug: qp_sink_fanout_tests",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/debug/cmake/apps/collector/qp_collector_integration_tests",
+            "program": "${workspaceFolder}/build/debug/cmake/data_source/sink/fanout/qp_sink_fanout_tests",
             "args": [],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
@@ -331,9 +256,39 @@
                 }
             ],
             "setupCommands": [
-                { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
+                {
+                    "description": "Enable pretty-printing",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
             ],
-            "preLaunchTask": "Build: qp_collector_integration_tests"
+            "preLaunchTask": "Build: qp_sink_fanout_tests"
+        },
+        {
+            "name": "Release: qp_sink_fanout_tests",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/release/cmake/data_source/sink/fanout/qp_sink_fanout_tests",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "environment": [
+                {
+                    "name": "DEBUGINFOD_URLS",
+                    "value": ""
+                }
+            ],
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "Build: qp_sink_fanout_tests (release)"
         },
         {
             "name": "Debug: qp_backtest_integration_tests",
@@ -357,35 +312,13 @@
                 }
             ],
             "setupCommands": [
-                { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
-            ],
-            "preLaunchTask": "Build: qp_backtest_integration_tests"
-        },
-        {
-            "name": "Debug: qp_parity_tests",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/build/debug/integration/qp_parity_tests",
-            "args": [],
-            "cwd": "${workspaceFolder}",
-            "stopAtEntry": false,
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "miDebuggerPath": "/usr/bin/gdb",
-            "environment": [
                 {
-                    "name": "DEBUGINFOD_URLS",
-                    "value": ""
-                },
-                {
-                    "name": "ASAN_OPTIONS",
-                    "value": "detect_leaks=0"
+                    "description": "Enable pretty-printing",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
                 }
             ],
-            "setupCommands": [
-                { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
-            ],
-            "preLaunchTask": "Build: qp_parity_tests"
+            "preLaunchTask": "Build: qp_backtest_integration_tests"
         },
         {
             "name": "Debug: qp_clock_tests",
@@ -406,10 +339,14 @@
                 {
                     "name": "ASAN_OPTIONS",
                     "value": "detect_leaks=0"
-                },
+                }
             ],
             "setupCommands": [
-                { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
+                {
+                    "description": "Enable pretty-printing",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
             ],
             "preLaunchTask": "Build: qp_clock_tests"
         },
@@ -431,7 +368,11 @@
                 }
             ],
             "setupCommands": [
-                { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
+                {
+                    "description": "Enable pretty-printing",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
             ],
             "preLaunchTask": "Build: qp_clock_tests (release)"
         },
@@ -454,10 +395,14 @@
                 {
                     "name": "ASAN_OPTIONS",
                     "value": "detect_leaks=0"
-                },
+                }
             ],
             "setupCommands": [
-                { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
+                {
+                    "description": "Enable pretty-printing",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
             ],
             "preLaunchTask": "Build: qp_execution_sim_tests"
         },
@@ -479,7 +424,11 @@
                 }
             ],
             "setupCommands": [
-                { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
+                {
+                    "description": "Enable pretty-printing",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
             ],
             "preLaunchTask": "Build: qp_execution_sim_tests (release)"
         },
@@ -502,10 +451,14 @@
                 {
                     "name": "ASAN_OPTIONS",
                     "value": "detect_leaks=0"
-                },
+                }
             ],
             "setupCommands": [
-                { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
+                {
+                    "description": "Enable pretty-printing",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
             ],
             "preLaunchTask": "Build: qp_strategy_tests"
         },
@@ -527,7 +480,11 @@
                 }
             ],
             "setupCommands": [
-                { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
+                {
+                    "description": "Enable pretty-printing",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
             ],
             "preLaunchTask": "Build: qp_strategy_tests (release)"
         },
@@ -550,10 +507,14 @@
                 {
                     "name": "ASAN_OPTIONS",
                     "value": "detect_leaks=0"
-                },
+                }
             ],
             "setupCommands": [
-                { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
+                {
+                    "description": "Enable pretty-printing",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
             ],
             "preLaunchTask": "Build: qp_carry_tests"
         },
@@ -575,7 +536,11 @@
                 }
             ],
             "setupCommands": [
-                { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
+                {
+                    "description": "Enable pretty-printing",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
             ],
             "preLaunchTask": "Build: qp_carry_tests (release)"
         },
@@ -598,10 +563,14 @@
                 {
                     "name": "ASAN_OPTIONS",
                     "value": "detect_leaks=0"
-                },
+                }
             ],
             "setupCommands": [
-                { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
+                {
+                    "description": "Enable pretty-printing",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
             ],
             "preLaunchTask": "Build: qp_risk_tests"
         },
@@ -623,7 +592,11 @@
                 }
             ],
             "setupCommands": [
-                { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
+                {
+                    "description": "Enable pretty-printing",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
             ],
             "preLaunchTask": "Build: qp_risk_tests (release)"
         },
@@ -632,7 +605,9 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/release/cmake/risk/qp_risk_bench",
-            "args": ["--benchmark_min_time=0.1s"],
+            "args": [
+                "--benchmark_min_time=0.1s"
+            ],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
             "externalConsole": false,
@@ -665,10 +640,14 @@
                 {
                     "name": "ASAN_OPTIONS",
                     "value": "detect_leaks=0"
-                },
+                }
             ],
             "setupCommands": [
-                { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
+                {
+                    "description": "Enable pretty-printing",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
             ],
             "preLaunchTask": "Build: qp_engine_tests"
         },
@@ -690,35 +669,13 @@
                 }
             ],
             "setupCommands": [
-                { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
+                {
+                    "description": "Enable pretty-printing",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
             ],
             "preLaunchTask": "Build: qp_engine_tests (release)"
-        },
-        {
-            "name": "Debug: qp_sink_integration_tests",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/build/debug/cmake/data_source/sink/qp_sink_integration_tests",
-            "args": [],
-            "cwd": "${workspaceFolder}",
-            "stopAtEntry": false,
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "miDebuggerPath": "/usr/bin/gdb",
-            "environment": [
-                {
-                    "name": "DEBUGINFOD_URLS",
-                    "value": ""
-                },
-                {
-                    "name": "ASAN_OPTIONS",
-                    "value": "detect_leaks=0"
-                },
-            ],
-            "setupCommands": [
-                { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
-            ],
-            "preLaunchTask": "Build: qp_sink_integration_tests"
         },
         {
             "name": "Debug: qp_wire_tests",
@@ -739,10 +696,14 @@
                 {
                     "name": "ASAN_OPTIONS",
                     "value": "detect_leaks=0"
-                },
+                }
             ],
             "setupCommands": [
-                { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
+                {
+                    "description": "Enable pretty-printing",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
             ],
             "preLaunchTask": "Build: qp_wire_tests"
         },
@@ -764,35 +725,22 @@
                 }
             ],
             "setupCommands": [
-                { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
-            ],
-            "preLaunchTask": "Build: qp_wire_tests (release)"
-        },
-        {
-            "name": "Run marketdata bench",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/build/release/cmake/data_source/source/qp_source_bench",
-            "args": ["--benchmark_min_time=0.1s"],
-            "cwd": "${workspaceFolder}",
-            "stopAtEntry": false,
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "miDebuggerPath": "/usr/bin/gdb",
-            "environment": [
                 {
-                    "name": "DEBUGINFOD_URLS",
-                    "value": ""
+                    "description": "Enable pretty-printing",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
                 }
             ],
-            "preLaunchTask": "Build: qp_source_bench (release)"
+            "preLaunchTask": "Build: qp_wire_tests (release)"
         },
         {
             "name": "Run file replay bench",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/release/cmake/data_source/source/qp_file_replay_bench",
-            "args": ["--benchmark_min_time=0.1s"],
+            "args": [
+                "--benchmark_min_time=0.1s"
+            ],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
             "externalConsole": false,
@@ -811,7 +759,9 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/release/cmake/data_source/wire/qp_wire_bench",
-            "args": ["--benchmark_min_time=0.1s"],
+            "args": [
+                "--benchmark_min_time=0.1s"
+            ],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
             "externalConsole": false,
@@ -830,7 +780,9 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/release/cmake/strategy/carry/qp_carry_bench",
-            "args": ["--benchmark_min_time=0.1s"],
+            "args": [
+                "--benchmark_min_time=0.1s"
+            ],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
             "externalConsole": false,
@@ -849,7 +801,11 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "/usr/bin/ctest",
-            "args": ["--test-dir", "build/debug", "--output-on-failure"],
+            "args": [
+                "--test-dir",
+                "build/debug",
+                "--output-on-failure"
+            ],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
             "externalConsole": false,
@@ -872,7 +828,11 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "/usr/bin/ctest",
-            "args": ["--test-dir", "build/release", "--output-on-failure"],
+            "args": [
+                "--test-dir",
+                "build/release",
+                "--output-on-failure"
+            ],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
             "externalConsole": false,
@@ -891,7 +851,9 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/release/qp_bench",
-            "args": ["--benchmark_min_time=0.1s"],
+            "args": [
+                "--benchmark_min_time=0.1s"
+            ],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
             "externalConsole": false,

@@ -11,7 +11,7 @@
 #include "source.hpp"
 #include "types.hpp"
 
-namespace qp {
+namespace qp::data_source {
 
 namespace detail {
 
@@ -58,4 +58,4 @@ void run_data_source(std::tuple<Sources...>& sources, std::tuple<Sinks...>& sink
     }
 }
 
-}  // namespace qp
+}  // namespace qp::data_source

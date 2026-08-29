@@ -17,15 +17,15 @@
 // detection (comparing MarketEvent::prev_seq/first_seq against the last seq
 // seen for a symbol, per AlignmentRule) is the caller's job
 // (LiveWebSocketSource owns that state).
-namespace qp::venue::binance {
+namespace qp::data_source::source::parser::binance {
 
 // SymbolTable/WsEndpoint/RestEndpoint/DepthSnapshot have zero Binance-specific
 // content (venue_types.hpp) — aliased here so this file and its
 // tests keep reading in venue-local terms without duplicating the types.
-using SymbolTable   = qp::source::SymbolTable;
-using WsEndpoint    = qp::source::WsEndpoint;
-using RestEndpoint  = qp::source::RestEndpoint;
-using DepthSnapshot = qp::source::DepthSnapshot;
+using SymbolTable   = qp::data_source::source::SymbolTable;
+using WsEndpoint    = qp::data_source::source::WsEndpoint;
+using RestEndpoint  = qp::data_source::source::RestEndpoint;
+using DepthSnapshot = qp::data_source::source::DepthSnapshot;
 
 inline constexpr WsEndpoint kFuturesWsProduction{"fstream.binance.com", "443"};
 inline constexpr WsEndpoint kFuturesWsTestnet{"stream.binancefuture.com", "443"};
@@ -135,21 +135,21 @@ bool parse_message(std::string_view msg, SymbolTable& symbols, MarketEvent& out)
 template <BinanceMarket M>
 struct BinanceParser {
     static std::string build_stream_path(const std::vector<std::string>& symbols) {
-        return ::qp::venue::binance::build_stream_path<M>(symbols);
+        return ::qp::data_source::source::parser::binance::build_stream_path<M>(symbols);
     }
 
     static bool parse_message(std::string_view msg, SymbolTable& symbols, MarketEvent& out) {
-        return ::qp::venue::binance::parse_message(msg, symbols, out);
+        return ::qp::data_source::source::parser::binance::parse_message(msg, symbols, out);
     }
 
     static std::string depth_snapshot_url(std::string_view symbol, int limit,
                                           RestEndpoint endpoint) {
-        return ::qp::venue::binance::depth_snapshot_url<M>(symbol, limit, endpoint);
+        return ::qp::data_source::source::parser::binance::depth_snapshot_url<M>(symbol, limit, endpoint);
     }
 
     static std::optional<DepthSnapshot> parse_depth_snapshot(std::string_view json_body) {
-        return ::qp::venue::binance::parse_depth_snapshot(json_body);
+        return ::qp::data_source::source::parser::binance::parse_depth_snapshot(json_body);
     }
 };
 
-}  // namespace qp::venue::binance
+}  // namespace qp::data_source::source::parser::binance

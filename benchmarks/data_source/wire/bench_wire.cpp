@@ -3,7 +3,7 @@
 #include "wire.hpp"
 
 using namespace qp;
-using namespace qp::wire;
+using namespace qp::data_source::wire;
 
 namespace {
 

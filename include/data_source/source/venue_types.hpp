@@ -8,7 +8,7 @@
 
 #include "types.hpp"
 
-namespace qp::source {
+namespace qp::data_source::source {
 
 // The 4 venue-agnostic types the Parser concept and GenericLiveWebSocketSource
 // are built against — content has zero exchange-specific logic (see
@@ -83,4 +83,4 @@ struct DepthSnapshot {
     std::vector<PriceLevel> asks;
 };
 
-}  // namespace qp::source
+}  // namespace qp::data_source::source

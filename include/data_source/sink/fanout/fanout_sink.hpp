@@ -7,7 +7,7 @@
 #include "spmc_ring.hpp"
 #include "types.hpp"
 
-namespace qp::sink {
+namespace qp::data_source::sink::fanout {
 
 /// Fan-out counterpart to FileRecorder: same write-side call shape
 /// (record(MarketEvent)) as the persistence Sink, but redistributes to
@@ -50,4 +50,4 @@ class FanoutSink {
     std::atomic<std::size_t> next_id_{0};
 };
 
-}  // namespace qp::sink
+}  // namespace qp::data_source::sink::fanout

@@ -25,6 +25,8 @@
 
 namespace qp::backtest {
 
+using namespace qp::data_source;
+
 namespace {
 
 // D48: the collector's own pairing order (apps/collector/collector.cpp's
@@ -204,7 +206,7 @@ Results run(const Config& config) {
     risk::basic::BasicRiskGateConfig risk_config = config.risk;
     risk_config.tracked                          = {{symbol, kSpotVenue}, {symbol, kFuturesVenue}};
 
-    using FanSink = sink::FanoutSink<kRingCapacity, 1>;  // one consumer: this backtest's own Engine
+    using FanSink = sink::fanout::FanoutSink<kRingCapacity, 1>;  // one consumer: this backtest's own Engine
     FanSink     futures_fanout;
     FanSink     spot_fanout;
     std::size_t futures_consumer = futures_fanout.attach();

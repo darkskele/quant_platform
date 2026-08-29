@@ -1,7 +1,7 @@
 #pragma once
 #include "types.hpp"
 
-namespace qp::source {
+namespace qp::data_source::source {
 
 /// Every venue/market this codebase has actually integrated with — grows
 /// only when a new integration is built (a Kraken venue, say), not per-run
@@ -19,4 +19,4 @@ enum class Venue : VenueId {
     BinanceSpot    = 1,
 };
 
-}  // namespace qp::source
+}  // namespace qp::data_source::source

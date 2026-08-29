@@ -11,7 +11,7 @@
 #include "types.hpp"
 #include "zstd_stream.hpp"
 
-namespace qp::source {
+namespace qp::data_source::source {
 
 /// Backtest `Source`: replays what FileRecorder wrote, via the shared wire
 /// codec (D12), in ascending timestamp order across every requested symbol.
@@ -58,4 +58,4 @@ class FileReplaySource {
     std::vector<SymbolCursor> cursors_;
 };
 
-}  // namespace qp::source
+}  // namespace qp::data_source::source

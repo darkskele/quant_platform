@@ -9,7 +9,7 @@
 
 #include "types.hpp"
 
-namespace qp::wire {
+namespace qp::data_source::wire {
 
 // The on-disk record format for MarketEvent — the shared contract between
 // FileRecorder (write side) and FileReplaySource (read side). Both call
@@ -160,4 +160,4 @@ inline std::optional<MarketEvent> read_event(std::span<const std::byte>& in) {
     return event;
 }
 
-}  // namespace qp::wire
+}  // namespace qp::data_source::wire

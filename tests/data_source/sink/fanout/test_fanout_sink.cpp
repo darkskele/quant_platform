@@ -8,7 +8,7 @@
 
 using qp::EventKind;
 using qp::MarketEvent;
-using qp::sink::FanoutSink;
+using qp::data_source::sink::fanout::FanoutSink;
 
 namespace {
 
@@ -21,7 +21,7 @@ MarketEvent trade(qp::Price price) {
 
 }  // namespace
 
-static_assert(qp::sink::Sink<FanoutSink<4, 1>>);
+static_assert(qp::data_source::sink::Sink<FanoutSink<4, 1>>);
 
 TEST(FanoutSink, RecordPushesOntoTheRing) {
     FanoutSink<4, 1> sink;

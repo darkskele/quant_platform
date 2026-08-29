@@ -9,12 +9,12 @@
 #include "support/scratch_dir.hpp"
 
 using qp::test::ScratchDir;
-using qp::wire::day_key_for;
-using qp::wire::DayKey;
-using qp::wire::format_day;
-using qp::wire::list_segments;
-using qp::wire::needs_rotation;
-using qp::wire::segment_path;
+using qp::data_source::wire::day_key_for;
+using qp::data_source::wire::DayKey;
+using qp::data_source::wire::format_day;
+using qp::data_source::wire::list_segments;
+using qp::data_source::wire::needs_rotation;
+using qp::data_source::wire::segment_path;
 
 namespace {
 constexpr std::int64_t kNanosPerDay = 86400LL * 1'000'000'000LL;

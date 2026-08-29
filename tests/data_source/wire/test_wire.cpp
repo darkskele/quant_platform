@@ -62,10 +62,10 @@ TEST(Wire, RoundTripsBookDiffWithLevels) {
     auto ev = book_diff(101, 105, 100, {{50000.0, 1.5}, {49999.5, 0.3}}, {{50000.5, 2.0}});
 
     std::vector<std::byte> buf;
-    qp::wire::write_event(buf, ev);
+    qp::data_source::wire::write_event(buf, ev);
 
     std::span<const std::byte> cursor{buf};
-    auto                       decoded = qp::wire::read_event(cursor);
+    auto                       decoded = qp::data_source::wire::read_event(cursor);
     ASSERT_TRUE(decoded.has_value());
     expect_equal(ev, *decoded);
     EXPECT_TRUE(cursor.empty());  // fully consumed
@@ -75,10 +75,10 @@ TEST(Wire, RoundTripsBookDiffWithNoLevels) {
     auto ev = book_diff(101, 105, 100, {}, {});
 
     std::vector<std::byte> buf;
-    qp::wire::write_event(buf, ev);
+    qp::data_source::wire::write_event(buf, ev);
 
     std::span<const std::byte> cursor{buf};
-    auto                       decoded = qp::wire::read_event(cursor);
+    auto                       decoded = qp::data_source::wire::read_event(cursor);
     ASSERT_TRUE(decoded.has_value());
     expect_equal(ev, *decoded);
     EXPECT_TRUE(cursor.empty());
@@ -92,10 +92,10 @@ TEST(Wire, RoundTripsNonZeroVenue) {
     ev.venue = 1;
 
     std::vector<std::byte> buf;
-    qp::wire::write_event(buf, ev);
+    qp::data_source::wire::write_event(buf, ev);
 
     std::span<const std::byte> cursor{buf};
-    auto                       decoded = qp::wire::read_event(cursor);
+    auto                       decoded = qp::data_source::wire::read_event(cursor);
     ASSERT_TRUE(decoded.has_value());
     EXPECT_EQ(decoded->venue, 1);
     expect_equal(ev, *decoded);
@@ -105,10 +105,10 @@ TEST(Wire, RoundTripsTrade) {
     auto ev = trade(50123.45, 0.02, Side::Sell);
 
     std::vector<std::byte> buf;
-    qp::wire::write_event(buf, ev);
+    qp::data_source::wire::write_event(buf, ev);
 
     std::span<const std::byte> cursor{buf};
-    auto                       decoded = qp::wire::read_event(cursor);
+    auto                       decoded = qp::data_source::wire::read_event(cursor);
     ASSERT_TRUE(decoded.has_value());
     expect_equal(ev, *decoded);
 }
@@ -117,10 +117,10 @@ TEST(Wire, RoundTripsFunding) {
     auto ev = funding(0.0001, 50123.45);
 
     std::vector<std::byte> buf;
-    qp::wire::write_event(buf, ev);
+    qp::data_source::wire::write_event(buf, ev);
 
     std::span<const std::byte> cursor{buf};
-    auto                       decoded = qp::wire::read_event(cursor);
+    auto                       decoded = qp::data_source::wire::read_event(cursor);
     ASSERT_TRUE(decoded.has_value());
     expect_equal(ev, *decoded);
 }
@@ -131,26 +131,26 @@ TEST(Wire, ReadsMultipleEventsBackToBackInOrder) {
     auto ev3 = funding(-0.0002);
 
     std::vector<std::byte> buf;
-    qp::wire::write_event(buf, ev1);
-    qp::wire::write_event(buf, ev2);
-    qp::wire::write_event(buf, ev3);
+    qp::data_source::wire::write_event(buf, ev1);
+    qp::data_source::wire::write_event(buf, ev2);
+    qp::data_source::wire::write_event(buf, ev3);
 
     std::span<const std::byte> cursor{buf};
 
-    auto d1 = qp::wire::read_event(cursor);
+    auto d1 = qp::data_source::wire::read_event(cursor);
     ASSERT_TRUE(d1.has_value());
     expect_equal(ev1, *d1);
 
-    auto d2 = qp::wire::read_event(cursor);
+    auto d2 = qp::data_source::wire::read_event(cursor);
     ASSERT_TRUE(d2.has_value());
     expect_equal(ev2, *d2);
 
-    auto d3 = qp::wire::read_event(cursor);
+    auto d3 = qp::data_source::wire::read_event(cursor);
     ASSERT_TRUE(d3.has_value());
     expect_equal(ev3, *d3);
 
     EXPECT_TRUE(cursor.empty());
-    EXPECT_FALSE(qp::wire::read_event(cursor).has_value());  // nothing left
+    EXPECT_FALSE(qp::data_source::wire::read_event(cursor).has_value());  // nothing left
 }
 
 // --- Truncated-tail tolerance: the crash-safety contract (D12) ---
@@ -159,11 +159,11 @@ TEST(Wire, TruncatedHeaderReturnsNulloptAndDoesNotAdvance) {
     auto ev = book_diff(1, 5, 0, {{1.0, 1.0}}, {});
 
     std::vector<std::byte> buf;
-    qp::wire::write_event(buf, ev);
+    qp::data_source::wire::write_event(buf, ev);
     buf.resize(3);  // chop mid-header, well before the level counts even start
 
     std::span<const std::byte> cursor{buf};
-    auto                       decoded = qp::wire::read_event(cursor);
+    auto                       decoded = qp::data_source::wire::read_event(cursor);
     EXPECT_FALSE(decoded.has_value());
     EXPECT_EQ(cursor.size(), buf.size());  // untouched on failure
 }
@@ -174,11 +174,11 @@ TEST(Wire, TruncatedMidPriceLevelsReturnsNulloptAndDoesNotAdvance) {
     auto ev = book_diff(1, 5, 0, {{1.0, 1.0}, {2.0, 2.0}, {3.0, 3.0}}, {});
 
     std::vector<std::byte> buf;
-    qp::wire::write_event(buf, ev);
+    qp::data_source::wire::write_event(buf, ev);
     buf.resize(buf.size() - sizeof(PriceLevel) - 2);  // chop into the last level's bytes
 
     std::span<const std::byte> cursor{buf};
-    auto                       decoded = qp::wire::read_event(cursor);
+    auto                       decoded = qp::data_source::wire::read_event(cursor);
     EXPECT_FALSE(decoded.has_value());
     EXPECT_EQ(cursor.size(), buf.size());
 }
@@ -187,11 +187,11 @@ TEST(Wire, TruncatedAfterLevelsButBeforeTrailingFieldsReturnsNullopt) {
     auto ev = book_diff(1, 5, 0, {{1.0, 1.0}}, {{2.0, 2.0}});
 
     std::vector<std::byte> buf;
-    qp::wire::write_event(buf, ev);
+    qp::data_source::wire::write_event(buf, ev);
     buf.resize(buf.size() - 1);  // chop the very last byte (of the trailing fixed-field group)
 
     std::span<const std::byte> cursor{buf};
-    auto                       decoded = qp::wire::read_event(cursor);
+    auto                       decoded = qp::data_source::wire::read_event(cursor);
     EXPECT_FALSE(decoded.has_value());
     EXPECT_EQ(cursor.size(), buf.size());
 }
@@ -203,7 +203,7 @@ TEST(Wire, BogusLevelCountWithInsufficientBytesReturnsNulloptWithoutOversizedAll
     auto ev = book_diff(1, 5, 0, {{1.0, 1.0}}, {});
 
     std::vector<std::byte> buf;
-    qp::wire::write_event(buf, ev);
+    qp::data_source::wire::write_event(buf, ev);
 
     // bid_count is the uint32 right after the 38-byte fixed header
     // (kind:1 + ts:8 + first_seq:8 + seq:8 + prev_seq:8 + symbol:4 = 37,
@@ -213,7 +213,7 @@ TEST(Wire, BogusLevelCountWithInsufficientBytesReturnsNulloptWithoutOversizedAll
     std::memcpy(buf.data() + kBidCountOffset, &kBogusCount, sizeof(kBogusCount));
 
     std::span<const std::byte> cursor{buf};
-    auto                       decoded = qp::wire::read_event(cursor);
+    auto                       decoded = qp::data_source::wire::read_event(cursor);
     EXPECT_FALSE(decoded.has_value());
     EXPECT_EQ(cursor.size(), buf.size());
 }

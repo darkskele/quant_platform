@@ -6,66 +6,14 @@
             "type": "shell",
             "command": "cmake --preset debug",
             "problemMatcher": [],
-            "detail": "Ninja + ASan/UBSan. Cheap to re-run — CMake no-ops if nothing changed."
-        },
-        {
-            "label": "Build: qp_venue_tests",
-            "type": "shell",
-            "command": "cmake --build build/debug --target qp_venue_tests -j",
-            "dependsOn": "Configure (debug)",
-            "group": { "kind": "build", "isDefault": true },
-            "problemMatcher": ["$gcc"],
-            "detail": "Just the parser unit tests and their deps — not the whole tree."
-        },
-        {
-            "label": "Test: qp_venue_tests",
-            "type": "shell",
-            "command": "./build/debug/cmake/data_source/source/venue/qp_venue_tests",
-            "dependsOn": "Build: qp_venue_tests",
-            "group": { "kind": "test", "isDefault": true },
-            "problemMatcher": []
+            "detail": "Ninja + ASan/UBSan. Cheap to re-run \u2014 CMake no-ops if nothing changed."
         },
         {
             "label": "Configure (release)",
             "type": "shell",
             "command": "cmake --preset release",
             "problemMatcher": [],
-            "detail": "No sanitizers, -O3 — benchmarks under the debug preset measure ASan/UBSan overhead, not the parser."
-        },
-        {
-            "label": "Build: qp_venue_bench (release)",
-            "type": "shell",
-            "command": "cmake --build build/release --target qp_venue_bench -j",
-            "dependsOn": "Configure (release)",
-            "group": "build",
-            "problemMatcher": ["$gcc"],
-            "detail": "Just the parser benchmarks and their deps, release build."
-        },
-        {
-            "label": "Run parser bench",
-            "type": "shell",
-            "command": "./build/release/cmake/data_source/source/venue/qp_venue_bench",
-            "dependsOn": "Build: qp_venue_bench (release)",
-            "group": "test",
-            "problemMatcher": [],
-            "detail": "Release build — still WSL2, so trust deltas over absolutes (docs/environment.md)."
-        },
-        {
-            "label": "Build: qp_venue_tests (release)",
-            "type": "shell",
-            "command": "cmake --build build/release --target qp_venue_tests -j",
-            "dependsOn": "Configure (release)",
-            "group": "build",
-            "problemMatcher": ["$gcc"],
-            "detail": "Same 12 tests at -O3/-DNDEBUG, no ASan/UBSan — catches optimization-exposed UB the debug build's instrumentation would otherwise mask, and is the correctness counterpart to the release bench numbers."
-        },
-        {
-            "label": "Test: qp_venue_tests (release)",
-            "type": "shell",
-            "command": "./build/release/cmake/data_source/source/venue/qp_venue_tests",
-            "dependsOn": "Build: qp_venue_tests (release)",
-            "group": "test",
-            "problemMatcher": []
+            "detail": "No sanitizers, -O3 \u2014 benchmarks under the debug preset measure ASan/UBSan overhead, not the parser."
         },
         {
             "label": "Build: qp_core_tests",
@@ -73,8 +21,10 @@
             "command": "cmake --build build/debug --target qp_core_tests -j",
             "dependsOn": "Configure (debug)",
             "group": "build",
-            "problemMatcher": ["$gcc"],
-            "detail": "SPSC queue tests — functional correctness, ASan/UBSan."
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "detail": "SPSC queue tests \u2014 functional correctness, ASan/UBSan."
         },
         {
             "label": "Test: qp_core_tests",
@@ -89,7 +39,7 @@
             "type": "shell",
             "command": "cmake --preset tsan",
             "problemMatcher": [],
-            "detail": "ThreadSanitizer — the actual point of testing a concurrent queue. Benchmarks excluded (QP_BUILD_BENCHMARKS=OFF baked into the preset)."
+            "detail": "ThreadSanitizer \u2014 the actual point of testing a concurrent queue. Benchmarks excluded (QP_BUILD_BENCHMARKS=OFF baked into the preset)."
         },
         {
             "label": "Build: qp_core_tests (tsan)",
@@ -97,7 +47,9 @@
             "command": "cmake --build build/tsan --target qp_core_tests -j",
             "dependsOn": "Configure (tsan)",
             "group": "build",
-            "problemMatcher": ["$gcc"]
+            "problemMatcher": [
+                "$gcc"
+            ]
         },
         {
             "label": "Test: qp_core_tests (tsan)",
@@ -106,41 +58,7 @@
             "dependsOn": "Build: qp_core_tests (tsan)",
             "group": "test",
             "problemMatcher": [],
-            "detail": "setarch -R disables ASLR — TSan hits a known WSL2 memory-mapping issue without it."
-        },
-        {
-            "label": "Build: qp_source_integration_tests (tsan)",
-            "type": "shell",
-            "command": "cmake --build build/tsan --target qp_source_integration_tests -j",
-            "dependsOn": "Configure (tsan)",
-            "group": "build",
-            "problemMatcher": ["$gcc"],
-            "detail": "Proves LiveWebSocketSource's I/O + resync threads race-free — never TSan-verified before, only qp_core's queue was."
-        },
-        {
-            "label": "Test: qp_source_integration_tests (tsan)",
-            "type": "shell",
-            "command": "setarch $(uname -m) -R ./build/tsan/cmake/data_source/source/qp_source_integration_tests",
-            "dependsOn": "Build: qp_source_integration_tests (tsan)",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: qp_collector_integration_tests",
-            "type": "shell",
-            "command": "cmake --build build/debug --target qp_collector_integration_tests -j",
-            "dependsOn": "Configure (debug)",
-            "group": "build",
-            "problemMatcher": ["$gcc"],
-            "detail": "Needs Boost/OpenSSL (vcpkg). End-to-end: LiveWebSocketSource -> FileRecorder against real captured payloads."
-        },
-        {
-            "label": "Test: qp_collector_integration_tests",
-            "type": "shell",
-            "command": "./build/debug/cmake/apps/collector/qp_collector_integration_tests",
-            "dependsOn": "Build: qp_collector_integration_tests",
-            "group": "test",
-            "problemMatcher": []
+            "detail": "setarch -R disables ASLR \u2014 TSan hits a known WSL2 memory-mapping issue without it."
         },
         {
             "label": "Build: qp_backtest_integration_tests",
@@ -148,7 +66,9 @@
             "command": "cmake --build build/debug --target qp_backtest_integration_tests -j",
             "dependsOn": "Configure (debug)",
             "group": "build",
-            "problemMatcher": ["$gcc"],
+            "problemMatcher": [
+                "$gcc"
+            ],
             "detail": "End-to-end: synthetic FileRecorder data -> FileReplaySource -> Engine<...FundingCarryStrategy>."
         },
         {
@@ -160,46 +80,14 @@
             "problemMatcher": []
         },
         {
-            "label": "Build: qp_parity_tests",
-            "type": "shell",
-            "command": "cmake --build build/debug --target qp_parity_tests -j",
-            "dependsOn": "Configure (debug)",
-            "group": "build",
-            "problemMatcher": ["$gcc"],
-            "detail": "Cross-lib: real FileRecorder writes, real FileReplaySource reads back, byte-for-byte identical."
-        },
-        {
-            "label": "Test: qp_parity_tests",
-            "type": "shell",
-            "command": "./build/debug/integration/qp_parity_tests",
-            "dependsOn": "Build: qp_parity_tests",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: qp_collector_integration_tests (tsan)",
-            "type": "shell",
-            "command": "cmake --build build/tsan --target qp_collector_integration_tests -j",
-            "dependsOn": "Configure (tsan)",
-            "group": "build",
-            "problemMatcher": ["$gcc"],
-            "detail": "Proves the full 3-thread assembly (I/O + resync + FileRecorder writer) race-free together, not just each piece alone."
-        },
-        {
-            "label": "Test: qp_collector_integration_tests (tsan)",
-            "type": "shell",
-            "command": "setarch $(uname -m) -R ./build/tsan/apps/collector/qp_collector_integration_tests",
-            "dependsOn": "Build: qp_collector_integration_tests (tsan)",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
             "label": "Build: qp_core_tests (release)",
             "type": "shell",
             "command": "cmake --build build/release --target qp_core_tests -j",
             "dependsOn": "Configure (release)",
             "group": "build",
-            "problemMatcher": ["$gcc"],
+            "problemMatcher": [
+                "$gcc"
+            ],
             "detail": "Same SPSC queue tests at -O3/-DNDEBUG, no ASan/UBSan."
         },
         {
@@ -216,7 +104,9 @@
             "command": "cmake --build build/release --target qp_core_bench -j",
             "dependsOn": "Configure (release)",
             "group": "build",
-            "problemMatcher": ["$gcc"],
+            "problemMatcher": [
+                "$gcc"
+            ],
             "detail": "SPSC queue push/pop benchmarks, release build."
         },
         {
@@ -226,7 +116,7 @@
             "dependsOn": "Build: qp_core_bench (release)",
             "group": "test",
             "problemMatcher": [],
-            "detail": "Release build — still WSL2, so trust deltas over absolutes (docs/environment.md)."
+            "detail": "Release build \u2014 still WSL2, so trust deltas over absolutes (docs/environment.md)."
         },
         {
             "label": "Build: qp_clock_bench (release)",
@@ -234,7 +124,9 @@
             "command": "cmake --build build/release --target qp_clock_bench -j",
             "dependsOn": "Configure (release)",
             "group": "build",
-            "problemMatcher": ["$gcc"],
+            "problemMatcher": [
+                "$gcc"
+            ],
             "detail": "SimClock now()/advance() benchmark, release build."
         },
         {
@@ -244,7 +136,7 @@
             "dependsOn": "Build: qp_clock_bench (release)",
             "group": "test",
             "problemMatcher": [],
-            "detail": "Release build — still WSL2, so trust deltas over absolutes (docs/environment.md)."
+            "detail": "Release build \u2014 still WSL2, so trust deltas over absolutes (docs/environment.md)."
         },
         {
             "label": "Build: qp_execution_sim_bench (release)",
@@ -252,7 +144,9 @@
             "command": "cmake --build build/release --target qp_execution_sim_bench -j",
             "dependsOn": "Configure (release)",
             "group": "build",
-            "problemMatcher": ["$gcc"],
+            "problemMatcher": [
+                "$gcc"
+            ],
             "detail": "SimExecution benchmarks, release build."
         },
         {
@@ -262,7 +156,7 @@
             "dependsOn": "Build: qp_execution_sim_bench (release)",
             "group": "test",
             "problemMatcher": [],
-            "detail": "Release build — still WSL2, so trust deltas over absolutes (docs/environment.md)."
+            "detail": "Release build \u2014 still WSL2, so trust deltas over absolutes (docs/environment.md)."
         },
         {
             "label": "Build: qp_execution_sim_matcher_last_trade_bench (release)",
@@ -270,7 +164,9 @@
             "command": "cmake --build build/release --target qp_execution_sim_matcher_last_trade_bench -j",
             "dependsOn": "Configure (release)",
             "group": "build",
-            "problemMatcher": ["$gcc"],
+            "problemMatcher": [
+                "$gcc"
+            ],
             "detail": "LastTradeMatcher benchmarks, release build."
         },
         {
@@ -280,25 +176,47 @@
             "dependsOn": "Build: qp_execution_sim_matcher_last_trade_bench (release)",
             "group": "test",
             "problemMatcher": [],
-            "detail": "Release build — still WSL2, so trust deltas over absolutes (docs/environment.md)."
+            "detail": "Release build \u2014 still WSL2, so trust deltas over absolutes (docs/environment.md)."
         },
         {
-            "label": "Build: qp_sink_bench (release)",
+            "label": "Build: qp_source_pure_bench (release)",
             "type": "shell",
-            "command": "cmake --build build/release --target qp_sink_bench -j",
+            "command": "cmake --build build/release --target qp_source_pure_bench -j",
             "dependsOn": "Configure (release)",
             "group": "build",
-            "problemMatcher": ["$gcc"],
-            "detail": "FanoutSink/FileRecorder benchmarks, release build."
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "detail": "SymbolTable intern()/name() benchmarks, release build."
         },
         {
-            "label": "Run sink bench",
+            "label": "Run source pure bench",
             "type": "shell",
-            "command": "./build/release/cmake/data_source/sink/qp_sink_bench",
-            "dependsOn": "Build: qp_sink_bench (release)",
+            "command": "./build/release/cmake/data_source/source/qp_source_pure_bench",
+            "dependsOn": "Build: qp_source_pure_bench (release)",
             "group": "test",
             "problemMatcher": [],
-            "detail": "Release build — still WSL2, so trust deltas over absolutes (docs/environment.md)."
+            "detail": "Release build \u2014 still WSL2, so trust deltas over absolutes (docs/environment.md)."
+        },
+        {
+            "label": "Build: qp_sink_fanout_bench (release)",
+            "type": "shell",
+            "command": "cmake --build build/release --target qp_sink_fanout_bench -j",
+            "dependsOn": "Configure (release)",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "detail": "FanoutSink record()/drain benchmarks, release build."
+        },
+        {
+            "label": "Run sink fanout bench",
+            "type": "shell",
+            "command": "./build/release/cmake/data_source/sink/fanout/qp_sink_fanout_bench",
+            "dependsOn": "Build: qp_sink_fanout_bench (release)",
+            "group": "test",
+            "problemMatcher": [],
+            "detail": "Release build \u2014 still WSL2, so trust deltas over absolutes (docs/environment.md)."
         },
         {
             "label": "Build: qp_data_source_bench (release)",
@@ -306,7 +224,9 @@
             "command": "cmake --build build/release --target qp_data_source_bench -j",
             "dependsOn": "Configure (release)",
             "group": "build",
-            "problemMatcher": ["$gcc"],
+            "problemMatcher": [
+                "$gcc"
+            ],
             "detail": "run_data_source() benchmarks, release build."
         },
         {
@@ -316,57 +236,7 @@
             "dependsOn": "Build: qp_data_source_bench (release)",
             "group": "test",
             "problemMatcher": [],
-            "detail": "Release build — still WSL2, so trust deltas over absolutes (docs/environment.md)."
-        },
-        {
-            "label": "Build: qp_source_tests",
-            "type": "shell",
-            "command": "cmake --build build/debug --target qp_source_tests -j",
-            "dependsOn": "Configure (debug)",
-            "group": "build",
-            "problemMatcher": ["$gcc"],
-            "detail": "Pure logic (gap_detector, backoff) — no Boost, no network, always buildable."
-        },
-        {
-            "label": "Test: qp_source_tests",
-            "type": "shell",
-            "command": "./build/debug/cmake/data_source/source/qp_source_tests",
-            "dependsOn": "Build: qp_source_tests",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: qp_source_tests (release)",
-            "type": "shell",
-            "command": "cmake --build build/release --target qp_source_tests -j",
-            "dependsOn": "Configure (release)",
-            "group": "build",
-            "problemMatcher": ["$gcc"]
-        },
-        {
-            "label": "Test: qp_source_tests (release)",
-            "type": "shell",
-            "command": "./build/release/cmake/data_source/source/qp_source_tests",
-            "dependsOn": "Build: qp_source_tests (release)",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: qp_source_bench (release)",
-            "type": "shell",
-            "command": "cmake --build build/release --target qp_source_bench -j",
-            "dependsOn": "Configure (release)",
-            "group": "build",
-            "problemMatcher": ["$gcc"],
-            "detail": "Message-processing hot path: parse + gap-check + queue push."
-        },
-        {
-            "label": "Run marketdata bench",
-            "type": "shell",
-            "command": "./build/release/cmake/data_source/source/qp_source_bench",
-            "dependsOn": "Build: qp_source_bench (release)",
-            "group": "test",
-            "problemMatcher": []
+            "detail": "Release build \u2014 still WSL2, so trust deltas over absolutes (docs/environment.md)."
         },
         {
             "label": "Build: qp_file_replay_bench (release)",
@@ -374,7 +244,9 @@
             "command": "cmake --build build/release --target qp_file_replay_bench -j",
             "dependsOn": "Configure (release)",
             "group": "build",
-            "problemMatcher": ["$gcc"],
+            "problemMatcher": [
+                "$gcc"
+            ],
             "detail": "FileReplaySource replay throughput: single-symbol BookDiff/Trade, multi-symbol merge overhead."
         },
         {
@@ -384,24 +256,7 @@
             "dependsOn": "Build: qp_file_replay_bench (release)",
             "group": "test",
             "problemMatcher": [],
-            "detail": "Release build — still WSL2, so trust deltas over absolutes (docs/environment.md)."
-        },
-        {
-            "label": "Build: qp_source_integration_tests",
-            "type": "shell",
-            "command": "cmake --build build/debug --target qp_source_integration_tests -j",
-            "dependsOn": "Configure (debug)",
-            "group": "build",
-            "problemMatcher": ["$gcc"],
-            "detail": "Needs Boost/OpenSSL (vcpkg). Real Beast connect/handshake/read/reconnect against a local mock WS server, no real Binance dependency."
-        },
-        {
-            "label": "Test: qp_source_integration_tests",
-            "type": "shell",
-            "command": "./build/debug/cmake/data_source/source/qp_source_integration_tests",
-            "dependsOn": "Build: qp_source_integration_tests",
-            "group": "test",
-            "problemMatcher": []
+            "detail": "Release build \u2014 still WSL2, so trust deltas over absolutes (docs/environment.md)."
         },
         {
             "label": "Build: qp_file_replay_tests",
@@ -409,7 +264,9 @@
             "command": "cmake --build build/debug --target qp_file_replay_tests -j",
             "dependsOn": "Configure (debug)",
             "group": "build",
-            "problemMatcher": ["$gcc"],
+            "problemMatcher": [
+                "$gcc"
+            ],
             "detail": "FileReplaySource: reads FileRecorder's on-disk format back via qp_wire. No Boost/OpenSSL needed."
         },
         {
@@ -426,7 +283,9 @@
             "command": "cmake --build build/release --target qp_file_replay_tests -j",
             "dependsOn": "Configure (release)",
             "group": "build",
-            "problemMatcher": ["$gcc"]
+            "problemMatcher": [
+                "$gcc"
+            ]
         },
         {
             "label": "Test: qp_file_replay_tests (release)",
@@ -437,12 +296,51 @@
             "problemMatcher": []
         },
         {
+            "label": "Build: qp_sink_fanout_tests",
+            "type": "shell",
+            "command": "cmake --build build/debug --target qp_sink_fanout_tests -j",
+            "dependsOn": "Configure (debug)",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "detail": "FanoutSink: record()/attach(), ASan/UBSan."
+        },
+        {
+            "label": "Test: qp_sink_fanout_tests",
+            "type": "shell",
+            "command": "./build/debug/cmake/data_source/sink/fanout/qp_sink_fanout_tests",
+            "dependsOn": "Build: qp_sink_fanout_tests",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "Build: qp_sink_fanout_tests (release)",
+            "type": "shell",
+            "command": "cmake --build build/release --target qp_sink_fanout_tests -j",
+            "dependsOn": "Configure (release)",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "Test: qp_sink_fanout_tests (release)",
+            "type": "shell",
+            "command": "./build/release/cmake/data_source/sink/fanout/qp_sink_fanout_tests",
+            "dependsOn": "Build: qp_sink_fanout_tests (release)",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
             "label": "Build: qp_wire_tests",
             "type": "shell",
             "command": "cmake --build build/debug --target qp_wire_tests -j",
             "dependsOn": "Configure (debug)",
             "group": "build",
-            "problemMatcher": ["$gcc"],
+            "problemMatcher": [
+                "$gcc"
+            ],
             "detail": "Wire format round-trip/truncated-tail, day-key/segment-listing, and zstd compress<->decompress tests."
         },
         {
@@ -459,7 +357,9 @@
             "command": "cmake --build build/release --target qp_wire_tests -j",
             "dependsOn": "Configure (release)",
             "group": "build",
-            "problemMatcher": ["$gcc"]
+            "problemMatcher": [
+                "$gcc"
+            ]
         },
         {
             "label": "Test: qp_wire_tests (release)",
@@ -475,7 +375,9 @@
             "command": "cmake --build build/debug --target qp_clock_tests -j",
             "dependsOn": "Configure (debug)",
             "group": "build",
-            "problemMatcher": ["$gcc"],
+            "problemMatcher": [
+                "$gcc"
+            ],
             "detail": "Clock concept satisfaction, SimClock advance() semantics, WallClock real-time/no-op checks."
         },
         {
@@ -492,7 +394,9 @@
             "command": "cmake --build build/release --target qp_clock_tests -j",
             "dependsOn": "Configure (release)",
             "group": "build",
-            "problemMatcher": ["$gcc"]
+            "problemMatcher": [
+                "$gcc"
+            ]
         },
         {
             "label": "Test: qp_clock_tests (release)",
@@ -508,7 +412,9 @@
             "command": "cmake --build build/debug --target qp_execution_sim_tests -j",
             "dependsOn": "Configure (debug)",
             "group": "build",
-            "problemMatcher": ["$gcc"],
+            "problemMatcher": [
+                "$gcc"
+            ],
             "detail": "ExecutionGateway/Matcher concept satisfaction, SimExecution<LastTradeMatcher>: reject-before-price, fill-at-last-price, fills()/rejects() accumulation."
         },
         {
@@ -525,7 +431,9 @@
             "command": "cmake --build build/release --target qp_execution_sim_tests -j",
             "dependsOn": "Configure (release)",
             "group": "build",
-            "problemMatcher": ["$gcc"]
+            "problemMatcher": [
+                "$gcc"
+            ]
         },
         {
             "label": "Test: qp_execution_sim_tests (release)",
@@ -541,7 +449,9 @@
             "command": "cmake --build build/debug --target qp_strategy_tests -j",
             "dependsOn": "Configure (debug)",
             "group": "build",
-            "problemMatcher": ["$gcc"],
+            "problemMatcher": [
+                "$gcc"
+            ],
             "detail": "Strategy concept satisfaction against an inline NoopStrategy."
         },
         {
@@ -558,7 +468,9 @@
             "command": "cmake --build build/release --target qp_strategy_tests -j",
             "dependsOn": "Configure (release)",
             "group": "build",
-            "problemMatcher": ["$gcc"]
+            "problemMatcher": [
+                "$gcc"
+            ]
         },
         {
             "label": "Test: qp_strategy_tests (release)",
@@ -574,7 +486,9 @@
             "command": "cmake --build build/debug --target qp_carry_tests -j",
             "dependsOn": "Configure (debug)",
             "group": "build",
-            "problemMatcher": ["$gcc"],
+            "problemMatcher": [
+                "$gcc"
+            ],
             "detail": "FundingCarryStrategy: entry/exit/hold thresholds against synthetic funding events."
         },
         {
@@ -591,7 +505,9 @@
             "command": "cmake --build build/release --target qp_carry_tests -j",
             "dependsOn": "Configure (release)",
             "group": "build",
-            "problemMatcher": ["$gcc"]
+            "problemMatcher": [
+                "$gcc"
+            ]
         },
         {
             "label": "Test: qp_carry_tests (release)",
@@ -607,7 +523,9 @@
             "command": "cmake --build build/debug --target qp_risk_tests -j",
             "dependsOn": "Configure (debug)",
             "group": "build",
-            "problemMatcher": ["$gcc"],
+            "problemMatcher": [
+                "$gcc"
+            ],
             "detail": "RiskGate concept satisfaction, RiskDecision shape, and BasicRiskGate (exposure cap + drawdown kill switch)."
         },
         {
@@ -624,7 +542,9 @@
             "command": "cmake --build build/release --target qp_risk_tests -j",
             "dependsOn": "Configure (release)",
             "group": "build",
-            "problemMatcher": ["$gcc"]
+            "problemMatcher": [
+                "$gcc"
+            ]
         },
         {
             "label": "Test: qp_risk_tests (release)",
@@ -640,7 +560,9 @@
             "command": "cmake --build build/release --target qp_risk_bench -j",
             "dependsOn": "Configure (release)",
             "group": "build",
-            "problemMatcher": ["$gcc"],
+            "problemMatcher": [
+                "$gcc"
+            ],
             "detail": "BasicRiskGate::check/on_tick cost, release build."
         },
         {
@@ -650,7 +572,7 @@
             "dependsOn": "Build: qp_risk_bench (release)",
             "group": "test",
             "problemMatcher": [],
-            "detail": "Release build — still WSL2, so trust deltas over absolutes (docs/environment.md)."
+            "detail": "Release build \u2014 still WSL2, so trust deltas over absolutes (docs/environment.md)."
         },
         {
             "label": "Build: qp_engine_tests",
@@ -658,7 +580,9 @@
             "command": "cmake --build build/debug --target qp_engine_tests -j",
             "dependsOn": "Configure (debug)",
             "group": "build",
-            "problemMatcher": ["$gcc"],
+            "problemMatcher": [
+                "$gcc"
+            ],
             "detail": "Engine<Tx,Clk,Exec,Risk,Strategies...> loop end-to-end: transport exhaustion, trade->intent->fill->Portfolio, reject path, run() draining multiple events."
         },
         {
@@ -675,7 +599,9 @@
             "command": "cmake --build build/release --target qp_engine_tests -j",
             "dependsOn": "Configure (release)",
             "group": "build",
-            "problemMatcher": ["$gcc"]
+            "problemMatcher": [
+                "$gcc"
+            ]
         },
         {
             "label": "Test: qp_engine_tests (release)",
@@ -686,29 +612,14 @@
             "problemMatcher": []
         },
         {
-            "label": "Build: qp_sink_integration_tests",
-            "type": "shell",
-            "command": "cmake --build build/debug --target qp_sink_integration_tests -j",
-            "dependsOn": "Configure (debug)",
-            "group": "build",
-            "problemMatcher": ["$gcc"],
-            "detail": "FileRecorder: real file I/O, real zstd streaming, the flush crash-safety proof (D12)."
-        },
-        {
-            "label": "Test: qp_sink_integration_tests",
-            "type": "shell",
-            "command": "./build/debug/cmake/data_source/sink/qp_sink_integration_tests",
-            "dependsOn": "Build: qp_sink_integration_tests",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
             "label": "Build: qp_wire_bench (release)",
             "type": "shell",
             "command": "cmake --build build/release --target qp_wire_bench -j",
             "dependsOn": "Configure (release)",
             "group": "build",
-            "problemMatcher": ["$gcc"],
+            "problemMatcher": [
+                "$gcc"
+            ],
             "detail": "Wire format write/read/round-trip cost, release build."
         },
         {
@@ -718,7 +629,7 @@
             "dependsOn": "Build: qp_wire_bench (release)",
             "group": "test",
             "problemMatcher": [],
-            "detail": "Release build — still WSL2, so trust deltas over absolutes (docs/environment.md)."
+            "detail": "Release build \u2014 still WSL2, so trust deltas over absolutes (docs/environment.md)."
         },
         {
             "label": "Build: qp_carry_bench (release)",
@@ -726,7 +637,9 @@
             "command": "cmake --build build/release --target qp_carry_bench -j",
             "dependsOn": "Configure (release)",
             "group": "build",
-            "problemMatcher": ["$gcc"],
+            "problemMatcher": [
+                "$gcc"
+            ],
             "detail": "FundingCarryStrategy::on_event entry/hold/reject paths, release build."
         },
         {
@@ -736,7 +649,7 @@
             "dependsOn": "Build: qp_carry_bench (release)",
             "group": "test",
             "problemMatcher": [],
-            "detail": "Release build — still WSL2, so trust deltas over absolutes (docs/environment.md)."
+            "detail": "Release build \u2014 still WSL2, so trust deltas over absolutes (docs/environment.md)."
         },
         {
             "label": "Build: qp_bench (release)",
@@ -744,7 +657,9 @@
             "command": "cmake --build build/release --target qp_bench -j",
             "dependsOn": "Configure (release)",
             "group": "build",
-            "problemMatcher": ["$gcc"],
+            "problemMatcher": [
+                "$gcc"
+            ],
             "detail": "Every lib's benchmarks in one binary, release build."
         },
         {
@@ -754,7 +669,7 @@
             "dependsOn": "Build: qp_bench (release)",
             "group": "test",
             "problemMatcher": [],
-            "detail": "Release build — still WSL2, so trust deltas over absolutes (docs/environment.md)."
+            "detail": "Release build \u2014 still WSL2, so trust deltas over absolutes (docs/environment.md)."
         },
         {
             "label": "Build: all tests (debug)",
@@ -762,7 +677,9 @@
             "command": "cmake --build build/debug --target qp_all_tests -j",
             "dependsOn": "Configure (debug)",
             "group": "build",
-            "problemMatcher": ["$gcc"],
+            "problemMatcher": [
+                "$gcc"
+            ],
             "detail": "Every registered test target (qp_all_tests, CMakeLists.txt), debug build."
         },
         {
@@ -779,7 +696,9 @@
             "command": "cmake --build build/release --target qp_all_tests -j",
             "dependsOn": "Configure (release)",
             "group": "build",
-            "problemMatcher": ["$gcc"],
+            "problemMatcher": [
+                "$gcc"
+            ],
             "detail": "Every registered test target (qp_all_tests, CMakeLists.txt), release build."
         },
         {
@@ -791,21 +710,15 @@
             "problemMatcher": []
         },
         {
-            "label": "Package: qp_collector",
-            "type": "shell",
-            "command": "./tools/package_collector.sh",
-            "group": "build",
-            "problemMatcher": [],
-            "detail": "Release build + tarball into dist/ — binary + run/stop/status scripts, ready for a VM."
-        },
-        {
             "label": "Build: everything",
             "type": "shell",
             "command": "cmake --build build/debug -j",
             "dependsOn": "Configure (debug)",
             "group": "build",
-            "problemMatcher": ["$gcc"],
-            "detail": "Full tree. Only reach for this when you actually need it — prefer a targeted build above."
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "detail": "Full tree. Only reach for this when you actually need it \u2014 prefer a targeted build above."
         }
     ]
 }

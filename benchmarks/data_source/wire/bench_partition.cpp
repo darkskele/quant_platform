@@ -6,7 +6,7 @@
 #include "partition.hpp"
 #include "support/scratch_dir.hpp"
 
-using namespace qp::wire;
+using namespace qp::data_source::wire;
 using qp::Timestamp;
 using qp::test::ScratchDir;
 

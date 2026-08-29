@@ -1,28 +1,28 @@
 #include <gtest/gtest.h>
 
-#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
+#include <map>
 #include <stdexcept>
 #include <string>
-#include <thread>
 #include <utility>
 #include <vector>
 
-#include "file_recorder.hpp"
 #include "file_replay_source.hpp"
 #include "partition.hpp"
 #include "support/market_event_builders.hpp"
 #include "support/scratch_dir.hpp"
+#include "wire.hpp"
+#include "zstd_stream.hpp"
 
 using qp::MarketEvent;
 using qp::SymbolId;
-using qp::sink::FileRecorder;
-using qp::source::FileReplaySource;
+using qp::data_source::source::FileReplaySource;
+using qp::data_source::wire::day_key_for;
+using qp::data_source::wire::DayKey;
 using qp::test::ScratchDir;
-using qp::wire::day_key_for;
-using qp::wire::DayKey;
 
 namespace {
 
@@ -34,34 +34,59 @@ MarketEvent trade(SymbolId symbol, std::int64_t ts, double price) {
     return qp::test::make_trade(symbol, ts, price);
 }
 
-// Drives a real FileRecorder to produce the fixture — not a hand-rolled
-// reimplementation of its write orchestration (segment naming, when to
-// rotate, when to close a frame): using the actual object is what proves
-// FileReplaySource agrees with what FileRecorder really does, the same
-// reasoning behind qp_parity_tests (tests/test_recorder_replay_parity.cpp).
-// record() is async, so the recorder must go out of scope here (destructor:
-// drains the queue, flushes, cleanly closes every partition) before the
-// caller reads it back. A second call with the same dir+symbols starts a
-// fresh FileRecorder instance, which always opens a new segment — exactly
-// what a real collector restart on the same day produces. It also (re)writes
-// data_dir/symbols.manifest, which FileReplaySource now requires.
-//
-// record() is non-blocking and silently drops on a full queue by design
-// (a live collector can't let a slow disk back up the socket read) — real
-// behavior a hand-rolled fixture writer would never exhibit. A tight loop
-// of thousands of record() calls can out-run the writer thread in a way a
-// live feed's actual arrival rate never would, so retry a dropped event
-// rather than assume every call landed.
+// symbols.manifest, matching FileRecorder's own write_symbols_manifest()
+// (now gone along with the rest of the live-collector machinery) — one
+// name per line, index == SymbolId.
+void write_symbols_manifest(const std::filesystem::path&    dir,
+                            const std::vector<std::string>& symbol_names) {
+    std::ofstream out(dir / "symbols.manifest");
+    for (const auto& name : symbol_names) out << name << '\n';
+}
+
+// One on-disk segment for one (symbol, day): every event pushed through one
+// ZstdCompressor, one finish()'d frame per file, at the next unused seq for
+// that (symbol, day) — same next-free-seq scan FileRecorder::ensure_open
+// used, so calling this twice for the same symbol+day produces segment 000
+// then 001, matching what a real recorder restart on the same day produces.
+void write_segment(const std::filesystem::path& symbol_dir, DayKey day,
+                   const std::vector<MarketEvent>& events) {
+    std::filesystem::create_directories(symbol_dir);
+    int                   seq = 0;
+    std::filesystem::path path;
+    for (;; ++seq) {
+        path = qp::data_source::wire::segment_path(symbol_dir, day, seq);
+        if (!std::filesystem::exists(path)) break;
+    }
+
+    qp::data_source::wire::ZstdCompressor compressor;
+    std::vector<std::byte>                compressed;
+    for (const auto& ev : events) {
+        std::vector<std::byte> encoded;
+        qp::data_source::wire::write_event(encoded, ev);
+        compressor.compress(encoded, compressed);
+    }
+    compressor.finish(compressed);
+
+    std::ofstream out(path, std::ios::binary);
+    out.write(reinterpret_cast<const char*>(compressed.data()),
+              static_cast<std::streamsize>(compressed.size()));
+}
+
+// Groups `events` by (symbol, day) and writes each group as its own segment
+// — hand-rolled from qp_wire's own primitives, not a real FileRecorder:
+// FileRecorder no longer exists as a Sink (removed with the rest of the
+// live-collector machinery), so this is now the only way to produce a
+// FileReplaySource fixture at all, not an isolation choice.
 void record_batch(const std::filesystem::path& dir, const std::vector<std::string>& symbol_names,
                   const std::vector<MarketEvent>& events) {
-    FileRecorder recorder(dir, symbol_names);
-    for (const auto& ev : events) {
-        for (;;) {
-            std::size_t dropped_before = recorder.dropped_count();
-            recorder.record(ev);
-            if (recorder.dropped_count() == dropped_before) break;  // landed
-            std::this_thread::sleep_for(std::chrono::microseconds(100));
-        }
+    write_symbols_manifest(dir, symbol_names);
+
+    std::map<std::pair<SymbolId, DayKey>, std::vector<MarketEvent>> by_symbol_day;
+    for (const auto& ev : events) by_symbol_day[{ev.symbol, day_key_for(ev.ts)}].push_back(ev);
+
+    for (const auto& [key, group] : by_symbol_day) {
+        const auto& [symbol, day] = key;
+        write_segment(dir / symbol_names.at(symbol), day, group);
     }
 }
 
@@ -143,15 +168,15 @@ TEST(FileReplaySource, ThrowsWhenWantedSymbolIsNotInManifest) {
 }
 
 TEST(FileReplaySource, ThrowsWhenManifestIsMissing) {
-    ScratchDir dir;  // no FileRecorder ever ran here — no symbols.manifest
+    ScratchDir dir;  // no manifest ever written here
     EXPECT_THROW(FileReplaySource(dir.path, kDay, kDay), std::runtime_error);
 }
 
 TEST(FileReplaySource, ReadsAcrossMultipleSegmentsInOrder) {
     ScratchDir dir;
-    // Two separate FileRecorder instances pointed at the same dir+day —
-    // exactly what a collector restart on the same day produces: segment
-    // 000, then segment 001.
+    // Two separate record_batch calls for the same dir+day — exactly what
+    // a collector restart on the same day produces: segment 000, then
+    // segment 001.
     record_batch(dir.path, {"BTCUSDT"},
                  {trade(0, kBaseTs + 100, 1.0), trade(0, kBaseTs + 200, 2.0)});
     record_batch(dir.path, {"BTCUSDT"}, {trade(0, kBaseTs + 300, 3.0)});

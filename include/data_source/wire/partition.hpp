@@ -9,7 +9,7 @@
 
 #include "types.hpp"
 
-namespace qp::wire {
+namespace qp::data_source::wire {
 
 // A day, UTC, as a count of days since the Unix epoch — the only question
 // this needs to answer is "same day as the currently-open partition, or
@@ -70,4 +70,4 @@ inline std::vector<std::filesystem::path> list_segments(const std::filesystem::p
     return segments;
 }
 
-}  // namespace qp::wire
+}  // namespace qp::data_source::wire

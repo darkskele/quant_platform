@@ -8,6 +8,7 @@
 #include "types.hpp"
 
 using namespace qp;
+using qp::data_source::run_data_source;
 
 namespace {
 

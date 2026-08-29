@@ -18,8 +18,8 @@ namespace qp::backtest {
 struct Config {
     std::filesystem::path            data_dir;
     std::string                      symbol;
-    wire::DayKey                     first_day{};
-    wire::DayKey                     last_day{};
+    data_source::wire::DayKey        first_day{};
+    data_source::wire::DayKey        last_day{};
     strategy::carry::Config          carry{};
     risk::basic::BasicRiskGateConfig risk{};
 };
