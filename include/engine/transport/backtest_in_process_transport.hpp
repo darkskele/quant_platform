@@ -10,9 +10,10 @@
 namespace qp::engine::transport {
 
 /// Backtest's own Transport policy: merges a fixed set of rings — each a
-/// leg's fan-out ring, at whichever consumer index this Engine was handed
-/// by that leg's FanoutSink::attach() (D43: indices can differ leg-to-leg,
-/// since each FanoutSink's attach() counter is independent) — in ascending
+/// leg's fan-out ring, at whichever consumer index this Engine was
+/// assigned by the composition root (qp::venue_consumer_index, D43:
+/// indices can differ leg-to-leg, since each leg's subscriber count is
+/// independent) — in ascending
 /// MarketEvent::ts order, not round-robin. Exchange-provided event
 /// timestamps are comparable across venues on the same exchange (verified
 /// against binance.cpp: futures and spot both stamp MarketEvent::ts from
@@ -45,7 +46,7 @@ class BacktestInProcessTransport {
 
    public:
     /// rings[i] paired with consumers[i] — this Engine's own consumer
-    /// index on that leg's ring (from FanoutSink::attach()), positionally
+    /// index on that leg's ring (from qp::venue_consumer_index), positionally
     /// matched, same convention as run_data_source's source/sink pairing.
     /// control_consumer is this Engine's own index on `control`, from
     /// ControlChannel::attach().

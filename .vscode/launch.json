@@ -184,6 +184,27 @@
             "preLaunchTask": "Build: qp_source_pure_bench (release)"
         },
         {
+            "name": "Run source venue binance_historical bench",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/release/cmake/data_source/source/venue/binance/binance_historical/qp_source_venue_binance_historical_bench",
+            "args": [
+                "--benchmark_min_time=0.1s"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "environment": [
+                {
+                    "name": "DEBUGINFOD_URLS",
+                    "value": ""
+                }
+            ],
+            "preLaunchTask": "Build: qp_source_venue_binance_historical_bench (release)"
+        },
+        {
             "name": "Run sink fanout bench",
             "type": "cppdbg",
             "request": "launch",

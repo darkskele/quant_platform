@@ -199,6 +199,26 @@
             "detail": "Release build \u2014 still WSL2, so trust deltas over absolutes (docs/environment.md)."
         },
         {
+            "label": "Build: qp_source_venue_binance_historical_bench (release)",
+            "type": "shell",
+            "command": "cmake --build build/release --target qp_source_venue_binance_historical_bench -j",
+            "dependsOn": "Configure (release)",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "detail": "BinHistSymbolTable id_of()/name_of() benchmarks, release build."
+        },
+        {
+            "label": "Run source venue binance_historical bench",
+            "type": "shell",
+            "command": "./build/release/cmake/data_source/source/venue/binance/binance_historical/qp_source_venue_binance_historical_bench",
+            "dependsOn": "Build: qp_source_venue_binance_historical_bench (release)",
+            "group": "test",
+            "problemMatcher": [],
+            "detail": "Release build \u2014 still WSL2, so trust deltas over absolutes (docs/environment.md)."
+        },
+        {
             "label": "Build: qp_sink_fanout_bench (release)",
             "type": "shell",
             "command": "cmake --build build/release --target qp_sink_fanout_bench -j",

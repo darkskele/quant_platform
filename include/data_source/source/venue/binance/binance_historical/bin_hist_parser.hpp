@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "types.hpp"
+#include "venue.hpp"
 #include "venue_types.hpp"
 
 // Binance USD-M + spot specifics, quarantined here so they never leak into
@@ -17,11 +18,16 @@
 // detection (comparing MarketEvent::prev_seq/first_seq against the last seq
 // seen for a symbol, per AlignmentRule) is the caller's job
 // (LiveWebSocketSource owns that state).
-namespace qp::data_source::source::parser::binance {
+namespace qp::data_source::source::venue::binance::binance_historical {
 
 // SymbolTable/WsEndpoint/RestEndpoint/DepthSnapshot have zero Binance-specific
 // content (venue_types.hpp) — aliased here so this file and its
 // tests keep reading in venue-local terms without duplicating the types.
+// SymbolTable here is venue_types.hpp's runtime, mutable, intern-as-you-go
+// type — not the new compile-time venue::SymbolTable concept this
+// directory's symbol_table.hpp satisfies; this parser hasn't been
+// rewritten to use that yet (still placeholder live-WS content, see
+// venue.hpp's Parser concept doc comment).
 using SymbolTable   = qp::data_source::source::SymbolTable;
 using WsEndpoint    = qp::data_source::source::WsEndpoint;
 using RestEndpoint  = qp::data_source::source::RestEndpoint;
@@ -124,32 +130,39 @@ std::optional<DepthSnapshot> parse_depth_snapshot(std::string_view json_body);
 // against Binance's docs, no market parameter needed on this function.
 bool parse_message(std::string_view msg, SymbolTable& symbols, MarketEvent& out);
 
-// Satisfies qp::source::Parser (libs/data_source/source/include/parser.hpp) —
-// a thin static-method wrapper around the free functions above, not a
-// reimplementation. Exists so GenericLiveWebSocketSource can be templated on
-// a venue's wire-protocol glue without touching venue::binance's own
-// (already tested) public API or its tests. Templated on BinanceMarket so
-// BinanceParser<FuturesMarket> and BinanceParser<SpotMarket> are distinct
-// Parser-satisfying types, each with a market baked into build_stream_path/
-// depth_snapshot_url at compile time — no runtime market flag to wire wrong.
+// Satisfies qp::data_source::source::venue::Parser — a thin static-method
+// wrapper around the free functions above, not a reimplementation. Exists
+// so a Source can be templated on a venue's wire-protocol glue without
+// touching this file's own (already tested) public API or its tests.
+// Templated on BinanceMarket so BinHistParser<FuturesMarket> and
+// BinHistParser<SpotMarket> are distinct Parser-satisfying types, each
+// with a market baked into build_stream_path/depth_snapshot_url at
+// compile time — no runtime market flag to wire wrong.
 template <BinanceMarket M>
-struct BinanceParser {
+struct BinHistParser {
     static std::string build_stream_path(const std::vector<std::string>& symbols) {
-        return ::qp::data_source::source::parser::binance::build_stream_path<M>(symbols);
+        return ::qp::data_source::source::venue::binance::binance_historical::build_stream_path<M>(
+            symbols);
     }
 
     static bool parse_message(std::string_view msg, SymbolTable& symbols, MarketEvent& out) {
-        return ::qp::data_source::source::parser::binance::parse_message(msg, symbols, out);
+        return ::qp::data_source::source::venue::binance::binance_historical::parse_message(
+            msg, symbols, out);
     }
 
     static std::string depth_snapshot_url(std::string_view symbol, int limit,
                                           RestEndpoint endpoint) {
-        return ::qp::data_source::source::parser::binance::depth_snapshot_url<M>(symbol, limit, endpoint);
+        return ::qp::data_source::source::venue::binance::binance_historical::depth_snapshot_url<M>(
+            symbol, limit, endpoint);
     }
 
     static std::optional<DepthSnapshot> parse_depth_snapshot(std::string_view json_body) {
-        return ::qp::data_source::source::parser::binance::parse_depth_snapshot(json_body);
+        return ::qp::data_source::source::venue::binance::binance_historical::parse_depth_snapshot(
+            json_body);
     }
 };
 
-}  // namespace qp::data_source::source::parser::binance
+static_assert(qp::data_source::source::venue::Parser<BinHistParser<FuturesMarket>>);
+static_assert(qp::data_source::source::venue::Parser<BinHistParser<SpotMarket>>);
+
+}  // namespace qp::data_source::source::venue::binance::binance_historical

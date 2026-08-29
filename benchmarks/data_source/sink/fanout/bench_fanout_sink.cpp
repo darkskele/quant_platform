@@ -25,7 +25,7 @@ qp::MarketEvent make_trade() {
 // never actually enters the wait path during a timed iteration.
 void BM_FanoutSink_Record(benchmark::State& state) {
     FanoutSink<1024, 1> sink;
-    auto                consumer = sink.attach();
+    std::size_t         consumer = 0;  // sole consumer, compile-time known
     int                 i        = 0;
     for (auto _ : state) {
         if (i % 1000 == 0 && i != 0) {
@@ -46,7 +46,7 @@ BENCHMARK(BM_FanoutSink_Record);
 // bookkeeping), same shape as SpmcRing's own tandem bench.
 void BM_FanoutSink_RecordAndDrain(benchmark::State& state) {
     FanoutSink<1024, 1> sink;
-    auto                consumer = sink.attach();
+    std::size_t         consumer = 0;  // sole consumer, compile-time known
     for (auto _ : state) {
         sink.record(make_trade());
         auto v = sink.ring().try_pop(consumer);

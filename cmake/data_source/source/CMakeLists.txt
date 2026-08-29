@@ -1,12 +1,14 @@
-# source — the Source concept, Venue enum, and the venue-agnostic types
+# source — the Source concept and the venue-agnostic types
 # (SymbolTable/WsEndpoint/RestEndpoint/DepthSnapshot) a Parser is built
 # against (see docs/DESIGN.md). Header-only, depends on core only.
 #
 # The live-transport machinery (LiveWebSocketSource, resync/gap-detection/
 # backoff, the Binance WS parser) was removed along with apps/collector
 # (docs/decisions.md) — this town is being redesigned around historical/
-# replay data instead of live capture; parser/ (add_subdirectory'd below)
-# is where a venue's wire-protocol glue lives now.
+# replay data instead of live capture; venue/ (add_subdirectory'd below)
+# is where a venue's wire-protocol glue and symbol universe live now —
+# one subdirectory per (exchange, source-type), e.g. venue/binance/
+# binance_historical/.
 qp_dir(include QP_INC)
 qp_dir(src QP_SRC)
 qp_dir(tests QP_TESTS)
@@ -21,7 +23,7 @@ if(QP_BUILD_BENCHMARKS)
     target_link_libraries(qp_source_pure_bench PRIVATE qp_source_pure benchmark::benchmark_main)
 endif()
 
-add_subdirectory(parser)
+add_subdirectory(venue)
 
 # FileReplaySource — the backtest Source implementation: reads back what
 # was recorded, via the shared wire codec (qp_wire) rather than a second

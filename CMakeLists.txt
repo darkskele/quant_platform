@@ -118,6 +118,7 @@ if(QP_BUILD_BENCHMARKS)
         benchmarks/core/bench_viewable_pool.cpp
         benchmarks/data_source/source/bench_venue_types.cpp
         benchmarks/data_source/source/bench_file_replay_source.cpp
+        benchmarks/data_source/source/venue/binance/binance_historical/bench_bin_hist_symbol_table.cpp
         benchmarks/data_source/wire/bench_wire.cpp
         benchmarks/data_source/wire/bench_zstd_stream.cpp
         benchmarks/data_source/wire/bench_partition.cpp
@@ -136,6 +137,7 @@ if(QP_BUILD_BENCHMARKS)
         qp_execution_sim_matcher_last_trade qp_source_pure qp_file_replay qp_wire
         qp_sink qp_sink_fanout qp_data_source qp_engine qp_transport qp_strategy_test_support
         qp_risk_test_support qp_engine_test_support qp_strategy_carry qp_risk qp_risk_basic
+        qp_source_venue_binance_historical
         benchmark::benchmark
     )
     # benchmark::benchmark, not benchmark::benchmark_main: qp_bench_main.cpp

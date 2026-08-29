@@ -206,11 +206,15 @@ Results run(const Config& config) {
     risk::basic::BasicRiskGateConfig risk_config = config.risk;
     risk_config.tracked                          = {{symbol, kSpotVenue}, {symbol, kFuturesVenue}};
 
-    using FanSink = sink::fanout::FanoutSink<kRingCapacity, 1>;  // one consumer: this backtest's own Engine
-    FanSink     futures_fanout;
-    FanSink     spot_fanout;
-    std::size_t futures_consumer = futures_fanout.attach();
-    std::size_t spot_consumer    = spot_fanout.attach();
+    using FanSink =
+        sink::fanout::FanoutSink<kRingCapacity, 1>;  // one consumer: this backtest's own Engine
+    FanSink futures_fanout;
+    FanSink spot_fanout;
+    // NumConsumers == 1 on both legs, so the sole consumer's ring index is
+    // trivially 0 — qp::venue_consumer_index (core/venue_subscriptions.hpp)
+    // is what computes this once backtest.cpp wires up more than one.
+    std::size_t futures_consumer = 0;
+    std::size_t spot_consumer    = 0;
 
     ControlChannel<1> control;  // one attached participant: Engine's own transport
     std::size_t       engine_ctrl_idx = control.attach();
