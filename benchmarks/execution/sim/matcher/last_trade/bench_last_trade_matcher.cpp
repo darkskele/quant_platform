@@ -21,12 +21,20 @@ MarketEvent make_trade_event() {
     return ev;
 }
 
-// Isolation: on_market_event() — the unordered_map insert/update per
-// (symbol, venue) key.
+// Isolation: on_market_event() — the array write per (symbol, venue) index.
+// DoNotOptimize(matcher) is load-bearing here, not decorative: the write
+// only touches matcher's own last_price_ array, which nothing reads
+// afterward and which never escapes this function, so without it the
+// optimizer can (and does) prove the whole call dead and delete it —
+// TryFillFills/TryFillRejects below don't need this because DoNotOptimize
+// on their returned outcome already keeps try_fill() alive.
 void BM_LastTradeMatcher_OnMarketEvent(benchmark::State& state) {
     LastTradeMatcher matcher;
     auto             ev = make_trade_event();
-    for (auto _ : state) matcher.on_market_event(ev);
+    for (auto _ : state) {
+        matcher.on_market_event(ev);
+        benchmark::DoNotOptimize(matcher);
+    }
 }
 
 BENCHMARK(BM_LastTradeMatcher_OnMarketEvent);
