@@ -28,9 +28,7 @@ struct CountingSource {
 
     std::optional<MarketEvent> next() {
         if (--remaining <= 0) running->store(false, std::memory_order_release);
-        MarketEvent ev;
-        ev.kind = EventKind::Trade;
-        return ev;
+        return TradeEvent{};
     }
 };
 

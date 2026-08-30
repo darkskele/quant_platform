@@ -12,8 +12,7 @@
 namespace {
 
 qp::MarketEvent make_trade(qp::Timestamp ts = 0) {
-    qp::MarketEvent ev;
-    ev.kind  = qp::EventKind::Trade;
+    qp::TradeEvent ev;
     ev.ts    = ts;
     ev.price = 100.0;
     ev.qty   = 1.0;
@@ -22,17 +21,19 @@ qp::MarketEvent make_trade(qp::Timestamp ts = 0) {
 
 // kLevels matches a realistic partial-depth update (Binance's 20-level
 // partial book stream) — Trade above never carries book levels at all, so
-// it can't exercise next()'s move-vs-copy on bids/asks regardless of scale.
+// it can't exercise next()'s move-vs-copy on a populated BookLevels
+// regardless of scale.
 qp::MarketEvent make_book_diff(qp::Timestamp ts, int kLevels = 20) {
-    qp::MarketEvent ev;
-    ev.kind = qp::EventKind::BookDiff;
-    ev.ts   = ts;
-    ev.bids.assign(kLevels, qp::PriceLevel{.price = 100.0, .qty = 1.0});
-    ev.asks.assign(kLevels, qp::PriceLevel{.price = 101.0, .qty = 1.0});
+    qp::BookDiffEvent ev;
+    ev.ts       = ts;
+    auto levels = std::make_shared<qp::BookLevels>();
+    levels->bids.assign(kLevels, qp::PriceLevel{.price = 100.0, .qty = 1.0});
+    levels->asks.assign(kLevels, qp::PriceLevel{.price = 101.0, .qty = 1.0});
+    ev.levels = std::move(levels);
     return ev;
 }
 
-using Ring = qp::SpmcRing<std::shared_ptr<const qp::MarketEvent>, 1024, 1>;
+using Ring = qp::SpmcRing<qp::MarketEvent, 1024, 1, /*UseHeap=*/true>;
 
 // Scaling: N rings merged in timestamp order, N a compile-time template
 // parameter (real-world N is fixed per composition — one leg per venue —
@@ -59,8 +60,7 @@ void BM_BacktestInProcessTransport_NRings(benchmark::State& state) {
 
     qp::Timestamp ts = 0;
     for (auto _ : state) {
-        for (std::size_t i = 0; i < N; ++i)
-            rings[i].push(std::make_shared<const qp::MarketEvent>(make_trade(ts++)));
+        for (std::size_t i = 0; i < N; ++i) rings[i].push(make_trade(ts++));
         for (std::size_t i = 0; i < N; ++i) {
             auto out = transport.next();
             benchmark::DoNotOptimize(out);
@@ -75,12 +75,11 @@ BENCHMARK(BM_BacktestInProcessTransport_NRings<16>);
 
 // Populated depth, N=2 (the only shape anything real uses — not
 // re-answering the scaling question above, just isolating next()'s own
-// move-vs-copy on a realistic BookDiff). Two copies of bids/asks happen
-// per event regardless: FanoutSink's ring holds shared_ptr<const
-// MarketEvent> (multi-consumer fan-out, so that copy — into lookahead_ —
-// is real and unavoidable here), but next()'s own return used to add a
-// second, avoidable copy on top (lookahead_ -> the returned MarketEvent)
-// before it moved instead — this isolates what that second copy cost.
+// move-vs-copy on a realistic BookDiff). Cheap either way now: the ring
+// holds MarketEvent directly (SpmcRing::try_pop's copy into lookahead_ is
+// a shared_ptr refcount bump, not a deep BookLevels copy — see
+// core/types.hpp), and next()'s own return moves out of lookahead_, not a
+// second copy on top.
 void BM_BacktestInProcessTransport_TwoRingsPopulatedBookDiff(benchmark::State& state) {
     constexpr std::size_t      N = 2;
     std::array<Ring, N>        rings;
@@ -95,8 +94,7 @@ void BM_BacktestInProcessTransport_TwoRingsPopulatedBookDiff(benchmark::State& s
 
     qp::Timestamp ts = 0;
     for (auto _ : state) {
-        for (std::size_t i = 0; i < N; ++i)
-            rings[i].push(std::make_shared<const qp::MarketEvent>(make_book_diff(ts++)));
+        for (std::size_t i = 0; i < N; ++i) rings[i].push(make_book_diff(ts++));
         for (std::size_t i = 0; i < N; ++i) {
             auto out = transport.next();
             benchmark::DoNotOptimize(out);

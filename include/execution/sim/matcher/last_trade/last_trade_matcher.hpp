@@ -26,10 +26,11 @@ namespace qp::execution::sim::matcher::last_trade {
 class LastTradeMatcher {
    public:
     void on_market_event(const MarketEvent& ev) {
-        if (ev.kind != EventKind::Trade) return;
-        assert(ev.symbol < Portfolio::kMaxSymbols);
-        assert(ev.venue < Portfolio::kMaxVenues);
-        last_price_[index(ev.symbol, ev.venue)] = ev.price;
+        const auto* trade = std::get_if<TradeEvent>(&ev);
+        if (!trade) return;
+        assert(trade->symbol < Portfolio::kMaxSymbols);
+        assert(trade->venue < Portfolio::kMaxVenues);
+        last_price_[index(trade->symbol, trade->venue)] = trade->price;
     }
 
     std::variant<Fill, Reject> try_fill(Order o, Timestamp ts) {

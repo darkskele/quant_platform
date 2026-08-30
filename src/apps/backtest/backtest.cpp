@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <string_view>
 #include <thread>
+#include <variant>
 #include <vector>
 
 #include "backtest_in_process_transport.hpp"
@@ -235,7 +236,7 @@ Results run(const Config& config) {
             bool any = false;
             if (!futures_done) {
                 if (auto ev = futures_source.next()) {
-                    ev->venue = kFuturesVenue;
+                    std::visit([](auto& e) { e.venue = kFuturesVenue; }, *ev);
                     futures_fanout.record(std::move(*ev));
                     any = true;
                 } else {
@@ -244,7 +245,7 @@ Results run(const Config& config) {
             }
             if (!spot_done) {
                 if (auto ev = spot_source.next()) {
-                    ev->venue = kSpotVenue;
+                    std::visit([](auto& e) { e.venue = kSpotVenue; }, *ev);
                     spot_fanout.record(std::move(*ev));
                     any = true;
                 } else {

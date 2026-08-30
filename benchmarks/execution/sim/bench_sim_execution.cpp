@@ -23,8 +23,7 @@ constexpr VenueId  kVenue  = 0;
 // (already measured separately in bench_last_trade_matcher.cpp).
 void BM_SimExecution_SubmitFills(benchmark::State& state) {
     SimExecution<LastTradeMatcher> exec;
-    MarketEvent                    trade;
-    trade.kind   = EventKind::Trade;
+    TradeEvent                     trade;
     trade.symbol = kSymbol;
     trade.venue  = kVenue;
     trade.price  = 100.0;

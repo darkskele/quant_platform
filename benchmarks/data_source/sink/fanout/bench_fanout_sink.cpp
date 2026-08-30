@@ -11,8 +11,7 @@ using qp::data_source::sink::fanout::FanoutSink;
 namespace {
 
 qp::MarketEvent make_trade() {
-    qp::MarketEvent ev;
-    ev.kind  = qp::EventKind::Trade;
+    qp::TradeEvent ev;
     ev.price = 100.0;
     ev.qty   = 1.0;
     return ev;
@@ -42,8 +41,9 @@ void BM_FanoutSink_Record(benchmark::State& state) {
 BENCHMARK(BM_FanoutSink_Record);
 
 // Tandem: record() then drain via the ring directly, single thread, always
-// caught up — the per-call overhead floor (make_shared allocation + ring
-// bookkeeping), same shape as SpmcRing's own tandem bench.
+// caught up — the per-call overhead floor (move into the ring slot + ring
+// bookkeeping, no allocation for a flat TradeEvent), same shape as
+// SpmcRing's own tandem bench.
 void BM_FanoutSink_RecordAndDrain(benchmark::State& state) {
     FanoutSink<1024, 1> sink;
     std::size_t         consumer = 0;  // sole consumer, compile-time known
@@ -60,8 +60,7 @@ BENCHMARK(BM_FanoutSink_RecordAndDrain);
 // is the producer (record()), threads 1..NumConsumers are independent real
 // consumers reading the ring directly, each spinning against the
 // producer's pace on its own cursor. Same pattern as bench_spmc_ring.cpp's
-// BM_Spmc_PushTryPopContended, through FanoutSink's actual public API
-// (record(), the make_shared allocation included) instead of the bare ring.
+// BM_Spmc_PushTryPopContended, through FanoutSink's actual public API.
 template <std::size_t NumConsumers>
 void BM_FanoutSink_RecordContended(benchmark::State& state) {
     static FanoutSink<1024, NumConsumers> sink;
@@ -78,7 +77,7 @@ void BM_FanoutSink_RecordContended(benchmark::State& state) {
     } else {
         auto consumer = static_cast<std::size_t>(state.thread_index() - 1);
         for (auto _ : state) {
-            std::optional<std::shared_ptr<const qp::MarketEvent>> v;
+            std::optional<qp::MarketEvent> v;
             while (!(v = sink.ring().try_pop(consumer))) {
             }
             benchmark::DoNotOptimize(v);

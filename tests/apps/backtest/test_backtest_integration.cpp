@@ -38,7 +38,7 @@ void write_leg(const std::filesystem::path& leg_dir, const std::vector<qp::Marke
     manifest << "BTCUSDT\n";
 
     std::map<DayKey, std::vector<qp::MarketEvent>> by_day;
-    for (const auto& ev : events) by_day[day_key_for(ev.ts)].push_back(ev);
+    for (const auto& ev : events) by_day[day_key_for(qp::header_of(ev).ts)].push_back(ev);
 
     for (const auto& [day, day_events] : by_day) {
         qp::data_source::wire::ZstdCompressor compressor;

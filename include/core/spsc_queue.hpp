@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <atomic>
 #include <cstddef>
 #include <memory>
@@ -13,16 +14,33 @@ namespace qp {
 // under a threaded producer/consumer test). This is the seam between a feed
 // thread (WS I/O) and a consumer thread (parse/record) so a slow consumer
 // can never block the socket read.
-template <typename T, std::size_t Capacity>
+//
+// `UseHeap` — same pattern, same reasoning as SpmcRing's own UseHeap: a
+// one-time allocation (never resized) instead of inline storage, for a T
+// large enough that Capacity * sizeof(T) living directly in this object
+// isn't worth it. push()/pop() cost the same either way.
+template <typename T, std::size_t Capacity, bool UseHeap = false>
 class SpscQueue {
     static_assert(Capacity > 1, "Capacity must be greater than one");
     static_assert((Capacity & (Capacity - 1)) == 0, "Capacity must be a power of 2");
 
-    using storage_t                         = std::byte[sizeof(T)];
+    // A plain std::byte[sizeof(T)] only guarantees byte alignment when
+    // heap-allocated via new[] — not alignof(T). Wrapping it in an
+    // alignas(T) struct makes new[] (inside make_unique) honor that
+    // alignment too, not just the inline-array case (see SpmcRing's
+    // identical comment — same bug, same fix, caught there first).
+    struct alignas(T) storage_t {
+        std::byte data[sizeof(T)];
+    };
+
+    using Storage =
+        std::conditional_t<UseHeap, std::unique_ptr<storage_t[]>, std::array<storage_t, Capacity>>;
     static constexpr std::size_t INDEX_MASK = Capacity - 1;
 
    public:
-    SpscQueue() = default;
+    SpscQueue() {
+        if constexpr (UseHeap) storage_ = std::make_unique<storage_t[]>(Capacity);
+    }
 
     ~SpscQueue() {
         auto tail = tail_.load(std::memory_order_relaxed);
@@ -81,7 +99,7 @@ class SpscQueue {
     static constexpr std::size_t capacity() noexcept { return Capacity; }
 
    private:
-    alignas(alignof(T)) storage_t storage_[Capacity];
+    Storage storage_;
     // alignas(64): each index gets its own cache line so the producer
     // writing head_ never invalidates the consumer's cached line for
     // tail_ (and vice versa) — false sharing would otherwise serialize

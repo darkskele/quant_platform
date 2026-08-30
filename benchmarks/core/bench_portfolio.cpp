@@ -31,8 +31,7 @@ void BM_Portfolio_ApplyFunding(benchmark::State& state) {
     Portfolio portfolio;
     portfolio.apply_fill(
         Fill{.symbol = kSymbol, .side = Side::Buy, .venue = kVenue, .price = 100.0, .qty = 1.0});
-    MarketEvent event;
-    event.kind         = EventKind::Funding;
+    FundingEvent event;
     event.symbol       = kSymbol;
     event.venue        = kVenue;
     event.mark_price   = 100.0;
@@ -46,9 +45,8 @@ void BM_Portfolio_ApplyFunding(benchmark::State& state) {
 BENCHMARK(BM_Portfolio_ApplyFunding);
 
 void BM_Portfolio_ApplyMarkPrice(benchmark::State& state) {
-    Portfolio   portfolio;
-    MarketEvent event;
-    event.kind   = EventKind::Trade;
+    Portfolio  portfolio;
+    TradeEvent event;
     event.symbol = kSymbol;
     event.venue  = kVenue;
     event.price  = 100.0;
@@ -77,8 +75,7 @@ void BM_Portfolio_Equity(benchmark::State& state) {
     Portfolio portfolio;
     portfolio.apply_fill(
         Fill{.symbol = kSymbol, .side = Side::Buy, .venue = kVenue, .price = 100.0, .qty = 1.0});
-    MarketEvent mark;
-    mark.kind   = EventKind::Trade;
+    TradeEvent mark;
     mark.symbol = kSymbol;
     mark.venue  = kVenue;
     mark.price  = 105.0;

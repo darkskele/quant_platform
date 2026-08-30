@@ -67,9 +67,9 @@ class Engine {
         auto event = transport_.next();
         if (!event) return false;
 
-        clock_.advance(event->ts);
+        clock_.advance(header_of(*event).ts);
         exec_.on_market_event(*event);
-        if (event->kind == EventKind::Funding) state_.apply_funding(*event);
+        state_.apply_funding(*event);
         state_.apply_mark_price(*event);
 
         for (const auto& intent : strategy_.on_event(*event))

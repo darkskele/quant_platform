@@ -1,5 +1,6 @@
 #pragma once
 #include <span>
+#include <variant>
 
 #include "portfolio.hpp"
 #include "strategy.hpp"
@@ -35,13 +36,14 @@ class FundingCarryStrategy {
         : config_{config}, portfolio_{portfolio} {}
 
     std::span<const Intent> on_event(const MarketEvent& event) {
-        if (event.kind != EventKind::Funding || event.symbol != config_.symbol ||
-            event.venue != config_.futures_venue) {
+        const auto* funding = std::get_if<FundingEvent>(&event);
+        if (!funding || funding->symbol != config_.symbol ||
+            funding->venue != config_.futures_venue) {
             return {};
         }
 
-        Qty target = event.funding_rate >= config_.entry_funding_rate ? config_.target_qty
-                     : event.funding_rate <= config_.exit_funding_rate
+        Qty target = funding->funding_rate >= config_.entry_funding_rate ? config_.target_qty
+                     : funding->funding_rate <= config_.exit_funding_rate
                          ? 0.0
                          : portfolio_.position(config_.symbol, config_.spot_venue);
 

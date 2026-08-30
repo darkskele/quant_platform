@@ -2,6 +2,8 @@
 #include <array>
 #include <cassert>
 #include <concepts>
+#include <type_traits>
+#include <variant>
 
 #include "types.hpp"
 
@@ -32,37 +34,45 @@ class Portfolio {
         cash_ -= delta * fill.price + fill.fee;  // buying costs cash, fee always does
     }
 
-    /// `event.kind` must be `Funding`. Settles against
-    /// `position(event.symbol, event.venue)` as it stands right now — call
-    /// before letting a Strategy react to this same event, so a decision
-    /// made *because of* this rate can't also be charged the payment it
-    /// triggered.
+    /// A no-op unless `event` actually holds a FundingEvent. Settles
+    /// against `position(event.symbol, event.venue)` as it stands right
+    /// now — call before letting a Strategy react to this same event, so a
+    /// decision made *because of* this rate can't also be charged the
+    /// payment it triggered.
     void apply_funding(const MarketEvent& event) noexcept {
-        assert(event.symbol < kMaxSymbols);
-        assert(event.venue < kMaxVenues);
+        const auto* funding = std::get_if<FundingEvent>(&event);
+        if (!funding) return;
+        assert(funding->symbol < kMaxSymbols);
+        assert(funding->venue < kMaxVenues);
         // Positive funding_rate: longs pay shorts — a positive (long)
         // position debits cash, a negative (short) one credits it.
-        cash_ -=
-            positions_[index(event.symbol, event.venue)] * event.mark_price * event.funding_rate;
+        cash_ -= positions_[index(funding->symbol, funding->venue)] * funding->mark_price *
+                 funding->funding_rate;
     }
 
     /// Marks (symbol, venue) at whichever scalar price `event` actually
-    /// carries — Trade's `price` or Funding's `mark_price` (D46); BookDiff/
-    /// BookSnapshot have no single scalar price and are ignored. Feeds
-    /// equity(), which otherwise has no notion of unrealized PnL — cash()
-    /// alone reflects realized trading cash flow, not what a held position
-    /// is currently worth. Starts at 0 (unmarked) like positions_/cash_: a
-    /// position held before its first Trade/Funding event understates
-    /// equity() until one arrives, same "no never-touched-vs-zero
-    /// distinction" as the rest of this class.
+    /// carries — Trade's `price`, Funding's `mark_price`, or Kline's
+    /// `close` (D46); BookDiff/BookSnapshot have no single scalar price and
+    /// are ignored. Feeds equity(), which otherwise has no notion of
+    /// unrealized PnL — cash() alone reflects realized trading cash flow,
+    /// not what a held position is currently worth. Starts at 0 (unmarked)
+    /// like positions_/cash_: a position held before its first
+    /// Trade/Funding/Kline event understates equity() until one arrives,
+    /// same "no never-touched-vs-zero distinction" as the rest of this
+    /// class.
     void apply_mark_price(const MarketEvent& event) noexcept {
-        assert(event.symbol < kMaxSymbols);
-        assert(event.venue < kMaxVenues);
-        if (event.kind == EventKind::Trade) {
-            mark_price_[index(event.symbol, event.venue)] = event.price;
-        } else if (event.kind == EventKind::Funding) {
-            mark_price_[index(event.symbol, event.venue)] = event.mark_price;
-        }
+        std::visit(
+            [this](const auto& e) {
+                using E = std::decay_t<decltype(e)>;
+                if constexpr (std::is_same_v<E, TradeEvent>) {
+                    mark(e.symbol, e.venue, e.price);
+                } else if constexpr (std::is_same_v<E, FundingEvent>) {
+                    mark(e.symbol, e.venue, e.mark_price);
+                } else if constexpr (std::is_same_v<E, KlineEvent>) {
+                    mark(e.symbol, e.venue, e.close);
+                }
+            },
+            event);
     }
 
     /// No default for `venue` (D44, matching AlignmentRule/BinanceMarket's
@@ -95,6 +105,12 @@ class Portfolio {
    private:
     static constexpr std::size_t index(SymbolId symbol, VenueId venue) noexcept {
         return static_cast<std::size_t>(symbol) * kMaxVenues + venue;
+    }
+
+    void mark(SymbolId symbol, VenueId venue, Price price) noexcept {
+        assert(symbol < kMaxSymbols);
+        assert(venue < kMaxVenues);
+        mark_price_[index(symbol, venue)] = price;
     }
 
     std::array<Qty, kMaxSymbols * kMaxVenues>   positions_{};

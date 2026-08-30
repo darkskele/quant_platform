@@ -25,8 +25,7 @@ class FakeSource {
 
     std::optional<MarketEvent> next() {
         if (prices_.empty()) return std::nullopt;
-        MarketEvent ev;
-        ev.kind  = EventKind::Trade;
+        qp::TradeEvent ev;
         ev.price = prices_.front();
         prices_.pop_front();
         return ev;
@@ -63,12 +62,12 @@ TEST(RunDataSource, PairsEachSourceWithTheMatchingSinkAndStampsVenue) {
     runner.join();
 
     ASSERT_EQ(std::get<0>(sinks).recorded.size(), 1u);
-    EXPECT_EQ(std::get<0>(sinks).recorded[0].venue, 0);
-    EXPECT_DOUBLE_EQ(std::get<0>(sinks).recorded[0].price, 100.0);
+    EXPECT_EQ(qp::header_of(std::get<0>(sinks).recorded[0]).venue, 0);
+    EXPECT_DOUBLE_EQ(std::get<qp::TradeEvent>(std::get<0>(sinks).recorded[0]).price, 100.0);
 
     ASSERT_EQ(std::get<1>(sinks).recorded.size(), 1u);
-    EXPECT_EQ(std::get<1>(sinks).recorded[0].venue, 1);
-    EXPECT_DOUBLE_EQ(std::get<1>(sinks).recorded[0].price, 200.0);
+    EXPECT_EQ(qp::header_of(std::get<1>(sinks).recorded[0]).venue, 1);
+    EXPECT_DOUBLE_EQ(std::get<qp::TradeEvent>(std::get<1>(sinks).recorded[0]).price, 200.0);
 }
 
 TEST(RunDataSource, StopsPromptlyWhenRunningFlagClears) {

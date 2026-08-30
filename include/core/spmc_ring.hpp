@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <atomic>
 #include <bit>
 #include <chrono>
@@ -18,13 +19,31 @@ namespace qp {
 /// consumer backpressures the producer instead of data being dropped.
 /// Extends SpscQueue's construct_at/destroy_at slot discipline from one
 /// consumer cursor to NumConsumers independent ones.
-template <typename T, std::size_t Capacity, std::size_t NumConsumers>
+///
+/// `UseHeap` selects a one-time allocation (never resized) over inline
+/// storage — same pattern and same reasoning as ViewablePool's own
+/// `UseHeap`: a T sized to the widest MarketEvent alternative times a
+/// large Capacity adds up (Capacity * sizeof(T) sitting directly in this
+/// object, e.g. inline in whatever owns the ring), and push()/try_pop()
+/// cost the same either way — one extra pointer dereference to reach the
+/// backing array, hidden by cache since it's the same pointer every call.
+template <typename T, std::size_t Capacity, std::size_t NumConsumers, bool UseHeap = false>
 class SpmcRing {
     static_assert(Capacity > 1, "Capacity must be greater than one");
     static_assert(std::has_single_bit(Capacity), "Capacity must be a power of 2");
     static_assert(NumConsumers > 0, "at least one consumer");
 
-    using storage_t                         = std::byte[sizeof(T)];
+    // A plain std::byte[sizeof(T)] only guarantees byte alignment when
+    // heap-allocated via new[] — not alignof(T), which a MarketEvent
+    // variant (int64_t/double/shared_ptr members) needs. Wrapping it in an
+    // alignas(T) struct makes new[] (inside make_unique) honor that
+    // alignment too, not just the inline-array case.
+    struct alignas(T) storage_t {
+        std::byte data[sizeof(T)];
+    };
+
+    using Storage =
+        std::conditional_t<UseHeap, std::unique_ptr<storage_t[]>, std::array<storage_t, Capacity>>;
     static constexpr std::size_t INDEX_MASK = Capacity - 1;
 
     // Own cache line per cursor: the producer's gating scan and
@@ -35,7 +54,9 @@ class SpmcRing {
     };
 
    public:
-    SpmcRing() = default;
+    SpmcRing() {
+        if constexpr (UseHeap) storage_ = std::make_unique<storage_t[]>(Capacity);
+    }
 
     ~SpmcRing() {
         // [published_ - Capacity, published_) all hold live objects
@@ -155,7 +176,7 @@ class SpmcRing {
         }
     }
 
-    alignas(alignof(T)) storage_t storage_[Capacity];
+    Storage storage_;
     alignas(64) std::atomic<std::size_t> published_{0};  // producer-owned
     alignas(64) std::atomic<std::uint64_t> full_count_{0};
     Cursor cursors_[NumConsumers];

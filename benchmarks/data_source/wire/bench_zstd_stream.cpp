@@ -6,22 +6,23 @@
 #include "zstd_stream.hpp"
 
 using namespace qp;
+using qp::data_source::wire::write_event;
 using qp::data_source::wire::ZstdCompressor;
 using qp::data_source::wire::ZstdDecompressor;
-using qp::data_source::wire::write_event;
 
 namespace {
 
 // Same shape as bench_wire.cpp's "real book diff" — 16 bids, 8 asks, the
 // dominant record type in an actual recording.
 MarketEvent make_real_book_diff() {
-    MarketEvent ev;
-    ev.kind   = EventKind::BookDiff;
-    ev.symbol = 1;
-    ev.bids.resize(16);
-    ev.asks.resize(8);
-    for (std::size_t i = 0; i < 16; ++i) ev.bids[i] = {1000.0 + static_cast<double>(i), 1.0};
-    for (std::size_t i = 0; i < 8; ++i) ev.asks[i] = {2000.0 + static_cast<double>(i), 1.0};
+    BookDiffEvent ev;
+    ev.symbol   = 1;
+    auto levels = std::make_shared<BookLevels>();
+    levels->bids.resize(16);
+    levels->asks.resize(8);
+    for (std::size_t i = 0; i < 16; ++i) levels->bids[i] = {1000.0 + static_cast<double>(i), 1.0};
+    for (std::size_t i = 0; i < 8; ++i) levels->asks[i] = {2000.0 + static_cast<double>(i), 1.0};
+    ev.levels = std::move(levels);
     return ev;
 }
 

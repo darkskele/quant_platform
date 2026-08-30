@@ -5,6 +5,7 @@
 #include <span>
 #include <stdexcept>
 #include <utility>
+#include <variant>
 
 #include "wire.hpp"
 
@@ -82,8 +83,9 @@ std::optional<MarketEvent> FileReplaySource::next() {
     SymbolCursor* best = nullptr;
     for (auto& cursor : cursors_) {
         if (!cursor.pending) continue;
-        if (!best || cursor.pending->ts < best->pending->ts ||
-            (cursor.pending->ts == best->pending->ts && cursor.symbol < best->symbol)) {
+        auto cursor_ts = header_of(*cursor.pending).ts;
+        if (!best || cursor_ts < header_of(*best->pending).ts ||
+            (cursor_ts == header_of(*best->pending).ts && cursor.symbol < best->symbol)) {
             best = &cursor;
         }
     }
@@ -139,8 +141,8 @@ bool FileReplaySource::SymbolCursor::advance() {
             // SymbolId happens to be baked into the record bytes, rather
             // than trusting that the caller's symbol_names ordering here
             // matches whatever ordering was live at record time.
-            ev->symbol = symbol;
-            pending    = std::move(ev);
+            std::visit([this](auto& e) { e.symbol = symbol; }, *ev);
+            pending = std::move(ev);
             return true;
         }
 

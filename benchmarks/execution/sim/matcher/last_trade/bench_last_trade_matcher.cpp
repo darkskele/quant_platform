@@ -15,8 +15,7 @@ constexpr SymbolId kSymbol = 1;
 constexpr VenueId  kVenue  = 0;
 
 MarketEvent make_trade_event() {
-    MarketEvent ev;
-    ev.kind   = EventKind::Trade;
+    TradeEvent ev;
     ev.symbol = kSymbol;
     ev.venue  = kVenue;
     ev.price  = 100.0;

@@ -1,20 +1,29 @@
-# source/venue/binance/binance_historical — Binance Historical's Parser
-# (still a placeholder: carries the old live-WS parsing logic verbatim
-# pending its rewrite into an actual historical-data parser, see
-# docs/decisions.md) and its compile-time SymbolTable: a real, verified
-# 10-symbol universe (BTCUSDT etc., D13-style verified against live
-# Binance exchangeInfo + data.binance.vision, not assumed).
+# source/venue/binance/binance_historical — binance_historical's venue::
+# Parser: BinHistParserPolicy (field extraction/record-kind dispatch) +
+# BinHistSymbolTable (a real, verified 10-symbol universe, BTCUSDT etc.,
+# D13-style verified against live Binance exchangeInfo +
+# data.binance.vision, not assumed), bound together as BinHistVenue
+# (bin_hist_venue.hpp) — that alias is the only thing outside this
+# directory should ever name. Funding-entry parsing uses simdjson (already
+# a vcpkg.json dependency, not newly added); kline parsing isn't
+# implemented yet — see bin_hist_parser_policy.hpp's TODO, blocked on a
+# real MarketEvent::EventKind decision, not a missing detail.
 qp_dir(include QP_INC)
 qp_dir(tests QP_TESTS)
 qp_dir(benchmarks QP_BENCH)
 
+find_package(simdjson CONFIG REQUIRED)
+
 add_library(qp_source_venue_binance_historical INTERFACE)
 target_include_directories(qp_source_venue_binance_historical INTERFACE ${QP_INC})
-target_link_libraries(qp_source_venue_binance_historical INTERFACE qp_source_venue)
+target_link_libraries(qp_source_venue_binance_historical INTERFACE qp_source_venue simdjson::simdjson)
 
 if(BUILD_TESTING)
     find_package(GTest CONFIG REQUIRED)
-    add_executable(qp_source_venue_binance_historical_tests ${QP_TESTS}/test_bin_hist_symbol_table.cpp)
+    add_executable(qp_source_venue_binance_historical_tests
+        ${QP_TESTS}/test_bin_hist_symbol_table.cpp
+        ${QP_TESTS}/test_bin_hist_venue.cpp
+    )
     target_link_libraries(qp_source_venue_binance_historical_tests
         PRIVATE qp_source_venue_binance_historical GTest::gtest GTest::gtest_main
     )

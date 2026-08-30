@@ -6,6 +6,7 @@
 #include <thread>
 #include <tuple>
 #include <utility>
+#include <variant>
 
 #include "sink.hpp"
 #include "source.hpp"
@@ -27,7 +28,7 @@ bool poll_round(SourceTup& sources, SinkTup& sinks, std::index_sequence<Is...>) 
     bool any = false;
     (([&] {
          if (auto ev = std::get<Is>(sources).next()) {
-             ev->venue = static_cast<VenueId>(Is);
+             std::visit([](auto& e) { e.venue = static_cast<VenueId>(Is); }, *ev);
              std::get<Is>(sinks).record(std::move(*ev));
              any = true;
          }

@@ -1,6 +1,8 @@
 #pragma once
 #include <cstdint>
+#include <memory>
 #include <type_traits>
+#include <variant>
 #include <vector>
 
 namespace qp {
@@ -33,46 +35,125 @@ static_assert(sizeof(PriceLevel) == 16, "unexpected padding/size regression");
 /// the first event after a resync, immediately preceding the replayed
 /// diffs that are now guaranteed to apply cleanly on top of it. Without
 /// this, a recording has no independent baseline to reconstruct from — see
-/// docs/decisions.md.
-enum class EventKind : std::uint8_t { BookDiff, Trade, Funding, BookSnapshot };
+/// docs/decisions.md. Kline: an OHLCV bar — has a genuine live analog
+/// (Binance's <symbol>@kline_<interval> stream), so it's a real event
+/// kind, not squeezed into Trade at close price (D-TODO: log this as a
+/// decision — synthesizing a Trade wouldn't match what live actually
+/// sends, breaking the one-code-path-for-backtest-and-live principle
+/// worse than adding a kind does).
+enum class EventKind : std::uint8_t { BookDiff, Trade, Funding, BookSnapshot, Kline };
 
-/// The lingua franca. Plain data, no behavior, no venue-specifics.
-/// Kept as one struct (not a variant) so it serializes trivially to `wire`.
-/// Field order is alignment-driven, not logical (D32): kind/side/symbol
-/// grouped first — they're the only sub-8-byte fields — saves 16 bytes of
-/// padding (128 -> 112) versus declaration order. wire.hpp encodes
-/// field-by-field, not memcpy, so this doesn't touch the on-disk format.
-struct MarketEvent {
-    EventKind kind{};
-    Side      side{};   ///< Trade only.
-    VenueId   venue{};  ///< Stamped by FanoutSink::record<I>() (D43); 0 for single-venue paths
-                        ///< (collector, FileRecorder) that never disambiguate.
-    SymbolId      symbol{};
-    Timestamp     ts{};         ///< Exchange/event time.
-    std::uint64_t first_seq{};  ///< First seq in event (Binance's U); BookDiff only.
-    std::uint64_t seq{};        ///< Final update id (Binance's u); gap detection/resync.
-    std::uint64_t prev_seq{};   ///< Continues-from seq (pu); 0/unset if not applicable.
+/// One flat struct per event kind, not one struct with every kind's fields
+/// (the old design — every event paid for every other kind's unused
+/// fields, and it only got worse as kinds were added, see git history).
+/// Every kind's first four members are kind/venue/symbol/ts, in that
+/// order — not enforced by the type system (std::variant's storage layout
+/// is unspecified, unlike a raw union's blessed "common initial sequence"
+/// rule — reinterpret-casting across alternatives isn't safe here), but
+/// kept consistent by convention so header_of() below reads the same way
+/// regardless of which kind it's looking at.
+///
+/// Trade/Funding/Kline are plain data, no heap members, trivially
+/// copyable — cheap to move or copy regardless of consumer count.
+/// BookDiff/BookSnapshot hold their levels behind a shared_ptr instead of
+/// an inline vector — deliberately: those two are the only variable-length
+/// kinds (an inline vector would make every kind in the variant pay for
+/// the widest possible book-diff), and the shared_ptr lets N ring
+/// consumers share one already-parsed BookLevels for free (a plain copy
+/// on every consumer's pop would deep-copy the vector N times — see
+/// docs/decisions.md on why this is the one deliberate exception to
+/// "every event kind is a flat value type").
+struct TradeEvent {
+    EventKind kind = EventKind::Trade;
+    VenueId   venue{};
+    SymbolId  symbol{};
+    Timestamp ts{};
+    Side      side{};
+    Price     price{};
+    Qty       qty{};
+};
 
-    // Trade:
-    Price price{};
-    Qty   qty{};
+static_assert(std::is_trivially_copyable_v<TradeEvent>);
 
-    // Funding: both come off Binance's markPriceUpdate stream/event together
-    // (the same message carries both fields), not two separate events.
-    Price mark_price{};  ///< Binance's mark price — funding settles against this, not last trade.
-    double funding_rate{};
+/// Both fields come off Binance's markPriceUpdate stream/event together
+/// (the same message carries both), not two separate events.
+struct FundingEvent {
+    EventKind kind = EventKind::Funding;
+    VenueId   venue{};
+    SymbolId  symbol{};
+    Timestamp ts{};
+    Price     mark_price{};  ///< Funding settles against this, not last trade.
+    double    funding_rate{};
+};
 
-    // BookDiff:
+static_assert(std::is_trivially_copyable_v<FundingEvent>);
+
+struct KlineEvent {
+    EventKind kind = EventKind::Kline;
+    VenueId   venue{};
+    SymbolId  symbol{};
+    Timestamp ts{};  ///< Bar open time.
+    Timestamp close_time{};
+    Price     open{};
+    Price     high{};
+    Price     low{};
+    Price     close{};
+    Qty       volume{};
+};
+
+static_assert(std::is_trivially_copyable_v<KlineEvent>);
+
+/// BookDiff/BookSnapshot's actual levels — see the class comment above for
+/// why this sits behind a shared_ptr in both event structs instead of an
+/// inline vector.
+struct BookLevels {
     std::vector<PriceLevel> bids;
     std::vector<PriceLevel> asks;
 };
 
-static_assert(std::is_standard_layout_v<MarketEvent>);
-// Deliberately NOT trivially-copyable: bids/asks own std::vector. Queue/wire
-// code must move or explicitly serialize it, never memcpy it. If this ever
-// flips to true, something's wrong (or the container choice changed on
-// purpose — update this assert either way, don't just delete it).
-static_assert(!std::is_trivially_copyable_v<MarketEvent>);
+struct BookDiffEvent {
+    EventKind                         kind = EventKind::BookDiff;
+    VenueId                           venue{};
+    SymbolId                          symbol{};
+    Timestamp                         ts{};
+    std::uint64_t                     first_seq{};  ///< First seq in event (Binance's U).
+    std::uint64_t                     seq{};        ///< Final update id (Binance's u).
+    std::uint64_t                     prev_seq{};   ///< Continues-from seq (pu); 0 if n/a.
+    std::shared_ptr<const BookLevels> levels;
+};
+
+struct BookSnapshotEvent {
+    EventKind                         kind = EventKind::BookSnapshot;
+    VenueId                           venue{};
+    SymbolId                          symbol{};
+    Timestamp                         ts{};
+    std::shared_ptr<const BookLevels> levels;
+};
+
+/// The lingua franca — every event this system moves around, one of five
+/// kinds. Kept as the name `MarketEvent` (not renamed) since every
+/// consumer already reasons about "the event stream" under that name;
+/// what changed is that it's a variant now, not a flat struct.
+using MarketEvent =
+    std::variant<TradeEvent, FundingEvent, KlineEvent, BookDiffEvent, BookSnapshotEvent>;
+
+/// Just the fields every kind shares — kind/venue/symbol/ts — read via
+/// std::visit (a jump table, not a decode) since std::variant gives no
+/// safe way to peek a common prefix across alternatives the way a raw
+/// union would. This is what a multi-ring merge (e.g.
+/// BacktestInProcessTransport, ordering by ts) needs without caring which
+/// kind it's looking at.
+struct EventHeader {
+    EventKind kind{};
+    VenueId   venue{};
+    SymbolId  symbol{};
+    Timestamp ts{};
+};
+
+constexpr EventHeader header_of(const MarketEvent& event) {
+    return std::visit(
+        [](const auto& e) -> EventHeader { return {e.kind, e.venue, e.symbol, e.ts}; }, event);
+}
 
 using OrderId  = std::uint64_t;  ///< Caller-assigned; unique per submitted Order.
 using Notional = double;         ///< Quote-currency amount (fees, PnL).

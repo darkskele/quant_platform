@@ -4,15 +4,13 @@
 #include "sink.hpp"
 #include "types.hpp"
 
-using qp::EventKind;
 using qp::MarketEvent;
 using qp::data_source::sink::fanout::FanoutSink;
 
 namespace {
 
 MarketEvent trade(qp::Price price) {
-    MarketEvent ev;
-    ev.kind  = EventKind::Trade;
+    qp::TradeEvent ev;
     ev.price = price;
     return ev;
 }
@@ -27,5 +25,5 @@ TEST(FanoutSink, RecordPushesOntoTheRing) {
 
     auto event = sink.ring().try_pop(0);
     ASSERT_TRUE(event.has_value());
-    EXPECT_DOUBLE_EQ((*event)->price, 100.0);
+    EXPECT_DOUBLE_EQ(std::get<qp::TradeEvent>(*event).price, 100.0);
 }

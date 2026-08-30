@@ -14,20 +14,18 @@ using qp::engine::transport::BacktestInProcessTransport;
 
 namespace {
 
-using Ring = SpmcRing<std::shared_ptr<const MarketEvent>, 8, 1>;
+using Ring = SpmcRing<MarketEvent, 8, 1>;
 
 constexpr qp::Timestamp kSentinel = 999999;
 
 MarketEvent trade(qp::Timestamp ts, qp::SymbolId symbol) {
-    MarketEvent ev;
+    qp::TradeEvent ev;
     ev.ts     = ts;
     ev.symbol = symbol;
     return ev;
 }
 
-void push(Ring& r, qp::Timestamp ts, qp::SymbolId symbol) {
-    r.push(std::make_shared<const MarketEvent>(trade(ts, symbol)));
-}
+void push(Ring& r, qp::Timestamp ts, qp::SymbolId symbol) { r.push(trade(ts, symbol)); }
 
 // One ring, one consumer, never stopped — minimal ControlChannel every test needs.
 struct Harness {
@@ -52,7 +50,7 @@ TEST(BacktestInProcessTransport, OrdersByTimestampNotArrivalOrder) {
     for (qp::Timestamp expected : {100, 200, 300, 400}) {
         auto out = t.next();
         ASSERT_TRUE(out.has_value());
-        EXPECT_EQ(out->ts, expected);
+        EXPECT_EQ(header_of(*out).ts, expected);
     }
 }
 
@@ -68,7 +66,7 @@ TEST(BacktestInProcessTransport, WaitsUntilEveryLegHasSomethingBuffered) {
     push(b, 999, 2);
     auto out = t.next();
     ASSERT_TRUE(out.has_value());
-    EXPECT_EQ(out->ts, 50);
+    EXPECT_EQ(header_of(*out).ts, 50);
 }
 
 TEST(BacktestInProcessTransport, StallsRatherThanGuessingAnEmptyRingIsDone) {
@@ -94,7 +92,7 @@ TEST(BacktestInProcessTransport, TiesBreakToTheLowestRingIndex) {
 
     auto out = t.next();
     ASSERT_TRUE(out.has_value());
-    EXPECT_EQ(out->symbol, 1u);
+    EXPECT_EQ(header_of(*out).symbol, 1u);
 }
 
 TEST(BacktestInProcessTransport, InterleavesThreeLegsInTimestampOrder) {
@@ -115,7 +113,7 @@ TEST(BacktestInProcessTransport, InterleavesThreeLegsInTimestampOrder) {
     for (qp::Timestamp expected : {10, 20, 30, 40, 50, 60}) {
         auto out = t.next();
         ASSERT_TRUE(out.has_value());
-        EXPECT_EQ(out->ts, expected);
+        EXPECT_EQ(header_of(*out).ts, expected);
     }
 }
 
@@ -129,8 +127,8 @@ TEST(BacktestInProcessTransport, StopFlushesBufferedEventsInsteadOfStallingForev
     auto                                   idx = control.attach();
     BacktestInProcessTransport<Ring, 2, 1> t({&a, &b}, {0, 0}, control, idx);
 
-    EXPECT_EQ(t.next()->ts, 10);  // fills a=10,b=20 -> a's 10 wins
-    EXPECT_EQ(t.next()->ts,
+    EXPECT_EQ(header_of(*t.next()).ts, 10);  // fills a=10,b=20 -> a's 10 wins
+    EXPECT_EQ(header_of(*t.next()).ts,
               20);  // refills a=30 (its 2nd event); b's already-buffered 20 still wins
     EXPECT_FALSE(
         t.next().has_value());  // a's buffered 30 remains; b's ring empty -> stall, not stopped yet
@@ -147,7 +145,7 @@ TEST(BacktestInProcessTransport, StopFlushesBufferedEventsInsteadOfStallingForev
     EXPECT_FALSE(t.is_done());  // observed by next() below, not yet
     auto flushed = t.next();
     ASSERT_TRUE(flushed.has_value());
-    EXPECT_EQ(flushed->ts, 30);  // stopped -> flush a's buffered 30
+    EXPECT_EQ(header_of(*flushed).ts, 30);  // stopped -> flush a's buffered 30
     // b's lookahead was already empty going into this call (its ring drained earlier),
     // so returning a's last buffered value also leaves everything fully drained now.
     EXPECT_TRUE(t.is_done());

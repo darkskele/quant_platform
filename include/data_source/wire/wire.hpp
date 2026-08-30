@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <optional>
 #include <span>
 #include <type_traits>
@@ -11,33 +12,18 @@
 
 namespace qp::data_source::wire {
 
-// The on-disk record format for MarketEvent — the shared contract between
-// FileRecorder (write side) and FileReplaySource (read side). Both call
-// these same functions rather than maintaining two independent
-// implementations that have to be kept in sync by discipline (see
-// docs/decisions.md D12).
+// The on-disk/on-ring record format for MarketEvent — the shared contract
+// between whatever writes it (FileReplaySource's future historical-data
+// converter, FanoutSink's ring transport) and whatever reads it back. Both
+// call these same functions rather than maintaining independent
+// implementations kept in sync by discipline (D12).
 //
-// Fixed layout, written in this order:
-//   EventKind kind        (1 byte, EventKind's underlying type is uint8_t)
-//   int64_t   ts
-//   uint64_t  first_seq
-//   uint64_t  seq
-//   uint64_t  prev_seq
-//   uint32_t  symbol
-//   uint32_t  bid_count;  PriceLevel[bid_count]
-//   uint32_t  ask_count;  PriceLevel[ask_count]
-//   double    price
-//   double    qty
-//   Side      side        (1 byte, Side's underlying type is uint8_t)
-//   double    mark_price
-//   double    funding_rate
-//   VenueId   venue       (1 byte, D43)
-//
-// Every event carries every field regardless of kind (e.g. price/qty/side
-// on a BookDiff go unused) — a fixed, branch-free layout in exchange for a
-// few wasted bytes per record. Simpler than a tagged-union format; revisit
-// only if size actually matters (it won't for BookDiff, the dominant record
-// type — bids/asks dwarf the fixed portion).
+// Per-kind, not one fixed layout every kind pays for regardless of use
+// (the old design — see git history): a shared 15-byte header
+// (kind, venue, symbol, ts), followed by exactly that kind's own fields —
+// nothing else. A Trade record is small; a BookDiff record carries
+// whatever its actual level count is, not a fixed reservation for the
+// worst case.
 //
 // No endianness handling: this project only ever reads back what it itself
 // wrote, on the same little-endian architecture family (x86_64/ARM64 dev
@@ -85,46 +71,73 @@ bool read_fields(std::span<const std::byte>& in, Ts&... values) {
     return true;
 }
 
+// Bulk-writes a vector<PriceLevel> as a count followed by its raw bytes —
+// safe because PriceLevel is static_assert'd trivially copyable
+// (types.hpp).
+inline void append_levels(std::vector<std::byte>& out, const std::vector<PriceLevel>& levels) {
+    append_pod(out, static_cast<std::uint32_t>(levels.size()));
+    if (!levels.empty()) {
+        const auto* bytes = reinterpret_cast<const std::byte*>(levels.data());
+        out.insert(out.end(), bytes, bytes + levels.size() * sizeof(PriceLevel));
+    }
+}
+
 // Bulk-reads `count` PriceLevels directly into `out` (already sized) with
-// one memcpy rather than `count` individual read_pod calls — safe because
-// PriceLevel is static_assert'd trivially copyable (types.hpp). Returns
-// false, leaving `in` untouched, if there aren't enough bytes — this bound
-// check runs *before* any allocation-sizing decision the caller makes, so a
+// one memcpy rather than `count` individual read_pod calls. Returns false,
+// leaving `in` untouched, if there aren't enough bytes — this bound check
+// runs *before* any allocation-sizing decision the caller makes, so a
 // truncated or corrupted count can't drive an oversized resize().
 inline bool read_levels(std::span<const std::byte>& in, std::vector<PriceLevel>& out,
                         std::uint32_t count) {
     const std::size_t bytes_needed = static_cast<std::size_t>(count) * sizeof(PriceLevel);
     if (in.size() < bytes_needed) return false;
     out.resize(count);
-    // count == 0 (Trade/Funding events, whose bids/asks are always empty)
-    // leaves out.data()/in.data() potentially null — memcpy's arguments
-    // are declared never-null even at size 0, so skip the call entirely
-    // rather than pass a null pointer into it (UB, UBSan-caught).
+    // count == 0 leaves out.data()/in.data() potentially null — memcpy's
+    // arguments are declared never-null even at size 0, so skip the call
+    // entirely rather than pass a null pointer into it (UB, UBSan-caught).
     if (count > 0) std::memcpy(out.data(), in.data(), bytes_needed);
     in = in.subspan(bytes_needed);
     return true;
 }
 
+inline bool read_levels_pair(std::span<const std::byte>& in, std::vector<PriceLevel>& bids,
+                             std::vector<PriceLevel>& asks) {
+    std::uint32_t bid_count;
+    if (!read_pod(in, bid_count)) return false;
+    if (!read_levels(in, bids, bid_count)) return false;
+    std::uint32_t ask_count;
+    if (!read_pod(in, ask_count)) return false;
+    return read_levels(in, asks, ask_count);
+}
+
 }  // namespace detail
 
 inline void write_event(std::vector<std::byte>& out, const MarketEvent& event) {
-    detail::append_fields(out, event.kind, event.ts, event.first_seq, event.seq, event.prev_seq,
-                          event.symbol);
+    std::visit(
+        [&out](const auto& e) {
+            using E = std::decay_t<decltype(e)>;
+            detail::append_fields(out, e.kind, e.venue, e.symbol, e.ts);
 
-    detail::append_pod(out, static_cast<std::uint32_t>(event.bids.size()));
-    if (!event.bids.empty()) {
-        const auto* bytes = reinterpret_cast<const std::byte*>(event.bids.data());
-        out.insert(out.end(), bytes, bytes + event.bids.size() * sizeof(PriceLevel));
-    }
-
-    detail::append_pod(out, static_cast<std::uint32_t>(event.asks.size()));
-    if (!event.asks.empty()) {
-        const auto* bytes = reinterpret_cast<const std::byte*>(event.asks.data());
-        out.insert(out.end(), bytes, bytes + event.asks.size() * sizeof(PriceLevel));
-    }
-
-    detail::append_fields(out, event.price, event.qty, event.side, event.mark_price,
-                          event.funding_rate, event.venue);
+            if constexpr (std::is_same_v<E, TradeEvent>) {
+                detail::append_fields(out, e.side, e.price, e.qty);
+            } else if constexpr (std::is_same_v<E, FundingEvent>) {
+                detail::append_fields(out, e.mark_price, e.funding_rate);
+            } else if constexpr (std::is_same_v<E, KlineEvent>) {
+                detail::append_fields(out, e.close_time, e.open, e.high, e.low, e.close, e.volume);
+            } else if constexpr (std::is_same_v<E, BookDiffEvent>) {
+                detail::append_fields(out, e.first_seq, e.seq, e.prev_seq);
+                static const BookLevels kEmpty{};
+                const BookLevels&       levels = e.levels ? *e.levels : kEmpty;
+                detail::append_levels(out, levels.bids);
+                detail::append_levels(out, levels.asks);
+            } else if constexpr (std::is_same_v<E, BookSnapshotEvent>) {
+                static const BookLevels kEmpty{};
+                const BookLevels&       levels = e.levels ? *e.levels : kEmpty;
+                detail::append_levels(out, levels.bids);
+                detail::append_levels(out, levels.asks);
+            }
+        },
+        event);
 }
 
 // Returns nullopt if `in` doesn't hold one complete record — the deliberate
@@ -137,27 +150,90 @@ inline void write_event(std::vector<std::byte>& out, const MarketEvent& event) {
 inline std::optional<MarketEvent> read_event(std::span<const std::byte>& in) {
     std::span<const std::byte> cursor = in;
 
-    MarketEvent event;
-    if (!detail::read_fields(cursor, event.kind, event.ts, event.first_seq, event.seq,
-                             event.prev_seq, event.symbol)) {
-        return std::nullopt;
+    EventKind kind;
+    VenueId   venue;
+    SymbolId  symbol;
+    Timestamp ts;
+    if (!detail::read_fields(cursor, kind, venue, symbol, ts)) return std::nullopt;
+
+    switch (kind) {
+        case EventKind::Trade: {
+            Side  side;
+            Price price;
+            Qty   qty;
+            if (!detail::read_fields(cursor, side, price, qty)) return std::nullopt;
+            TradeEvent e;
+            e.venue  = venue;
+            e.symbol = symbol;
+            e.ts     = ts;
+            e.side   = side;
+            e.price  = price;
+            e.qty    = qty;
+            in       = cursor;
+            return e;
+        }
+        case EventKind::Funding: {
+            Price  mark_price;
+            double funding_rate;
+            if (!detail::read_fields(cursor, mark_price, funding_rate)) return std::nullopt;
+            FundingEvent e;
+            e.venue        = venue;
+            e.symbol       = symbol;
+            e.ts           = ts;
+            e.mark_price   = mark_price;
+            e.funding_rate = funding_rate;
+            in             = cursor;
+            return e;
+        }
+        case EventKind::Kline: {
+            Timestamp close_time;
+            Price     open, high, low, close;
+            Qty       volume;
+            if (!detail::read_fields(cursor, close_time, open, high, low, close, volume)) {
+                return std::nullopt;
+            }
+            KlineEvent e;
+            e.venue      = venue;
+            e.symbol     = symbol;
+            e.ts         = ts;
+            e.close_time = close_time;
+            e.open       = open;
+            e.high       = high;
+            e.low        = low;
+            e.close      = close;
+            e.volume     = volume;
+            in           = cursor;
+            return e;
+        }
+        case EventKind::BookDiff: {
+            std::uint64_t first_seq, seq, prev_seq;
+            if (!detail::read_fields(cursor, first_seq, seq, prev_seq)) return std::nullopt;
+            auto levels = std::make_shared<BookLevels>();
+            if (!detail::read_levels_pair(cursor, levels->bids, levels->asks)) return std::nullopt;
+            BookDiffEvent e;
+            e.venue     = venue;
+            e.symbol    = symbol;
+            e.ts        = ts;
+            e.first_seq = first_seq;
+            e.seq       = seq;
+            e.prev_seq  = prev_seq;
+            e.levels    = std::move(levels);
+            in          = cursor;
+            return e;
+        }
+        case EventKind::BookSnapshot: {
+            auto levels = std::make_shared<BookLevels>();
+            if (!detail::read_levels_pair(cursor, levels->bids, levels->asks)) return std::nullopt;
+            BookSnapshotEvent e;
+            e.venue  = venue;
+            e.symbol = symbol;
+            e.ts     = ts;
+            e.levels = std::move(levels);
+            in       = cursor;
+            return e;
+        }
     }
-
-    std::uint32_t bid_count;
-    if (!detail::read_pod(cursor, bid_count)) return std::nullopt;
-    if (!detail::read_levels(cursor, event.bids, bid_count)) return std::nullopt;
-
-    std::uint32_t ask_count;
-    if (!detail::read_pod(cursor, ask_count)) return std::nullopt;
-    if (!detail::read_levels(cursor, event.asks, ask_count)) return std::nullopt;
-
-    if (!detail::read_fields(cursor, event.price, event.qty, event.side, event.mark_price,
-                             event.funding_rate, event.venue)) {
-        return std::nullopt;
-    }
-
-    in = cursor;  // commit: a full record was read
-    return event;
+    return std::nullopt;
 }
 
 }  // namespace qp::data_source::wire

@@ -1,36 +1,15 @@
 #pragma once
 #include <array>
+#include <charconv>
 #include <concepts>
 #include <cstddef>
 #include <optional>
-#include <string>
+#include <span>
 #include <string_view>
-#include <vector>
 
 #include "types.hpp"
-#include "venue_types.hpp"
 
 namespace qp::data_source::source::venue {
-
-/// The minimal shape a Source needs from a venue's wire-protocol glue —
-/// exactly the 4 operations a WS/REST-driven source calls, nothing added
-/// for a venue that doesn't exist yet. Unchanged from its pre-restructure
-/// shape (formerly source/parser/parser.hpp) — still describes the old
-/// live-WS interface (SymbolTable& as a mutable intern-as-you-go
-/// out-param), since binance_historical's own parser hasn't been
-/// rewritten yet (still placeholder live-WS content pending its actual
-/// historical-data rewrite — see docs/decisions.md). Reconciling this
-/// with the SymbolTable concept below is part of that still-pending
-/// rewrite, not done here.
-template <class P>
-concept Parser = requires(const std::vector<std::string>& symbols, std::string_view msg,
-                          SymbolTable& table, MarketEvent& ev, std::string_view symbol_name,
-                          int limit, RestEndpoint endpoint, std::string_view body) {
-    { P::build_stream_path(symbols) } -> std::convertible_to<std::string>;
-    { P::parse_message(msg, table, ev) } -> std::convertible_to<bool>;
-    { P::depth_snapshot_url(symbol_name, limit, endpoint) } -> std::convertible_to<std::string>;
-    { P::parse_depth_snapshot(body) } -> std::same_as<std::optional<DepthSnapshot>>;
-};
 
 /// A venue's fixed, compile-time-declared symbol universe. id_of/name_of
 /// are ordinary constexpr, not consteval: both get called at genuine
@@ -140,6 +119,81 @@ class FixedSymbolTable {
     }
 
     static constexpr std::string_view name_of(SymbolId id) { return kSymbols.at(id).view(); }
+};
+
+/// Shared, venue-agnostic byte/text-parsing helpers — reusable by any
+/// *text*-based venue's Parser policy (CSV, JSON, whatever). Deliberately
+/// NOT reusable by a hypothetical binary venue (ITCH/FIX-FAST/SBE-style
+/// multicast feeds): "parse a float out of these bytes" means something
+/// different there — the bytes ARE the float (a fixed-width binary
+/// layout, often scaled-integer, not ASCII digits), not characters to
+/// interpret. A binary venue needs its own field-extraction utilities,
+/// not a variant of these; don't be tempted to generalize as_text/
+/// parse_decimal to cover both, that would just hide two different
+/// operations behind one name.
+namespace bytes {
+
+/// Free — a reinterpret_cast, not a copy. Every text-based venue's parser
+/// starts here: Source hands over raw bytes (the seam makes no assumption
+/// about text vs. binary), a text-format venue's Parser immediately
+/// reinterprets them as characters.
+inline std::string_view as_text(std::span<const std::byte> raw) {
+    return {reinterpret_cast<const char*>(raw.data()), raw.size()};
+}
+
+/// std::from_chars wrapper — locale-independent, no allocation, and (per
+/// the standard) doesn't require a null-terminated string the way
+/// std::stod does, so it works directly on a substring view without
+/// needing to copy it out first.
+inline std::optional<double> parse_decimal(std::string_view field) {
+    double value{};
+    auto [ptr, ec] = std::from_chars(field.data(), field.data() + field.size(), value);
+    if (ec != std::errc{} || ptr != field.data() + field.size()) return std::nullopt;
+    return value;
+}
+
+}  // namespace bytes
+
+/// The seam a Source depends on to turn raw bytes into a MarketEvent — one
+/// method, deliberately: Source's job ends at handing over a clean,
+/// self-describing view (I/O framing stripped, symbol attached however
+/// makes sense for that raw representation — see whichever venue's own
+/// _venue.hpp for the concrete convention); everything past that,
+/// including which *kind* of record this is (a venue may have several —
+/// binance_historical has klines and funding entries, for instance), is
+/// this seam's job, not Source's and not split across several methods on
+/// it. std::span<const std::byte>, not std::string_view: this seam makes
+/// no assumption that a venue's wire format is text (see bytes::as_text
+/// above) — every real venue in this codebase today happens to be text,
+/// but the seam itself doesn't bake that in.
+///
+/// Returned by value, not through an out-param: matches
+/// transport::BacktestInProcessTransport::next()'s existing shape in this
+/// codebase — std::optional<MarketEvent> by value costs at most a move
+/// (MarketEvent's only non-trivial members are two vectors; moving one is
+/// a pointer swap, not an element-wise copy), and the compiler elides even
+/// that in the straightforward single-return-path shape a real
+/// implementation has.
+template <class P>
+concept Parser = requires(std::span<const std::byte> raw) {
+    { P::parse(raw) } -> std::same_as<std::optional<MarketEvent>>;
+};
+
+/// The generic shell every venue's own <venue>_venue.hpp assembles into a
+/// concrete Parser: Policy supplies the venue-specific interpretation (a
+/// plain type with a `parse<Table>(raw)` member template — not itself
+/// templated on Table, so it stays testable/nameable independent of any
+/// one symbol table), Table supplies the symbol universe. This class's
+/// only job is binding the two together — no logic of its own. Named
+/// ComposedParser, not Parser: that name's already the concept above,
+/// and a class template can't share a name with a concept in the same
+/// namespace.
+template <class Policy, SymbolTable Table>
+class ComposedParser {
+   public:
+    static std::optional<MarketEvent> parse(std::span<const std::byte> raw) {
+        return Policy::template parse<Table>(raw);
+    }
 };
 
 }  // namespace qp::data_source::source::venue

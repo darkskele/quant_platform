@@ -79,14 +79,15 @@ class BacktestInProcessTransport {
         std::optional<std::size_t> earliest;
         for (std::size_t i = 0; i < N; ++i) {
             if (!lookahead_[i]) {
-                if (auto ptr = rings_[i]->try_pop(consumers_[i]))
-                    lookahead_[i] = **ptr;
+                if (auto popped = rings_[i]->try_pop(consumers_[i]))
+                    lookahead_[i] = std::move(*popped);
                 else {
                     any_missing = true;
                     continue;
                 }
             }
-            if (!earliest || lookahead_[i]->ts < lookahead_[*earliest]->ts) earliest = i;
+            if (!earliest || header_of(*lookahead_[i]).ts < header_of(*lookahead_[*earliest]).ts)
+                earliest = i;
         }
 
         // Still running and some leg has nothing buffered: can't safely

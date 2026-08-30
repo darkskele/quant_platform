@@ -55,10 +55,16 @@ BENCHMARK(BM_Spmc_TryPopInt);
 // Tandem: single-threaded push-then-try_pop round trip, one consumer,
 // always caught up before the next push — never enters the gating wait, so
 // this is the per-operation overhead floor (min_cursor scan + atomics +
-// construction), same shape as SpscQueue's BM_Spsc_PushPopInt.
+// construction), same shape as SpscQueue's BM_Spsc_PushPopInt. Templated
+// on UseHeap, both instantiated below, to actually measure the "costs the
+// same either way" claim in SpmcRing's own UseHeap doc comment instead of
+// just asserting it — one extra pointer dereference to reach the backing
+// array should be lost in the noise next to atomics + construction, but
+// "should be" isn't "measured".
+template <bool UseHeap>
 void BM_Spmc_PushTryPopInt(benchmark::State& state) {
-    qp::SpmcRing<int, 1024, 1> ring;
-    int                        i = 0;
+    qp::SpmcRing<int, 1024, 1, UseHeap> ring;
+    int                                 i = 0;
     for (auto _ : state) {
         ring.push(i);
         auto v = ring.try_pop(0);
@@ -67,27 +73,39 @@ void BM_Spmc_PushTryPopInt(benchmark::State& state) {
     }
 }
 
-BENCHMARK(BM_Spmc_PushTryPopInt);
+BENCHMARK(BM_Spmc_PushTryPopInt<false>);
+BENCHMARK(BM_Spmc_PushTryPopInt<true>);
 
-// The real production shape: shared_ptr<const MarketEvent>. One allocation
-// per push (make_shared); try_pop's copy is a refcount bump, not a
-// MarketEvent copy — this is the cost that motivated the design.
-void BM_Spmc_PushTryPopSharedMarketEvent(benchmark::State& state) {
-    qp::SpmcRing<std::shared_ptr<const qp::MarketEvent>, 1024, 1> ring;
+// The real production shape (FanoutSink's Ring): MarketEvent directly, no
+// shared_ptr — push() move-constructs into the slot (no allocation for
+// this seed, a BookDiffEvent, since its levels already live behind their
+// own internal shared_ptr<const BookLevels>, core/types.hpp); try_pop's
+// copy is a refcount bump on that shared_ptr, not a deep copy of the price
+// levels. Templated on UseHeap for the same reason as BM_Spmc_PushTryPopInt
+// above, but at MarketEvent's actual width (unlike int, where a heap vs.
+// inline difference — if any — would be easiest to see): UseHeap=true is
+// what FanoutSink's own ring actually uses (Capacity * sizeof(MarketEvent)
+// not worth living inline — see fanout_sink.hpp), UseHeap=false is the
+// comparison point.
+template <bool UseHeap>
+void BM_Spmc_PushTryPopMarketEvent(benchmark::State& state) {
+    qp::SpmcRing<qp::MarketEvent, 1024, 1, UseHeap> ring;
 
-    qp::MarketEvent seed;
-    seed.kind = qp::EventKind::BookDiff;
-    seed.bids = {{100.00, 1.0}, {99.50, 2.0}, {99.00, 0.5}};
-    seed.asks = {{100.50, 1.5}, {101.00, 0.75}};
+    qp::BookDiffEvent seed;
+    seed.levels = std::make_shared<const qp::BookLevels>(qp::BookLevels{
+        {{100.00, 1.0}, {99.50, 2.0}, {99.00, 0.5}},
+        {{100.50, 1.5}, {101.00, 0.75}},
+    });
 
     for (auto _ : state) {
-        ring.push(std::make_shared<const qp::MarketEvent>(seed));
+        ring.push(qp::MarketEvent{seed});
         auto v = ring.try_pop(0);
         benchmark::DoNotOptimize(v);
     }
 }
 
-BENCHMARK(BM_Spmc_PushTryPopSharedMarketEvent);
+BENCHMARK(BM_Spmc_PushTryPopMarketEvent<false>);
+BENCHMARK(BM_Spmc_PushTryPopMarketEvent<true>);
 
 // min_cursor()'s gating scan is O(NumConsumers) per push — this measures
 // how that cost actually scales as more engines subscribe. Every consumer

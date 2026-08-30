@@ -82,7 +82,8 @@ void record_batch(const std::filesystem::path& dir, const std::vector<std::strin
     write_symbols_manifest(dir, symbol_names);
 
     std::map<std::pair<SymbolId, DayKey>, std::vector<MarketEvent>> by_symbol_day;
-    for (const auto& ev : events) by_symbol_day[{ev.symbol, day_key_for(ev.ts)}].push_back(ev);
+    for (const auto& ev : events)
+        by_symbol_day[{qp::header_of(ev).symbol, day_key_for(qp::header_of(ev).ts)}].push_back(ev);
 
     for (const auto& [key, group] : by_symbol_day) {
         const auto& [symbol, day] = key;
@@ -108,9 +109,9 @@ TEST(FileReplaySource, ReplaysSingleSymbolSingleSegmentInOrder) {
     auto             events = drain(source);
 
     ASSERT_EQ(events.size(), 3u);
-    EXPECT_EQ(events[0].ts, kBaseTs + 100);
-    EXPECT_EQ(events[1].ts, kBaseTs + 200);
-    EXPECT_EQ(events[2].ts, kBaseTs + 300);
+    EXPECT_EQ(qp::header_of(events[0]).ts, kBaseTs + 100);
+    EXPECT_EQ(qp::header_of(events[1]).ts, kBaseTs + 200);
+    EXPECT_EQ(qp::header_of(events[2]).ts, kBaseTs + 300);
 }
 
 TEST(FileReplaySource, MergesMultipleSymbolsByTimestamp) {
@@ -124,7 +125,7 @@ TEST(FileReplaySource, MergesMultipleSymbolsByTimestamp) {
 
     ASSERT_EQ(events.size(), 4u);
     std::vector<std::pair<std::int64_t, SymbolId>> got;
-    for (auto& ev : events) got.emplace_back(ev.ts, ev.symbol);
+    for (auto& ev : events) got.emplace_back(qp::header_of(ev).ts, qp::header_of(ev).symbol);
     EXPECT_EQ(got,
               (std::vector<std::pair<std::int64_t, SymbolId>>{
                   {kBaseTs + 100, 0}, {kBaseTs + 200, 1}, {kBaseTs + 300, 1}, {kBaseTs + 400, 0}}));
@@ -141,8 +142,8 @@ TEST(FileReplaySource, BreaksTiesBySymbolIdWhenTimestampsMatch) {
     auto             events = drain(source);
 
     ASSERT_EQ(events.size(), 2u);
-    EXPECT_EQ(events[0].symbol, 0u);
-    EXPECT_EQ(events[1].symbol, 1u);
+    EXPECT_EQ(qp::header_of(events[0]).symbol, 0u);
+    EXPECT_EQ(qp::header_of(events[1]).symbol, 1u);
 }
 
 TEST(FileReplaySource, WantedFilterPreservesManifestSymbolIdNotRenumbered) {
@@ -156,7 +157,7 @@ TEST(FileReplaySource, WantedFilterPreservesManifestSymbolIdNotRenumbered) {
     auto             events = drain(source);
 
     ASSERT_EQ(events.size(), 1u);
-    EXPECT_EQ(events[0].symbol, 1u);
+    EXPECT_EQ(qp::header_of(events[0]).symbol, 1u);
 }
 
 TEST(FileReplaySource, ThrowsWhenWantedSymbolIsNotInManifest) {
@@ -185,9 +186,9 @@ TEST(FileReplaySource, ReadsAcrossMultipleSegmentsInOrder) {
     auto             events = drain(source);
 
     ASSERT_EQ(events.size(), 3u);
-    EXPECT_EQ(events[0].ts, kBaseTs + 100);
-    EXPECT_EQ(events[1].ts, kBaseTs + 200);
-    EXPECT_EQ(events[2].ts, kBaseTs + 300);
+    EXPECT_EQ(qp::header_of(events[0]).ts, kBaseTs + 100);
+    EXPECT_EQ(qp::header_of(events[1]).ts, kBaseTs + 200);
+    EXPECT_EQ(qp::header_of(events[2]).ts, kBaseTs + 300);
 }
 
 TEST(FileReplaySource, ReadsAcrossMultipleDaysWithinRange) {
@@ -199,8 +200,8 @@ TEST(FileReplaySource, ReadsAcrossMultipleDaysWithinRange) {
     auto             events = drain(source);
 
     ASSERT_EQ(events.size(), 2u);
-    EXPECT_EQ(events[0].ts, kBaseTs);
-    EXPECT_EQ(events[1].ts, kBaseTs + kNanosPerDay);
+    EXPECT_EQ(qp::header_of(events[0]).ts, kBaseTs);
+    EXPECT_EQ(qp::header_of(events[1]).ts, kBaseTs + kNanosPerDay);
 }
 
 TEST(FileReplaySource, DaysOutsideTheRequestedRangeAreExcluded) {
@@ -213,7 +214,7 @@ TEST(FileReplaySource, DaysOutsideTheRequestedRangeAreExcluded) {
     auto             events = drain(source);
 
     ASSERT_EQ(events.size(), 1u);
-    EXPECT_EQ(events[0].ts, kBaseTs);
+    EXPECT_EQ(qp::header_of(events[0]).ts, kBaseTs);
 }
 
 TEST(FileReplaySource, SymbolWithNoRecordedDataYieldsNothingButDoesNotFail) {
@@ -226,7 +227,7 @@ TEST(FileReplaySource, SymbolWithNoRecordedDataYieldsNothingButDoesNotFail) {
     auto             events = drain(source);
 
     ASSERT_EQ(events.size(), 1u);
-    EXPECT_EQ(events[0].symbol, 0u);
+    EXPECT_EQ(qp::header_of(events[0]).symbol, 0u);
 }
 
 TEST(FileReplaySource, HandlesManyEventsSpanningMultipleInternalReadChunks) {
@@ -246,5 +247,6 @@ TEST(FileReplaySource, HandlesManyEventsSpanningMultipleInternalReadChunks) {
     auto             events = drain(source);
 
     ASSERT_EQ(events.size(), written.size());
-    for (std::size_t i = 0; i < events.size(); ++i) EXPECT_EQ(events[i].ts, written[i].ts);
+    for (std::size_t i = 0; i < events.size(); ++i)
+        EXPECT_EQ(qp::header_of(events[i]).ts, qp::header_of(written[i]).ts);
 }
