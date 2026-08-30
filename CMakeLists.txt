@@ -119,6 +119,7 @@ if(QP_BUILD_BENCHMARKS)
         benchmarks/data_source/source/bench_venue_types.cpp
         benchmarks/data_source/source/bench_file_replay_source.cpp
         benchmarks/data_source/source/venue/binance/binance_historical/bench_bin_hist_symbol_table.cpp
+        benchmarks/data_source/source/venue/binance/binance_historical/bench_bin_hist_parser_policy.cpp
         benchmarks/data_source/wire/bench_wire.cpp
         benchmarks/data_source/wire/bench_zstd_stream.cpp
         benchmarks/data_source/wire/bench_partition.cpp

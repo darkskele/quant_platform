@@ -31,7 +31,10 @@ if(BUILD_TESTING)
 endif()
 
 if(QP_BUILD_BENCHMARKS)
-    add_executable(qp_source_venue_binance_historical_bench ${QP_BENCH}/bench_bin_hist_symbol_table.cpp)
+    add_executable(qp_source_venue_binance_historical_bench
+        ${QP_BENCH}/bench_bin_hist_symbol_table.cpp
+        ${QP_BENCH}/bench_bin_hist_parser_policy.cpp
+    )
     target_link_libraries(qp_source_venue_binance_historical_bench
         PRIVATE qp_source_venue_binance_historical benchmark::benchmark_main
     )
