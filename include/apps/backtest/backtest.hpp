@@ -1,25 +1,23 @@
 #pragma once
-#include <filesystem>
 #include <optional>
-#include <string>
 
 #include "basic_risk_gate.hpp"
 #include "funding_carry_strategy.hpp"
-#include "partition.hpp"
 #include "types.hpp"
 
 namespace qp::backtest {
 
-/// Root layout matches the collector's own D41 convention:
-/// data_dir/futures/, data_dir/spot/, each independently written by
-/// FileRecorder (own symbols.manifest). `carry`'s symbol/spot_venue/
-/// futures_venue are filled in by run() (D48) — only the runtime-swept
-/// threshold/size fields are meant to be set here.
+/// Deliberately just the runtime-swept knobs — which symbol, which data,
+/// and which Source/Sink/Matcher/RiskGate/Strategy types are all decided
+/// at build time (config::kSymbol/kDataDir/kFirstDay/kLastDay, D5x), not
+/// here: this binary trades exactly one pre-decided instrument against
+/// exactly one pre-decided dataset, so there's no runtime flag for either.
+/// `carry`'s symbol/spot_venue/futures_venue are filled in by run() (D48)
+/// — only the runtime-swept threshold/size fields are meant to be set here.
+/// This is also the shape a future pybind11 wrapper wants (see apps/
+/// backtest's own design notes): a Python-side optimizer sweeps `carry`/
+/// `risk`, never rebuilds the extension module to change them.
 struct Config {
-    std::filesystem::path            data_dir;
-    std::string                      symbol;
-    data_source::wire::DayKey        first_day{};
-    data_source::wire::DayKey        last_day{};
     strategy::carry::Config          carry{};
     risk::basic::BasicRiskGateConfig risk{};
 };
@@ -41,18 +39,16 @@ struct Results {
     Qty      final_futures_position{};
 };
 
-/// Replays data_dir/futures + data_dir/spot (filtered to config.symbol on
-/// both legs) to completion, through the same mechanism a live composition
-/// uses (D3): each leg's FileReplaySource feeds its own FanoutSink, both
-/// driven by a driver thread exactly like run_data_source's; Engine
-/// consumes both legs merged in timestamp order via
-/// BacktestInProcessTransport. A ControlChannel coordinates the driver
+/// Replays config::kDataDir's futures + spot files for config::kSymbol
+/// over [config::kFirstDay, config::kLastDay] to completion, through the
+/// same mechanism a live composition uses (D3): each leg's config::Source
+/// feeds its own config::Sink, both driven by a driver thread exactly like
+/// run_data_source's; Engine consumes both legs merged in timestamp order
+/// via BacktestInProcessTransport. A ControlChannel coordinates the driver
 /// thread's "both legs exhausted" signal with Engine's own driving loop —
 /// Engine only exposes step(), so run() drives it directly against that
 /// signal plus a grace window (TODO in backtest.cpp: placeholder pending
 /// an app-level DataSource-liveness coordinator, see engine.hpp).
-/// @throws std::runtime_error on a missing/mismatched symbols.manifest
-///     (D48) — a config problem, not a normal "no data" case.
 Results run(const Config& config);
 
 }  // namespace qp::backtest

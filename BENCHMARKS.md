@@ -2,46 +2,53 @@
 
 | Benchmark | Baseline | Current | Δ Time | Baseline CPU | Current CPU | Δ CPU |
 | --- | --- | --- | --- | --- | --- | --- |
-| BM_Mpsc_PushPopContended<8>/threads:9 | 132.48 ns | 199.20 ns | +50.4% | 1,172.59 ns | 1,730.85 ns | +47.6% |
-| BM_RoundRobinPool_WorkTaskSolo | 63.39 ns | 91.24 ns | +43.9% | 62.86 ns | 91.29 ns | +45.2% |
-| BM_RoundRobinPool_OneTaskOneWorker | 167.73 ns | 234.57 ns | +39.8% | 166.44 ns | 234.37 ns | +40.8% |
-| BM_ZstdStream_RoundTrip | 27,806.50 ns | 37,882.64 ns | +36.2% | 27,658.49 ns | 37,718.04 ns | +36.4% |
-| BM_Partition_SegmentPath | 601.29 ns | 752.21 ns | +25.1% | 596.87 ns | 750.85 ns | +25.8% |
-| BM_RoundRobinPool_FourTasksOneWorker | 253.05 ns | 305.86 ns | +20.9% | 251.07 ns | 305.72 ns | +21.8% |
-| BM_SymbolTable_InternNew | 839.52 ns | 1,002.15 ns | +19.4% | 857.31 ns | 1,005.30 ns | +17.3% |
-| BM_Partition_ListSegments | 10,713.67 ns | 12,355.28 ns | +15.3% | 10,633.09 ns | 12,338.20 ns | +16.0% |
-| BM_Partition_FormatDay | 147.43 ns | 168.39 ns | +14.2% | 146.39 ns | 168.02 ns | +14.8% |
-| BM_Wire_RoundTripRealBookDiff | 174.13 ns | 196.53 ns | +12.9% | 173.73 ns | 197.11 ns | +13.5% |
-| BM_RoundRobinPool_FourWorkTasksOneWorker | 667.98 ns | 746.18 ns | +11.7% | 664.42 ns | 746.83 ns | +12.4% |
-| BM_RoundRobinPool_FourTasksFourWorkers | 562.24 ns | 619.70 ns | +10.2% | 557.58 ns | 619.62 ns | +11.1% |
-| BM_BinHistParser_RejectsUnknownSymbolKline | 53.04 ns | 58.38 ns | +10.1% | 53.06 ns | 58.55 ns | +10.3% |
-| BM_RoundRobinPool_WorkTaskOneWorker | 349.66 ns | 384.66 ns | +10.0% | 346.67 ns | 384.87 ns | +11.0% |
-| BM_ZstdCompressor_Compress | 158.56 ns | 173.82 ns | +9.6% | 158.09 ns | 172.92 ns | +9.4% |
-| BM_Wire_ReadRealBookDiff | 92.52 ns | 99.73 ns | +7.8% | 92.37 ns | 100.02 ns | +8.3% |
-| BM_FileReplaySource_MultiSymbolMerge | 3,567,790.45 ns | 3,832,970.28 ns | +7.4% | 3,603,407.41 ns | 3,842,894.97 ns | +6.6% |
-| BM_FileReplaySource_SingleSymbolTrades | 2,885,553.75 ns | 3,092,961.49 ns | +7.2% | 2,923,761.98 ns | 3,100,741.63 ns | +6.1% |
-| BM_BasicRiskGate_OnTickNoDrawdown | 386.32 ns | 413.61 ns | +7.1% | 386.65 ns | 414.79 ns | +7.3% |
-| BM_FileReplaySource_SingleSymbolBookDiffs | 7,013,474.47 ns | 7,448,660.30 ns | +6.2% | 7,130,250.87 ns | 7,466,544.61 ns | +4.7% |
-| BM_RoundRobinPool_FourWorkTasksNoPool | 237.56 ns | 252.22 ns | +6.2% | 236.34 ns | 252.56 ns | +6.9% |
-| BM_BacktestInProcessTransport_NRings<16> | 1,920.61 ns | 2,036.27 ns | +6.0% | 1,949.45 ns | 2,041.64 ns | +4.7% |
-| BM_ZstdDecompressor_Decompress | 2,504.69 ns | 2,639.01 ns | +5.4% | 2,492.52 ns | 2,626.30 ns | +5.4% |
-| BM_Wire_WriteFullDepthSnapshot | 1,021.88 ns | 1,076.15 ns | +5.3% | 1,019.30 ns | 1,065.80 ns | +4.6% |
-| BM_ZstdCompressor_Finish | 24,942.97 ns | 26,260.87 ns | +5.3% | 24,829.03 ns | 26,113.58 ns | +5.2% |
-| BM_Wire_ReadFullDepthSnapshot | 1,568.53 ns | 1,649.48 ns | +5.2% | 1,563.37 ns | 1,635.60 ns | +4.6% |
-| BM_Wire_RoundTripFullDepthSnapshot | 2,761.46 ns | 2,900.58 ns | +5.0% | 2,751.22 ns | 2,878.69 ns | +4.6% |
-| BM_SymbolTable_InternExisting | 55.78 ns | 58.58 ns | +5.0% | 56.66 ns | 58.71 ns | +3.6% |
-| BM_BacktestInProcessTransport_NRings<2> | 133.39 ns | 139.48 ns | +4.6% | 132.66 ns | 139.77 ns | +5.4% |
-| BM_Mpsc_PushPopContended<4>/threads:5 | 136.82 ns | 124.46 ns | -9.0% | 673.00 ns | 618.37 ns | -8.1% |
-| BM_Mpsc_PushPopContended<1>/threads:2 | 41.63 ns | 37.53 ns | -9.9% | 81.96 ns | 74.56 ns | -9.0% |
-| BM_Spmc_PushAllConsumersCaughtUp<8> | 76.87 ns | 68.27 ns | -11.2% | 74.45 ns | 68.47 ns | -8.0% |
-| BM_Spsc_PushPopContended/threads:2 | 25.58 ns | 21.68 ns | -15.3% | 50.86 ns | 43.47 ns | -14.5% |
-| BM_Spmc_PushTryPopContended<4>/threads:5 | 36.70 ns | 30.66 ns | -16.5% | 175.10 ns | 153.10 ns | -12.6% |
-| BM_Spsc_PushPopInt<true> | 10.25 ns | 8.56 ns | -16.5% | 10.19 ns | 8.58 ns | -15.9% |
-| BM_Spsc_PushPopMarketEvent<true> | 10.07 ns | 8.38 ns | -16.7% | 10.01 ns | 8.41 ns | -16.0% |
-| BM_Spmc_PushTryPopContended<1>/threads:2 | 34.46 ns | 27.36 ns | -20.6% | 65.59 ns | 54.03 ns | -17.6% |
-| BM_RunDataSource_OnePair | 587.72 ns | 463.06 ns | -21.2% | 585.45 ns | 461.21 ns | -21.2% |
-| BM_BinHistParser_ParsesFunding | 398.85 ns | 202.77 ns | -49.2% | 400.05 ns | 203.33 ns | -49.2% |
-| BM_Spmc_PushTryPopContended<8>/threads:9 | 214.30 ns | 30.38 ns | -85.8% | 1,529.44 ns | 269.15 ns | -82.4% |
-| BM_BinHistParser_RejectsUnknownSymbolFunding | 297.17 ns | 9.60 ns | -96.8% | 297.21 ns | 9.63 ns | -96.8% |
+| BM_Spsc_PushPopContended/threads:2 | 21.68 ns | 35.83 ns | +65.3% | 43.47 ns | 70.73 ns | +62.7% |
+| BM_Spmc_PushTryPopContended<1>/threads:2 | 27.36 ns | 37.51 ns | +37.1% | 54.03 ns | 74.02 ns | +37.0% |
+| BM_Mpsc_PushPopContended<1>/threads:2 | 37.53 ns | 49.68 ns | +32.4% | 74.56 ns | 100.06 ns | +34.2% |
+| BM_BacktestInProcessTransport_NRings<2> | 139.48 ns | 131.49 ns | -5.7% | 139.77 ns | 133.49 ns | -4.5% |
+| BM_BacktestInProcessTransport_NRings<16> | 2,036.27 ns | 1,912.76 ns | -6.1% | 2,041.64 ns | 1,942.20 ns | -4.9% |
+| BM_FanoutSink_RecordContended<1>/threads:2 | 59.60 ns | 55.53 ns | -6.8% | 116.67 ns | 111.81 ns | -4.2% |
+| BM_BacktestInProcessTransport_NRings<4> | 311.97 ns | 279.86 ns | -10.3% | 312.70 ns | 284.09 ns | -9.1% |
+| BM_RunDataSource_FourPairs | 450.26 ns | 374.05 ns | -16.9% | 448.74 ns | 377.71 ns | -15.8% |
+| BM_Spmc_PushTryPopContended<4>/threads:5 | 30.66 ns | 25.38 ns | -17.2% | 153.10 ns | 126.77 ns | -17.2% |
+| BM_Spmc_PushTryPopInt<false> | 9.30 ns | 7.69 ns | -17.3% | 9.32 ns | 7.65 ns | -17.9% |
+| BM_Spmc_TryPopInt | 8.74 ns | 7.22 ns | -17.4% | 8.78 ns | 7.17 ns | -18.3% |
+| BM_Spmc_PushTryPopMarketEvent<false> | 52.15 ns | 42.96 ns | -17.6% | 52.29 ns | 42.89 ns | -18.0% |
+| BM_Spsc_PushPopInt<false> | 8.87 ns | 7.26 ns | -18.2% | 8.89 ns | 7.09 ns | -20.2% |
+| BM_Spmc_PushTryPopInt<true> | 8.93 ns | 7.29 ns | -18.3% | 8.96 ns | 7.27 ns | -18.8% |
+| BM_Spmc_PushAllConsumersCaughtUp<1> | 9.09 ns | 7.39 ns | -18.7% | 9.11 ns | 7.40 ns | -18.8% |
+| BM_Spsc_PopInt | 8.51 ns | 6.90 ns | -19.0% | 8.54 ns | 6.73 ns | -21.2% |
+| BM_Spmc_PushAllConsumersCaughtUp<4> | 33.78 ns | 27.34 ns | -19.1% | 33.88 ns | 27.39 ns | -19.1% |
+| BM_Spmc_PushTryPopMarketEvent<true> | 53.18 ns | 42.28 ns | -20.5% | 53.33 ns | 42.25 ns | -20.8% |
+| BM_ControlChannel_Poll | 63.80 ns | 49.92 ns | -21.7% | 64.16 ns | 50.44 ns | -21.4% |
+| BM_FanoutSink_RecordContended<4>/threads:5 | 45.19 ns | 35.28 ns | -21.9% | 223.92 ns | 176.18 ns | -21.3% |
+| BM_Spsc_PushPopMarketEvent<true> | 8.38 ns | 6.54 ns | -22.0% | 8.41 ns | 6.45 ns | -23.2% |
+| BM_Spmc_PushAllConsumersCaughtUp<8> | 68.27 ns | 53.11 ns | -22.2% | 68.47 ns | 53.26 ns | -22.2% |
+| BM_Mpsc_PushInt | 15.64 ns | 12.16 ns | -22.2% | 15.69 ns | 12.23 ns | -22.1% |
+| BM_BinHistSymbolTable_IdOfUnknown | 11.18 ns | 8.64 ns | -22.7% | 11.21 ns | 8.75 ns | -22.0% |
+| BM_RunDataSource_OnePair | 463.06 ns | 351.63 ns | -24.1% | 461.21 ns | 355.08 ns | -23.0% |
+| BM_Mpsc_TryPopInt | 9.78 ns | 7.41 ns | -24.2% | 9.72 ns | 7.45 ns | -23.4% |
+| BM_BinHistSymbolTable_IdOfLastMatch | 17.34 ns | 13.13 ns | -24.3% | 17.39 ns | 13.29 ns | -23.6% |
+| BM_BacktestInProcessTransport_TwoRingsPopulatedBookDiff | 246.77 ns | 185.43 ns | -24.9% | 247.43 ns | 188.28 ns | -23.9% |
+| BM_BinHistParser_ParsesKline | 219.95 ns | 163.22 ns | -25.8% | 220.54 ns | 165.20 ns | -25.1% |
+| BM_BinHistSymbolTable_IdOfFirstMatch | 18.24 ns | 13.45 ns | -26.3% | 18.29 ns | 13.61 ns | -25.6% |
+| BM_Mpsc_PushPopInt | 18.68 ns | 13.72 ns | -26.6% | 18.54 ns | 13.81 ns | -25.5% |
+| BM_FanoutSink_Record | 12.25 ns | 8.90 ns | -27.3% | 12.21 ns | 9.02 ns | -26.1% |
+| BM_SymbolTable_InternExisting | 58.58 ns | 42.19 ns | -28.0% | 58.71 ns | 42.70 ns | -27.3% |
+| BM_Engine_StepFundingEventFullPipeline | 7.85 ns | 5.61 ns | -28.5% | 7.86 ns | 5.70 ns | -27.5% |
+| BM_Engine_StepOneStrategyFullPipeline | 8.22 ns | 5.85 ns | -28.8% | 8.23 ns | 5.94 ns | -27.8% |
+| BM_Spmc_PushTryPopContended<8>/threads:9 | 30.38 ns | 19.93 ns | -34.4% | 269.15 ns | 178.57 ns | -33.7% |
+| BM_SymbolTable_InternNew | 1,002.15 ns | 652.92 ns | -34.8% | 1,005.30 ns | 662.17 ns | -34.1% |
+| BM_Portfolio_ApplyFunding | 4.51 ns | 2.70 ns | -40.1% | 4.51 ns | 2.73 ns | -39.5% |
+| BM_Mpsc_PushPopContended<4>/threads:5 | 124.46 ns | 65.04 ns | -47.7% | 618.37 ns | 327.65 ns | -47.0% |
+| BM_Mpsc_PushPopContended<8>/threads:9 | 199.20 ns | 90.66 ns | -54.5% | 1,730.85 ns | 775.20 ns | -55.2% |
+| BM_BinHistParser_ParsesFunding | 202.77 ns | 59.40 ns | -70.7% | 203.33 ns | 60.31 ns | -70.3% |
+| BM_BasicRiskGate_OnTickTripsAndFlattens | 1,094.60 ns | 39.56 ns | -96.4% | 1,097.79 ns | 40.04 ns | -96.4% |
+| BM_BasicRiskGate_OnTickNoDrawdown | 413.61 ns | 2.98 ns | -99.3% | 414.79 ns | 3.02 ns | -99.3% |
+| BM_Portfolio_Equity | 380.06 ns | 0.17 ns | -100.0% | 380.01 ns | 0.17 ns | -100.0% |
 
-69 benchmark(s) unchanged (within noise floor: <1.5 ns or <5%).
+35 benchmark(s) unchanged (within noise floor: <1.5 ns or <5%).
+
+**Added** (4): BM_BinHistParser_ParsesMark, BM_BinHistParser_RejectsUnknownSymbol, BM_CsvSource_MultiStreamMerge, BM_CsvSource_SingleStreamKlines
+
+**Removed** (31): BM_BinHistParser_RejectsUnknownSymbolFunding, BM_BinHistParser_RejectsUnknownSymbolKline, BM_FileReplaySource_MultiSymbolMerge, BM_FileReplaySource_SingleSymbolBookDiffs, BM_FileReplaySource_SingleSymbolTrades, BM_Partition_DayKeyFor, BM_Partition_FormatDay, BM_Partition_ListSegments, BM_Partition_NeedsRotation, BM_Partition_SegmentPath, BM_RoundRobinPool_FourTasksFourWorkers, BM_RoundRobinPool_FourTasksNoPool, BM_RoundRobinPool_FourTasksOneWorker, BM_RoundRobinPool_FourWorkTasksFourWorkers, BM_RoundRobinPool_FourWorkTasksNoPool, BM_RoundRobinPool_FourWorkTasksOneWorker, BM_RoundRobinPool_OneTaskOneWorker, BM_RoundRobinPool_WorkTaskOneWorker, BM_RoundRobinPool_WorkTaskSolo, BM_Wire_ReadFullDepthSnapshot, BM_Wire_ReadRealBookDiff, BM_Wire_RoundTripFullDepthSnapshot, BM_Wire_RoundTripRealBookDiff, BM_Wire_WriteFullDepthSnapshot, BM_Wire_WriteRealBookDiff, BM_Wire_WriteSmallBookDiff, BM_Wire_WriteTrade, BM_ZstdCompressor_Compress, BM_ZstdCompressor_Finish, BM_ZstdDecompressor_Decompress, BM_ZstdStream_RoundTrip

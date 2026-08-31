@@ -138,7 +138,7 @@ TEST(Engine, RunDrainsEveryEventInTheTransport) {
 TEST(Engine, FundingEventSettlesAgainstCurrentPositionBeforeStrategyReacts) {
     std::vector<qp::MarketEvent> events{
         make_trade(1, 1000, 100.0),
-        make_funding(1, 2000, 0.0001, 100.0),
+        make_funding(1, 2000, 0.0001),
     };
     qp::Portfolio portfolio;
     SingleTest    engine{FakeTransport{events},

@@ -38,10 +38,9 @@ TEST(FundingCarryStrategy, IgnoresFundingEventsForAnotherSymbolOrVenue) {
     qp::Portfolio                       portfolio;
     FundingCarryStrategy<qp::Portfolio> strategy{make_config(), portfolio};
 
-    EXPECT_TRUE(strategy.on_event(qp::test::make_funding(kSymbol + 1, 0, 0.001, 0.0, kFuturesVenue))
-                    .empty());
     EXPECT_TRUE(
-        strategy.on_event(qp::test::make_funding(kSymbol, 0, 0.001, 0.0, kSpotVenue)).empty());
+        strategy.on_event(qp::test::make_funding(kSymbol + 1, 0, 0.001, kFuturesVenue)).empty());
+    EXPECT_TRUE(strategy.on_event(qp::test::make_funding(kSymbol, 0, 0.001, kSpotVenue)).empty());
 }
 
 TEST(FundingCarryStrategy, EntersLongSpotShortFuturesWhenFundingRateClearsTheEntryThreshold) {
@@ -49,7 +48,7 @@ TEST(FundingCarryStrategy, EntersLongSpotShortFuturesWhenFundingRateClearsTheEnt
     FundingCarryStrategy<qp::Portfolio> strategy{make_config(), portfolio};
 
     auto intents =
-        strategy.on_event(qp::test::make_funding(kSymbol, 0, /*rate=*/0.0002, 0.0, kFuturesVenue));
+        strategy.on_event(qp::test::make_funding(kSymbol, 0, /*rate=*/0.0002, kFuturesVenue));
 
     ASSERT_EQ(intents.size(), 2u);
     EXPECT_EQ(intents[0].venue, kSpotVenue);
@@ -67,7 +66,7 @@ TEST(FundingCarryStrategy, FlattensBothLegsWhenFundingRateDropsToTheExitThreshol
         qp::Fill{.symbol = kSymbol, .side = qp::Side::Sell, .venue = kFuturesVenue, .qty = 2.0});
 
     auto intents =
-        strategy.on_event(qp::test::make_funding(kSymbol, 0, /*rate=*/-0.0001, 0.0, kFuturesVenue));
+        strategy.on_event(qp::test::make_funding(kSymbol, 0, /*rate=*/-0.0001, kFuturesVenue));
 
     ASSERT_EQ(intents.size(), 2u);
     EXPECT_DOUBLE_EQ(intents[0].target_position, 0.0);
@@ -83,7 +82,7 @@ TEST(FundingCarryStrategy, HoldsTheCurrentPositionWhenFundingRateIsBetweenTheThr
         qp::Fill{.symbol = kSymbol, .side = qp::Side::Sell, .venue = kFuturesVenue, .qty = 2.0});
 
     auto intents =
-        strategy.on_event(qp::test::make_funding(kSymbol, 0, /*rate=*/0.00005, 0.0, kFuturesVenue));
+        strategy.on_event(qp::test::make_funding(kSymbol, 0, /*rate=*/0.00005, kFuturesVenue));
 
     ASSERT_EQ(intents.size(), 2u);
     EXPECT_DOUBLE_EQ(intents[0].target_position, 2.0);

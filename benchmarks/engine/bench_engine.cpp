@@ -93,7 +93,7 @@ void BM_Engine_StepFundingEventFullPipeline(benchmark::State& state) {
     qp::engine::Engine<SeedThenSteadyStateTransport, qp::SimClock, TestExec, AlwaysApproveRiskGate,
                        AlwaysIntentStrategy, Book>
         engine{SeedThenSteadyStateTransport{qp::test::make_trade(1, 0, 100.0),
-                                            qp::test::make_funding(1, 0, 0.0001, 100.0)},
+                                            qp::test::make_funding(1, 0, 0.0001)},
                qp::SimClock{},
                TestExec{},
                AlwaysApproveRiskGate{},

@@ -70,7 +70,7 @@ TEST(BacktestIntegration, EntersDeltaNeutralPositionOnAFundingEventAboveThreshol
 
     auto futures_trade = make_trade(0, base_ts, /*price=*/100.0, 1.0, qp::Side::Buy, kFuturesVenue);
     auto spot_trade = make_trade(0, base_ts + 500, /*price=*/100.0, 1.0, qp::Side::Buy, kSpotVenue);
-    auto funding_event = make_funding(0, base_ts + 1000, /*rate=*/0.0002, /*mark_price=*/100.0,
+    auto funding_event = make_funding(0, base_ts + 1000, /*rate=*/0.0002,
                                       kFuturesVenue);  // clears the default 0.0001 entry threshold
 
     write_leg(dir.path / "futures", {futures_trade, funding_event});
@@ -100,7 +100,7 @@ TEST(BacktestIntegration, StaysFlatWhenFundingNeverClearsTheEntryThreshold) {
     std::int64_t base_ts = 1'700'000'000LL * 1'000'000'000LL;
 
     auto futures_trade = make_trade(0, base_ts, /*price=*/100.0, 1.0, qp::Side::Buy, kFuturesVenue);
-    auto funding_event = make_funding(0, base_ts + 1000, /*rate=*/0.00001, /*mark_price=*/100.0,
+    auto funding_event = make_funding(0, base_ts + 1000, /*rate=*/0.00001,
                                       kFuturesVenue);  // below the default 0.0001 entry threshold
 
     write_leg(dir.path / "futures", {futures_trade, funding_event});

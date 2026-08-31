@@ -33,7 +33,7 @@ Config make_config() {
 void BM_FundingCarryStrategy_EntersPosition(benchmark::State& state) {
     Book                       portfolio;
     FundingCarryStrategy<Book> strategy{make_config(), portfolio};
-    auto event = qp::test::make_funding(kSymbol, 0, 0.0002, 0.0, kFuturesVenue);
+    auto                       event = qp::test::make_funding(kSymbol, 0, 0.0002, kFuturesVenue);
 
     for (auto _ : state) {
         auto intents = strategy.on_event(event);
@@ -53,7 +53,7 @@ void BM_FundingCarryStrategy_HoldsPosition(benchmark::State& state) {
         qp::Fill{.symbol = kSymbol, .side = qp::Side::Buy, .venue = kSpotVenue, .qty = 2.0});
     portfolio.apply_fill(
         qp::Fill{.symbol = kSymbol, .side = qp::Side::Sell, .venue = kFuturesVenue, .qty = 2.0});
-    auto event = qp::test::make_funding(kSymbol, 0, 0.00005, 0.0, kFuturesVenue);
+    auto event = qp::test::make_funding(kSymbol, 0, 0.00005, kFuturesVenue);
 
     for (auto _ : state) {
         auto intents = strategy.on_event(event);

@@ -72,7 +72,7 @@ TEST(Portfolio, PositiveFundingRateDebitsALongPosition) {
     qp::Portfolio portfolio;
     portfolio.apply_fill(make_fill(1, qp::Side::Buy, 2.0));  // now long 2
 
-    portfolio.apply_funding(make_funding(1, 0, /*rate=*/0.0001, /*mark_price=*/100.0));
+    portfolio.apply_funding(make_funding(1, 0, /*rate=*/0.0001));
     EXPECT_DOUBLE_EQ(portfolio.cash(), -200.0 - 0.02);  // -(2*100) buy cost, then -2*100*0.0001
 }
 
@@ -80,13 +80,13 @@ TEST(Portfolio, PositiveFundingRateCreditsAShortPosition) {
     qp::Portfolio portfolio;
     portfolio.apply_fill(make_fill(1, qp::Side::Sell, 2.0));  // now short 2
 
-    portfolio.apply_funding(make_funding(1, 0, /*rate=*/0.0001, /*mark_price=*/100.0));
+    portfolio.apply_funding(make_funding(1, 0, /*rate=*/0.0001));
     EXPECT_DOUBLE_EQ(portfolio.cash(), 200.0 + 0.02);  // +(2*100) sell proceeds, then +2*100*0.0001
 }
 
 TEST(Portfolio, FundingHasNoEffectOnAFlatPosition) {
     qp::Portfolio portfolio;
-    portfolio.apply_funding(make_funding(1, 0, 0.0001, 100.0));
+    portfolio.apply_funding(make_funding(1, 0, 0.0001));
     EXPECT_EQ(portfolio.cash(), 0.0);
 }
 
@@ -109,7 +109,7 @@ TEST(Portfolio, EquityAddsMarkToMarketValueOfHeldPositions) {
 TEST(Portfolio, EquityMarksFromFundingEventsMarkPriceToo) {
     qp::Portfolio portfolio;
     portfolio.apply_fill(make_fill(1, qp::Side::Sell, 2.0, /*price=*/100.0));  // cash += 200
-    portfolio.apply_mark_price(make_funding(1, 0, /*rate=*/0.0, /*mark_price=*/90.0));
+    portfolio.apply_mark_price(make_funding(1, 0, /*rate=*/0.0));
 
     EXPECT_DOUBLE_EQ(portfolio.equity(), 200.0 + (-2.0) * 90.0);  // short, price fell: up 20
 }
