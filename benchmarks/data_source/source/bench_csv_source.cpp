@@ -18,11 +18,7 @@ using qp::test::ScratchDir;
 
 namespace {
 
-// Real tagged shape (SYMBOL,K,open_time,open,high,low,close,volume,
-// close_time,...) — matches what the offline tagging script produces
-// against real data.binance.vision downloads (bin_hist_parser_policy.hpp's
-// own comment documents the convention). Synthetic timestamps/prices,
-// real *shape*.
+// Real tagged shape.
 std::string kline_line(std::int64_t open_time_ms) {
     return "BTCUSDT,K," + std::to_string(open_time_ms) +
            ",67577.90,67680.70,67572.00,67680.40,464.748," +
@@ -30,10 +26,7 @@ std::string kline_line(std::int64_t open_time_ms) {
 }
 
 // Writes `count` lines split across `num_files` files (roughly even),
-// timestamps 5 minutes apart starting at `start_ms` — exercises the
-// producer's "exhaust this file, open the next one" path, not just a
-// single giant file, same reasoning FileReplaySource's own multi-segment
-// benches had for its zstd segments.
+// timestamps 5 minutes apart starting at `start_ms`.
 std::vector<std::filesystem::path> write_kline_stream(const std::filesystem::path& dir,
                                                       std::size_t count, std::size_t num_files,
                                                       std::int64_t start_ms) {
@@ -52,11 +45,6 @@ std::vector<std::filesystem::path> write_kline_stream(const std::filesystem::pat
     return files;
 }
 
-// next() returns nullopt for two different reasons — genuinely exhausted,
-// or "background thread hasn't caught up yet" — and only is_done() (called
-// after next(), per its own documented contract) tells them apart. A naive
-// while(next()) loop stops on the first NotReady, typically right after
-// construction before the producer thread has read anything at all.
 template <class Source>
 void drain(Source& source) {
     for (;;) {
@@ -68,10 +56,7 @@ void drain(Source& source) {
     }
 }
 
-// One stream, no merge — the realistic unit of work: replay isn't "call
-// next() once," it's "read a whole stream's history." Amortizes
-// construction (thread spawn, first file read) across the run same as
-// FileReplaySource's own benches did.
+// One stream, no merge.
 void BM_CsvSource_SingleStreamKlines(benchmark::State& state) {
     static constexpr std::size_t kEvents = 20'000;
     static constexpr std::size_t kFiles  = 20;
@@ -89,12 +74,7 @@ void BM_CsvSource_SingleStreamKlines(benchmark::State& state) {
 BENCHMARK(BM_CsvSource_SingleStreamKlines);
 
 // Same total event count as the single-stream case, spread across 4
-// streams with interleaved timestamps — isolates the merge's per-event
-// linear scan (next()'s cost of picking the earliest of N streams) from
-// the single-stream case above. Difference between this and
-// BM_CsvSource_SingleStreamKlines's per-item cost is roughly the merge
-// overhead — same isolation FileReplaySource's own MultiSymbolMerge bench
-// used.
+// streams with interleaved timestamps.
 void BM_CsvSource_MultiStreamMerge(benchmark::State& state) {
     static constexpr std::size_t kStreams         = 4;
     static constexpr std::size_t kEventsPerStream = 5'000;
@@ -104,8 +84,7 @@ void BM_CsvSource_MultiStreamMerge(benchmark::State& state) {
     std::array<std::vector<std::filesystem::path>, kStreams> streams;
     for (std::size_t s = 0; s < kStreams; ++s) {
         // Offset each stream's start by less than one bar interval so
-        // next() can't just drain one stream dry before touching another —
-        // every call has to pick a winner among all kStreams.
+        // next() can't just drain one stream dry before touching anothers.
         streams[s] = write_kline_stream(dir.path / ("s" + std::to_string(s)), kEventsPerStream, 4,
                                         1'717'200'000'000 + static_cast<std::int64_t>(s) * 60'000);
     }

@@ -46,9 +46,9 @@ struct FakeSink {
 static_assert(qp::data_source::source::Source<FakeSource>);
 static_assert(qp::data_source::sink::Sink<FakeSink>);
 
-// The actual property this driver exists for (D43): source[i]'s event
-// always lands in sink[i], stamped venue=i — the pairing is generated once
-// by the fold, not hand-written per call site.
+// The actual property this driver exists for: source[i]'s event always
+// lands in sink[i], stamped venue=i — the pairing is generated once by
+// the fold, not hand-written per call site.
 TEST(RunDataSource, PairsEachSourceWithTheMatchingSinkAndStampsVenue) {
     std::tuple<FakeSource, FakeSource> sources{FakeSource{{100.0}}, FakeSource{{200.0}}};
     std::tuple<FakeSink, FakeSink>     sinks;

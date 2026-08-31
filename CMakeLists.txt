@@ -115,7 +115,6 @@ if(QP_BUILD_BENCHMARKS)
         benchmarks/core/bench_control_channel.cpp
         benchmarks/core/bench_portfolio.cpp
         benchmarks/core/bench_viewable_pool.cpp
-        benchmarks/data_source/source/bench_venue_types.cpp
         benchmarks/data_source/source/bench_csv_source.cpp
         benchmarks/data_source/source/venue/binance/binance_historical/bench_bin_hist_symbol_table.cpp
         benchmarks/data_source/source/venue/binance/binance_historical/bench_bin_hist_parser_policy.cpp

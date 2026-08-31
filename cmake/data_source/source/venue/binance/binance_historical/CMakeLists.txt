@@ -1,22 +1,11 @@
-# source/venue/binance/binance_historical — binance_historical's venue::
-# Parser: BinHistParserPolicy (field extraction/record-kind dispatch) +
-# BinHistSymbolTable (a real, verified 10-symbol universe, BTCUSDT etc.,
-# D13-style verified against live Binance exchangeInfo +
-# data.binance.vision, not assumed), bound together as BinHistVenue
-# (bin_hist_venue.hpp) — that alias is the only thing outside this
-# directory should ever name. Funding-entry parsing uses simdjson (already
-# a vcpkg.json dependency, not newly added); kline parsing isn't
-# implemented yet — see bin_hist_parser_policy.hpp's TODO, blocked on a
-# real MarketEvent::EventKind decision, not a missing detail.
+# source/venue/binance/binance_historical — binance_historical's venue.
 qp_dir(include QP_INC)
 qp_dir(tests QP_TESTS)
 qp_dir(benchmarks QP_BENCH)
 
-find_package(simdjson CONFIG REQUIRED)
-
 add_library(qp_source_venue_binance_historical INTERFACE)
 target_include_directories(qp_source_venue_binance_historical INTERFACE ${QP_INC})
-target_link_libraries(qp_source_venue_binance_historical INTERFACE qp_source_venue simdjson::simdjson)
+target_link_libraries(qp_source_venue_binance_historical INTERFACE qp_source_venue)
 
 if(BUILD_TESTING)
     find_package(GTest CONFIG REQUIRED)

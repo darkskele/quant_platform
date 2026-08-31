@@ -3,7 +3,6 @@
   "version": "0.0.1",
   "description": "Modular C++ platform for medium-frequency crypto trading.",
   "dependencies": [
-    "simdjson",
     "gtest",
     "benchmark",
     "boost-beast",

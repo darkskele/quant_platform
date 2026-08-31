@@ -20,38 +20,10 @@
 
 namespace qp::data_source::source {
 
-/// Backtest `Source` for CSV-line-shaped venue data (no assumption more
-/// specific than that — genuinely venue-agnostic, unlike the name might
-/// suggest at a glance). Merges N logical streams by timestamp, each an
-/// ordered list of files (a "stream" is whatever the caller organized
-/// together — one venue's kline history, one venue's funding history,
-/// etc.; CsvSource has no notion of symbol, kind, or venue at all, only
-/// Parser does). N is a compile-time bound, same convention as
-/// BacktestInProcessTransport's N-rings template and Portfolio's
-/// kMaxSymbols/kMaxVenues — the count is fixed at the type level, which
-/// files is still a runtime constructor argument.
-///
-/// One background thread reads every stream's files ahead of consumption
-/// (round-robin, index_sequence-unrolled — same idiom as
-/// run_data_source::poll_round's fold-expansion and
-/// RoundRobinPool::run_assigned's run_if_mine), pushing complete lines
-/// into a per-stream queue. Whole-file reads, not chunked: every file this
-/// venue actually produces is tens of KB (verified against real
-/// data.binance.vision downloads), comfortably fits in memory at once, so
-/// there's no "read a chunk, maybe not enough yet" loop to get right —
-/// read the file, split every line, done. A queued line is a
-/// std::string_view into a std::shared_ptr<const std::string> holding the
-/// whole file's content — zero per-line allocation or copy; the shared_ptr
-/// keeps the buffer alive exactly as long as any queued view into it is
-/// still unconsumed. `next()` stays synchronous on its own thread: it only
-/// ever pops an already-read line and calls Parser::parse() on it — the
-/// genuinely unpredictable-latency part (open/read syscalls) never happens
-/// on the calling thread.
-///
-/// One thread total, not one per stream: same reasoning as the earlier
-/// FileReplaySource redesign — I/O here isn't the bottleneck once it's off
-/// the calling thread, so N-way OS thread contention wouldn't buy
-/// anything real.
+/// Backtest `Source` for CSV-line-shaped venue data. Merges N logical streams 
+/// by timestamp, each an ordered list of files.
+/// One background thread reads every stream's files ahead of consumption,
+/// pushing complete lines into a per-stream queue.
 template <venue::Parser Parser, std::size_t N, std::size_t LineQueueCapacity = 512>
 class CsvSource {
     static_assert(N >= 1);
@@ -62,21 +34,15 @@ class CsvSource {
 
    public:
     /// `files[i]` is stream i's complete file list, already in the order
-    /// they should be read/merged in (chronological, typically) — CsvSource
-    /// doesn't sort or otherwise interpret it. Doesn't block: the
-    /// background thread starts reading immediately but the constructor
-    /// returns before any data has necessarily arrived — next()'s own "not
-    /// ready yet" path (mirroring BacktestInProcessTransport's any_missing)
-    /// handles that the same way it handles any later stall, no separate
-    /// priming step needed.
+    /// they should be merged in. Doesn't block: the background thread starts 
+    /// reading immediately, but the constructor returns before any data has
+    /// necessarily arrived.
     explicit CsvSource(std::array<std::vector<std::filesystem::path>, N> files) {
         for (std::size_t i = 0; i < N; ++i) producer_[i].files = std::move(files[i]);
         producer_thread_ = std::thread([this] { producer_loop(); });
     }
 
-    // Producer thread captures `this` — a moved-from/copied instance would
-    // leave it pointing at a stale address, same constraint RoundRobinPool
-    // documents for itself.
+    // Producer thread captures `this`.
     CsvSource(const CsvSource&)            = delete;
     CsvSource& operator=(const CsvSource&) = delete;
     CsvSource(CsvSource&&)                 = delete;
@@ -88,13 +54,9 @@ class CsvSource {
     }
 
     /// Single pass: fills each empty lookahead slot and tracks the running
-    /// earliest at the same time, exactly like
-    /// BacktestInProcessTransport::next() — each slot touched once per
-    /// call. No global "stopped" state needed (unlike Transport): each
-    /// stream's exhaustion is self-contained and permanent
-    /// (SharedState::done, set once by that stream's own producer work) —
-    /// once a stream has no lookahead and is done, it just drops out of
-    /// consideration forever.
+    /// earliest at the same time, each slot touched once per call. Each stream's
+    /// exhaustion is self-contained and permanent, so once a stream has no 
+    /// lookahead and is done, it just drops out of consideration forever.
     std::optional<MarketEvent> next() {
         bool                       any_missing = false;
         std::optional<std::size_t> earliest;
@@ -137,18 +99,14 @@ class CsvSource {
 
    private:
     // One queued item: a view into a whole file's buffer, kept alive by
-    // the shared_ptr riding along with it. Trivial to move (two pointers +
-    // a length), no allocation of its own.
+    // the shared_ptr riding along with it.
     struct Line {
         std::shared_ptr<const std::string> buffer;
         std::string_view                   text;
     };
 
     // Background-thread-only. current_lines is every line of the file
-    // currently being drained (split once, up front, when the file is
-    // read) — line_index tracks how many of those have been pushed to the
-    // queue so far, since a whole file's lines may not fit in one queue-full
-    // round.
+    // currently being drained 
     struct ProducerState {
         std::vector<std::filesystem::path> files;
         std::size_t                        file_index{0};
@@ -160,11 +118,7 @@ class CsvSource {
     // The only cross-thread surface per stream. done/failed: producer
     // release-stores after its last push (done) or after writing `error`
     // (failed); next() acquire-loads BEFORE popping the queue, never
-    // after — reading done/failed first is what makes "push-then-mark
-    // between the consumer's failed pop and its done-check" safe to miss:
-    // if done reads true, every push that happened before the producer set
-    // it is already visible (release/acquire), so an empty queue at that
-    // point really is empty for good.
+    // after.
     struct SharedState {
         SpscQueue<Line, LineQueueCapacity> lines;
         std::atomic<bool>                  done{false};
@@ -173,16 +127,12 @@ class CsvSource {
     };
 
     // Filled: lookahead_[i] now holds a fresh event. NotReady: this
-    // stream's queue is empty but its producer isn't done — might still
-    // produce an earlier timestamp than whatever's currently winning, so
-    // next() can't safely pick a winner yet. Exhausted: genuinely nothing
-    // left, ever.
+    // stream's queue is empty but its producer isn't done.
     enum class RefillResult { Filled, NotReady, Exhausted };
 
-    /// Pops lines from shared_[i].lines until one parses into an event
-    /// (unparseable lines — blank, malformed — are skipped, not fatal) or
-    /// the queue runs dry. Throws, surfacing the producer's stored
-    /// message, if shared_[i].failed was observed true.
+    /// Pops lines from shared_[i].lines until one parses into an event.
+    /// Throws, surfacing the producer's stored message, if shared_[i].failed 
+    /// was observed true.
     RefillResult try_refill(std::size_t i) {
         auto& shared = shared_[i];
         for (;;) {
@@ -208,8 +158,7 @@ class CsvSource {
     /// already-split line from the file currently being drained, or (once
     /// that file's lines are exhausted) read+split the next file, or (once
     /// the file list itself is exhausted) mark this stream done. Returns
-    /// whether real progress happened — a full queue with a line still
-    /// waiting is the only "no progress" case.
+    /// whether real progress happened.
     bool producer_fill_one(std::size_t i) {
         auto& prod   = producer_[i];
         auto& shared = shared_[i];
@@ -273,16 +222,8 @@ class CsvSource {
         return any_progress;
     }
 
-    // Structurally the same shape as run_data_source's own loop: try every
-    // not-yet-done stream each round; if a full round makes zero progress
-    // (every queue full), yield instead of busy-spinning — not a timed
-    // sleep. Measured (bench_csv_source.cpp): a full 512-capacity queue
-    // drains in ~90us at real per-event parse cost, so a fixed 1ms sleep
-    // here left the producer asleep for ~90% of every fill-drain cycle —
-    // this is disk I/O, not a slow remote call, so a full round genuinely
-    // failing to make progress is a "queue's momentarily full," not "wait
-    // a while," situation. yield() gives the consumer thread a scheduling
-    // chance without pinning a full millisecond to it.
+    // Try every not-yet-done stream each round; if a full round makes zero
+    // progress (every queue full), yield instead of a timed sleep.
     void producer_loop() {
         while (!stop_requested_.load(std::memory_order_relaxed)) {
             bool all_done = true;

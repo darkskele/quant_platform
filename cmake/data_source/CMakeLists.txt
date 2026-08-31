@@ -1,9 +1,4 @@
-# data_source's own shared header, not a city: run_data_source.hpp (D44)
-# pairs N Sources with N Sinks positionally and stamps MarketEvent::venue as
-# it does. Depends on both source::Source and sink::Sink, which is exactly
-# why it can't live inside either city — neither depends on the other
-# (D19), so the thing that bridges them sits at their parent level instead.
-# Header-only.
+# data_source's own shared header, not a city.
 qp_dir(include QP_INC)
 qp_dir(tests QP_TESTS)
 qp_dir(benchmarks QP_BENCH)

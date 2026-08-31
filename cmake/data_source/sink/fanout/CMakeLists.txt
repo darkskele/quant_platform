@@ -1,6 +1,4 @@
-# sink/fanout — FanoutSink, the in-process fan-out Sink: redistributes
-# MarketEvents to NumConsumers in-process readers via an SpmcRing, no disk
-# I/O. Header-only, depends on qp_sink (the Sink concept) only.
+# sink/fanout — FanoutSink.
 qp_dir(include QP_INC)
 qp_dir(tests QP_TESTS)
 qp_dir(benchmarks QP_BENCH)
