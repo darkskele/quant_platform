@@ -1,23 +1,14 @@
-# engine — the Engine<Tx,Clk,Exec,Risk,Strategy,Book> composition root (see
-# docs/engine/DESIGN.md; docs/decisions.md D27, D33, D38).
-# Header-only, depends on the seam concepts only — never a concrete adapter.
-# qp_transport, not qp_source_pure: Engine is constrained on engine::transport::
-# Transport (D22/D38), not source::Source — it never needs venue-specific
-# Source machinery.
+# engine — the Engine<Tx,Clk,Exec,Risk,Strategy,Book> composition root.
 qp_dir(include QP_INC)
 qp_dir(tests QP_TESTS)
 qp_dir(benchmarks QP_BENCH)
 
-add_subdirectory(transport)  # Transport concept + BacktestInProcessTransport
+add_subdirectory(transport)
 
 add_library(qp_engine INTERFACE)
 target_include_directories(qp_engine INTERFACE ${QP_INC})
 target_link_libraries(qp_engine INTERFACE qp_core qp_clock qp_execution qp_strategy qp_risk qp_transport)
 
-# InfiniteTransport — Engine-specific (never-exhausts Source double), shared
-# between engine's own tests and benchmarks. Unconditional, same convention
-# as qp_core_test_support. Include dir is the shared top-level tests/ root
-# (D50), not this module's own tests/engine/.
 add_library(qp_engine_test_support INTERFACE)
 target_include_directories(qp_engine_test_support INTERFACE ${CMAKE_SOURCE_DIR}/tests)
 

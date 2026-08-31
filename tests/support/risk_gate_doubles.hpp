@@ -32,4 +32,22 @@ struct AlwaysRejectRiskGate {
     std::span<const Order> on_tick() { return {}; }
 };
 
+/// on_tick() fires `order` once, then goes quiet — for proving Engine
+/// forwards a RiskGate's autonomous orders (no Intent involved) through
+/// submit(), independent of the Intent -> check() path.
+struct AlwaysFlattenRiskGate {
+    Order order;
+    bool  fired = false;
+
+    risk::RiskDecision check(Intent) {
+        return {.outcome = risk::RiskOutcome::Rejected, .order = std::nullopt};
+    }
+
+    std::span<const Order> on_tick() {
+        if (fired) return {};
+        fired = true;
+        return {&order, 1};
+    }
+};
+
 }  // namespace qp::test

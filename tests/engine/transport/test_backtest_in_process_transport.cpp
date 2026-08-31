@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 
+#include <array>
 #include <memory>
+#include <thread>
 
 #include "backtest_in_process_transport.hpp"
 #include "control_channel.hpp"
@@ -150,5 +152,57 @@ TEST(BacktestInProcessTransport, StopFlushesBufferedEventsInsteadOfStallingForev
     // so returning a's last buffered value also leaves everything fully drained now.
     EXPECT_TRUE(t.is_done());
     EXPECT_FALSE(t.next().has_value());  // truly nothing left anywhere
+    EXPECT_TRUE(t.is_done());
+}
+
+// Every test above pushes synchronously on one thread before calling
+// next() — none of them exercise the real shape this class actually runs
+// under: producer threads pushing into the rings concurrently with the
+// consumer thread's next() calls. This spins up a real producer thread per
+// leg (racing SpmcRing's own push()/try_pop()) and drains through
+// next() on the main thread, for TSan to actually watch. Each leg pushes
+// strictly increasing timestamps, so a global merge that's still correct
+// under real interleaving produces a non-decreasing sequence overall —
+// this checks that invariant, not just the absence of a reported race.
+TEST(BacktestInProcessTransport, ConcurrentProducersMergeCorrectlyUnderRealThreads) {
+    constexpr std::size_t N             = 2;
+    constexpr int         kEventsPerLeg = 500;
+    using Ring                          = SpmcRing<MarketEvent, 64, 1>;
+
+    std::array<Ring, N>  rings;
+    std::array<Ring*, N> ring_ptrs{&rings[0], &rings[1]};
+
+    Harness                                h;
+    BacktestInProcessTransport<Ring, N, 1> t(ring_ptrs, {0, 0}, h.control, h.idx);
+
+    std::array<std::thread, N> producers;
+    for (std::size_t leg = 0; leg < N; ++leg) {
+        producers[leg] = std::thread([&rings, leg] {
+            for (int i = 0; i < kEventsPerLeg; ++i) {
+                rings[leg].push(trade(i, static_cast<qp::SymbolId>(leg)));
+            }
+        });
+    }
+    // Signals Stop once every producer is done — next() otherwise can't
+    // distinguish "this ring is genuinely exhausted" from "hasn't produced
+    // yet", same reason StopFlushesBufferedEventsInsteadOfStallingForever
+    // above needs an explicit Stop rather than an empty ring alone.
+    std::thread stop_signaler([&] {
+        for (auto& producer : producers) producer.join();
+        h.control.broadcast(ControlCommand::Stop);
+    });
+
+    std::size_t   consumed = 0;
+    qp::Timestamp last_ts  = -1;
+    while (consumed < N * kEventsPerLeg) {
+        if (auto out = t.next()) {
+            EXPECT_GE(header_of(*out).ts, last_ts);
+            last_ts = header_of(*out).ts;
+            ++consumed;
+        }
+    }
+
+    stop_signaler.join();
+    EXPECT_EQ(consumed, N * kEventsPerLeg);
     EXPECT_TRUE(t.is_done());
 }

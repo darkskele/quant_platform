@@ -1,20 +1,4 @@
-# transport — the Transport concept + BacktestInProcessTransport (see
-# docs/engine/transport/DESIGN.md). Header-only, depends on core only
-# (MarketEvent, SpmcRing, ControlChannel). Lives under engine, not
-# data_source: Transport is the seam Engine consumes, not a data-source
-# concern in its own right. BacktestInProcessTransport merges a fixed set
-# of rings in MarketEvent::ts order — backtest's own policy, always used
-# this way, backtest and live alike: Source(s) -> run_data_source (its own
-# thread) -> FanoutSink(s) -> rings -> BacktestInProcessTransport ->
-# Engine, so a backtest run exercises the identical queue-polling code a
-# live run depends on.
-#
-# CombinedTransport (round-robin merge over N heterogeneous Transports)
-# removed: no real caller ever used it (apps/backtest uses
-# BacktestInProcessTransport; apps/collector has no Transport-consuming
-# side at all) — built ahead of a live multi-source composition that
-# hasn't been built yet. Rebuild it if/when that composition actually
-# needs round-robin merging, not before.
+# transport — the Transport concept.
 qp_dir(include QP_INC)
 qp_dir(tests QP_TESTS)
 qp_dir(benchmarks QP_BENCH)

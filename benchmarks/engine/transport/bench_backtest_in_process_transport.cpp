@@ -1,7 +1,9 @@
 #include <benchmark/benchmark.h>
 
 #include <array>
+#include <cstddef>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "backtest_in_process_transport.hpp"
@@ -39,13 +41,6 @@ using Ring = qp::SpmcRing<qp::MarketEvent, 1024, 1, /*UseHeap=*/true>;
 // parameter (real-world N is fixed per composition — one leg per venue —
 // never a runtime count, so this mirrors how it's actually instantiated,
 // same convention as bench_spmc_ring.cpp's NumConsumers<N> tiers).
-// Monotonically increasing timestamps across all N rings each round, so
-// every next() call finds a winner immediately — isolates next()'s own
-// merge cost, not the empty-ring stall path. N=2 is the only shape
-// anything real uses today (apps/backtest: one spot + one futures leg);
-// N=4/8/16 exist to answer "does the O(N) lookahead scan in next() start
-// costing something before N gets anywhere near what this system would
-// ever actually run" (docs/strategy.md: "a handful, not hundreds").
 template <std::size_t N>
 void BM_BacktestInProcessTransport_NRings(benchmark::State& state) {
     std::array<Ring, N>        rings;
@@ -75,11 +70,7 @@ BENCHMARK(BM_BacktestInProcessTransport_NRings<16>);
 
 // Populated depth, N=2 (the only shape anything real uses — not
 // re-answering the scaling question above, just isolating next()'s own
-// move-vs-copy on a realistic BookDiff). Cheap either way now: the ring
-// holds MarketEvent directly (SpmcRing::try_pop's copy into lookahead_ is
-// a shared_ptr refcount bump, not a deep BookLevels copy — see
-// core/types.hpp), and next()'s own return moves out of lookahead_, not a
-// second copy on top.
+// move-vs-copy on a realistic BookDiff).
 void BM_BacktestInProcessTransport_TwoRingsPopulatedBookDiff(benchmark::State& state) {
     constexpr std::size_t      N = 2;
     std::array<Ring, N>        rings;
@@ -103,5 +94,57 @@ void BM_BacktestInProcessTransport_TwoRingsPopulatedBookDiff(benchmark::State& s
 }
 
 BENCHMARK(BM_BacktestInProcessTransport_TwoRingsPopulatedBookDiff);
+
+// Real contention: N producer threads, each owning one leg's ring, racing
+// the consumer thread's next() calls on a shared transport.
+// The retry is bounded.
+// StopFlushesBufferedEventsInsteadOfStallingForever in the test file needs
+// one). A benchmark's steady-state loop has no natural place to signal
+// that once per repetition, so this bounds the spin instead of hanging on
+// that one tail item.
+template <std::size_t N>
+void BM_BacktestInProcessTransport_NRingsContended(benchmark::State& state) {
+    static std::array<Ring, N>  rings;
+    static std::array<Ring*, N> ring_ptrs = [] {
+        std::array<Ring*, N> ptrs;
+        for (std::size_t i = 0; i < N; ++i) ptrs[i] = &rings[i];
+        return ptrs;
+    }();
+    static std::array<std::size_t, N> consumers{};
+    static qp::ControlChannel<1>      control;
+    static std::size_t                control_idx = control.attach();
+    static qp::engine::transport::BacktestInProcessTransport<Ring, N, 1> transport(
+        ring_ptrs, consumers, control, control_idx);
+
+    constexpr int kMaxSpins   = 2'000'000;
+    bool          is_consumer = state.thread_index() == static_cast<int>(N);
+
+    if (is_consumer) {
+        while (transport.next()) {  // drain whatever a prior repetition left buffered
+        }
+    }
+
+    if (is_consumer) {
+        for (auto _ : state) {
+            for (std::size_t n = 0; n < N; ++n) {
+                std::optional<qp::MarketEvent> out;
+                for (int spin = 0; spin < kMaxSpins && !(out = transport.next()); ++spin) {
+                }
+                benchmark::DoNotOptimize(out);
+            }
+        }
+    } else {
+        auto          leg = static_cast<std::size_t>(state.thread_index());
+        qp::Timestamp ts  = 0;
+        for (auto _ : state) {
+            rings[leg].push(make_trade(ts));
+            ts += static_cast<qp::Timestamp>(N);  // legs interleave, never collide on ts
+        }
+    }
+}
+
+BENCHMARK(BM_BacktestInProcessTransport_NRingsContended<2>)->Threads(3);
+BENCHMARK(BM_BacktestInProcessTransport_NRingsContended<4>)->Threads(5);
+BENCHMARK(BM_BacktestInProcessTransport_NRingsContended<8>)->Threads(9);
 
 }  // namespace
