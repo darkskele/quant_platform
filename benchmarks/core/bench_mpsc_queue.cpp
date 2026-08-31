@@ -21,6 +21,12 @@ void BM_Mpsc_PushInt(benchmark::State& state) {
             state.ResumeTiming();
             q.push(i);
         }
+        // ClobberMemory() for consistency with SpscQueue/SpmcRing's own
+        // isolated push benchmarks — verified on SpscQueue that this class
+        // of fix doesn't actually change the measured number (push is
+        // genuinely cheaper than pop/try_pop, not an artifact of an elided
+        // write), so not re-litigated here independently.
+        benchmark::ClobberMemory();
         ++i;
     }
 }

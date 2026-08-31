@@ -14,47 +14,28 @@ std::span<const std::byte> as_bytes(std::string_view text) {
     return {reinterpret_cast<const std::byte*>(text.data()), text.size()};
 }
 
-// Real shapes, same captures test_bin_hist_venue.cpp verifies against —
-// see bin_hist_parser_policy.hpp's own comments for the live source of each.
-constexpr std::string_view kRealFundingEntry =
-    R"({"symbol":"BTCUSDT","fundingTime":1787990400000,"fundingRate":"0.00010000",)"
-    R"("markPrice":"77597.93110145","rateType":"Regular"})";
+// Real captured lines, post-tagging (the SYMBOL,KIND, prefix
+// BinHistParserPolicy::parse() now expects — see its own comment for why:
+// klines/markPriceKlines are byte-identical CSV shapes, so the tag is what
+// makes dispatch possible at all). Pulled directly from the downloaded
+// data/binance/BTCUSDT files, not fabricated.
+constexpr std::string_view kRealKlineLine =
+    "BTCUSDT,K,1717200000000,67577.90,67680.70,67572.00,67680.40,464.748,1717200299999,"
+    "31428593.42840,6933,289.996,19611103.65640,0";
 
-constexpr std::string_view kRealKlineRow =
-    "BTCUSDT,1717200000000,67577.90,67729.90,67535.40,67690.00,3025.451,1717203599999,"
-    "204628990.86440,49741,1569.014,106127949.20210,0";
+constexpr std::string_view kRealMarkLine =
+    "BTCUSDT,M,1717200000000,67570.93117730,67680.70000000,67570.93117730,67678.20000000,0,"
+    "1717200299999,0,300,0,0,0";
 
-constexpr std::string_view kUnknownSymbolFunding =
-    R"({"symbol":"NOTASYMBOL","fundingTime":1787990400000,"fundingRate":"0.00010000",)"
-    R"("markPrice":"77597.93110145","rateType":"Regular"})";
+constexpr std::string_view kRealFundingLine = "BTCUSDT,F,1577836800000,8,-0.00012359";
 
 constexpr std::string_view kUnknownSymbolKline =
-    "NOTASYMBOL,1717200000000,67577.90,67729.90,67535.40,67690.00,3025.451,1717203599999,"
-    "204628990.86440,49741,1569.014,106127949.20210,0";
+    "NOTASYMBOL,K,1717200000000,67577.90,67680.70,67572.00,67680.40,464.748,1717200299999,"
+    "31428593.42840,6933,289.996,19611103.65640,0";
 
-// Isolation: the JSON path's success case — one simdjson::ondemand::parser
-// construction + a padded_string copy (bin_hist_parser_policy.hpp's own
-// comments flag both as candidates for removal) per call, plus the
-// object's four field lookups. Baseline for that rewrite, not a number to
-// leave standing.
-void BM_BinHistParser_ParsesFunding(benchmark::State& state) {
-    auto raw = as_bytes(kRealFundingEntry);
-    for (auto _ : state) {
-        benchmark::DoNotOptimize(raw);
-        auto ev = BinHistVenue::parse(raw);
-        benchmark::DoNotOptimize(ev);
-    }
-    state.SetItemsProcessed(state.iterations());
-}
-
-BENCHMARK(BM_BinHistParser_ParsesFunding);
-
-// Isolation: the CSV path's success case — no simdjson, no allocation,
-// just field-of-view slicing + from_chars. The comparison point for how
-// much the JSON path's overhead above is actually costing relative to a
-// plain-text format doing the same job.
+// Isolation: the kline path's success case.
 void BM_BinHistParser_ParsesKline(benchmark::State& state) {
-    auto raw = as_bytes(kRealKlineRow);
+    auto raw = as_bytes(kRealKlineLine);
     for (auto _ : state) {
         benchmark::DoNotOptimize(raw);
         auto ev = BinHistVenue::parse(raw);
@@ -65,13 +46,12 @@ void BM_BinHistParser_ParsesKline(benchmark::State& state) {
 
 BENCHMARK(BM_BinHistParser_ParsesKline);
 
-// Isolation: JSON path, symbol miss — still pays the full simdjson parse
-// (symbol is read before the table lookup can reject it), unlike the CSV
-// path below where the reject can only happen after the same parse cost
-// too (field[0] is read first). Same shape as
-// BinHistSymbolTable_IdOfUnknown, one level up the stack.
-void BM_BinHistParser_RejectsUnknownSymbolFunding(benchmark::State& state) {
-    auto raw = as_bytes(kUnknownSymbolFunding);
+// Isolation: the markPriceKline path's success case — same 7-field shape
+// as kline, one field fewer actually stored (volume dropped). Comparison
+// point for whether the extra kind-tag split costs anything measurable
+// over the kline path above.
+void BM_BinHistParser_ParsesMark(benchmark::State& state) {
+    auto raw = as_bytes(kRealMarkLine);
     for (auto _ : state) {
         benchmark::DoNotOptimize(raw);
         auto ev = BinHistVenue::parse(raw);
@@ -80,12 +60,28 @@ void BM_BinHistParser_RejectsUnknownSymbolFunding(benchmark::State& state) {
     state.SetItemsProcessed(state.iterations());
 }
 
-BENCHMARK(BM_BinHistParser_RejectsUnknownSymbolFunding);
+BENCHMARK(BM_BinHistParser_ParsesMark);
 
-// Isolation: CSV path, symbol miss — pays the full 8-field comma split
-// (parse_kline collects every field before checking the symbol), then the
-// table lookup's own worst case.
-void BM_BinHistParser_RejectsUnknownSymbolKline(benchmark::State& state) {
+// Isolation: the funding path's success case — now genuinely CSV (3
+// fields), not the old JSON/simdjson path this used to measure. Baseline
+// for the rewrite, not the ~400ns/9ns-reject numbers from the JSON era.
+void BM_BinHistParser_ParsesFunding(benchmark::State& state) {
+    auto raw = as_bytes(kRealFundingLine);
+    for (auto _ : state) {
+        benchmark::DoNotOptimize(raw);
+        auto ev = BinHistVenue::parse(raw);
+        benchmark::DoNotOptimize(ev);
+    }
+    state.SetItemsProcessed(state.iterations());
+}
+
+BENCHMARK(BM_BinHistParser_ParsesFunding);
+
+// Isolation: symbol miss on the kline path — pays the full field split
+// (parse() reads the symbol field first now, before any kind dispatch, so
+// this actually rejects earlier than before: no comma-splitting of the
+// remaining 7 fields happens at all once Table::id_of fails).
+void BM_BinHistParser_RejectsUnknownSymbol(benchmark::State& state) {
     auto raw = as_bytes(kUnknownSymbolKline);
     for (auto _ : state) {
         benchmark::DoNotOptimize(raw);
@@ -95,6 +91,6 @@ void BM_BinHistParser_RejectsUnknownSymbolKline(benchmark::State& state) {
     state.SetItemsProcessed(state.iterations());
 }
 
-BENCHMARK(BM_BinHistParser_RejectsUnknownSymbolKline);
+BENCHMARK(BM_BinHistParser_RejectsUnknownSymbol);
 
 }  // namespace

@@ -86,14 +86,13 @@ add_subdirectory(cmake/clock)               # Clock concept + SimClock (WallCloc
 add_subdirectory(cmake/execution)           # ExecutionGateway/Matcher concepts + SimExecution, depends on core only
 add_subdirectory(cmake/strategy)            # Strategy concept, depends on core only
 add_subdirectory(cmake/risk)                # RiskGate concept + RiskDecision, depends on core only
-add_subdirectory(cmake/data_source/wire)    # codec substrate, shared by source (read) and sink (write)
 add_subdirectory(cmake/data_source/sink)
-add_subdirectory(cmake/data_source/source)  # Source concept + FileReplaySource + parser (Parser concept, binance)
+add_subdirectory(cmake/data_source/source)  # Source concept + CsvSource + parser (Parser concept, binance)
 # run_data_source.hpp (D43) needs both source::Source and sink::Sink, so
 # data_source (the parent, not its own "city") comes after both.
 add_subdirectory(cmake/data_source)
 add_subdirectory(cmake/engine)     # Engine<Tx,Clk,Exec,Risk,Strategy,Book> composition root; add_subdirectory's its own transport/ child
-add_subdirectory(cmake/apps/backtest)   # each leg's FileReplaySource -> FanoutSink -> BacktestInProcessTransport -> Engine (D48/D5x)
+add_subdirectory(cmake/apps/backtest)   # each leg's Source -> FanoutSink -> BacktestInProcessTransport -> Engine (D48/D5x) — currently broken, mid-migration from FileReplaySource to CsvSource
 add_subdirectory(integration)           # cross-lib integration/parity tests — see its CMakeLists.txt
 
 if(QP_BUILD_BENCHMARKS)
@@ -117,13 +116,9 @@ if(QP_BUILD_BENCHMARKS)
         benchmarks/core/bench_portfolio.cpp
         benchmarks/core/bench_viewable_pool.cpp
         benchmarks/data_source/source/bench_venue_types.cpp
-        benchmarks/data_source/source/bench_file_replay_source.cpp
+        benchmarks/data_source/source/bench_csv_source.cpp
         benchmarks/data_source/source/venue/binance/binance_historical/bench_bin_hist_symbol_table.cpp
         benchmarks/data_source/source/venue/binance/binance_historical/bench_bin_hist_parser_policy.cpp
-        benchmarks/data_source/wire/bench_wire.cpp
-        benchmarks/data_source/wire/bench_zstd_stream.cpp
-        benchmarks/data_source/wire/bench_partition.cpp
-        benchmarks/core/bench_round_robin_pool.cpp
         benchmarks/engine/bench_engine.cpp
         benchmarks/engine/transport/bench_backtest_in_process_transport.cpp
         benchmarks/strategy/carry/bench_funding_carry_strategy.cpp
@@ -135,7 +130,7 @@ if(QP_BUILD_BENCHMARKS)
     )
     target_link_libraries(qp_bench PRIVATE
         qp_core qp_core_test_support qp_clock qp_execution qp_execution_sim
-        qp_execution_sim_matcher_last_trade qp_source_pure qp_file_replay qp_wire
+        qp_execution_sim_matcher_last_trade qp_source_pure qp_csv_source
         qp_sink qp_sink_fanout qp_data_source qp_engine qp_transport qp_strategy_test_support
         qp_risk_test_support qp_engine_test_support qp_strategy_carry qp_risk qp_risk_basic
         qp_source_venue_binance_historical

@@ -41,7 +41,14 @@ static_assert(sizeof(PriceLevel) == 16, "unexpected padding/size regression");
 /// decision — synthesizing a Trade wouldn't match what live actually
 /// sends, breaking the one-code-path-for-backtest-and-live principle
 /// worse than adding a kind does).
-enum class EventKind : std::uint8_t { BookDiff, Trade, Funding, BookSnapshot, Kline };
+enum class EventKind : std::uint8_t {
+    BookDiff,
+    Trade,
+    Funding,
+    BookSnapshot,
+    Kline,
+    MarkPriceKline
+};
 
 /// One flat struct per event kind, not one struct with every kind's fields
 /// (the old design — every event paid for every other kind's unused
@@ -53,8 +60,9 @@ enum class EventKind : std::uint8_t { BookDiff, Trade, Funding, BookSnapshot, Kl
 /// kept consistent by convention so header_of() below reads the same way
 /// regardless of which kind it's looking at.
 ///
-/// Trade/Funding/Kline are plain data, no heap members, trivially
-/// copyable — cheap to move or copy regardless of consumer count.
+/// Trade/Funding/Kline/MarkPriceKline are plain data, no heap members,
+/// trivially copyable — cheap to move or copy regardless of consumer
+/// count.
 /// BookDiff/BookSnapshot hold their levels behind a shared_ptr instead of
 /// an inline vector — deliberately: those two are the only variable-length
 /// kinds (an inline vector would make every kind in the variant pay for
@@ -75,14 +83,19 @@ struct TradeEvent {
 
 static_assert(std::is_trivially_copyable_v<TradeEvent>);
 
-/// Both fields come off Binance's markPriceUpdate stream/event together
-/// (the same message carries both), not two separate events.
+/// No mark_price field here (an earlier version of this struct had one) —
+/// verified against real historical data (data.binance.vision's
+/// fundingRate CSVs): the two are published as genuinely independent
+/// datasets, not bundled together the way the live REST shape suggested.
+/// Settlement still needs a mark price, but it comes from whatever
+/// MarkPriceKlineEvent was most recently seen (Portfolio tracks it), not
+/// from this struct — see MarkPriceKlineEvent's own comment for why that's
+/// not just relocation but the more correct model.
 struct FundingEvent {
     EventKind kind = EventKind::Funding;
     VenueId   venue{};
     SymbolId  symbol{};
     Timestamp ts{};
-    Price     mark_price{};  ///< Funding settles against this, not last trade.
     double    funding_rate{};
 };
 
@@ -102,6 +115,32 @@ struct KlineEvent {
 };
 
 static_assert(std::is_trivially_copyable_v<KlineEvent>);
+
+/// Binance's own computed fair-value price for the contract — a blend of
+/// spot index price and a smoothed futures premium, published as its own
+/// independent stream specifically so funding settlement can't be gamed
+/// by spoofing the last trade price right at settlement time. Own event
+/// kind, not a flag on KlineEvent (same reasoning as keeping
+/// BookDiffEvent/BookSnapshotEvent separate despite the field overlap):
+/// a flag a consumer has to remember to check is exactly the kind of thing
+/// that gets forgotten somewhere; a distinct variant alternative makes
+/// std::visit enforce the distinction instead. Same bar shape as
+/// KlineEvent (Binance publishes it that way) minus volume — mark price
+/// isn't a traded quantity, so every volume-ish column in the real data is
+/// always zero, not worth carrying.
+struct MarkPriceKlineEvent {
+    EventKind kind = EventKind::MarkPriceKline;
+    VenueId   venue{};
+    SymbolId  symbol{};
+    Timestamp ts{};  ///< Bar open time.
+    Timestamp close_time{};
+    Price     open{};
+    Price     high{};
+    Price     low{};
+    Price     close{};
+};
+
+static_assert(std::is_trivially_copyable_v<MarkPriceKlineEvent>);
 
 /// BookDiff/BookSnapshot's actual levels — see the class comment above for
 /// why this sits behind a shared_ptr in both event structs instead of an
@@ -130,12 +169,12 @@ struct BookSnapshotEvent {
     std::shared_ptr<const BookLevels> levels;
 };
 
-/// The lingua franca — every event this system moves around, one of five
+/// The lingua franca — every event this system moves around, one of six
 /// kinds. Kept as the name `MarketEvent` (not renamed) since every
 /// consumer already reasons about "the event stream" under that name;
 /// what changed is that it's a variant now, not a flat struct.
-using MarketEvent =
-    std::variant<TradeEvent, FundingEvent, KlineEvent, BookDiffEvent, BookSnapshotEvent>;
+using MarketEvent = std::variant<TradeEvent, FundingEvent, KlineEvent, MarkPriceKlineEvent,
+                                 BookDiffEvent, BookSnapshotEvent>;
 
 /// Just the fields every kind shares — kind/venue/symbol/ts — read via
 /// std::visit (a jump table, not a decode) since std::variant gives no

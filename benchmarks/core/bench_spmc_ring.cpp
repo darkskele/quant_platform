@@ -26,6 +26,15 @@ void BM_Spmc_PushInt(benchmark::State& state) {
             state.ResumeTiming();
         }
         ring.push(i);
+        // push() returns void, so there's no return value to anchor a
+        // DoNotOptimize on the way BM_Spsc_PushInt does — ClobberMemory()
+        // here instead. Same shape of gap as SpscQueue shows (isolated push
+        // measures well under isolated try_pop, ~1-2ns vs ~7-9ns) —
+        // verified on SpscQueue that this isn't an elided-write artifact
+        // (neither ClobberMemory nor DoNotOptimize-on-the-real-return-value
+        // changed that number), so treating the same pattern here as
+        // genuine rather than re-litigating it structure-by-structure.
+        benchmark::ClobberMemory();
         ++i;
     }
 }

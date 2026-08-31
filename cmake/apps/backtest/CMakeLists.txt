@@ -1,17 +1,21 @@
-# backtest — thin apps/ wiring: each leg's FileReplaySource -> its own
-# FanoutSink -> BacktestInProcessTransport (merges both legs by
-# MarketEvent::ts, coordinated via ControlChannel) -> Engine<...,
-# BasicRiskGate<Portfolio>, FundingCarryStrategy<Portfolio>, Portfolio>
-# (D48/D5x). Needs qp_sink_fanout (FanoutSink) in addition to
-# qp_file_replay; still no Boost/OpenSSL — FileReplaySource has no live
-# transport.
+# backtest — thin apps/ wiring: each leg's Source -> its own FanoutSink ->
+# BacktestInProcessTransport (merges both legs by MarketEvent::ts,
+# coordinated via ControlChannel) -> Engine<..., BasicRiskGate<Portfolio>,
+# FundingCarryStrategy<Portfolio>, Portfolio> (D48/D5x).
+#
+# CURRENTLY BROKEN: backtest.cpp still constructs the old FileReplaySource,
+# deleted along with the rest of the wire/zstd lineage (see
+# cmake/data_source/source/CMakeLists.txt) in favor of CsvSource. Needs
+# rewiring to CsvSource<BinHistVenue, N> before this target compiles again
+# — not done here since that's a real design pass (file-list construction,
+# N per leg), not a mechanical rename.
 qp_dir(include QP_INC)
 qp_dir(src QP_SRC)
 qp_dir(tests QP_TESTS)
 
 add_library(qp_backtest_core ${QP_SRC}/backtest.cpp)
 target_include_directories(qp_backtest_core PUBLIC ${QP_INC})
-target_link_libraries(qp_backtest_core PUBLIC qp_file_replay qp_sink_fanout qp_transport qp_engine
+target_link_libraries(qp_backtest_core PUBLIC qp_csv_source qp_sink_fanout qp_transport qp_engine
                                                qp_execution_sim qp_execution_sim_matcher_last_trade
                                                qp_risk_basic qp_strategy_carry)
 

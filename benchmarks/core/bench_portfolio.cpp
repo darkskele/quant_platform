@@ -34,8 +34,12 @@ void BM_Portfolio_ApplyFunding(benchmark::State& state) {
     FundingEvent event;
     event.symbol       = kSymbol;
     event.venue        = kVenue;
-    event.mark_price   = 100.0;
     event.funding_rate = 0.0001;
+    // No mark_price to set — FundingEvent no longer carries one (settlement
+    // now reads Portfolio's own funding_mark_price_, fed by
+    // MarkPriceKlineEvent). Left unseeded (defaults to 0.0): doesn't change
+    // what's being timed here, apply_funding does the same multiply either
+    // way, just against a different operand.
     for (auto _ : state) {
         portfolio.apply_funding(event);
         benchmark::DoNotOptimize(portfolio);

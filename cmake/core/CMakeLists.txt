@@ -1,5 +1,5 @@
 # core — the lingua franca. Header-only. Depends on nothing but the
-# standard library + pthread (round_robin_pool.hpp uses std::thread —
+# standard library + pthread (control_channel.hpp uses std::thread —
 # production code, not test-only, so this is unconditional, not gated by
 # BUILD_TESTING like the block below).
 qp_dir(include QP_INC)
@@ -31,9 +31,7 @@ if(BUILD_TESTING)
         ${QP_TESTS}/test_spsc_queue.cpp
         ${QP_TESTS}/test_spmc_ring.cpp
         ${QP_TESTS}/test_portfolio.cpp
-        ${QP_TESTS}/test_round_robin_pool.cpp
         ${QP_TESTS}/test_control_channel.cpp
-        ${QP_TESTS}/test_venue_subscriptions.cpp
     )
     target_link_libraries(qp_core_tests PRIVATE qp_core qp_core_test_support Threads::Threads GTest::gtest
                                                  GTest::gtest_main)
@@ -46,7 +44,6 @@ if(QP_BUILD_BENCHMARKS)
         ${QP_BENCH}/bench_spsc_queue.cpp
         ${QP_BENCH}/bench_spmc_ring.cpp
         ${QP_BENCH}/bench_mpsc_queue.cpp
-        ${QP_BENCH}/bench_round_robin_pool.cpp
         ${QP_BENCH}/bench_control_channel.cpp
         ${QP_BENCH}/bench_portfolio.cpp
         ${QP_BENCH}/bench_viewable_pool.cpp

@@ -33,13 +33,25 @@ void BM_Spsc_PushInt(benchmark::State& state) {
     qp::SpscQueue<int, 1024> q;
     int                      i = 0;
     for (auto _ : state) {
-        if (!q.push(i)) {
+        bool pushed = q.push(i);
+        if (!pushed) {
             state.PauseTiming();
             while (q.pop()) {
             }
             state.ResumeTiming();
-            q.push(i);
+            pushed = q.push(i);
         }
+        // DoNotOptimize on the actual return value — matches
+        // BM_Spsc_PopInt's own methodology. Verified this isn't a
+        // measurement artifact two ways (this, and a plain ClobberMemory()
+        // beforehand) — neither changed the number. Push genuinely does
+        // cost roughly 1ns here, well under pop's ~7-8ns; both isolated
+        // benchmarks touch the same shape of work (two atomics + one
+        // storage access), so the gap is real, not unmeasured work —
+        // exact root cause (store-to-load forwarding, std::launder's
+        // effect on pop's aliasing, something else) not pinned down
+        // further than that.
+        benchmark::DoNotOptimize(pushed);
         ++i;
     }
 }

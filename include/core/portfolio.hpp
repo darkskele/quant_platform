@@ -35,10 +35,15 @@ class Portfolio {
     }
 
     /// A no-op unless `event` actually holds a FundingEvent. Settles
-    /// against `position(event.symbol, event.venue)` as it stands right
-    /// now — call before letting a Strategy react to this same event, so a
-    /// decision made *because of* this rate can't also be charged the
-    /// payment it triggered.
+    /// against the last-seen *official* mark price (funding_mark_price_,
+    /// fed only by MarkPriceKlineEvent), never the general mark_price_
+    /// valuation price below — that one can most-recently reflect a Trade
+    /// or Kline instead, and settling funding against last-trade is
+    /// exactly the manipulation the real mark price exists to prevent
+    /// (see MarkPriceKlineEvent's own comment). `position(event.symbol,
+    /// event.venue)` as it stands right now — call before letting a
+    /// Strategy react to this same event, so a decision made *because of*
+    /// this rate can't also be charged the payment it triggered.
     void apply_funding(const MarketEvent& event) noexcept {
         const auto* funding = std::get_if<FundingEvent>(&event);
         if (!funding) return;
@@ -46,30 +51,37 @@ class Portfolio {
         assert(funding->venue < kMaxVenues);
         // Positive funding_rate: longs pay shorts — a positive (long)
         // position debits cash, a negative (short) one credits it.
-        cash_ -= positions_[index(funding->symbol, funding->venue)] * funding->mark_price *
+        cash_ -= positions_[index(funding->symbol, funding->venue)] *
+                 funding_mark_price_[index(funding->symbol, funding->venue)] *
                  funding->funding_rate;
     }
 
     /// Marks (symbol, venue) at whichever scalar price `event` actually
-    /// carries — Trade's `price`, Funding's `mark_price`, or Kline's
+    /// carries — Trade's `price`, Kline's `close`, or MarkPriceKline's
     /// `close` (D46); BookDiff/BookSnapshot have no single scalar price and
     /// are ignored. Feeds equity(), which otherwise has no notion of
     /// unrealized PnL — cash() alone reflects realized trading cash flow,
-    /// not what a held position is currently worth. Starts at 0 (unmarked)
-    /// like positions_/cash_: a position held before its first
-    /// Trade/Funding/Kline event understates equity() until one arrives,
-    /// same "no never-touched-vs-zero distinction" as the rest of this
-    /// class.
+    /// not what a held position is currently worth. MarkPriceKline also
+    /// updates funding_mark_price_ (apply_funding's dedicated source) —
+    /// deliberately separate from the general mark_price_ array above,
+    /// even though this is the one case where both get the same value:
+    /// keeping them as two arrays means a Trade/Kline arriving after the
+    /// last MarkPriceKline can update valuation without silently also
+    /// becoming what funding settles against. Starts at 0 (unmarked) like
+    /// positions_/cash_: a position held before its first relevant event
+    /// understates equity() until one arrives, same "no
+    /// never-touched-vs-zero distinction" as the rest of this class.
     void apply_mark_price(const MarketEvent& event) noexcept {
         std::visit(
             [this](const auto& e) {
                 using E = std::decay_t<decltype(e)>;
                 if constexpr (std::is_same_v<E, TradeEvent>) {
                     mark(e.symbol, e.venue, e.price);
-                } else if constexpr (std::is_same_v<E, FundingEvent>) {
-                    mark(e.symbol, e.venue, e.mark_price);
                 } else if constexpr (std::is_same_v<E, KlineEvent>) {
                     mark(e.symbol, e.venue, e.close);
+                } else if constexpr (std::is_same_v<E, MarkPriceKlineEvent>) {
+                    mark(e.symbol, e.venue, e.close);
+                    mark_funding(e.symbol, e.venue, e.close);
                 }
             },
             event);
@@ -113,8 +125,15 @@ class Portfolio {
         mark_price_[index(symbol, venue)] = price;
     }
 
+    void mark_funding(SymbolId symbol, VenueId venue, Price price) noexcept {
+        assert(symbol < kMaxSymbols);
+        assert(venue < kMaxVenues);
+        funding_mark_price_[index(symbol, venue)] = price;
+    }
+
     std::array<Qty, kMaxSymbols * kMaxVenues>   positions_{};
     std::array<Price, kMaxSymbols * kMaxVenues> mark_price_{};
+    std::array<Price, kMaxSymbols * kMaxVenues> funding_mark_price_{};
     Notional                                    cash_{0.0};
 };
 

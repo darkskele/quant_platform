@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <memory>
 #include <optional>
+#include <thread>
 #include <type_traits>
 
 namespace qp {
@@ -39,9 +40,18 @@ class MpscQueue {
     using storage_t                         = std::byte[sizeof(T)];
     static constexpr std::size_t INDEX_MASK = Capacity - 1;
 
+    // Free retries before yielding on CAS failure — most contended CAS
+    // races resolve within one or two retries, so this only ever engages
+    // under genuine sustained contention. Untuned (no measurement behind
+    // this specific number, same "placeholder for the right shape, not a
+    // validated value" caveat SpmcRing's own backoff constants carry) — a
+    // few retries is a reasonable default, not a claim that 8 is optimal.
+    static constexpr int kSpinAttempts = 8;
+
    public:
     MpscQueue() {
-        for (std::size_t i = 0; i < Capacity; ++i) ready_[i].store(false, std::memory_order_relaxed);
+        for (std::size_t i = 0; i < Capacity; ++i)
+            ready_[i].store(false, std::memory_order_relaxed);
     }
 
     ~MpscQueue() {
@@ -62,15 +72,27 @@ class MpscQueue {
 
         std::size_t pos = enqueue_pos_.load(std::memory_order_relaxed);
         std::size_t slot;
+        int         retries = 0;
         for (;;) {
             // acquire: must observe try_pop()'s release-store of dequeue_pos_
             // before trusting this slot is actually free.
-            if (pos - dequeue_pos_.load(std::memory_order_acquire) >= Capacity) return false;  // full
+            if (pos - dequeue_pos_.load(std::memory_order_acquire) >= Capacity)
+                return false;  // full
 
             slot = pos & INDEX_MASK;
             if (enqueue_pos_.compare_exchange_weak(pos, pos + 1, std::memory_order_relaxed)) break;
             // CAS failed: compare_exchange_weak refreshed `pos` to the current value — retry,
             // re-checking fullness against it (another producer may have raced ahead of us).
+            // Bare retry (no backoff at all) meant every contending producer
+            // hammered the same enqueue_pos_ cache line as fast as possible —
+            // measured (bench_mpsc_queue.cpp's contended cases) as severely
+            // supralinear: ~8x cost for 2.5x threads, ~23x for 4.5x. A few
+            // free retries first (the common case resolves in 1-2), then
+            // yield instead of spinning tighter — cheap insurance against
+            // contention this queue's only real caller (ControlChannel)
+            // doesn't hit today, but costs nothing when uncontended since it
+            // only ever triggers after a CAS actually fails.
+            if (++retries > kSpinAttempts) std::this_thread::yield();
         }
 
         std::construct_at(reinterpret_cast<T*>(&storage_[slot]), std::forward<Args>(args)...);
@@ -85,9 +107,10 @@ class MpscQueue {
         std::size_t pos  = dequeue_pos_.load(std::memory_order_relaxed);
         std::size_t slot = pos & INDEX_MASK;
         // acquire: must observe push()'s release-store before reading storage_[slot].
-        if (!ready_[slot].load(std::memory_order_acquire)) return std::nullopt;  // not published yet
+        if (!ready_[slot].load(std::memory_order_acquire))
+            return std::nullopt;  // not published yet
 
-        T*                elem = std::launder(reinterpret_cast<T*>(&storage_[slot]));
+        T*               elem = std::launder(reinterpret_cast<T*>(&storage_[slot]));
         std::optional<T> out{std::move(*elem)};
         std::destroy_at(elem);
         // release: frees the slot for a producer's next-lap claim.
@@ -101,14 +124,15 @@ class MpscQueue {
     /// guaranteed-exact count (same "diagnostic only" caveat as
     /// SpmcRing::full_count()).
     std::size_t size() const noexcept {
-        return enqueue_pos_.load(std::memory_order_relaxed) - dequeue_pos_.load(std::memory_order_relaxed);
+        return enqueue_pos_.load(std::memory_order_relaxed) -
+               dequeue_pos_.load(std::memory_order_relaxed);
     }
 
     static constexpr std::size_t capacity() noexcept { return Capacity; }
 
    private:
     alignas(alignof(T)) storage_t storage_[Capacity];
-    std::atomic<bool>             ready_[Capacity];
+    std::atomic<bool> ready_[Capacity];
     alignas(64) std::atomic<std::size_t> enqueue_pos_{0};  // multi-producer, CAS-raced
     alignas(64) std::atomic<std::size_t> dequeue_pos_{0};  // consumer-owned
 };
