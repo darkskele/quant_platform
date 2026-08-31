@@ -1,5 +1,4 @@
-# carry — funding-rate/basis carry Strategy (docs/strategy.md family 1, D6).
-# Header-only, depends on qp_strategy only.
+# carry — funding-rate/basis carry Strategy
 qp_dir(include QP_INC)
 qp_dir(tests QP_TESTS)
 qp_dir(benchmarks QP_BENCH)

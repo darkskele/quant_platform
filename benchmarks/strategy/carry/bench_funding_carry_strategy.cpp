@@ -63,6 +63,24 @@ void BM_FundingCarryStrategy_HoldsPosition(benchmark::State& state) {
 
 BENCHMARK(BM_FundingCarryStrategy_HoldsPosition);
 
+// Exit path: funding_rate drops to the exit threshold, both legs flatten to 0.
+void BM_FundingCarryStrategy_FlattensPosition(benchmark::State& state) {
+    Book                       portfolio;
+    FundingCarryStrategy<Book> strategy{make_config(), portfolio};
+    portfolio.apply_fill(
+        qp::Fill{.symbol = kSymbol, .side = qp::Side::Buy, .venue = kSpotVenue, .qty = 2.0});
+    portfolio.apply_fill(
+        qp::Fill{.symbol = kSymbol, .side = qp::Side::Sell, .venue = kFuturesVenue, .qty = 2.0});
+    auto event = qp::test::make_funding(kSymbol, 0, 0.0, kFuturesVenue);
+
+    for (auto _ : state) {
+        auto intents = strategy.on_event(event);
+        benchmark::DoNotOptimize(intents);
+    }
+}
+
+BENCHMARK(BM_FundingCarryStrategy_FlattensPosition);
+
 // Reject path: wrong kind/symbol/venue — the early return every other case
 // pays on top of, isolated here as the floor.
 void BM_FundingCarryStrategy_IgnoresNonMatchingEvent(benchmark::State& state) {
