@@ -65,6 +65,38 @@ void BM_Portfolio_ApplyMarkPrice(benchmark::State& state) {
 
 BENCHMARK(BM_Portfolio_ApplyMarkPrice);
 
+// MarkPriceKlineEvent's branch writes both mark_price_ and
+// funding_mark_price_ — two array writes, not TradeEvent/KlineEvent's one.
+void BM_Portfolio_ApplyMarkPriceFromMarkPriceKline(benchmark::State& state) {
+    Portfolio<kCounts>  portfolio;
+    MarkPriceKlineEvent event;
+    event.symbol = kSymbol;
+    event.venue  = kVenue;
+    event.close  = 100.0;
+    for (auto _ : state) {
+        portfolio.apply_mark_price(event);
+        benchmark::DoNotOptimize(portfolio);
+    }
+}
+
+BENCHMARK(BM_Portfolio_ApplyMarkPriceFromMarkPriceKline);
+
+// Floor: BookDiff/BookSnapshot carry no scalar price, so this falls through
+// every if constexpr branch untouched — the cost every other event's own
+// write pays on top of.
+void BM_Portfolio_ApplyMarkPriceIgnoresBookDiff(benchmark::State& state) {
+    Portfolio<kCounts> portfolio;
+    BookDiffEvent      event;
+    event.symbol = kSymbol;
+    event.venue  = kVenue;
+    for (auto _ : state) {
+        portfolio.apply_mark_price(event);
+        benchmark::DoNotOptimize(portfolio);
+    }
+}
+
+BENCHMARK(BM_Portfolio_ApplyMarkPriceIgnoresBookDiff);
+
 void BM_Portfolio_Position(benchmark::State& state) {
     Portfolio<kCounts> portfolio;
     portfolio.apply_fill(

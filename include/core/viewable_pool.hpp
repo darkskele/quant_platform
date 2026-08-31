@@ -11,14 +11,8 @@ namespace qp {
 
 /// Fixed-capacity, single-producer buffer: push/emplace append, reset()
 /// rewinds the write position without touching storage. `view()` hands out
-/// a non-owning `span` for a reader elsewhere — carries no synchronization
-/// of its own, so a reader on another thread needs its own happens-before
-/// edge to the writes it's reading (this type doesn't provide one).
-/// `UseHeap` selects a one-time allocation (never resized) over inline
-/// storage; either way `Capacity` is fixed for the object's lifetime.
-/// Movable, not copyable: a move relocates (stack mode) or repoints (heap
-/// mode) the storage, so any `view()` taken before the move is invalidated
-/// — don't move this while a span from it is still in use.
+/// a non-owning span with no synchronization of its own. Movable, not
+/// copyable.
 template <typename T, std::size_t Capacity, bool UseHeap = false>
 class ViewablePool {
     static_assert(Capacity > 0);

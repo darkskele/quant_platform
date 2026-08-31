@@ -1,5 +1,7 @@
 #include <benchmark/benchmark.h>
 
+#include <utility>
+
 #include "types.hpp"
 #include "viewable_pool.hpp"
 
@@ -82,5 +84,28 @@ void BM_ViewablePool_Reset(benchmark::State& state) {
 
 BENCHMARK(BM_ViewablePool_Reset<false>);
 BENCHMARK(BM_ViewablePool_Reset<true>);
+
+// Move construct out, move assign back — a round trip, tandem-style like
+// push+pop elsewhere in this file, since isolating just one direction would
+// need a PauseTiming rebuild every iteration (measured elsewhere in this
+// repo at ~270ns/call, likely swamping the heap-mode move it's isolating).
+// The two storage modes are the actual point: UseHeap=true moves a
+// unique_ptr (O(1), pointer repoint), UseHeap=false relocates the whole
+// std::array<Intent, kCapacity> (O(Capacity), a real copy).
+template <bool UseHeap>
+void BM_ViewablePool_MoveRoundTrip(benchmark::State& state) {
+    Pool<UseHeap> source;
+    for (std::size_t i = 0; i < kCapacity; ++i)
+        source.push(qp::Intent{.symbol = 1, .venue = 0, .target_position = double(i)});
+
+    for (auto _ : state) {
+        Pool<UseHeap> dest{std::move(source)};
+        benchmark::DoNotOptimize(dest);
+        source = std::move(dest);
+    }
+}
+
+BENCHMARK(BM_ViewablePool_MoveRoundTrip<false>);
+BENCHMARK(BM_ViewablePool_MoveRoundTrip<true>);
 
 }  // namespace

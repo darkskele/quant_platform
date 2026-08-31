@@ -9,26 +9,14 @@
 namespace qp {
 
 // Lock-free single-producer single-consumer ring buffer. One thread calls
-// push(), a different single thread calls pop() — no other pattern is safe.
-// Ported from a prior project's `buffers::circular_buffer` (validated there
-// under a threaded producer/consumer test). This is the seam between a feed
-// thread (WS I/O) and a consumer thread (parse/record) so a slow consumer
-// can never block the socket read.
-//
-// `UseHeap` — same pattern, same reasoning as SpmcRing's own UseHeap: a
-// one-time allocation (never resized) instead of inline storage, for a T
-// large enough that Capacity * sizeof(T) living directly in this object
-// isn't worth it. push()/pop() cost the same either way.
+// push(), a different single thread calls pop().
 template <typename T, std::size_t Capacity, bool UseHeap = false>
 class SpscQueue {
     static_assert(Capacity > 1, "Capacity must be greater than one");
     static_assert((Capacity & (Capacity - 1)) == 0, "Capacity must be a power of 2");
 
-    // A plain std::byte[sizeof(T)] only guarantees byte alignment when
-    // heap-allocated via new[] — not alignof(T). Wrapping it in an
-    // alignas(T) struct makes new[] (inside make_unique) honor that
-    // alignment too, not just the inline-array case (see SpmcRing's
-    // identical comment — same bug, same fix, caught there first).
+    // std::byte[sizeof(T)] alone only guarantees byte alignment when
+    // heap-allocated via new[], not alignof(T).
     struct alignas(T) storage_t {
         std::byte data[sizeof(T)];
     };
@@ -54,14 +42,14 @@ class SpscQueue {
     SpscQueue(const SpscQueue&)            = delete;
     SpscQueue& operator=(const SpscQueue&) = delete;
 
-    // Producer side. False if the queue is full (caller decides: drop, block, count).
+    // Producer side. False if the queue is full.
     template <typename... Args>
     bool push(Args&&... args) {
         static_assert(std::is_constructible_v<T, Args...>);
 
-        // relaxed: head_ is only ever written by this thread. acquire on
-        // tail_: must observe the consumer's release-store of tail_ before
-        // reading storage_[head] is safe to overwrite (its slot was freed).
+        // head_ is only ever written by this thread. acquire on
+        // tail_, must observe the consumer's release-store of tail_ before
+        // reading storage_[head] is safe to overwrit.
         auto head      = head_.load(std::memory_order_relaxed);
         auto next_head = (head + 1) & INDEX_MASK;
         if (next_head == tail_.load(std::memory_order_acquire)) return false;  // full
@@ -76,8 +64,7 @@ class SpscQueue {
     // Consumer side. Empty optional if nothing available.
     std::optional<T> pop() {
         // relaxed: tail_ is only ever written by this thread. acquire on
-        // head_: must observe the producer's release-store of head_ before
-        // reading storage_[tail] is safe (the element is fully constructed).
+        // head_: must observe the producer's release-store.
         auto tail = tail_.load(std::memory_order_relaxed);
         if (tail == head_.load(std::memory_order_acquire)) return std::nullopt;  // empty
 
@@ -100,10 +87,8 @@ class SpscQueue {
 
    private:
     Storage storage_;
-    // alignas(64): each index gets its own cache line so the producer
-    // writing head_ never invalidates the consumer's cached line for
-    // tail_ (and vice versa) — false sharing would otherwise serialize
-    // the two threads on every push/pop.
+    // alignas(64): own cache line per cursor, so the producer writing
+    // head_ never invalidates the consumer's cached tail_ line.
     alignas(64) std::atomic<std::size_t> head_{0};  // producer-owned
     alignas(64) std::atomic<std::size_t> tail_{0};  // consumer-owned
 };

@@ -14,30 +14,15 @@ namespace qp {
 
 /// Single-producer, multi-consumer ring buffer over a fixed, compile-time
 /// set of consumers (indices 0..NumConsumers-1, assigned once by whoever
-/// wires it up — no runtime subscribe/unsubscribe). Gated: push() never
-/// overwrites a slot until every consumer has read past it, so a slow
-/// consumer backpressures the producer instead of data being dropped.
-/// Extends SpscQueue's construct_at/destroy_at slot discipline from one
-/// consumer cursor to NumConsumers independent ones.
-///
-/// `UseHeap` selects a one-time allocation (never resized) over inline
-/// storage — same pattern and same reasoning as ViewablePool's own
-/// `UseHeap`: a T sized to the widest MarketEvent alternative times a
-/// large Capacity adds up (Capacity * sizeof(T) sitting directly in this
-/// object, e.g. inline in whatever owns the ring), and push()/try_pop()
-/// cost the same either way — one extra pointer dereference to reach the
-/// backing array, hidden by cache since it's the same pointer every call.
+/// wires it up). 
 template <typename T, std::size_t Capacity, std::size_t NumConsumers, bool UseHeap = false>
 class SpmcRing {
     static_assert(Capacity > 1, "Capacity must be greater than one");
     static_assert(std::has_single_bit(Capacity), "Capacity must be a power of 2");
     static_assert(NumConsumers > 0, "at least one consumer");
 
-    // A plain std::byte[sizeof(T)] only guarantees byte alignment when
-    // heap-allocated via new[] — not alignof(T), which a MarketEvent
-    // variant (int64_t/double/shared_ptr members) needs. Wrapping it in an
-    // alignas(T) struct makes new[] (inside make_unique) honor that
-    // alignment too, not just the inline-array case.
+    // std::byte[sizeof(T)] alone only guarantees byte alignment when
+    // heap-allocated via new[], not alignof(T)
     struct alignas(T) storage_t {
         std::byte data[sizeof(T)];
     };
@@ -59,11 +44,8 @@ class SpmcRing {
     }
 
     ~SpmcRing() {
-        // [published_ - Capacity, published_) all hold live objects
-        // unconditionally — push() only ever destroys a slot right before
-        // reconstructing it, regardless of consumer state. Mirrors
-        // SpscQueue's dtor loop with a fixed-width tail instead of one
-        // tracked by a single consumer cursor.
+        // [published_ - Capacity, published_) all hold live objects,
+        // push() only ever destroys a slot right before reconstructing it.
         auto head = published_.load(std::memory_order_relaxed);
         auto tail = (head >= Capacity) ? head - Capacity : std::size_t{0};
         while (tail != head) {
@@ -75,9 +57,7 @@ class SpmcRing {
     SpmcRing(const SpmcRing&)            = delete;
     SpmcRing& operator=(const SpmcRing&) = delete;
 
-    /// Reads the next slot `consumer` hasn't seen yet. Never blocks — the
-    /// caller's poll loop owns the wait/retry policy, same contract as
-    /// Source::next().
+    /// Reads the next slot `consumer` hasn't seen yet. Never blocks.
     /// @param consumer index in [0, NumConsumers), fixed at wiring time.
     /// @return nullopt if `consumer` is caught up to the producer.
     std::optional<T> try_pop(std::size_t consumer) {
@@ -86,7 +66,7 @@ class SpmcRing {
         if (cur == published_.load(std::memory_order_acquire)) return std::nullopt;
 
         T* elem = std::launder(reinterpret_cast<T*>(&storage_[cur & INDEX_MASK]));
-        // Copy, not move (contrast SpscQueue::pop): other consumers may
+        // Copy, not move, other consumers may
         // still need this exact slot, so it must stay intact.
         std::optional<T> out{*elem};
         cursor.store(cur + 1, std::memory_order_release);
@@ -100,9 +80,8 @@ class SpmcRing {
         return try_pop(Consumer);
     }
 
-    /// Publishes one event constructed from `args`. Single producer only;
-    /// blocks until every consumer has read past the slot being reused —
-    /// see wait_for_slot for the wait policy. Never drops data.
+    /// Publishes one event constructed from `args`. Single producer only.
+    /// Blocks until every consumer has read past the slot being reused.
     template <typename... Args>
     void push(Args&&... args) {
         static_assert(std::is_constructible_v<T, Args...>);
@@ -120,8 +99,7 @@ class SpmcRing {
     static constexpr std::size_t capacity() noexcept { return Capacity; }
 
     /// Number of push() calls that had to wait because the slot being
-    /// reused wasn't free yet (some consumer hadn't read it). Diagnostic
-    /// only — nothing in the ring's behavior depends on it.
+    /// reused wasn't free yet (some consumer hadn't read it).
     std::uint64_t full_count() const noexcept {
         return full_count_.load(std::memory_order_relaxed);
     }
@@ -137,15 +115,8 @@ class SpmcRing {
     }
 
     // Spin -> yield -> capped exponential backoff while the slot `next`
-    // wants to reuse is still needed by a consumer. Bounded sleep rather
-    // than spinning/yielding indefinitely once a stall looks sustained —
-    // this project targets throughput, not nanoseconds (D1), so paying a
-    // sleep-wakeup latency on a genuine stall is the right tradeoff.
-    // Untuned: no measurement behind these three constants yet (spin-check
-    // cost, actual yield() latency under our scheduler, real consumer
-    // recovery time are all unmeasured) — placeholders for the right shape
-    // of backoff, not validated values. Revisit with real numbers before
-    // trusting this under load.
+    // wants to reuse is still needed by a consumer. Untuned — placeholders
+    // for the right shape of backoff, not validated values.
     static constexpr int                       kSpinAttempts  = 1000;
     static constexpr int                       kYieldAttempts = 100;
     static constexpr std::chrono::microseconds kBackoffStart{50};
