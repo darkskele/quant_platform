@@ -2,42 +2,46 @@
 
 | Benchmark | Baseline | Current | Δ Time | Baseline CPU | Current CPU | Δ CPU |
 | --- | --- | --- | --- | --- | --- | --- |
-| BM_Spmc_PushTryPopContended<8>/threads:9 | 36.37 ns | 214.30 ns | +489.2% | 312.77 ns | 1,529.44 ns | +389.0% |
-| BM_RunDataSource_OnePair | 458.26 ns | 587.72 ns | +28.3% | 449.22 ns | 585.45 ns | +30.3% |
-| BM_Mpsc_PushPopContended<1>/threads:2 | 34.23 ns | 41.63 ns | +21.6% | 67.10 ns | 81.96 ns | +22.1% |
-| BM_FanoutSink_RecordContended<1>/threads:2 | 52.87 ns | 60.60 ns | +14.6% | 102.75 ns | 119.79 ns | +16.6% |
-| BM_Spmc_PushTryPopContended<4>/threads:5 | 32.25 ns | 36.70 ns | +13.8% | 157.76 ns | 175.10 ns | +11.0% |
-| BM_RoundRobinPool_FourTasksOneWorker | 224.41 ns | 253.05 ns | +12.8% | 219.95 ns | 251.07 ns | +14.1% |
-| BM_Mpsc_PushInt | 14.73 ns | 16.45 ns | +11.7% | 14.45 ns | 15.97 ns | +10.5% |
-| BM_Spmc_PushAllConsumersCaughtUp<8> | 69.16 ns | 76.87 ns | +11.1% | 67.80 ns | 74.45 ns | +9.8% |
-| BM_BacktestInProcessTransport_NRings<2> | 126.89 ns | 133.39 ns | +5.1% | 124.38 ns | 132.66 ns | +6.7% |
-| BM_RoundRobinPool_FourWorkTasksOneWorker | 640.75 ns | 667.98 ns | +4.2% | 628.05 ns | 664.42 ns | +5.8% |
-| BM_BasicRiskGate_OnTickTripsAndFlattens | 1,084.27 ns | 1,123.29 ns | +3.6% | 1,063.05 ns | 1,125.66 ns | +5.9% |
-| BM_SymbolTable_InternNew | 890.44 ns | 839.52 ns | -5.7% | 874.15 ns | 857.31 ns | -1.9% |
-| BM_Wire_WriteFullDepthSnapshot | 1,085.35 ns | 1,021.88 ns | -5.8% | 1,063.95 ns | 1,019.30 ns | -4.2% |
-| BM_BacktestInProcessTransport_NRings<16> | 2,048.50 ns | 1,920.61 ns | -6.2% | 2,008.33 ns | 1,949.45 ns | -2.9% |
-| BM_RoundRobinPool_FourTasksFourWorkers | 600.25 ns | 562.24 ns | -6.3% | 588.35 ns | 557.58 ns | -5.2% |
-| BM_ZstdDecompressor_Decompress | 2,691.25 ns | 2,504.69 ns | -6.9% | 2,637.93 ns | 2,492.52 ns | -5.5% |
-| BM_BacktestInProcessTransport_NRings<8> | 789.14 ns | 732.43 ns | -7.2% | 773.68 ns | 746.53 ns | -3.5% |
-| BM_BacktestInProcessTransport_NRings<4> | 330.14 ns | 306.38 ns | -7.2% | 323.65 ns | 315.55 ns | -2.5% |
-| BM_Wire_ReadFullDepthSnapshot | 1,698.87 ns | 1,568.53 ns | -7.7% | 1,665.41 ns | 1,563.37 ns | -6.1% |
-| BM_BacktestInProcessTransport_TwoRingsPopulatedBookDiff | 256.61 ns | 236.61 ns | -7.8% | 251.58 ns | 238.86 ns | -5.1% |
-| BM_Partition_FormatDay | 162.24 ns | 147.43 ns | -9.1% | 159.03 ns | 146.39 ns | -7.9% |
-| BM_Partition_ListSegments | 11,792.32 ns | 10,713.67 ns | -9.1% | 11,558.27 ns | 10,633.09 ns | -8.0% |
-| BM_BinHistSymbolTable_IdOfLastMatch | 18.19 ns | 16.38 ns | -9.9% | 17.84 ns | 16.51 ns | -7.5% |
-| BM_SymbolTable_InternExisting | 62.52 ns | 55.78 ns | -10.8% | 61.29 ns | 56.66 ns | -7.6% |
-| BM_Wire_ReadRealBookDiff | 104.87 ns | 92.52 ns | -11.8% | 102.80 ns | 92.37 ns | -10.2% |
-| BM_FileReplaySource_MultiSymbolMerge | 4,066,715.97 ns | 3,567,790.45 ns | -12.3% | 3,985,862.40 ns | 3,603,407.41 ns | -9.6% |
-| BM_FileReplaySource_SingleSymbolTrades | 3,291,573.56 ns | 2,885,553.75 ns | -12.3% | 3,226,936.97 ns | 2,923,761.98 ns | -9.4% |
-| BM_Partition_SegmentPath | 688.71 ns | 601.29 ns | -12.7% | 675.08 ns | 596.87 ns | -11.6% |
-| BM_FileReplaySource_SingleSymbolBookDiffs | 8,036,456.15 ns | 7,013,474.47 ns | -12.7% | 7,878,920.87 ns | 7,130,250.87 ns | -9.5% |
-| BM_ZstdCompressor_Compress | 181.82 ns | 158.56 ns | -12.8% | 178.51 ns | 158.09 ns | -11.4% |
-| BM_ZstdCompressor_Finish | 30,725.13 ns | 24,942.97 ns | -18.8% | 30,118.80 ns | 24,829.03 ns | -17.6% |
-| BM_ZstdStream_RoundTrip | 34,470.18 ns | 27,806.50 ns | -19.3% | 33,788.88 ns | 27,658.49 ns | -18.1% |
-| BM_Mpsc_PushPopContended<8>/threads:9 | 174.62 ns | 132.48 ns | -24.1% | 1,488.76 ns | 1,172.59 ns | -21.2% |
-| BM_Spmc_PushTryPopContended<1>/threads:2 | 47.03 ns | 34.46 ns | -26.7% | 90.84 ns | 65.59 ns | -27.8% |
-| BM_Spsc_PushPopContended/threads:2 | 38.55 ns | 25.58 ns | -33.6% | 75.57 ns | 50.86 ns | -32.7% |
+| BM_Mpsc_PushPopContended<8>/threads:9 | 132.48 ns | 199.20 ns | +50.4% | 1,172.59 ns | 1,730.85 ns | +47.6% |
+| BM_RoundRobinPool_WorkTaskSolo | 63.39 ns | 91.24 ns | +43.9% | 62.86 ns | 91.29 ns | +45.2% |
+| BM_RoundRobinPool_OneTaskOneWorker | 167.73 ns | 234.57 ns | +39.8% | 166.44 ns | 234.37 ns | +40.8% |
+| BM_ZstdStream_RoundTrip | 27,806.50 ns | 37,882.64 ns | +36.2% | 27,658.49 ns | 37,718.04 ns | +36.4% |
+| BM_Partition_SegmentPath | 601.29 ns | 752.21 ns | +25.1% | 596.87 ns | 750.85 ns | +25.8% |
+| BM_RoundRobinPool_FourTasksOneWorker | 253.05 ns | 305.86 ns | +20.9% | 251.07 ns | 305.72 ns | +21.8% |
+| BM_SymbolTable_InternNew | 839.52 ns | 1,002.15 ns | +19.4% | 857.31 ns | 1,005.30 ns | +17.3% |
+| BM_Partition_ListSegments | 10,713.67 ns | 12,355.28 ns | +15.3% | 10,633.09 ns | 12,338.20 ns | +16.0% |
+| BM_Partition_FormatDay | 147.43 ns | 168.39 ns | +14.2% | 146.39 ns | 168.02 ns | +14.8% |
+| BM_Wire_RoundTripRealBookDiff | 174.13 ns | 196.53 ns | +12.9% | 173.73 ns | 197.11 ns | +13.5% |
+| BM_RoundRobinPool_FourWorkTasksOneWorker | 667.98 ns | 746.18 ns | +11.7% | 664.42 ns | 746.83 ns | +12.4% |
+| BM_RoundRobinPool_FourTasksFourWorkers | 562.24 ns | 619.70 ns | +10.2% | 557.58 ns | 619.62 ns | +11.1% |
+| BM_BinHistParser_RejectsUnknownSymbolKline | 53.04 ns | 58.38 ns | +10.1% | 53.06 ns | 58.55 ns | +10.3% |
+| BM_RoundRobinPool_WorkTaskOneWorker | 349.66 ns | 384.66 ns | +10.0% | 346.67 ns | 384.87 ns | +11.0% |
+| BM_ZstdCompressor_Compress | 158.56 ns | 173.82 ns | +9.6% | 158.09 ns | 172.92 ns | +9.4% |
+| BM_Wire_ReadRealBookDiff | 92.52 ns | 99.73 ns | +7.8% | 92.37 ns | 100.02 ns | +8.3% |
+| BM_FileReplaySource_MultiSymbolMerge | 3,567,790.45 ns | 3,832,970.28 ns | +7.4% | 3,603,407.41 ns | 3,842,894.97 ns | +6.6% |
+| BM_FileReplaySource_SingleSymbolTrades | 2,885,553.75 ns | 3,092,961.49 ns | +7.2% | 2,923,761.98 ns | 3,100,741.63 ns | +6.1% |
+| BM_BasicRiskGate_OnTickNoDrawdown | 386.32 ns | 413.61 ns | +7.1% | 386.65 ns | 414.79 ns | +7.3% |
+| BM_FileReplaySource_SingleSymbolBookDiffs | 7,013,474.47 ns | 7,448,660.30 ns | +6.2% | 7,130,250.87 ns | 7,466,544.61 ns | +4.7% |
+| BM_RoundRobinPool_FourWorkTasksNoPool | 237.56 ns | 252.22 ns | +6.2% | 236.34 ns | 252.56 ns | +6.9% |
+| BM_BacktestInProcessTransport_NRings<16> | 1,920.61 ns | 2,036.27 ns | +6.0% | 1,949.45 ns | 2,041.64 ns | +4.7% |
+| BM_ZstdDecompressor_Decompress | 2,504.69 ns | 2,639.01 ns | +5.4% | 2,492.52 ns | 2,626.30 ns | +5.4% |
+| BM_Wire_WriteFullDepthSnapshot | 1,021.88 ns | 1,076.15 ns | +5.3% | 1,019.30 ns | 1,065.80 ns | +4.6% |
+| BM_ZstdCompressor_Finish | 24,942.97 ns | 26,260.87 ns | +5.3% | 24,829.03 ns | 26,113.58 ns | +5.2% |
+| BM_Wire_ReadFullDepthSnapshot | 1,568.53 ns | 1,649.48 ns | +5.2% | 1,563.37 ns | 1,635.60 ns | +4.6% |
+| BM_Wire_RoundTripFullDepthSnapshot | 2,761.46 ns | 2,900.58 ns | +5.0% | 2,751.22 ns | 2,878.69 ns | +4.6% |
+| BM_SymbolTable_InternExisting | 55.78 ns | 58.58 ns | +5.0% | 56.66 ns | 58.71 ns | +3.6% |
+| BM_BacktestInProcessTransport_NRings<2> | 133.39 ns | 139.48 ns | +4.6% | 132.66 ns | 139.77 ns | +5.4% |
+| BM_Mpsc_PushPopContended<4>/threads:5 | 136.82 ns | 124.46 ns | -9.0% | 673.00 ns | 618.37 ns | -8.1% |
+| BM_Mpsc_PushPopContended<1>/threads:2 | 41.63 ns | 37.53 ns | -9.9% | 81.96 ns | 74.56 ns | -9.0% |
+| BM_Spmc_PushAllConsumersCaughtUp<8> | 76.87 ns | 68.27 ns | -11.2% | 74.45 ns | 68.47 ns | -8.0% |
+| BM_Spsc_PushPopContended/threads:2 | 25.58 ns | 21.68 ns | -15.3% | 50.86 ns | 43.47 ns | -14.5% |
+| BM_Spmc_PushTryPopContended<4>/threads:5 | 36.70 ns | 30.66 ns | -16.5% | 175.10 ns | 153.10 ns | -12.6% |
+| BM_Spsc_PushPopInt<true> | 10.25 ns | 8.56 ns | -16.5% | 10.19 ns | 8.58 ns | -15.9% |
+| BM_Spsc_PushPopMarketEvent<true> | 10.07 ns | 8.38 ns | -16.7% | 10.01 ns | 8.41 ns | -16.0% |
+| BM_Spmc_PushTryPopContended<1>/threads:2 | 34.46 ns | 27.36 ns | -20.6% | 65.59 ns | 54.03 ns | -17.6% |
+| BM_RunDataSource_OnePair | 587.72 ns | 463.06 ns | -21.2% | 585.45 ns | 461.21 ns | -21.2% |
+| BM_BinHistParser_ParsesFunding | 398.85 ns | 202.77 ns | -49.2% | 400.05 ns | 203.33 ns | -49.2% |
+| BM_Spmc_PushTryPopContended<8>/threads:9 | 214.30 ns | 30.38 ns | -85.8% | 1,529.44 ns | 269.15 ns | -82.4% |
+| BM_BinHistParser_RejectsUnknownSymbolFunding | 297.17 ns | 9.60 ns | -96.8% | 297.21 ns | 9.63 ns | -96.8% |
 
-71 benchmark(s) unchanged (within noise floor: <1.5 ns or <5%).
-
-**Added** (4): BM_BinHistParser_ParsesFunding, BM_BinHistParser_ParsesKline, BM_BinHistParser_RejectsUnknownSymbolFunding, BM_BinHistParser_RejectsUnknownSymbolKline
+69 benchmark(s) unchanged (within noise floor: <1.5 ns or <5%).

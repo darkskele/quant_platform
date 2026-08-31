@@ -1,6 +1,5 @@
 #pragma once
 #include <array>
-#include <charconv>
 #include <concepts>
 #include <cstddef>
 #include <optional>
@@ -121,39 +120,6 @@ class FixedSymbolTable {
     static constexpr std::string_view name_of(SymbolId id) { return kSymbols.at(id).view(); }
 };
 
-/// Shared, venue-agnostic byte/text-parsing helpers — reusable by any
-/// *text*-based venue's Parser policy (CSV, JSON, whatever). Deliberately
-/// NOT reusable by a hypothetical binary venue (ITCH/FIX-FAST/SBE-style
-/// multicast feeds): "parse a float out of these bytes" means something
-/// different there — the bytes ARE the float (a fixed-width binary
-/// layout, often scaled-integer, not ASCII digits), not characters to
-/// interpret. A binary venue needs its own field-extraction utilities,
-/// not a variant of these; don't be tempted to generalize as_text/
-/// parse_decimal to cover both, that would just hide two different
-/// operations behind one name.
-namespace bytes {
-
-/// Free — a reinterpret_cast, not a copy. Every text-based venue's parser
-/// starts here: Source hands over raw bytes (the seam makes no assumption
-/// about text vs. binary), a text-format venue's Parser immediately
-/// reinterprets them as characters.
-inline std::string_view as_text(std::span<const std::byte> raw) {
-    return {reinterpret_cast<const char*>(raw.data()), raw.size()};
-}
-
-/// std::from_chars wrapper — locale-independent, no allocation, and (per
-/// the standard) doesn't require a null-terminated string the way
-/// std::stod does, so it works directly on a substring view without
-/// needing to copy it out first.
-inline std::optional<double> parse_decimal(std::string_view field) {
-    double value{};
-    auto [ptr, ec] = std::from_chars(field.data(), field.data() + field.size(), value);
-    if (ec != std::errc{} || ptr != field.data() + field.size()) return std::nullopt;
-    return value;
-}
-
-}  // namespace bytes
-
 /// The seam a Source depends on to turn raw bytes into a MarketEvent — one
 /// method, deliberately: Source's job ends at handing over a clean,
 /// self-describing view (I/O framing stripped, symbol attached however
@@ -163,9 +129,9 @@ inline std::optional<double> parse_decimal(std::string_view field) {
 /// binance_historical has klines and funding entries, for instance), is
 /// this seam's job, not Source's and not split across several methods on
 /// it. std::span<const std::byte>, not std::string_view: this seam makes
-/// no assumption that a venue's wire format is text (see bytes::as_text
-/// above) — every real venue in this codebase today happens to be text,
-/// but the seam itself doesn't bake that in.
+/// no assumption that a venue's wire format is text — every real venue in
+/// this codebase today happens to be text, but the seam itself doesn't
+/// bake that in.
 ///
 /// Returned by value, not through an out-param: matches
 /// transport::BacktestInProcessTransport::next()'s existing shape in this
