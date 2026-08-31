@@ -1,6 +1,9 @@
 #include <benchmark/benchmark.h>
 
+#include <array>
+
 #include "matcher/last_trade/last_trade_matcher.hpp"
+#include "portfolio.hpp"
 #include "sim_execution.hpp"
 #include "types.hpp"
 
@@ -10,8 +13,11 @@ using qp::execution::sim::matcher::last_trade::LastTradeMatcher;
 
 namespace {
 
-constexpr SymbolId kSymbol = 1;
-constexpr VenueId  kVenue  = 0;
+constexpr SymbolId                   kSymbol = 1;
+constexpr VenueId                    kVenue  = 0;
+constexpr std::array<std::size_t, 1> kCounts{2};
+using Book = Portfolio<kCounts>;
+using Exec = SimExecution<LastTradeMatcher<Book>, Book>;
 
 // Tandem: reset_outcomes() + submit() + fills(), single thread — no real
 // concurrency (SimExecution is Engine-thread-only, same as Portfolio).
@@ -22,8 +28,8 @@ constexpr VenueId  kVenue  = 0;
 // plumbing from the matcher's own on_market_event()/try_fill() cost
 // (already measured separately in bench_last_trade_matcher.cpp).
 void BM_SimExecution_SubmitFills(benchmark::State& state) {
-    SimExecution<LastTradeMatcher> exec;
-    TradeEvent                     trade;
+    Exec       exec;
+    TradeEvent trade;
     trade.symbol = kSymbol;
     trade.venue  = kVenue;
     trade.price  = 100.0;
@@ -43,7 +49,7 @@ BENCHMARK(BM_SimExecution_SubmitFills);
 // Reject-path counterpart: no Trade ever seen, every submit() lands in
 // rejects() instead.
 void BM_SimExecution_SubmitRejects(benchmark::State& state) {
-    SimExecution<LastTradeMatcher> exec;
+    Exec  exec;
     Order order{.id = 1, .symbol = kSymbol, .side = Side::Buy, .venue = kVenue, .qty = 1.0};
     for (auto _ : state) {
         exec.reset_outcomes();

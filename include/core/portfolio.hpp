@@ -21,14 +21,17 @@ namespace qp {
 /// (funding carry majors + stat-arb pairs, docs/strategy.md; a small
 /// handful of venues, not Binance's full catalog) — bump either if a real
 /// strategy/wiring needs more.
+template <auto Counts>
 class Portfolio {
    public:
-    static constexpr std::size_t kMaxSymbols = 64;
-    static constexpr std::size_t kMaxVenues  = 8;
+    static constexpr std::size_t kNumVenues      = Counts.size();
+    static constexpr std::size_t kMaxInstruments = [] {
+        std::size_t total = 0;
+        for (std::size_t c : Counts) total += c;
+        return total;
+    }();
 
     void apply_fill(const Fill& fill) noexcept {
-        assert(fill.symbol < kMaxSymbols);
-        assert(fill.venue < kMaxVenues);
         Qty delta = fill.side == Side::Buy ? fill.qty : -fill.qty;
         positions_[index(fill.symbol, fill.venue)] += delta;
         cash_ -= delta * fill.price + fill.fee;  // buying costs cash, fee always does
@@ -47,13 +50,10 @@ class Portfolio {
     void apply_funding(const MarketEvent& event) noexcept {
         const auto* funding = std::get_if<FundingEvent>(&event);
         if (!funding) return;
-        assert(funding->symbol < kMaxSymbols);
-        assert(funding->venue < kMaxVenues);
         // Positive funding_rate: longs pay shorts — a positive (long)
         // position debits cash, a negative (short) one credits it.
-        cash_ -= positions_[index(funding->symbol, funding->venue)] *
-                 funding_mark_price_[index(funding->symbol, funding->venue)] *
-                 funding->funding_rate;
+        std::size_t i = index(funding->symbol, funding->venue);
+        cash_ -= positions_[i] * funding_mark_price_[i] * funding->funding_rate;
     }
 
     /// Marks (symbol, venue) at whichever scalar price `event` actually
@@ -92,8 +92,6 @@ class Portfolio {
     /// instrument, symbol alone doesn't — a default would silently answer
     /// "venue 0" for a caller that forgot to think about which leg it means.
     Qty position(SymbolId symbol, VenueId venue) const noexcept {
-        assert(symbol < kMaxSymbols);
-        assert(venue < kMaxVenues);
         return positions_[index(symbol, venue)];
     }
 
@@ -109,32 +107,39 @@ class Portfolio {
     /// rarely.
     Notional equity() const noexcept {
         Notional total = cash_;
-        for (std::size_t i = 0; i < kMaxSymbols * kMaxVenues; ++i)
-            total += positions_[i] * mark_price_[i];
+        for (std::size_t i = 0; i < kMaxInstruments; ++i) total += positions_[i] * mark_price_[i];
         return total;
     }
 
-   private:
     static constexpr std::size_t index(SymbolId symbol, VenueId venue) noexcept {
-        return static_cast<std::size_t>(symbol) * kMaxVenues + venue;
+        assert(venue < kNumVenues);
+        assert(symbol < Counts[venue]);
+        return kPrefix[venue] + symbol;
     }
 
+   private:
+    static constexpr auto kPrefix = [] {
+        std::array<std::size_t, kNumVenues> prefix{};
+        std::size_t                         running = 0;
+        for (std::size_t i = 0; i < kNumVenues; ++i) {
+            prefix[i] = running;
+            running += Counts[i];
+        }
+        return prefix;
+    }();
+
     void mark(SymbolId symbol, VenueId venue, Price price) noexcept {
-        assert(symbol < kMaxSymbols);
-        assert(venue < kMaxVenues);
         mark_price_[index(symbol, venue)] = price;
     }
 
     void mark_funding(SymbolId symbol, VenueId venue, Price price) noexcept {
-        assert(symbol < kMaxSymbols);
-        assert(venue < kMaxVenues);
         funding_mark_price_[index(symbol, venue)] = price;
     }
 
-    std::array<Qty, kMaxSymbols * kMaxVenues>   positions_{};
-    std::array<Price, kMaxSymbols * kMaxVenues> mark_price_{};
-    std::array<Price, kMaxSymbols * kMaxVenues> funding_mark_price_{};
-    Notional                                    cash_{0.0};
+    std::array<Qty, kMaxInstruments>   positions_{};
+    std::array<Price, kMaxInstruments> mark_price_{};
+    std::array<Price, kMaxInstruments> funding_mark_price_{};
+    Notional                           cash_{0.0};
 };
 
 /// The seam Engine/Strategy/RiskGate depend on instead of the concrete
@@ -159,8 +164,8 @@ class Portfolio {
 template <class T>
 concept PortfolioLike =
     requires(T p, const Fill& fill, const MarketEvent& event, SymbolId symbol, VenueId venue) {
-        { T::kMaxSymbols } -> std::convertible_to<std::size_t>;
-        { T::kMaxVenues } -> std::convertible_to<std::size_t>;
+        { T::kMaxInstruments } -> std::convertible_to<std::size_t>;
+        { T::index(symbol, venue) } -> std::same_as<std::size_t>;
         { p.apply_fill(fill) } -> std::same_as<void>;
         { p.apply_funding(event) } -> std::same_as<void>;
         { p.apply_mark_price(event) } -> std::same_as<void>;
@@ -168,6 +173,14 @@ concept PortfolioLike =
         { p.equity() } -> std::same_as<Notional>;
     };
 
-static_assert(PortfolioLike<Portfolio>);
+namespace detail {
+// One venue, one symbol — not a real universe, just enough for a
+// concrete Portfolio to plug into concept self-checks here and in
+// sibling headers (basic_risk_gate.hpp, last_trade_matcher.hpp,
+// funding_carry_strategy.hpp) without depending on any real venue data.
+inline constexpr std::array<std::size_t, 1> kTrivialCounts{1};
+}  // namespace detail
+
+static_assert(PortfolioLike<Portfolio<detail::kTrivialCounts>>);
 
 }  // namespace qp

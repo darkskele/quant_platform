@@ -90,7 +90,7 @@ class BasicRiskGate {
     }
 
    private:
-    static constexpr std::size_t kMaxOrders = Book::kMaxSymbols * Book::kMaxVenues;
+    static constexpr std::size_t kMaxOrders = Book::kMaxInstruments;
 
     OrderId next_id() noexcept { return next_id_++; }
 
@@ -102,6 +102,6 @@ class BasicRiskGate {
     ViewablePool<Order, kMaxOrders, /*UseHeap=*/true> orders_;
 };
 
-static_assert(RiskGate<BasicRiskGate<Portfolio>>);
+static_assert(RiskGate<BasicRiskGate<Portfolio<qp::detail::kTrivialCounts>>>);
 
 }  // namespace qp::risk::basic

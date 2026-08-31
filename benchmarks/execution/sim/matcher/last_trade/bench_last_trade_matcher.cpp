@@ -1,8 +1,10 @@
 #include <benchmark/benchmark.h>
 
+#include <array>
 #include <vector>
 
 #include "last_trade_matcher.hpp"
+#include "portfolio.hpp"
 #include "support/market_event_builders.hpp"
 #include "types.hpp"
 
@@ -11,8 +13,10 @@ using qp::execution::sim::matcher::last_trade::LastTradeMatcher;
 
 namespace {
 
-constexpr SymbolId kSymbol = 1;
-constexpr VenueId  kVenue  = 0;
+constexpr SymbolId                   kSymbol = 1;
+constexpr VenueId                    kVenue  = 0;
+constexpr std::array<std::size_t, 1> kCounts{2};
+using Book = Portfolio<kCounts>;
 
 MarketEvent make_trade_event() {
     TradeEvent ev;
@@ -31,8 +35,8 @@ MarketEvent make_trade_event() {
 // TryFillFills/TryFillRejects below don't need this because DoNotOptimize
 // on their returned outcome already keeps try_fill() alive.
 void BM_LastTradeMatcher_OnMarketEvent(benchmark::State& state) {
-    LastTradeMatcher matcher;
-    auto             ev = make_trade_event();
+    LastTradeMatcher<Book> matcher;
+    auto                   ev = make_trade_event();
     for (auto _ : state) {
         matcher.on_market_event(ev);
         benchmark::DoNotOptimize(matcher);
@@ -51,7 +55,7 @@ BENCHMARK(BM_LastTradeMatcher_OnMarketEvent);
 // benchmark here uses (Trade/Funding never carry book levels at all, so
 // they can't exercise this cost regardless of level count).
 void BM_LastTradeMatcher_OnMarketEventDiscardsPopulatedBookDiff(benchmark::State& state) {
-    LastTradeMatcher        matcher;
+    LastTradeMatcher<Book>  matcher;
     constexpr int           kLevels = 20;
     std::vector<PriceLevel> bids(kLevels, PriceLevel{.price = 100.0, .qty = 1.0});
     std::vector<PriceLevel> asks(kLevels, PriceLevel{.price = 101.0, .qty = 1.0});
@@ -68,7 +72,7 @@ BENCHMARK(BM_LastTradeMatcher_OnMarketEventDiscardsPopulatedBookDiff);
 // Isolation: try_fill(), fill path — a price has been seen for this
 // (symbol, venue).
 void BM_LastTradeMatcher_TryFillFills(benchmark::State& state) {
-    LastTradeMatcher matcher;
+    LastTradeMatcher<Book> matcher;
     matcher.on_market_event(make_trade_event());
     Order order{.id = 1, .symbol = kSymbol, .side = Side::Buy, .venue = kVenue, .qty = 1.0};
     for (auto _ : state) {
@@ -83,7 +87,7 @@ BENCHMARK(BM_LastTradeMatcher_TryFillFills);
 // (symbol, venue), the early "can't fill" floor every other case pays on
 // top of.
 void BM_LastTradeMatcher_TryFillRejects(benchmark::State& state) {
-    LastTradeMatcher matcher;
+    LastTradeMatcher<Book> matcher;
     Order order{.id = 1, .symbol = kSymbol, .side = Side::Buy, .venue = kVenue, .qty = 1.0};
     for (auto _ : state) {
         auto outcome = matcher.try_fill(order, 0);

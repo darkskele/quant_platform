@@ -1,6 +1,5 @@
 #pragma once
 #include <array>
-#include <cassert>
 #include <cstddef>
 #include <variant>
 
@@ -23,20 +22,17 @@ namespace qp::execution::sim::matcher::last_trade {
 /// "can't fill" beats a fabricated price — Price{0} (never a real trade
 /// price) is the sentinel, same direct-indexed discipline as Portfolio
 /// (D31/D44), no hashing, no heap.
+template <qp::PortfolioLike Book>
 class LastTradeMatcher {
    public:
     void on_market_event(const MarketEvent& ev) {
         const auto* trade = std::get_if<TradeEvent>(&ev);
         if (!trade) return;
-        assert(trade->symbol < Portfolio::kMaxSymbols);
-        assert(trade->venue < Portfolio::kMaxVenues);
-        last_price_[index(trade->symbol, trade->venue)] = trade->price;
+        last_price_[Book::index(trade->symbol, trade->venue)] = trade->price;
     }
 
     std::variant<Fill, Reject> try_fill(Order o, Timestamp ts) {
-        assert(o.symbol < Portfolio::kMaxSymbols);
-        assert(o.venue < Portfolio::kMaxVenues);
-        Price price = last_price_[index(o.symbol, o.venue)];
+        Price price = last_price_[Book::index(o.symbol, o.venue)];
         if (price == 0.0) {
             return Reject{
                 .order_id = o.id,
@@ -66,10 +62,6 @@ class LastTradeMatcher {
     }
 
    private:
-    static constexpr std::size_t index(SymbolId symbol, VenueId venue) noexcept {
-        return static_cast<std::size_t>(symbol) * Portfolio::kMaxVenues + venue;
-    }
-
     // kMaxVenues (8) * sizeof(Price) (8) == 64: one symbol's whole venue row
     // is exactly one cache line, but only if the array itself starts on a
     // line boundary — without alignas(64), std::array<Price,...> is only
@@ -77,9 +69,9 @@ class LastTradeMatcher {
     // this object lands; a live strategy's on_market_event/try_fill
     // traffic for one symbol's spot+futures legs (D44) then costs up to 2
     // cache misses instead of 1.
-    alignas(64) std::array<Price, Portfolio::kMaxSymbols * Portfolio::kMaxVenues> last_price_{};
+    alignas(64) std::array<Price, Book::kMaxInstruments> last_price_{};
 };
 
-static_assert(Matcher<LastTradeMatcher>);
+static_assert(Matcher<LastTradeMatcher<Portfolio<qp::detail::kTrivialCounts>>>);
 
 }  // namespace qp::execution::sim::matcher::last_trade

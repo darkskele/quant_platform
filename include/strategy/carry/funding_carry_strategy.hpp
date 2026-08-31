@@ -63,6 +63,6 @@ class FundingCarryStrategy {
     IntentBuffer<kMaxIntents> buffer_{};
 };
 
-static_assert(Strategy<FundingCarryStrategy<Portfolio>>);
+static_assert(Strategy<FundingCarryStrategy<Portfolio<qp::detail::kTrivialCounts>>>);
 
 }  // namespace qp::strategy::carry

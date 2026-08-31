@@ -48,11 +48,11 @@ inline MarketEvent make_trade(SymbolId symbol, Timestamp ts, Price price, Qty qt
 
 inline MarketEvent make_funding(SymbolId symbol, Timestamp ts, double rate, Price mark_price = 0.0,
                                 VenueId venue = 0) {
+    (void)mark_price;
     FundingEvent ev;
     ev.ts           = ts;
     ev.symbol       = symbol;
     ev.funding_rate = rate;
-    ev.mark_price   = mark_price;
     ev.venue        = venue;
     return ev;
 }

@@ -29,17 +29,17 @@ namespace qp::execution::sim {
 /// is strictly cheaper. on_market_event() resets both pools: it's the one
 /// call Engine makes exactly once per step, before that step's submits, so
 /// it's the natural "last step's outcomes are stale" boundary.
-template <matcher::Matcher M>
+template <matcher::Matcher M, PortfolioLike Book>
 class SimExecution {
     // Bounds one step's worth of outcomes: BasicRiskGate's own on_tick
-    // flatten-everything bound (Portfolio::kMaxSymbols * kMaxVenues, one
-    // order per position slot) plus headroom for the same step's
-    // strategy-approved intents landing alongside a trip. Composition-wide
-    // (multi-strategy) sizing isn't derived here — SimExecution has no
-    // visibility into which Strategies it's paired with — so this is a
-    // deliberately generous constant, not a tight bound; revisit if a
-    // composition's total per-step submits can plausibly exceed it.
-    static constexpr std::size_t kMaxOutcomes = Portfolio::kMaxSymbols * Portfolio::kMaxVenues + 64;
+    // flatten-everything bound (Book::kMaxInstruments, one order per
+    // position slot) plus headroom for the same step's strategy-approved
+    // intents landing alongside a trip. Composition-wide (multi-strategy)
+    // sizing isn't derived here — SimExecution has no visibility into which
+    // Strategies it's paired with — so this is a deliberately generous
+    // constant, not a tight bound; revisit if a composition's total
+    // per-step submits can plausibly exceed it.
+    static constexpr std::size_t kMaxOutcomes = Book::kMaxInstruments + 64;
 
    public:
     void on_market_event(const MarketEvent& ev) {

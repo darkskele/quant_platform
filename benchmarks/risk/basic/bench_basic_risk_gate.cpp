@@ -1,5 +1,7 @@
 #include <benchmark/benchmark.h>
 
+#include <array>
+
 #include "basic_risk_gate.hpp"
 #include "portfolio.hpp"
 #include "support/fill_builders.hpp"
@@ -12,11 +14,14 @@ using qp::risk::basic::BasicRiskGateConfig;
 using qp::test::make_fill;
 using qp::test::make_trade;
 
+constexpr std::array<std::size_t, 2> kCounts{2, 2};
+using Book = qp::Portfolio<kCounts>;
+
 // check() approves within the cap — no existing position, no clamping.
 void BM_BasicRiskGate_ApprovesWhenFlat(benchmark::State& state) {
-    qp::Portfolio                portfolio;
-    BasicRiskGate<qp::Portfolio> gate{BasicRiskGateConfig{}, portfolio};
-    qp::Intent                   intent{.symbol = 1, .venue = 0, .target_position = 2.0};
+    Book                portfolio;
+    BasicRiskGate<Book> gate{BasicRiskGateConfig{}, portfolio};
+    qp::Intent          intent{.symbol = 1, .venue = 0, .target_position = 2.0};
 
     for (auto _ : state) {
         auto decision = gate.check(intent);
@@ -28,10 +33,10 @@ BENCHMARK(BM_BasicRiskGate_ApprovesWhenFlat);
 
 // check() clamps to max_position_qty — the Resized path.
 void BM_BasicRiskGate_ClampsAndResizes(benchmark::State& state) {
-    qp::Portfolio                portfolio;
-    BasicRiskGate<qp::Portfolio> gate{
-        BasicRiskGateConfig{.max_position_qty = 1.0, .max_drawdown = 1000.0}, portfolio};
-    qp::Intent intent{.symbol = 1, .venue = 0, .target_position = 10.0};
+    Book                portfolio;
+    BasicRiskGate<Book> gate{BasicRiskGateConfig{.max_position_qty = 1.0, .max_drawdown = 1000.0},
+                             portfolio};
+    qp::Intent          intent{.symbol = 1, .venue = 0, .target_position = 10.0};
 
     for (auto _ : state) {
         auto decision = gate.check(intent);
@@ -46,8 +51,8 @@ BENCHMARK(BM_BasicRiskGate_ClampsAndResizes);
 // kill switch trips at most once per run (if ever). This is the cost that
 // actually accumulates across a backtest.
 void BM_BasicRiskGate_OnTickNoDrawdown(benchmark::State& state) {
-    qp::Portfolio                portfolio;
-    BasicRiskGate<qp::Portfolio> gate{BasicRiskGateConfig{}, portfolio};
+    Book                portfolio;
+    BasicRiskGate<Book> gate{BasicRiskGateConfig{}, portfolio};
 
     for (auto _ : state) {
         auto orders = gate.on_tick();
@@ -68,7 +73,7 @@ BENCHMARK(BM_BasicRiskGate_OnTickNoDrawdown);
 // themselves slow enough (see bench_spsc_queue.cpp) that pausing every
 // iteration would leak into the very cost being measured.
 void BM_BasicRiskGate_OnTickTripsAndFlattens(benchmark::State& state) {
-    qp::Portfolio portfolio;
+    Book portfolio;
     portfolio.apply_fill(make_fill(1, qp::Side::Buy, 2.0, /*price=*/100.0, /*order_id=*/1, /*ts=*/0,
                                    /*fee=*/0.0, /*venue=*/0));
     portfolio.apply_fill(make_fill(1, qp::Side::Buy, 3.0, /*price=*/100.0, /*order_id=*/2, /*ts=*/0,
@@ -77,7 +82,7 @@ void BM_BasicRiskGate_OnTickTripsAndFlattens(benchmark::State& state) {
     portfolio.apply_mark_price(make_trade(1, 0, /*price=*/20.0, 1.0, qp::Side::Buy, 1));
 
     for (auto _ : state) {
-        BasicRiskGate<qp::Portfolio> gate{
+        BasicRiskGate<Book> gate{
             BasicRiskGateConfig{
                 .max_position_qty = 10.0, .max_drawdown = 50.0, .tracked = {{1, 0}, {1, 1}}},
             portfolio};

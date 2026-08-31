@@ -1,5 +1,7 @@
 #include <benchmark/benchmark.h>
 
+#include <array>
+
 #include "clock.hpp"
 #include "engine.hpp"
 #include "execution_gateway.hpp"
@@ -22,15 +24,17 @@ using qp::test::AlwaysIntentStrategy;
 using qp::test::InfiniteTransport;
 using qp::test::NoopStrategy;
 using qp::test::SeedThenSteadyStateTransport;
-using TestExec =
-    qp::execution::sim::SimExecution<qp::execution::sim::matcher::last_trade::LastTradeMatcher>;
+constexpr std::array<std::size_t, 1> kCounts{2};
+using Book     = qp::Portfolio<kCounts>;
+using TestExec = qp::execution::sim::SimExecution<
+    qp::execution::sim::matcher::last_trade::LastTradeMatcher<Book>, Book>;
 
 // Floor: no Intent, no risk/submit/fill work — just transport pull, clock
 // advance, exec.on_market_event, and one direct Strategy call.
 void BM_Engine_StepOneNoopStrategy(benchmark::State& state) {
-    qp::Portfolio portfolio;
+    Book portfolio;
     qp::engine::Engine<InfiniteTransport, qp::SimClock, TestExec, AlwaysApproveRiskGate,
-                       NoopStrategy, qp::Portfolio>
+                       NoopStrategy, Book>
         engine{InfiniteTransport{qp::test::make_funding(1, 0, 0.0)},
                qp::SimClock{},
                TestExec{},
@@ -59,9 +63,9 @@ BENCHMARK(BM_Engine_StepOneNoopStrategy);
 // for the apply_funding-driven shape a real funding-reactive strategy
 // actually runs.
 void BM_Engine_StepOneStrategyFullPipeline(benchmark::State& state) {
-    qp::Portfolio portfolio;
+    Book portfolio;
     qp::engine::Engine<InfiniteTransport, qp::SimClock, TestExec, AlwaysApproveRiskGate,
-                       AlwaysIntentStrategy, qp::Portfolio>
+                       AlwaysIntentStrategy, Book>
         engine{InfiniteTransport{qp::test::make_trade(1, 0, 100.0)},
                qp::SimClock{},
                TestExec{},
@@ -85,9 +89,9 @@ BENCHMARK(BM_Engine_StepOneStrategyFullPipeline);
 // price once so submit() fills instead of rejecting, then every
 // subsequent step is the Funding event under measurement.
 void BM_Engine_StepFundingEventFullPipeline(benchmark::State& state) {
-    qp::Portfolio portfolio;
+    Book portfolio;
     qp::engine::Engine<SeedThenSteadyStateTransport, qp::SimClock, TestExec, AlwaysApproveRiskGate,
-                       AlwaysIntentStrategy, qp::Portfolio>
+                       AlwaysIntentStrategy, Book>
         engine{SeedThenSteadyStateTransport{qp::test::make_trade(1, 0, 100.0),
                                             qp::test::make_funding(1, 0, 0.0001, 100.0)},
                qp::SimClock{},

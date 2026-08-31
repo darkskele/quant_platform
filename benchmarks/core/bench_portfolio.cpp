@@ -1,5 +1,7 @@
 #include <benchmark/benchmark.h>
 
+#include <array>
+
 #include "portfolio.hpp"
 #include "types.hpp"
 
@@ -7,8 +9,9 @@ using namespace qp;
 
 namespace {
 
-constexpr SymbolId kSymbol = 1;
-constexpr VenueId  kVenue  = 0;
+constexpr SymbolId                   kSymbol = 1;
+constexpr VenueId                    kVenue  = 0;
+constexpr std::array<std::size_t, 1> kCounts{2};
 
 // Isolation only: Portfolio's write side (apply_fill/apply_funding/
 // apply_mark_price) is Engine-thread-only, sequenced strictly before
@@ -17,7 +20,7 @@ constexpr VenueId  kVenue  = 0;
 // tandem/contention tier that would measure anything real here.
 
 void BM_Portfolio_ApplyFill(benchmark::State& state) {
-    Portfolio portfolio;
+    Portfolio<kCounts> portfolio;
     Fill fill{.symbol = kSymbol, .side = Side::Buy, .venue = kVenue, .price = 100.0, .qty = 1.0};
     for (auto _ : state) {
         portfolio.apply_fill(fill);
@@ -28,7 +31,7 @@ void BM_Portfolio_ApplyFill(benchmark::State& state) {
 BENCHMARK(BM_Portfolio_ApplyFill);
 
 void BM_Portfolio_ApplyFunding(benchmark::State& state) {
-    Portfolio portfolio;
+    Portfolio<kCounts> portfolio;
     portfolio.apply_fill(
         Fill{.symbol = kSymbol, .side = Side::Buy, .venue = kVenue, .price = 100.0, .qty = 1.0});
     FundingEvent event;
@@ -49,8 +52,8 @@ void BM_Portfolio_ApplyFunding(benchmark::State& state) {
 BENCHMARK(BM_Portfolio_ApplyFunding);
 
 void BM_Portfolio_ApplyMarkPrice(benchmark::State& state) {
-    Portfolio  portfolio;
-    TradeEvent event;
+    Portfolio<kCounts> portfolio;
+    TradeEvent         event;
     event.symbol = kSymbol;
     event.venue  = kVenue;
     event.price  = 100.0;
@@ -63,7 +66,7 @@ void BM_Portfolio_ApplyMarkPrice(benchmark::State& state) {
 BENCHMARK(BM_Portfolio_ApplyMarkPrice);
 
 void BM_Portfolio_Position(benchmark::State& state) {
-    Portfolio portfolio;
+    Portfolio<kCounts> portfolio;
     portfolio.apply_fill(
         Fill{.symbol = kSymbol, .side = Side::Buy, .venue = kVenue, .price = 100.0, .qty = 1.0});
     for (auto _ : state) benchmark::DoNotOptimize(portfolio.position(kSymbol, kVenue));
@@ -76,7 +79,7 @@ BENCHMARK(BM_Portfolio_Position);
 // once per Engine::step(), cheap next to that cadence — not worth
 // incremental bookkeeping on every write for a value read this rarely).
 void BM_Portfolio_Equity(benchmark::State& state) {
-    Portfolio portfolio;
+    Portfolio<kCounts> portfolio;
     portfolio.apply_fill(
         Fill{.symbol = kSymbol, .side = Side::Buy, .venue = kVenue, .price = 100.0, .qty = 1.0});
     TradeEvent mark;
