@@ -8,27 +8,22 @@
 
 namespace qp::risk {
 
-/// Approved/Resized share one payload shape (an Order) — only Rejected
-/// differs, so this tag says *why*, not *what shape* (unlike Fill/Reject,
-/// which genuinely differ in fields).
+/// Approved and Resized carry the same Order shape, only Rejected differs.
+/// This says why the intent was decided, not what shape the result takes.
 enum class RiskOutcome : std::uint8_t { Approved, Resized, Rejected };
 
-/// order is set if outcome != Rejected.
 struct RiskDecision {
     RiskOutcome          outcome{};
-    std::optional<Order> order{};
+    std::optional<Order> order{};  ///< Absent when outcome is Rejected.
 };
 
-/// Where Intent becomes sized Order(s) — has its own authority, not a
-/// pass-through (seam 5). on_tick() acts autonomously (kill-switch/
-/// drawdown flatten), with no Intent input. Static dispatch (D27). No
-/// StateView parameter: a concrete RiskGate that needs live account state
-/// holds its own PortfolioLike Book& (same reference Engine holds),
-/// wired at construction by the composition root — not handed a fresh
-/// snapshot by Engine every call.
+/// Turns an Intent into sized Order(s) and has final say over what actually
+/// gets sent to a venue.
 template <class T>
 concept RiskGate = requires(T r, Intent intent) {
+    /// Decision for this intent, sized or rejected against risk limits.
     { r.check(intent) } -> std::same_as<RiskDecision>;
+    /// Orders produced by this tick, if risk limits require action.
     { r.on_tick() } -> std::same_as<std::span<const Order>>;
 };
 

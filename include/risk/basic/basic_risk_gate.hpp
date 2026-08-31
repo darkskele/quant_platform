@@ -12,47 +12,28 @@
 
 namespace qp::risk::basic {
 
-/// A (symbol, venue) pair the kill switch should consider flattening —
-/// see BasicRiskGateConfig::tracked.
+/// A (symbol, venue) pair considered for flattening when the kill switch trips.
 struct TrackedInstrument {
     SymbolId symbol{};
     VenueId  venue{};
 };
 
-/// Runtime, backtest-tuned parameters — see FundingCarryStrategy::Config
-/// for the same compile-time-vs-runtime reasoning (CLAUDE.md).
+/// Parameters for BasicRiskGate.
 struct BasicRiskGateConfig {
-    Qty      max_position_qty{10.0};  ///< Per (symbol, venue) absolute exposure cap.
-    Notional max_drawdown{50.0};  ///< Absolute equity decline from peak that trips the kill switch.
-    std::vector<TrackedInstrument> tracked{};  ///< Flatten candidates on trip — the caller's own
-                                               ///< strategy config already knows which (symbol,
-                                               ///< venue) pairs are traded; on_tick() only walks
-                                               ///< this list, not every possible pair.
+    Qty                            max_position_qty{10.0};  ///< Per (symbol, venue) exposure cap.
+    Notional                       max_drawdown{50.0};      ///< Trips the kill switch past this.
+    std::vector<TrackedInstrument> tracked{};               ///< Flattened once tripped.
 };
 
-/// First concrete RiskGate (D46): a per-(symbol, venue) exposure cap
-/// (check(), Resized when clamped) plus an equity-drawdown kill switch
-/// (on_tick(), D46's Portfolio::equity()). Deliberately not a fraction of
-/// peak equity — Portfolio has no allocated-starting-capital concept, so
-/// peak equity starts at/near 0 and a %-based threshold would divide by a
-/// near-zero or negative denominator early in a run; an absolute Notional
-/// decline is the honest metric given what's actually modeled.
-///
-/// Once tripped, stays tripped: every subsequent check() rejects, on_tick()
-/// stops re-flattening. A real kill switch doesn't quietly resume on its
-/// own — that's an operator decision, not this class's to make.
-///
-/// Templated on Book (PortfolioLike), held by reference: the composition
-/// root wires this to the same Book instance the paired Engine holds, so a
-/// drawdown kill switch shared across several single-strategy Engines
-/// (one account, several strategies) sees the account's true combined
-/// equity, not a snapshot scoped to whichever Engine last called check().
+/// Per-(symbol, venue) exposure cap plus an equity-drawdown kill switch.
 template <PortfolioLike Book>
 class BasicRiskGate {
    public:
     BasicRiskGate(BasicRiskGateConfig config, const Book& portfolio)
         : config_{std::move(config)}, portfolio_{portfolio} {}
 
+    /// Sizes an Order against the current position, clamped to
+    /// max_position_qty. Rejects outright once tripped.
     RiskDecision check(Intent intent) {
         if (tripped_) return {.outcome = RiskOutcome::Rejected, .order = std::nullopt};
 
@@ -70,6 +51,8 @@ class BasicRiskGate {
                                .qty    = std::abs(delta)}};
     }
 
+    /// Trips and flattens every tracked position once equity has declined
+    /// past max_drawdown off its peak. No-op once already tripped.
     std::span<const Order> on_tick() {
         Notional equity = portfolio_.equity();
         peak_equity_    = std::max(peak_equity_, equity);
@@ -90,15 +73,16 @@ class BasicRiskGate {
     }
 
    private:
-    static constexpr std::size_t kMaxOrders = Book::kMaxInstruments;
+    static constexpr std::size_t kMaxOrders =
+        Book::kMaxInstruments;  ///< Worst case: all flatten at once.
 
     OrderId next_id() noexcept { return next_id_++; }
 
-    BasicRiskGateConfig                               config_;
-    const Book&                                       portfolio_;
-    OrderId                                           next_id_{1};
-    bool                                              tripped_{false};
-    Notional                                          peak_equity_{0.0};
+    BasicRiskGateConfig config_;
+    const Book&         portfolio_;  ///< Read-only. Engine owns writes.
+    OrderId             next_id_{1};
+    bool                tripped_{false};
+    Notional            peak_equity_{0.0};
     ViewablePool<Order, kMaxOrders, /*UseHeap=*/true> orders_;
 };
 

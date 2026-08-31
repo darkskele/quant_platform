@@ -1,6 +1,4 @@
-# basic — BasicRiskGate, the first concrete RiskGate (D46): per-(symbol,
-# venue) exposure cap plus an equity-drawdown kill switch. Header-only,
-# depends on qp_risk only.
+# basic — BasicRiskGate, the first concrete RiskGate.
 qp_dir(include QP_INC)
 qp_dir(tests QP_TESTS)
 qp_dir(benchmarks QP_BENCH)

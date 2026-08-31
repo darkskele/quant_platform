@@ -1,5 +1,4 @@
-# risk — the RiskGate concept + RiskDecision (see docs/risk/DESIGN.md;
-# docs/decisions.md D27/D35). Header-only, depends on core only.
+# risk
 qp_dir(include QP_INC)
 qp_dir(tests QP_TESTS)
 
@@ -8,9 +7,7 @@ target_include_directories(qp_risk INTERFACE ${QP_INC})
 target_link_libraries(qp_risk INTERFACE qp_core)
 
 # Test doubles (AlwaysApproveRiskGate, AlwaysRejectRiskGate) shared across
-# risk's own tests and engine's tests/benchmarks. Unconditional, same
-# convention as qp_core_test_support. Include dir is the shared top-level
-# tests/ root (D50), not this module's own tests/risk/.
+# risk's own tests and engine's tests/benchmarks. 
 add_library(qp_risk_test_support INTERFACE)
 target_include_directories(qp_risk_test_support INTERFACE ${CMAKE_SOURCE_DIR}/tests)
 target_link_libraries(qp_risk_test_support INTERFACE qp_risk)
