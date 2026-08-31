@@ -1,8 +1,12 @@
 #include <gtest/gtest.h>
 
+#include <array>
+#include <cstddef>
+
 #include "execution_gateway.hpp"
 #include "matcher/last_trade/last_trade_matcher.hpp"
 #include "matcher/matcher.hpp"
+#include "portfolio.hpp"
 #include "sim_execution.hpp"
 #include "support/market_event_builders.hpp"
 #include "types.hpp"
@@ -14,13 +18,20 @@ using qp::Side;
 namespace exec = qp::execution;
 namespace sim  = qp::execution::sim;
 
-static_assert(sim::matcher::Matcher<sim::matcher::last_trade::LastTradeMatcher>);
-static_assert(
-    exec::ExecutionGateway<sim::SimExecution<sim::matcher::last_trade::LastTradeMatcher>>);
+namespace {
+
+constexpr std::array<std::size_t, 2> kCounts{9, 9};
+using Book    = qp::Portfolio<kCounts>;
+using Matcher = sim::matcher::last_trade::LastTradeMatcher<Book>;
+
+}  // namespace
+
+static_assert(sim::matcher::Matcher<Matcher>);
+static_assert(exec::ExecutionGateway<sim::SimExecution<Matcher, Book>>);
 
 namespace {
 
-sim::SimExecution<sim::matcher::last_trade::LastTradeMatcher> make_gateway() { return {}; }
+sim::SimExecution<Matcher, Book> make_gateway() { return {}; }
 
 }  // namespace
 
@@ -103,10 +114,9 @@ TEST(SimExecution, DifferentSymbolsTrackIndependentPrices) {
     EXPECT_EQ(gateway.rejects().size(), 1u);
 }
 
-// D44: two venues intern the same underlying instrument to the same
-// SymbolId — the matcher must key on (symbol, venue), or a spot trade's
-// price and a perp trade's price for "symbol 7" would collide into one
-// slot, silently filling one leg's order at the other leg's price.
+// Two venues intern the same underlying instrument to the same SymbolId —
+// the matcher must key on (symbol, venue), or a spot and a perp trade for
+// "symbol 7" would collide into one slot.
 TEST(SimExecution, DifferentVenuesTrackIndependentPricesForTheSameSymbol) {
     auto gateway = make_gateway();
 

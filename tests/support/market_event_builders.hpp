@@ -71,4 +71,19 @@ inline MarketEvent make_kline(SymbolId symbol, Timestamp open_time, Timestamp cl
     return ev;
 }
 
+inline MarketEvent make_mark_price_kline(SymbolId symbol, Timestamp open_time, Price close,
+                                         Timestamp close_time = 0, Price open = 0.0,
+                                         Price high = 0.0, Price low = 0.0, VenueId venue = 0) {
+    MarkPriceKlineEvent ev;
+    ev.ts         = open_time;
+    ev.close_time = close_time;
+    ev.symbol     = symbol;
+    ev.open       = open;
+    ev.high       = high;
+    ev.low        = low;
+    ev.close      = close;
+    ev.venue      = venue;
+    return ev;
+}
+
 }  // namespace qp::test

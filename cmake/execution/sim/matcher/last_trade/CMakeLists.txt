@@ -1,6 +1,4 @@
-# execution/sim/matcher/last_trade — LastTradeMatcher, SimExecution's first
-# Matcher: fills at the last-seen Trade price, no book, no slippage, no
-# partials. Header-only, depends on qp_execution_sim_matcher only.
+# execution/sim/matcher/last_trade
 qp_dir(include QP_INC)
 qp_dir(benchmarks QP_BENCH)
 

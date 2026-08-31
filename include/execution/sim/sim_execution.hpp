@@ -13,32 +13,17 @@ namespace qp::execution::sim {
 
 /// Backtest ExecutionGateway: wraps a Matcher with the accumulate/drain
 /// plumbing every ExecutionGateway needs, generic over fill sophistication
-/// (M). LiveExecution doesn't share this template — its submit() is
-/// fundamentally async (fires an order, a background thread fills the
-/// outcome queue whenever the exchange responds), not "compute inline," so
-/// forcing it through the same shell would just be a synchronous
-/// abstraction wearing an async mask. Two separate ExecutionGateway
-/// implementations, same concept, same as LiveWebSocketSource/
-/// FileReplaySource under Source.
-///
+/// (M). 
 /// Fills/rejects live in two ViewablePools, not a queue: every submit()
-/// this step happens on the same thread as the drain that follows it
-/// (Engine::step() calls on_market_event -> submits -> fills()/rejects(),
-/// never spanning threads), so there's nothing here for a heap-backed
-/// queue or cross-thread SpscQueue to buy — a stack/reset scratch buffer
-/// is strictly cheaper. on_market_event() resets both pools: it's the one
-/// call Engine makes exactly once per step, before that step's submits, so
-/// it's the natural "last step's outcomes are stale" boundary.
+/// this step happens on the same thread as the drain that follows it, so
+/// there's nothing for a cross-thread queue to buy. on_market_event()
+/// resets both pool.
 template <matcher::Matcher M, PortfolioLike Book>
 class SimExecution {
-    // Bounds one step's worth of outcomes: BasicRiskGate's own on_tick
-    // flatten-everything bound (Book::kMaxInstruments, one order per
-    // position slot) plus headroom for the same step's strategy-approved
-    // intents landing alongside a trip. Composition-wide (multi-strategy)
-    // sizing isn't derived here — SimExecution has no visibility into which
-    // Strategies it's paired with — so this is a deliberately generous
-    // constant, not a tight bound; revisit if a composition's total
-    // per-step submits can plausibly exceed it.
+    // Bounds one step's worth of outcomes: BasicRiskGate's own
+    // flatten-everything bound (one order per position slot) plus headroom
+    // for the same step's strategy-approved intents landing alongside a
+    // trip. A generous constant, not a tight bound.
     static constexpr std::size_t kMaxOutcomes = Book::kMaxInstruments + 64;
 
    public:
@@ -59,10 +44,9 @@ class SimExecution {
 
     std::span<const Reject> rejects() const noexcept { return rejects_.view(); }
 
-    /// Clears fills()/rejects() without touching the matcher — on_market_event()
-    /// calls this itself; exposed separately so a benchmark can isolate
-    /// submit()+fills() from the matcher's own on_market_event() cost
-    /// (already measured on its own, see bench_last_trade_matcher.cpp).
+    /// Clears fills()/rejects() without touching the matcher.
+    /// on_market_event() calls this itself. Exposed separately so a
+    /// benchmark can isolate submit()+fills() from the matcher's own cost.
     void reset_outcomes() noexcept {
         fills_.reset();
         rejects_.reset();

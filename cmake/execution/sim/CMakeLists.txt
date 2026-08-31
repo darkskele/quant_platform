@@ -1,6 +1,4 @@
-# execution/sim — SimExecution, the backtest ExecutionGateway. Matcher
-# concept + LastTradeMatcher live under matcher/ (Sim-only). Header-only,
-# depends on qp_execution + qp_execution_sim_matcher.
+# execution/sim 
 qp_dir(include QP_INC)
 qp_dir(tests QP_TESTS)
 qp_dir(benchmarks QP_BENCH)

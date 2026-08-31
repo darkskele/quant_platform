@@ -1,6 +1,4 @@
-# execution/sim/matcher — the Matcher concept SimExecution's fill
-# sophistication plugs into. LastTradeMatcher lives under last_trade/.
-# Header-only, depends on core only.
+# execution/sim/matcher
 qp_dir(include QP_INC)
 
 add_subdirectory(last_trade)
