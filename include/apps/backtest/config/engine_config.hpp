@@ -4,7 +4,7 @@
 // source_config.hpp/sink_config.hpp. Clock (always SimClock) and Transport
 // (always BacktestInProcessTransport) aren't here: neither has a second
 // implementation in a backtest, so there's no combo to select between yet
-// (seams first, generality later) — they're named directly in compose.hpp.
+// (seams first, generality later). They're named directly in compose.hpp.
 
 #if defined(QP_MATCHER_LAST_TRADE)
 #include "matcher/last_trade/last_trade_matcher.hpp"

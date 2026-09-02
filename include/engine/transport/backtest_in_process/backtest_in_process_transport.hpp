@@ -12,7 +12,7 @@ namespace qp::engine::transport {
 /// Backtest's own Transport: merges a fixed set of queues in ascending
 /// MarketEvent::ts order.
 /// next() buffers one popped-but-unreturned element per queue (a lookahead
-/// slot.
+/// slot).
 template <std::size_t Capacity, std::size_t N, std::size_t NumConsumersPerQueue = 1>
 class BacktestInProcessTransport {
     static_assert(N >= 1);
@@ -20,12 +20,12 @@ class BacktestInProcessTransport {
    public:
     using Queue = qp::SpmcQueue<MarketEvent, Capacity, NumConsumersPerQueue, /*UseHeap=*/true>;
 
-    /// queues[i] paired with consumers[i] — this Engine's own consumer
+    /// queues[i] paired with consumers[i]: this Engine's own consumer
     /// index on that leg's queue, positionally matched.
     BacktestInProcessTransport(std::array<Queue*, N> queues, std::array<std::size_t, N> consumers)
         : queues_(queues), consumers_(consumers) {}
 
-    /// Drain-without-waiting from now on. 
+    /// Drain-without-waiting from now on.
     void flush() noexcept { flushing_ = true; }
 
     std::optional<MarketEvent> next() {

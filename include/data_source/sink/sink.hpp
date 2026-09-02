@@ -3,8 +3,8 @@
 
 namespace qp::data_source::sink {
 
-// The seam every data sink satisfies. Compile-time policy — mirrors
-// source.hpp's Source concept. record() never blocks — false means the
+// The seam every data sink satisfies. Compile-time policy. Mirrors
+// source.hpp's Source concept. record() never blocks: false means the
 // sink wasn't ready (e.g. a full queue), and it's the caller's call what
 // to do about that.
 template <class T>

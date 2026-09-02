@@ -8,7 +8,7 @@ namespace qp::data_source::source::venue::binance::binance_historical {
 /// The one type a Source needs to talk to binance_historical: a
 /// venue::Parser-satisfying type binding this venue's field-extraction
 /// logic (BinHistParserPolicy) to its symbol universe (BinHistSymbolTable).
-/// This is the only thing outside this directory should ever name — the
+/// This is the only thing outside this directory should ever name: the
 /// two pieces it binds are implementation, not the public seam.
 using BinHistVenue = ComposedParser<BinHistParserPolicy, BinHistSymbolTable>;
 

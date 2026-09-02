@@ -53,8 +53,8 @@ class CsvSource {
     }
 
     /// Single pass: fills each empty lookahead slot and tracks the running
-    /// earliest at the same time, each slot touched once per call. NoData 
-    /// while any stream is merely not-ready-yet; Eof only once every stream 
+    /// earliest at the same time, each slot touched once per call. NoData
+    /// while any stream is merely not-ready-yet; Eof only once every stream
     /// is genuinely exhausted.
     PullResult next() {
         bool                       any_missing = false;
@@ -104,7 +104,7 @@ class CsvSource {
         std::size_t                        line_index{0};
     };
 
-    // The only cross-thread surface per stream. 
+    // The only cross-thread surface per stream.
     struct SharedState {
         SpscQueue<Line, LineQueueCapacity> lines;
         std::atomic<bool>                  done{false};
@@ -125,7 +125,7 @@ class CsvSource {
             if (shared.failed.load(std::memory_order_acquire)) {
                 throw std::runtime_error(shared.error);
             }
-            // Read done BEFORE popping — see SharedState's own comment for
+            // Read done BEFORE popping, see SharedState's own comment for
             // why this order, not the reverse, is what avoids the race.
             bool done = shared.done.load(std::memory_order_acquire);
 
@@ -136,7 +136,7 @@ class CsvSource {
                 lookahead_[i] = std::move(ev);
                 return RefillResult::Filled;
             }
-            // Unparseable line — loop and try the next one.
+            // Unparseable line, loop and try the next one.
         }
     }
 

@@ -1,7 +1,7 @@
 #pragma once
 #include <cstddef>
 
-// One macro-selected combo per build — QP_SOURCE_* picks which Source +
+// One macro-selected combo per build: QP_SOURCE_* picks which Source +
 // Parser this binary is compiled against. Adding a real combo means adding
 // a branch here, never touching backtest.cpp: it only ever names
 // config::LegSource<N>.

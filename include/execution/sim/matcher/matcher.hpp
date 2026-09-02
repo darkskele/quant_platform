@@ -5,7 +5,7 @@
 
 namespace qp::execution::sim::matcher {
 
-/// The seam SimExecution's fill sophistication plugs int.
+/// The seam SimExecution's fill sophistication plugs into.
 /// Sim-only: a real exchange does its own matching, live has
 /// nothing that plugs in here.
 template <class T>

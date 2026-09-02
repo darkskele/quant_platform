@@ -59,7 +59,7 @@ class MpscQueue {
 
             slot = pos & INDEX_MASK;
             if (enqueue_pos_.compare_exchange_weak(pos, pos + 1, std::memory_order_relaxed)) break;
-            // CAS failed: pos was refreshed to the current value — retry.
+            // CAS failed: pos was refreshed to the current value, retry.
             // Bare retry alone measured severely supralinear under
             // contention (~8x cost for 2.5x threads), hence the backoff.
             if (++retries > kSpinAttempts) std::this_thread::yield();

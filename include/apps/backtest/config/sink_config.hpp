@@ -1,7 +1,7 @@
 #pragma once
 #include <cstddef>
 
-// QP_SINK_* picks which Sink this binary is compiled against —
+// QP_SINK_* picks which Sink this binary is compiled against,
 // independent of QP_SOURCE_* (same csv+binhist Source can feed a fanout
 // ring today, an IPC sink later, without either side knowing the other
 // changed). backtest.cpp only ever names config::LegSink<Capacity,N>.

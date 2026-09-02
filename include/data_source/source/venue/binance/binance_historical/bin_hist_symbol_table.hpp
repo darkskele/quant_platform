@@ -13,7 +13,7 @@ inline constexpr std::array<FixedString<8>, 10> kSymbols = {
 };
 }  // namespace detail
 
-/// Binance Historical's fixed symbol universe — the top 10 USDT-margined
+/// Binance Historical's fixed symbol universe: the top 10 USDT-margined
 /// majors by the obvious liquidity ranking (funding-carry majors, matching
 /// qp::Portfolio's own "solo retail portfolio" doc comment), each verified
 /// (2026-08-29, not assumed) to have: a live USD-M PERPETUAL contract
@@ -22,7 +22,7 @@ inline constexpr std::array<FixedString<8>, 10> kSymbols = {
 /// status=TRADING), and historical daily klines on data.binance.vision for
 /// both legs. Extend detail::kSymbols, nothing else, when the actual
 /// traded universe changes. The id_of/name_of algorithm itself lives in
-/// venue::FixedSymbolTable (venue.hpp) — nothing venue-specific about
+/// venue::FixedSymbolTable (venue.hpp): nothing venue-specific about
 /// it, only the data is Binance-specific.
 using BinHistSymbolTable = FixedSymbolTable<detail::kSymbols>;
 

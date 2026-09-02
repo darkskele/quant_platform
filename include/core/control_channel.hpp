@@ -24,7 +24,7 @@ class ControlChannel {
         pump_thread_ = std::thread{[this] { pump_loop(); }};
     }
 
-    // pump_thread_ captures `this` — a moved-to instance would leave it
+    // pump_thread_ captures `this`. A moved-to instance would leave it
     // pointing at the old address.
     ControlChannel(const ControlChannel&)            = delete;
     ControlChannel& operator=(const ControlChannel&) = delete;

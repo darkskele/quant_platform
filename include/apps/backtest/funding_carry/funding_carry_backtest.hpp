@@ -16,9 +16,9 @@ namespace qp::backtest::funding_carry {
 inline constexpr VenueId kFuturesVenue = 0;
 inline constexpr VenueId kSpotVenue    = 1;
 
-/// The runtime-swept knobs — exactly what a Python-side optimizer sets
-/// between runs. Symbol/dataset/component types are all compile-time. 
-/// carry's symbol/venue fields are filled in by make_engine(); only the 
+/// The runtime-swept knobs: exactly what a Python-side optimizer sets
+/// between runs. Symbol/dataset/component types are all compile-time.
+/// carry's symbol/venue fields are filled in by make_engine(); only the
 /// threshold/size fields are set.
 struct Config {
     strategy::carry::Config          carry{};
@@ -35,7 +35,7 @@ struct Results {
 };
 
 /// The funding-carry backtest variant: futures + spot CSV legs, merged in
-/// timestamp order into the carry strategy behind a basic risk gate. 
+/// timestamp order into the carry strategy behind a basic risk gate.
 class FundingCarryBacktest : public BacktestBase<FundingCarryBacktest> {
    public:
     FundingCarryBacktest()

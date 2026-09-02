@@ -14,7 +14,7 @@ namespace qp::execution::sim::matcher::last_trade {
 template <qp::PortfolioLike Book>
 class LastTradeMatcher {
    public:
-    // Priced off a Trade or a Kline close — historical data never emits
+    // Priced off a Trade or a Kline close: historical data never emits
     // Trade at all, only Kline/Funding.
     void on_market_event(const MarketEvent& ev) {
         if (const auto* trade = std::get_if<TradeEvent>(&ev)) {
@@ -36,7 +36,7 @@ class LastTradeMatcher {
             };
         }
 
-        // Binance USD-M futures VIP0 taker rate, from general knowledge —
+        // Binance USD-M futures VIP0 taker rate, from general knowledge,
         // not pinned to a live fee schedule.
         // @todo: Make this configurable and tuneable.
         constexpr Notional kTakerFeeRate = 0.0004;

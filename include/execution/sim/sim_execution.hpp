@@ -13,11 +13,11 @@ namespace qp::execution::sim {
 
 /// Backtest ExecutionGateway: wraps a Matcher with the accumulate/drain
 /// plumbing every ExecutionGateway needs, generic over fill sophistication
-/// (M). 
+/// (M).
 /// Fills/rejects live in two ViewablePools, not a queue: every submit()
 /// this step happens on the same thread as the drain that follows it, so
 /// there's nothing for a cross-thread queue to buy. on_market_event()
-/// resets both pool.
+/// resets both pools.
 template <matcher::Matcher M, PortfolioLike Book>
 class SimExecution {
     // Bounds one step's worth of outcomes: BasicRiskGate's own

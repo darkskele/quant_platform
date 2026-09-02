@@ -10,7 +10,7 @@
 namespace qp::backtest::config {
 
 // The directory convention tools/fetch_backtest_data.sh writes to and this
-// backtest reads from — the two must agree; changing one without the other
+// backtest reads from: the two must agree; changing one without the other
 // silently produces "no data" empty streams, not a build error.
 //   <data_dir>/<SYMBOL>/futures/klines/<SYMBOL>-1m-<day>.csv        (K-tagged)
 //   <data_dir>/<SYMBOL>/futures/markprice/<SYMBOL>-1m-<day>.csv     (M-tagged)
@@ -18,7 +18,7 @@ namespace qp::backtest::config {
 //   <data_dir>/<SYMBOL>/spot/klines/<SYMBOL>-1m-<day>.csv           (K-tagged)
 // klines/markprice are daily dumps (data.binance.vision has no other
 // granularity); fundingRate is monthly-only there (verified: the daily
-// fundingRate path 404s, only the monthly one resolves) — spot has no
+// fundingRate path 404s, only the monthly one resolves). Spot has no
 // funding/markprice at all (no perpetual, no official mark).
 
 /// "YYYY-MM-DD" -> year_month_day. Manual, not std::chrono::parse: this
@@ -54,7 +54,7 @@ inline std::string format_month(std::chrono::year_month day) {
     return std::format("{:%Y-%m}", day);
 }
 
-/// One path per UTC day in [first_day, last_day], inclusive — for the
+/// One path per UTC day in [first_day, last_day], inclusive, for the
 /// daily klines/markprice dumps. `kind_dir` is "futures/klines",
 /// "futures/markprice", or "spot/klines".
 inline std::vector<std::filesystem::path> daily_files(const std::filesystem::path& data_dir,
@@ -72,7 +72,7 @@ inline std::vector<std::filesystem::path> daily_files(const std::filesystem::pat
     return files;
 }
 
-/// One path per distinct UTC month touched by [first_day, last_day] — the
+/// One path per distinct UTC month touched by [first_day, last_day], the
 /// monthly-only fundingRate dumps.
 inline std::vector<std::filesystem::path> monthly_funding_files(
     const std::filesystem::path& data_dir, std::string_view symbol,

@@ -78,7 +78,7 @@ class FixedSymbolTable {
 /// The seam a Source depends on to turn raw bytes into a MarketEvent.
 /// Source's job ends at handing over a clean, self-describing view;
 /// everything past that, including which kind of record this is, is this
-/// seam's job. 
+/// seam's job.
 template <class P>
 concept Parser = requires(std::span<const std::byte> raw) {
     { P::parse(raw) } -> std::same_as<std::optional<MarketEvent>>;

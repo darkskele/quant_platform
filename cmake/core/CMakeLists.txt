@@ -16,13 +16,10 @@ target_include_directories(qp_core_test_support INTERFACE ${CMAKE_SOURCE_DIR}/te
 if(BUILD_TESTING)
     find_package(GTest CONFIG REQUIRED)
     find_package(Threads REQUIRED)
-    add_executable(qp_core_tests
-        ${QP_TESTS}/test_spsc_queue.cpp
-        ${QP_TESTS}/test_spmc_queue.cpp
-        ${QP_TESTS}/test_portfolio.cpp
-        ${QP_TESTS}/test_control_channel.cpp
-        ${QP_TESTS}/test_viewable_pool.cpp
-    )
+    # Every test_*.cpp in this module. CONFIGURE_DEPENDS re-globs at build
+    # time, so a new file needs no edit here.
+    file(GLOB QP_CORE_TESTS CONFIGURE_DEPENDS ${QP_TESTS}/test_*.cpp)
+    add_executable(qp_core_tests ${QP_CORE_TESTS})
     target_link_libraries(qp_core_tests PRIVATE qp_core qp_core_test_support Threads::Threads GTest::gtest
                                                  GTest::gtest_main)
     qp_register_test(qp_core_tests)
@@ -30,13 +27,7 @@ endif()
 
 if(QP_BUILD_BENCHMARKS)
     # googlebenchmark is fetched once, at the top level.
-    add_executable(qp_core_bench
-        ${QP_BENCH}/bench_spsc_queue.cpp
-        ${QP_BENCH}/bench_spmc_queue.cpp
-        ${QP_BENCH}/bench_mpsc_queue.cpp
-        ${QP_BENCH}/bench_control_channel.cpp
-        ${QP_BENCH}/bench_portfolio.cpp
-        ${QP_BENCH}/bench_viewable_pool.cpp
-    )
+    file(GLOB QP_CORE_BENCH CONFIGURE_DEPENDS ${QP_BENCH}/bench_*.cpp)
+    add_executable(qp_core_bench ${QP_CORE_BENCH})
     target_link_libraries(qp_core_bench PRIVATE qp_core benchmark::benchmark_main)
 endif()

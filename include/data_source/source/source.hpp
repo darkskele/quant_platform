@@ -11,8 +11,8 @@ enum class SourceStatus { NoData, Eof };
 /// One pulled event, or the reason there wasn't one.
 using PullResult = std::expected<MarketEvent, SourceStatus>;
 
-// The seam every data source satisfies.
-// MarketEvents. A source that never finishes just never returns Eof.
+// The seam every data source satisfies: next() pulls MarketEvents. A source
+// that never finishes just never returns Eof.
 template <class T>
 concept Source = requires(T s) {
     { s.next() } -> std::same_as<PullResult>;

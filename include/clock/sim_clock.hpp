@@ -4,7 +4,7 @@
 namespace qp {
 
 /// Backtest Clock: "now" is whatever timestamp the replay loop last handed
-/// it via advance() — never the real system clock. 
+/// it via advance(), never the real system clock.
 class SimClock {
    public:
     Timestamp now() const noexcept { return ts_; }

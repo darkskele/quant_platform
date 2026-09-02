@@ -11,7 +11,7 @@
 
 namespace qp::data_source::source::venue::binance::binance_historical {
 
-/// binance_historical's Parser policy — the venue-specific half of
+/// binance_historical's Parser policy: the venue-specific half of
 /// venue::Parser<BinHistParserPolicy, Table>.
 struct BinHistParserPolicy {
     template <SymbolTable Table>
@@ -64,7 +64,7 @@ struct BinHistParserPolicy {
         return fields;
     }
 
-    /// open_time,open,high,low,close,volume,close_time — the first 7 of a
+    /// open_time,open,high,low,close,volume,close_time: the first 7 of a
     /// real kline row's 12 columns (quote_volume/count/taker_buy_*/ignore
     /// unused, never even split out).
     static std::optional<MarketEvent> parse_kline(SymbolId id, std::string_view text) {

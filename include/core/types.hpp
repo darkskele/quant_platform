@@ -9,7 +9,7 @@ namespace qp {
 
 using Timestamp = std::int64_t;  ///< Nanoseconds since epoch.
 using Price     = double;        ///< @todo: fixed-point ticks for exactness.
-using Qty       = double;        ///< Same open exactness gap as Price — step size, not tick size.
+using Qty       = double;        ///< Same open exactness gap as Price: step size, not tick size.
 using SymbolId  = std::uint32_t;  ///< Index into venue symbol table.
 using VenueId   = std::uint8_t;   ///< Which leg/venue produced this event. (SymbolId, VenueId)
                                   ///< together identify an instrument, SymbolId alone doesn't.
@@ -22,7 +22,7 @@ struct PriceLevel {
 };
 
 static_assert(
-    std::is_trivially_copyable_v<PriceLevel>);  // safe to memcpy — wire format relies on this
+    std::is_trivially_copyable_v<PriceLevel>);  // safe to memcpy, wire format relies on this
 static_assert(sizeof(PriceLevel) == 16, "unexpected padding/size regression");
 
 /// A full-book-replace anchor. Means "clear the book, then
@@ -40,7 +40,7 @@ enum class EventKind : std::uint8_t {
 };
 
 /// One flat struct per event kind, not one struct with every kind's
-/// fields First four members are always kind/venue/symbol/ts, in that
+/// fields. First four members are always kind/venue/symbol/ts, in that
 /// order, so header_of() below reads the same way regardless of kind.
 struct TradeEvent {
     EventKind kind = EventKind::Trade;
@@ -95,7 +95,7 @@ struct MarkPriceKlineEvent {
 
 static_assert(std::is_trivially_copyable_v<MarkPriceKlineEvent>);
 
-/// BookDiff/BookSnapshot's actual levels — behind a shared_ptr in both
+/// BookDiff/BookSnapshot's actual levels. Behind a shared_ptr in both
 /// event structs so N ring consumers can share one already-parsed
 /// BookLevels instead of deep-copying it on every pop.
 struct BookLevels {
@@ -122,7 +122,7 @@ struct BookSnapshotEvent {
     std::shared_ptr<const BookLevels> levels;
 };
 
-/// The lingua franca — every event this system moves around, one of six
+/// The lingua franca: every event this system moves around, one of six
 /// kinds.
 using MarketEvent = std::variant<TradeEvent, FundingEvent, KlineEvent, MarkPriceKlineEvent,
                                  BookDiffEvent, BookSnapshotEvent>;
@@ -146,18 +146,18 @@ constexpr EventHeader header_of(const MarketEvent& event) {
 using OrderId  = std::uint64_t;  ///< Caller-assigned; unique per submitted Order.
 using Notional = double;         ///< Quote-currency amount (fees, PnL).
 
-/// A strategy's desired end-state for one symbol — a target position, not
+/// A strategy's desired end-state for one symbol: a target position, not
 /// a delta or a venue order ("be +2 BTC", not "buy 2 BTC"). RiskGate turns
 /// this into concrete Order(s), computing the delta itself.
 struct Intent {
     SymbolId symbol{};
-    VenueId  venue{};            ///< Which leg — (symbol, venue) together identify an instrument.
+    VenueId  venue{};            ///< Which leg. (symbol, venue) together identify an instrument.
     Qty      target_position{};  ///< Signed: positive = net long, negative = net short.
 };
 
 static_assert(sizeof(Intent) == 16, "unexpected padding/size regression");
 
-/// A request to trade. Market order only — no price/type field yet.
+/// A request to trade. Market order only, no price/type field yet.
 struct Order {
     OrderId  id{};
     SymbolId symbol{};
@@ -177,13 +177,13 @@ struct Fill {
     VenueId   venue{};  ///< Which leg; see Intent::venue.
     Timestamp ts{};
     Price     price{};
-    Qty       qty{};  ///< == Order::qty always, for now — no partials.
+    Qty       qty{};  ///< == Order::qty always for now, no partials.
     Notional  fee{};
 };
 
 static_assert(sizeof(Fill) == 48, "unexpected padding/size regression");
 
-/// Reasons grow as real ones appear — NoPriceAvailable is SimExecution's
+/// Reasons grow as real ones appear: NoPriceAvailable is SimExecution's
 /// only one today.
 enum class RejectReason : std::uint8_t { NoPriceAvailable };
 

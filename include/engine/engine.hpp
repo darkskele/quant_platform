@@ -36,7 +36,7 @@ class Engine {
     template <std::size_t NumControlConsumers>
     void run(ControlChannel<NumControlConsumers>& control, std::size_t consumer) {
         for (;;) {
-            // Step a batch, then poll once — polling (or reading a clock) on
+            // Step a batch, then poll once: polling (or reading a clock) on
             // every event would tax the hot path, and shutdown latency isn't
             // critical. A plain counter, not steady_clock, gates the poll.
             bool progressed = false;
@@ -84,7 +84,7 @@ class Engine {
 
     void drain_outcomes() {
         for (const auto& fill : exec_.fills()) state_.apply_fill(fill);
-        // Reject: no Portfolio effect yet — exec_.rejects() is there when it is.
+        // Reject: no Portfolio effect yet, exec_.rejects() is there when it is.
     }
 
     Tx    transport_;

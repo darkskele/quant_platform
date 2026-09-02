@@ -34,13 +34,13 @@ class Portfolio {
     void apply_funding(const MarketEvent& event) noexcept {
         const auto* funding = std::get_if<FundingEvent>(&event);
         if (!funding) return;
-        // Positive funding_rate: longs pay shorts — a long position debits
+        // Positive funding_rate: longs pay shorts, so a long position debits
         // cash, a short one credits it.
         std::size_t i = index(funding->symbol, funding->venue);
         cash_ -= positions_[i] * funding_mark_price_[i] * funding->funding_rate;
     }
 
-    /// Marks (symbol, venue) at whichever scalar price `event` carries —
+    /// Marks (symbol, venue) at whichever scalar price `event` carries:
     /// Trade's price, Kline's close, or MarkPriceKline's close. Feeds
     /// equity(). MarkPriceKline also updates funding_mark_price_, kept as
     /// a separate array so a later Trade/Kline can update valuation
@@ -70,7 +70,7 @@ class Portfolio {
     Notional cash() const noexcept { return cash_; }
 
     /// cash() plus every position's mark-to-market value. Linear scan, not
-    /// tracked incrementally — called at most once per Engine::step(),
+    /// tracked incrementally, called at most once per Engine::step(),
     /// cheap next to that cadence.
     Notional equity() const noexcept {
         Notional total = cash_;
