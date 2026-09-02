@@ -8,7 +8,7 @@ The concepts a source needs to turn raw venue bytes into `MarketEvent`s: `Symbol
 raw bytes
    │
    ▼
-Parser::parse()      (venue.hpp — the concept)
+Parser::parse()      (venue.hpp: the concept)
    │   ComposedParser<Policy, Table> binds a policy to a symbol table
    ▼
 optional<MarketEvent>
@@ -16,7 +16,7 @@ optional<MarketEvent>
 
 ## Variations
 
-- **`binance_historical`** (`binance/binance_historical/`) — Binance USD-M historical parser: `BinHistParserPolicy` and `BinHistSymbolTable` composed into `BinHistVenue`.
+- **`binance_historical`** (`binance/binance_historical/`): Binance USD-M historical parser: `BinHistParserPolicy` and `BinHistSymbolTable` composed into `BinHistVenue`.
 
 ## Milestones
 

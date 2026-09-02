@@ -16,8 +16,8 @@ Source[1]::next() ─▶ event (venue = 1) ─▶ Sink[1]::record()
 
 ## Components
 
-- `source/` — the `Source` concept: historical replay plus venue parsing.
-- `sink/` — the `Sink` concept: in-process fan-out to consumers.
+- `source/`: the `Source` concept, historical replay plus venue parsing.
+- `sink/`: the `Sink` concept, in-process fan-out to consumers.
 
 ## Milestones
 

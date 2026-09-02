@@ -5,7 +5,7 @@ The `Sink` concept and the sinks that implement it. `record(MarketEvent)` never 
 ## Diagram
 
 ```
-record(MarketEvent)      (sink.hpp — the concept)
+record(MarketEvent)      (sink.hpp: the concept)
         │   concrete sinks plug in here
         ▼
    bool (false = dropped, never blocks)
@@ -13,7 +13,7 @@ record(MarketEvent)      (sink.hpp — the concept)
 
 ## Variations
 
-- **`FanoutSink`** (`fanout/`) — redistributes recorded events to `NumConsumers` in-process readers via an SPMC queue.
+- **`FanoutSink`** (`fanout/`): redistributes recorded events to `NumConsumers` in-process readers via an SPMC queue.
 
 ## Milestones
 

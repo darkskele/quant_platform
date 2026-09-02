@@ -5,7 +5,7 @@ The `Clock` concept and the clocks that implement it. `now()` reads the current 
 ## Diagram
 
 ```
-advance(ts) ──▶ now()      (clock.hpp — the concept)
+advance(ts) ──▶ now()      (clock.hpp: the concept)
         │   concrete clocks plug in here
         ▼
      Timestamp
@@ -13,7 +13,7 @@ advance(ts) ──▶ now()      (clock.hpp — the concept)
 
 ## Variations
 
-- **`SimClock`** (`sim_clock.hpp`) — backtest clock. `now()` returns the last `advance(ts)`, driven by event timestamps rather than the wall clock.
+- **`SimClock`** (`sim_clock.hpp`): backtest clock. `now()` returns the last `advance(ts)`, driven by event timestamps rather than the wall clock.
 
 ## Milestones
 

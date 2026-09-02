@@ -5,7 +5,7 @@ The backtest app. Composes source, sink, engine, execution, risk, and strategy i
 ## Diagram
 
 ```
-BacktestBase::run()  — two threads, joined
+BacktestBase::run()  (two threads, joined)
 
   source pump   run_data_source(sources, sinks)
   thread              │  fills the sinks' fan-out queues
@@ -18,7 +18,7 @@ BacktestBase::run()  — two threads, joined
 
 ## Variations
 
-- **`FundingCarryBacktest`** (`funding_carry/`) — futures + spot CSV legs merged in `ts` order. Runtime-swept `Config` (carry + risk knobs), reports `Results`.
+- **`FundingCarryBacktest`** (`funding_carry/`): futures + spot CSV legs merged in `ts` order. Runtime-swept `Config` (carry + risk knobs), reports `Results`.
 
 ## Milestones
 

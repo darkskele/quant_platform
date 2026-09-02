@@ -5,7 +5,7 @@ The `Source` concept and the sources that implement it. A source yields the next
 ## Diagram
 
 ```
-Source::next()      (source.hpp — the concept)
+Source::next()      (source.hpp: the concept)
         │   concrete sources plug in here
         ▼
    PullResult (MarketEvent | NoData | Eof)
@@ -13,11 +13,11 @@ Source::next()      (source.hpp — the concept)
 
 ## Components
 
-- `venue/` — the `SymbolTable` and `Parser` concepts a source uses to turn raw venue bytes into `MarketEvent`s.
+- `venue/`: the `SymbolTable` and `Parser` concepts a source uses to turn raw venue bytes into `MarketEvent`s.
 
 ## Variations
 
-- **`CsvSource`** (`csv_source.hpp`) — replays historical CSV, parsing each line through a venue `Parser` and merging N streams in ascending `ts` order.
+- **`CsvSource`** (`csv_source.hpp`): replays historical CSV, parsing each line through a venue `Parser` and merging N streams in ascending `ts` order.
 
 ## Milestones
 

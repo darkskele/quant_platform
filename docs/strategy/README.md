@@ -8,7 +8,7 @@ The `Strategy` concept and the concrete strategies that implement it. A strategy
 MarketEvent / Timestamp
         │
         ▼
-Strategy::on_event() / on_timer()      (strategy.hpp — the concept)
+Strategy::on_event() / on_timer()      (strategy.hpp: the concept)
         │   concrete strategies plug in here
         ▼
    span<const Intent>
@@ -16,7 +16,7 @@ Strategy::on_event() / on_timer()      (strategy.hpp — the concept)
 
 ## Variations
 
-- **`FundingCarryStrategy`** (`carry/`) — long spot, short perp, delta-neutral. Sizes and thresholds by `Config` to collect funding.
+- **`FundingCarryStrategy`** (`carry/`): long spot, short perp, delta-neutral. Sizes and thresholds by `Config` to collect funding.
 
 ## Milestones
 

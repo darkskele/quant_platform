@@ -8,7 +8,7 @@ The `Matcher` concept and the concrete matchers. A matcher turns an `Order` into
 Order / MarketEvent
         │
         ▼
-Matcher::try_fill() / on_market_event()   (matcher.hpp — the concept)
+Matcher::try_fill() / on_market_event()   (matcher.hpp: the concept)
         │   concrete matchers plug in here
         ▼
    variant<Fill, Reject>
@@ -16,7 +16,7 @@ Matcher::try_fill() / on_market_event()   (matcher.hpp — the concept)
 
 ## Variations
 
-- **`LastTradeMatcher`** (`last_trade/`) — fills a market order fully and instantly at the last-seen trade price.
+- **`LastTradeMatcher`** (`last_trade/`): fills a market order fully and instantly at the last-seen trade price.
 
 ## Milestones
 

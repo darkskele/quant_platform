@@ -27,7 +27,7 @@ drain Exec::fills() ──▶ Portfolio::apply_fill
 
 ## Components
 
-- `transport/` — the `Transport` concept: the event seam the loop pulls from.
+- `transport/`: the `Transport` concept, the event seam the loop pulls from.
 
 ## Milestones
 

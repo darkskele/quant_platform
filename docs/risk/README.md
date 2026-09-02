@@ -8,7 +8,7 @@ The `RiskGate` concept and the concrete gates that implement it. A gate turns an
 Intent
    │
    ▼
-RiskGate::check() / on_tick()      (risk_gate.hpp — the concept)
+RiskGate::check() / on_tick()      (risk_gate.hpp: the concept)
    │   concrete gates plug in here
    ▼
 RiskDecision / span<const Order>
@@ -16,7 +16,7 @@ RiskDecision / span<const Order>
 
 ## Variations
 
-- **`BasicRiskGate`** (`basic/`) — per-(symbol, venue) exposure cap in `check()`, equity-drawdown kill switch in `on_tick()`.
+- **`BasicRiskGate`** (`basic/`): per-(symbol, venue) exposure cap in `check()`, equity-drawdown kill switch in `on_tick()`.
 
 ## Milestones
 

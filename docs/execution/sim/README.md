@@ -11,7 +11,7 @@ Order / MarketEvent
    SimExecution                 (sim_execution.hpp)
         │   submit() forwards to
         ▼
-   Matcher::try_fill()          (matcher/ — the seam)
+   Matcher::try_fill()          (matcher/: the seam)
         │
         ▼
    fills() / rejects()
@@ -19,7 +19,7 @@ Order / MarketEvent
 
 ## Components
 
-- `matcher/` — the `Matcher` concept: turns an `Order` into a `Fill` or `Reject`.
+- `matcher/`: the `Matcher` concept, turns an `Order` into a `Fill` or `Reject`.
 
 ## Milestones
 

@@ -8,7 +8,7 @@ The `ExecutionGateway` concept and the gateways that implement it. A gateway tak
 Order / MarketEvent
         │
         ▼
-ExecutionGateway::submit() / on_market_event()   (execution_gateway.hpp — the concept)
+ExecutionGateway::submit() / on_market_event()   (execution_gateway.hpp: the concept)
         │   gateways plug in here
         ▼
 span<const Fill> / span<const Reject>
@@ -16,7 +16,7 @@ span<const Fill> / span<const Reject>
 
 ## Variations
 
-- **`SimExecution`** (`sim/`) — the backtest gateway. Wraps a `Matcher`; documented in its own README.
+- **`SimExecution`** (`sim/`): the backtest gateway. Wraps a `Matcher`; documented in its own README.
 
 ## Milestones
 

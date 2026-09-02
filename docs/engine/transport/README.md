@@ -5,7 +5,7 @@ The `Transport` concept and the transports that implement it. A transport yields
 ## Diagram
 
 ```
-Transport::next() / flush()      (transport.hpp — the concept)
+Transport::next() / flush()      (transport.hpp: the concept)
         │   concrete transports plug in here
         ▼
    optional<MarketEvent>
@@ -13,7 +13,7 @@ Transport::next() / flush()      (transport.hpp — the concept)
 
 ## Variations
 
-- **`BacktestInProcessTransport`** (`backtest_in_process/`) — merges a fixed set of queues in ascending `ts` order, one lookahead slot per queue.
+- **`BacktestInProcessTransport`** (`backtest_in_process/`): merges a fixed set of queues in ascending `ts` order, one lookahead slot per queue.
 
 ## Milestones
 
