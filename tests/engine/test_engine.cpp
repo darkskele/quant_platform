@@ -1,12 +1,15 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <optional>
 #include <span>
+#include <thread>
 #include <vector>
 
 #include "clock.hpp"
+#include "control_channel.hpp"
 #include "engine.hpp"
 #include "execution_gateway.hpp"
 #include "matcher/last_trade/last_trade_matcher.hpp"
@@ -41,6 +44,8 @@ struct FakeTransport {
         if (index >= events.size()) return std::nullopt;
         return events[index++];
     }
+
+    void flush() noexcept {}
 };
 
 /// Fires once, on the first on_event call, then goes quiet — enough to
@@ -141,6 +146,32 @@ TEST(Engine, RunDrainsEveryEventInTheTransport) {
 
     while (engine.step()) {
     }
+    EXPECT_EQ(calls, 3);
+}
+
+// run() on its own thread processes everything the transport hands it, then
+// exits once Stop arrives on the control channel — the shape a top-level
+// app drives it in (see BacktestBase::run).
+TEST(Engine, RunProcessesEveryEventThenExitsOnControlStop) {
+    int                          calls = 0;
+    std::vector<qp::MarketEvent> events{
+        make_funding(1, 1000, 0.0),
+        make_funding(1, 2000, 0.0),
+        make_funding(1, 3000, 0.0),
+    };
+    Portfolio portfolio;
+    CountTest engine{FakeTransport{events},   qp::SimClock{},           TestExec{},
+                     AlwaysApproveRiskGate{}, CountingStrategy{&calls}, portfolio};
+
+    qp::ControlChannel<1> control;
+    std::size_t           consumer = control.attach();
+    std::thread           runner([&] { engine.run(control, consumer); });
+
+    // Give the loop time to drain the (finite) transport, then stop it.
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    control.request_stop();
+    runner.join();
+
     EXPECT_EQ(calls, 3);
 }
 

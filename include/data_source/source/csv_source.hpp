@@ -14,13 +14,14 @@
 #include <utility>
 #include <vector>
 
+#include "source.hpp"
 #include "spsc_queue.hpp"
 #include "types.hpp"
 #include "venue.hpp"
 
 namespace qp::data_source::source {
 
-/// Backtest `Source` for CSV-line-shaped venue data. Merges N logical streams 
+/// Backtest `Source` for CSV-line-shaped venue data. Merges N logical streams
 /// by timestamp, each an ordered list of files.
 /// One background thread reads every stream's files ahead of consumption,
 /// pushing complete lines into a per-stream queue.
@@ -34,9 +35,7 @@ class CsvSource {
 
    public:
     /// `files[i]` is stream i's complete file list, already in the order
-    /// they should be merged in. Doesn't block: the background thread starts 
-    /// reading immediately, but the constructor returns before any data has
-    /// necessarily arrived.
+    /// they should be merged in.
     explicit CsvSource(std::array<std::vector<std::filesystem::path>, N> files) {
         for (std::size_t i = 0; i < N; ++i) producer_[i].files = std::move(files[i]);
         producer_thread_ = std::thread([this] { producer_loop(); });
@@ -54,10 +53,10 @@ class CsvSource {
     }
 
     /// Single pass: fills each empty lookahead slot and tracks the running
-    /// earliest at the same time, each slot touched once per call. Each stream's
-    /// exhaustion is self-contained and permanent, so once a stream has no 
-    /// lookahead and is done, it just drops out of consideration forever.
-    std::optional<MarketEvent> next() {
+    /// earliest at the same time, each slot touched once per call. NoData 
+    /// while any stream is merely not-ready-yet; Eof only once every stream 
+    /// is genuinely exhausted.
+    PullResult next() {
         bool                       any_missing = false;
         std::optional<std::size_t> earliest;
 
@@ -78,23 +77,13 @@ class CsvSource {
             }
         }
 
-        if (any_missing) return std::nullopt;  // some stream might yet produce an earlier ts
-        if (!earliest) return std::nullopt;    // every stream exhausted
+        // Some stream might yet produce an earlier ts -> can't emit, not done.
+        if (any_missing) return std::unexpected(SourceStatus::NoData);
+        if (!earliest) return std::unexpected(SourceStatus::Eof);  // every stream exhausted
 
         MarketEvent out = std::move(*lookahead_[*earliest]);
         lookahead_[*earliest].reset();
         return out;
-    }
-
-    /// Reflects state as of the last next() call, not a fresh check — same
-    /// contract as BacktestInProcessTransport::is_done(): call next()
-    /// first.
-    bool is_done() const noexcept {
-        for (std::size_t i = 0; i < N; ++i) {
-            if (lookahead_[i]) return false;
-            if (!shared_[i].done.load(std::memory_order_acquire)) return false;
-        }
-        return true;
     }
 
    private:
@@ -106,7 +95,7 @@ class CsvSource {
     };
 
     // Background-thread-only. current_lines is every line of the file
-    // currently being drained 
+    // currently being drained
     struct ProducerState {
         std::vector<std::filesystem::path> files;
         std::size_t                        file_index{0};
@@ -115,10 +104,7 @@ class CsvSource {
         std::size_t                        line_index{0};
     };
 
-    // The only cross-thread surface per stream. done/failed: producer
-    // release-stores after its last push (done) or after writing `error`
-    // (failed); next() acquire-loads BEFORE popping the queue, never
-    // after.
+    // The only cross-thread surface per stream. 
     struct SharedState {
         SpscQueue<Line, LineQueueCapacity> lines;
         std::atomic<bool>                  done{false};
@@ -131,7 +117,7 @@ class CsvSource {
     enum class RefillResult { Filled, NotReady, Exhausted };
 
     /// Pops lines from shared_[i].lines until one parses into an event.
-    /// Throws, surfacing the producer's stored message, if shared_[i].failed 
+    /// Throws, surfacing the producer's stored message, if shared_[i].failed
     /// was observed true.
     RefillResult try_refill(std::size_t i) {
         auto& shared = shared_[i];
@@ -154,20 +140,14 @@ class CsvSource {
         }
     }
 
-    /// One stream's unit of work for one producer round: push one more
-    /// already-split line from the file currently being drained, or (once
-    /// that file's lines are exhausted) read+split the next file, or (once
-    /// the file list itself is exhausted) mark this stream done. Returns
-    /// whether real progress happened.
+    /// One stream's unit of work for one producer round.
     bool producer_fill_one(std::size_t i) {
         auto& prod   = producer_[i];
         auto& shared = shared_[i];
 
         if (prod.line_index < prod.current_lines.size()) {
             Line item{prod.current_buffer, prod.current_lines[prod.line_index]};
-            // push()'s fullness check runs before it ever touches its
-            // argument, so `item` (and prod.line_index) are safe to leave
-            // untouched if this returns false — nothing was moved-from.
+            // push()'s fullness check.
             if (!shared.lines.push(std::move(item))) return false;
             ++prod.line_index;
             return true;

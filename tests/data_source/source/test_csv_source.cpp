@@ -14,6 +14,7 @@
 #include "support/scratch_dir.hpp"
 
 using qp::data_source::source::CsvSource;
+using qp::data_source::source::SourceStatus;
 using qp::data_source::source::venue::binance::binance_historical::BinHistVenue;
 using qp::test::ScratchDir;
 
@@ -34,12 +35,14 @@ std::filesystem::path write_file(const std::filesystem::path& path, const std::s
     return path;
 }
 
-// next() returns nullopt for two different.
+// Spins through NoData (background reader not caught up yet) and returns
+// the event; nullopt once the source reports Eof.
 template <class Source>
 std::optional<qp::MarketEvent> next_blocking(Source& source) {
     for (;;) {
-        if (auto ev = source.next()) return ev;
-        if (source.is_done()) return std::nullopt;
+        auto r = source.next();
+        if (r) return std::move(*r);
+        if (r.error() == SourceStatus::Eof) return std::nullopt;
     }
 }
 
@@ -58,8 +61,7 @@ TEST(CsvSource, SingleStreamReturnsEventsInFileOrder) {
         ASSERT_TRUE(ev.has_value());
         EXPECT_EQ(qp::header_of(*ev).ts, expected * 1'000'000);  // ms -> ns
     }
-    EXPECT_FALSE(next_blocking(source).has_value());
-    EXPECT_TRUE(source.is_done());
+    EXPECT_FALSE(next_blocking(source).has_value());  // Eof
 }
 
 TEST(CsvSource, MergesTwoStreamsByTimestampNotStreamOrder) {
@@ -115,7 +117,7 @@ TEST(CsvSource, SkipsUnparseableAndBlankLinesWithoutFailing) {
     EXPECT_FALSE(next_blocking(source).has_value());
 }
 
-TEST(CsvSource, EmptyFileProducesNoEventsAndStillReportsDone) {
+TEST(CsvSource, EmptyFileProducesNoEventsAndStillReachesEof) {
     ScratchDir dir;
     auto       empty  = write_file(dir.path / "empty.csv", "");
     auto       klines = write_file(dir.path / "klines.csv", kline_line(0) + "\n");
@@ -126,8 +128,7 @@ TEST(CsvSource, EmptyFileProducesNoEventsAndStillReportsDone) {
     auto ev = next_blocking(source);
     ASSERT_TRUE(ev.has_value());
     EXPECT_EQ(qp::header_of(*ev).ts, 0);
-    EXPECT_FALSE(next_blocking(source).has_value());
-    EXPECT_TRUE(source.is_done());
+    EXPECT_FALSE(next_blocking(source).has_value());  // Eof
 }
 
 TEST(CsvSource, ThrowsIfAFileCannotBeOpened) {

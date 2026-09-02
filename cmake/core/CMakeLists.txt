@@ -5,7 +5,7 @@ qp_dir(benchmarks QP_BENCH)
 
 add_library(qp_core INTERFACE)
 target_include_directories(qp_core INTERFACE ${QP_INC})
-target_compile_features(qp_core INTERFACE cxx_std_20)
+target_compile_features(qp_core INTERFACE cxx_std_23)
 find_package(Threads REQUIRED)
 target_link_libraries(qp_core INTERFACE Threads::Threads)
 
@@ -18,7 +18,7 @@ if(BUILD_TESTING)
     find_package(Threads REQUIRED)
     add_executable(qp_core_tests
         ${QP_TESTS}/test_spsc_queue.cpp
-        ${QP_TESTS}/test_spmc_ring.cpp
+        ${QP_TESTS}/test_spmc_queue.cpp
         ${QP_TESTS}/test_portfolio.cpp
         ${QP_TESTS}/test_control_channel.cpp
         ${QP_TESTS}/test_viewable_pool.cpp
@@ -32,7 +32,7 @@ if(QP_BUILD_BENCHMARKS)
     # googlebenchmark is fetched once, at the top level.
     add_executable(qp_core_bench
         ${QP_BENCH}/bench_spsc_queue.cpp
-        ${QP_BENCH}/bench_spmc_ring.cpp
+        ${QP_BENCH}/bench_spmc_queue.cpp
         ${QP_BENCH}/bench_mpsc_queue.cpp
         ${QP_BENCH}/bench_control_channel.cpp
         ${QP_BENCH}/bench_portfolio.cpp

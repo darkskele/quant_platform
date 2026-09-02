@@ -21,13 +21,25 @@ MarketEvent trade(qp::Price price) {
 
 static_assert(qp::data_source::sink::Sink<FanoutSink<4, 1>>);
 
-TEST(FanoutSink, RecordPushesOntoTheRing) {
+TEST(FanoutSink, RecordPushesOntoTheQueue) {
     FanoutSink<4, 1> sink;
-    sink.record(trade(100.0));
+    EXPECT_TRUE(sink.record(trade(100.0)));
 
-    auto event = sink.ring().try_pop(0);
+    auto event = sink.queue().try_pop(0);
     ASSERT_TRUE(event.has_value());
     EXPECT_DOUBLE_EQ(std::get<qp::TradeEvent>(*event).price, 100.0);
+}
+
+TEST(FanoutSink, RecordSucceedsThenFailsWithoutBlockingWhenFull) {
+    FanoutSink<2, 1> sink;  // no consumer ever pops
+    EXPECT_TRUE(sink.record(trade(1.0)));
+    EXPECT_TRUE(sink.record(trade(2.0)));
+    EXPECT_FALSE(sink.record(trade(3.0)));  // both slots still unread
+
+    EXPECT_DOUBLE_EQ(std::get<qp::TradeEvent>(*sink.queue().try_pop(0)).price, 1.0);
+    EXPECT_TRUE(sink.record(trade(3.0)));  // freed a slot
+    EXPECT_DOUBLE_EQ(std::get<qp::TradeEvent>(*sink.queue().try_pop(0)).price, 2.0);
+    EXPECT_DOUBLE_EQ(std::get<qp::TradeEvent>(*sink.queue().try_pop(0)).price, 3.0);
 }
 
 TEST(FanoutSink, OneRecordFansOutToEveryConsumer) {
@@ -35,7 +47,7 @@ TEST(FanoutSink, OneRecordFansOutToEveryConsumer) {
     sink.record(trade(100.0));
 
     for (std::size_t consumer = 0; consumer < 3; ++consumer) {
-        auto event = sink.ring().try_pop(consumer);
+        auto event = sink.queue().try_pop(consumer);
         ASSERT_TRUE(event.has_value());
         EXPECT_DOUBLE_EQ(std::get<qp::TradeEvent>(*event).price, 100.0);
     }
@@ -50,8 +62,8 @@ TEST(FanoutSink, BookDiffLevelsAreSharedNotDeepCopiedAcrossConsumers) {
     ev.levels = levels;
     sink.record(ev);
 
-    auto first  = sink.ring().try_pop(0);
-    auto second = sink.ring().try_pop(1);
+    auto first  = sink.queue().try_pop(0);
+    auto second = sink.queue().try_pop(1);
     ASSERT_TRUE(first.has_value());
     ASSERT_TRUE(second.has_value());
 

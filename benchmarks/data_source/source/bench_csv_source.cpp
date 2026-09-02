@@ -47,10 +47,12 @@ std::vector<std::filesystem::path> write_kline_stream(const std::filesystem::pat
 
 template <class Source>
 void drain(Source& source) {
+    using qp::data_source::source::SourceStatus;
     for (;;) {
-        if (auto ev = source.next()) {
-            benchmark::DoNotOptimize(ev);
-        } else if (source.is_done()) {
+        auto r = source.next();
+        if (r) {
+            benchmark::DoNotOptimize(r);
+        } else if (r.error() == SourceStatus::Eof) {
             break;
         }
     }

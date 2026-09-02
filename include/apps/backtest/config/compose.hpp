@@ -27,39 +27,27 @@
 #define QP_BACKTEST_LAST_DAY "2024-01-01"
 #endif
 
-// The one place backtest.cpp/backtest.hpp look for a concrete type or
-// value. Every macro-selected combo (source_config.hpp/sink_config.hpp/
-// engine_config.hpp), the venue/symbol universe (venues.hpp), and which
-// data this binary reads (QP_BACKTEST_* above, baked in by
-// tools/build_backtest.sh — never argv, see D5x) get assembled here, once.
+// The one place the backtest variants look for a concrete composed type or
+// compile-time value.
 namespace qp::backtest::config {
 
 inline constexpr std::size_t kNumVenues = std::tuple_size_v<VenueTables>;
 
-// Not tuned against real replay throughput yet — same "placeholder, not
-// validated" status as SpmcRing's own backoff constants until this path
-// gets benchmarked for real.
+// Not tuned against real replay throughput yet. @todo
 inline constexpr std::size_t kRingCapacity = 1024;
 
-// This backtest is Engine's sole consumer of each leg's ring.
+// This backtest is Engine's sole consumer of each leg's queue.
 using Sink = LegSink<kRingCapacity, /*NumConsumers=*/1>;
 
 using Matcher  = MatcherType<Book>;
 using Exec     = execution::sim::SimExecution<Matcher, Book>;
 using Risk     = RiskType<Book>;
 using Strategy = StrategyType<Book>;
-using Tx       = engine::transport::BacktestInProcessTransport<Sink::Ring, kNumVenues,
-                                                               /*NumControlConsumers=*/1>;
+using Tx       = engine::transport::BacktestInProcessTransport<kRingCapacity, kNumVenues>;
 
 using EngineType = engine::Engine<Tx, SimClock, Exec, Risk, Strategy, Book>;
 
-// What this binary trades — decided at build time (tools/build_backtest.sh
-// / QP_BACKTEST_* defines), not by a runtime flag: matches D5x's "no
-// runtime params" call, and it's what a future pybind11 wrapper wants
-// anyway — the compiled extension module IS one fixed (data, components)
-// choice; only strategy/risk knobs (Config::carry/risk, backtest.hpp) stay
-// runtime-settable, since those are exactly what a Python-side optimizer
-// sweeps run over run.
+// What this binary trades.
 inline constexpr std::string_view kDataDirStr = QP_BACKTEST_DATA_DIR;
 inline constexpr std::string_view kSymbol     = QP_BACKTEST_SYMBOL;
 

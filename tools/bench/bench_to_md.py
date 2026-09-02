@@ -1,28 +1,24 @@
 #!/usr/bin/env python3
-"""Render a Google Benchmark JSON report (--benchmark_out_format=json) as a
-Markdown table, grouped into one section per class under benchmark, e.g.
-"### SpscQueue". Expects --benchmark_repetitions=N (+ default aggregates)
-so the "variance" columns (mean/median/stddev/cv rows) are Google
-Benchmark's own repetition statistics, not a hand-rolled stat — see
-docs/decisions.md on why we stuck to stock Google Benchmark instead of
-per-iteration percentile sampling (WSL2 scheduling noise dominates the
-tail at this level; also plain wall-clock instrumentation overhead swamps
-sub-100ns ops).
+"""Render a Google Benchmark JSON report as BENCHMARKS.md: a grouped summary
+of every benchmark, then (when a baseline is given) the diff against it.
 
-Grouping relies on the repo-wide benchmark naming convention
-(benchmarks/README.md): every benchmark function is named
-`BM_<Class>_<Description>`, so the class is mechanically the text between
-`BM_` and the first following underscore. There is no other place to get
-this from — Google Benchmark's JSON has no source-file or category field,
-only the name — so a benchmark that doesn't follow the convention (no
-underscore after the class) becomes its own single-entry "Other" group
-rather than silently crashing or getting merged into an unrelated one.
+The summary is one section per class under the repo naming convention
+(benchmarks/README.md: `BM_<Class>_<Description>`, so the class is the text
+between `BM_` and the first following underscore), one row per benchmark,
+with Google Benchmark's own repetition statistics as columns
+(mean/median/stddev/cv). A benchmark that doesn't follow the convention
+becomes its own single-entry "Other" group rather than crashing.
+
+The diff is delegated to bench_diff.py and appended under its own heading.
+A missing or unparseable baseline degrades to a note, never a crash.
 """
 
 import argparse
 import json
 import re
 import sys
+
+from bench_diff import diff
 
 _NAME_RE = re.compile(r"^BM_([A-Za-z0-9]+)_")
 
@@ -41,8 +37,7 @@ def _fmt(value):
 
 def _fmt_time(value, case):
     # cv rows carry a fraction under aggregate_unit "percentage", not a
-    # duration — time_unit is still "ns" on those rows regardless, so it
-    # has to be checked explicitly rather than trusted at face value.
+    # duration — time_unit is still "ns" on those rows regardless.
     if case.get("aggregate_unit") == "percentage":
         return f"{value * 100:.2f} %"
     return f"{_fmt(value)} {case.get('time_unit', '')}"
@@ -53,21 +48,14 @@ def _extract_class(label: str) -> str:
     return m.group(1) if m else "Other"
 
 
-def render(report: dict) -> str:
+def render_summary(report: dict) -> str:
     cases = report.get("benchmarks", [])
 
     # One row per benchmark: pivot mean/median/stddev/cv (rows sharing a
-    # family_index, distinguished only by aggregate_name) into columns
-    # instead. Grouped by family_index, NOT run_name/name — two unrelated
-    # benchmarks in the same binary (e.g. different files each defining
-    # their own BM_PushInt) share a display name but never a family_index,
-    # and grouping by name alone silently merges them into one row,
-    # dropping the rest (hit for real: bench_spsc_queue.cpp,
-    # bench_spmc_ring.cpp, and bench_mpsc_queue.cpp all had a BM_PushInt
-    # before they were renamed unique — the collision cost two of the
-    # three rows silently before this was keyed correctly). Requires
-    # --benchmark_repetitions=N; a plain single-shot run (no
-    # aggregate_name) still gets one row, just with median/stddev/cv blank.
+    # family_index, distinguished only by aggregate_name) into columns.
+    # Grouped by family_index, NOT run_name/name — two unrelated benchmarks
+    # in the same binary can share a display name but never a family_index,
+    # and grouping by name alone silently merges them into one row.
     groups: dict[object, dict[str, dict]] = {}
     order: list[object] = []
     labels: dict[object, str] = {}
@@ -83,14 +71,10 @@ def render(report: dict) -> str:
     for key in order:
         label = labels[key]
         if label in seen_labels and seen_labels[label] != key:
-            print(f"warning: duplicate benchmark name '{label}' (distinct family_index) — "
-                  f"rows are correctly separate but indistinguishable by name in the table",
+            print(f"warning: duplicate benchmark name '{label}' (distinct family_index)",
                   file=sys.stderr)
         seen_labels[label] = key
 
-    # Group by class (benchmarks/README.md's BM_<Class>_<Description>
-    # convention), preserving first-seen order of both classes and rows
-    # within each class — stable output, no alphabetical reshuffling.
     classes: dict[str, list] = {}
     class_order: list[str] = []
     for key in order:
@@ -104,10 +88,7 @@ def render(report: dict) -> str:
 
     sections = []
     for cls in class_order:
-        # Counter columns (e.g. items_per_second) scoped to what this
-        # class's own rows actually report — a class that never sets one
-        # doesn't carry an always-blank column just because some other,
-        # unrelated class in the same report does.
+        # Counter columns scoped to what this class's own rows report.
         counter_keys = []
         for key in classes[cls]:
             mean_case = groups[key].get("mean", groups[key].get("value"))
@@ -142,23 +123,55 @@ def render(report: dict) -> str:
             row += [_fmt(base[k]) if base and k in base else "" for k in counter_keys]
             lines.append("| " + " | ".join(row) + " |")
         sections.append("\n".join(lines))
-    return "\n\n".join(sections) + "\n"
+    return "\n\n".join(sections)
+
+
+def render_document(report: dict, baseline, threshold_pct: float, threshold_ns: float) -> str:
+    parts = [
+        "# Benchmarks",
+        "",
+        "_Generated by `qp_bench` — Google Benchmark, 5 repetitions, aggregates only. "
+        "This is WSL2: trust deltas between runs, not absolute numbers._",
+        "",
+        "## Summary",
+        "",
+        render_summary(report),
+        "",
+        "---",
+        "",
+    ]
+    if baseline is None:
+        parts += [
+            "## Benchmark diff (current vs. HEAD)",
+            "",
+            "*No baseline available — commit a `bench_results.json` at HEAD to enable the diff.*",
+        ]
+    else:
+        parts.append(diff(baseline, report, threshold_pct, threshold_ns).rstrip())
+    return "\n".join(parts) + "\n"
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("json_path", help="Google Benchmark JSON report")
+    parser.add_argument("json_path", help="Google Benchmark JSON report just produced")
+    parser.add_argument("--baseline", default=None, help="JSON report to diff against (HEAD's)")
+    parser.add_argument("--threshold-pct", type=float, default=5.0)
+    parser.add_argument("--threshold-ns", type=float, default=1.5)
     parser.add_argument("-o", "--out", help="Markdown file to write (default: stdout)")
-    parser.add_argument("--title", default=None, help="Optional heading to prepend")
     args = parser.parse_args()
 
     with open(args.json_path) as f:
         report = json.load(f)
 
-    body = render(report)
-    if args.title:
-        body = f"## {args.title}\n\n" + body
+    baseline = None
+    if args.baseline:
+        try:
+            with open(args.baseline) as f:
+                baseline = json.load(f)
+        except (OSError, json.JSONDecodeError) as e:
+            print(f"warning: baseline unreadable ({e}) — summary only, no diff", file=sys.stderr)
 
+    body = render_document(report, baseline, args.threshold_pct, args.threshold_ns)
     if args.out:
         with open(args.out, "w") as f:
             f.write(body)

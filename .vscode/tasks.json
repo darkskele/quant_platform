@@ -5,740 +5,87 @@
             "label": "Configure (debug)",
             "type": "shell",
             "command": "cmake --preset debug",
-            "problemMatcher": [],
-            "detail": "Ninja + ASan/UBSan. Cheap to re-run \u2014 CMake no-ops if nothing changed."
+            "problemMatcher": []
         },
         {
             "label": "Configure (release)",
             "type": "shell",
             "command": "cmake --preset release",
-            "problemMatcher": [],
-            "detail": "No sanitizers, -O3 \u2014 benchmarks under the debug preset measure ASan/UBSan overhead, not the parser."
-        },
-        {
-            "label": "Build: qp_core_tests",
-            "type": "shell",
-            "command": "cmake --build build/debug --target qp_core_tests -j",
-            "dependsOn": "Configure (debug)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "detail": "SPSC queue tests \u2014 functional correctness, ASan/UBSan."
-        },
-        {
-            "label": "Test: qp_core_tests",
-            "type": "shell",
-            "command": "./build/debug/cmake/core/qp_core_tests",
-            "dependsOn": "Build: qp_core_tests",
-            "group": "test",
             "problemMatcher": []
         },
         {
             "label": "Configure (tsan)",
             "type": "shell",
             "command": "cmake --preset tsan",
-            "problemMatcher": [],
-            "detail": "ThreadSanitizer \u2014 the actual point of testing a concurrent queue. Benchmarks excluded (QP_BUILD_BENCHMARKS=OFF baked into the preset)."
+            "problemMatcher": []
         },
         {
-            "label": "Build: qp_core_tests (tsan)",
+            "label": "Build: qp_tests (debug)",
             "type": "shell",
-            "command": "cmake --build build/tsan --target qp_core_tests -j",
-            "dependsOn": "Configure (tsan)",
+            "command": "cmake --preset debug && cmake --build build/debug --target qp_tests -j",
             "group": "build",
             "problemMatcher": [
                 "$gcc"
             ]
         },
         {
-            "label": "Test: qp_core_tests (tsan)",
+            "label": "Build: qp_tests (release)",
             "type": "shell",
-            "command": "setarch $(uname -m) -R ./build/tsan/cmake/core/qp_core_tests",
-            "dependsOn": "Build: qp_core_tests (tsan)",
-            "group": "test",
-            "problemMatcher": [],
-            "detail": "setarch -R disables ASLR \u2014 TSan hits a known WSL2 memory-mapping issue without it."
-        },
-        {
-            "label": "Build: qp_backtest_integration_tests",
-            "type": "shell",
-            "command": "cmake --build build/debug --target qp_backtest_integration_tests -j",
-            "dependsOn": "Configure (debug)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "detail": "End-to-end: synthetic FileRecorder data -> FileReplaySource -> Engine<...FundingCarryStrategy>."
-        },
-        {
-            "label": "Test: qp_backtest_integration_tests",
-            "type": "shell",
-            "command": "./build/debug/cmake/apps/backtest/qp_backtest_integration_tests",
-            "dependsOn": "Build: qp_backtest_integration_tests",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: qp_core_tests (release)",
-            "type": "shell",
-            "command": "cmake --build build/release --target qp_core_tests -j",
-            "dependsOn": "Configure (release)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "detail": "Same SPSC queue tests at -O3/-DNDEBUG, no ASan/UBSan."
-        },
-        {
-            "label": "Test: qp_core_tests (release)",
-            "type": "shell",
-            "command": "./build/release/cmake/core/qp_core_tests",
-            "dependsOn": "Build: qp_core_tests (release)",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: qp_core_bench (release)",
-            "type": "shell",
-            "command": "cmake --build build/release --target qp_core_bench -j",
-            "dependsOn": "Configure (release)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "detail": "SPSC queue push/pop benchmarks, release build."
-        },
-        {
-            "label": "Run queue bench",
-            "type": "shell",
-            "command": "./build/release/cmake/core/qp_core_bench",
-            "dependsOn": "Build: qp_core_bench (release)",
-            "group": "test",
-            "problemMatcher": [],
-            "detail": "Release build \u2014 still WSL2, so trust deltas over absolutes (docs/environment.md)."
-        },
-        {
-            "label": "Build: qp_clock_bench (release)",
-            "type": "shell",
-            "command": "cmake --build build/release --target qp_clock_bench -j",
-            "dependsOn": "Configure (release)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "detail": "SimClock now()/advance() benchmark, release build."
-        },
-        {
-            "label": "Run clock bench",
-            "type": "shell",
-            "command": "./build/release/cmake/clock/qp_clock_bench",
-            "dependsOn": "Build: qp_clock_bench (release)",
-            "group": "test",
-            "problemMatcher": [],
-            "detail": "Release build \u2014 still WSL2, so trust deltas over absolutes (docs/environment.md)."
-        },
-        {
-            "label": "Build: qp_execution_sim_bench (release)",
-            "type": "shell",
-            "command": "cmake --build build/release --target qp_execution_sim_bench -j",
-            "dependsOn": "Configure (release)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "detail": "SimExecution benchmarks, release build."
-        },
-        {
-            "label": "Run execution sim bench",
-            "type": "shell",
-            "command": "./build/release/cmake/execution/sim/qp_execution_sim_bench",
-            "dependsOn": "Build: qp_execution_sim_bench (release)",
-            "group": "test",
-            "problemMatcher": [],
-            "detail": "Release build \u2014 still WSL2, so trust deltas over absolutes (docs/environment.md)."
-        },
-        {
-            "label": "Build: qp_execution_sim_matcher_last_trade_bench (release)",
-            "type": "shell",
-            "command": "cmake --build build/release --target qp_execution_sim_matcher_last_trade_bench -j",
-            "dependsOn": "Configure (release)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "detail": "LastTradeMatcher benchmarks, release build."
-        },
-        {
-            "label": "Run last trade matcher bench",
-            "type": "shell",
-            "command": "./build/release/cmake/execution/sim/matcher/last_trade/qp_execution_sim_matcher_last_trade_bench",
-            "dependsOn": "Build: qp_execution_sim_matcher_last_trade_bench (release)",
-            "group": "test",
-            "problemMatcher": [],
-            "detail": "Release build \u2014 still WSL2, so trust deltas over absolutes (docs/environment.md)."
-        },
-        {
-            "label": "Build: qp_source_pure_bench (release)",
-            "type": "shell",
-            "command": "cmake --build build/release --target qp_source_pure_bench -j",
-            "dependsOn": "Configure (release)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "detail": "SymbolTable intern()/name() benchmarks, release build."
-        },
-        {
-            "label": "Run source pure bench",
-            "type": "shell",
-            "command": "./build/release/cmake/data_source/source/qp_source_pure_bench",
-            "dependsOn": "Build: qp_source_pure_bench (release)",
-            "group": "test",
-            "problemMatcher": [],
-            "detail": "Release build \u2014 still WSL2, so trust deltas over absolutes (docs/environment.md)."
-        },
-        {
-            "label": "Build: qp_source_venue_binance_historical_bench (release)",
-            "type": "shell",
-            "command": "cmake --build build/release --target qp_source_venue_binance_historical_bench -j",
-            "dependsOn": "Configure (release)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "detail": "BinHistSymbolTable id_of()/name_of() benchmarks, release build."
-        },
-        {
-            "label": "Run source venue binance_historical bench",
-            "type": "shell",
-            "command": "./build/release/cmake/data_source/source/venue/binance/binance_historical/qp_source_venue_binance_historical_bench",
-            "dependsOn": "Build: qp_source_venue_binance_historical_bench (release)",
-            "group": "test",
-            "problemMatcher": [],
-            "detail": "Release build \u2014 still WSL2, so trust deltas over absolutes (docs/environment.md)."
-        },
-        {
-            "label": "Build: qp_sink_fanout_bench (release)",
-            "type": "shell",
-            "command": "cmake --build build/release --target qp_sink_fanout_bench -j",
-            "dependsOn": "Configure (release)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "detail": "FanoutSink record()/drain benchmarks, release build."
-        },
-        {
-            "label": "Run sink fanout bench",
-            "type": "shell",
-            "command": "./build/release/cmake/data_source/sink/fanout/qp_sink_fanout_bench",
-            "dependsOn": "Build: qp_sink_fanout_bench (release)",
-            "group": "test",
-            "problemMatcher": [],
-            "detail": "Release build \u2014 still WSL2, so trust deltas over absolutes (docs/environment.md)."
-        },
-        {
-            "label": "Build: qp_data_source_bench (release)",
-            "type": "shell",
-            "command": "cmake --build build/release --target qp_data_source_bench -j",
-            "dependsOn": "Configure (release)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "detail": "run_data_source() benchmarks, release build."
-        },
-        {
-            "label": "Run data_source bench",
-            "type": "shell",
-            "command": "./build/release/cmake/data_source/qp_data_source_bench",
-            "dependsOn": "Build: qp_data_source_bench (release)",
-            "group": "test",
-            "problemMatcher": [],
-            "detail": "Release build \u2014 still WSL2, so trust deltas over absolutes (docs/environment.md)."
-        },
-        {
-            "label": "Build: qp_file_replay_bench (release)",
-            "type": "shell",
-            "command": "cmake --build build/release --target qp_file_replay_bench -j",
-            "dependsOn": "Configure (release)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "detail": "FileReplaySource replay throughput: single-symbol BookDiff/Trade, multi-symbol merge overhead."
-        },
-        {
-            "label": "Run file replay bench",
-            "type": "shell",
-            "command": "./build/release/cmake/data_source/source/qp_file_replay_bench",
-            "dependsOn": "Build: qp_file_replay_bench (release)",
-            "group": "test",
-            "problemMatcher": [],
-            "detail": "Release build \u2014 still WSL2, so trust deltas over absolutes (docs/environment.md)."
-        },
-        {
-            "label": "Build: qp_file_replay_tests",
-            "type": "shell",
-            "command": "cmake --build build/debug --target qp_file_replay_tests -j",
-            "dependsOn": "Configure (debug)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "detail": "FileReplaySource: reads FileRecorder's on-disk format back via qp_wire. No Boost/OpenSSL needed."
-        },
-        {
-            "label": "Test: qp_file_replay_tests",
-            "type": "shell",
-            "command": "./build/debug/cmake/data_source/source/qp_file_replay_tests",
-            "dependsOn": "Build: qp_file_replay_tests",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: qp_file_replay_tests (release)",
-            "type": "shell",
-            "command": "cmake --build build/release --target qp_file_replay_tests -j",
-            "dependsOn": "Configure (release)",
+            "command": "cmake --preset release && cmake --build build/release --target qp_tests -j",
             "group": "build",
             "problemMatcher": [
                 "$gcc"
             ]
         },
         {
-            "label": "Test: qp_file_replay_tests (release)",
+            "label": "Build: qp_tests (tsan)",
             "type": "shell",
-            "command": "./build/release/cmake/data_source/source/qp_file_replay_tests",
-            "dependsOn": "Build: qp_file_replay_tests (release)",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: qp_sink_fanout_tests",
-            "type": "shell",
-            "command": "cmake --build build/debug --target qp_sink_fanout_tests -j",
-            "dependsOn": "Configure (debug)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "detail": "FanoutSink: record()/attach(), ASan/UBSan."
-        },
-        {
-            "label": "Test: qp_sink_fanout_tests",
-            "type": "shell",
-            "command": "./build/debug/cmake/data_source/sink/fanout/qp_sink_fanout_tests",
-            "dependsOn": "Build: qp_sink_fanout_tests",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: qp_sink_fanout_tests (release)",
-            "type": "shell",
-            "command": "cmake --build build/release --target qp_sink_fanout_tests -j",
-            "dependsOn": "Configure (release)",
+            "command": "cmake --preset tsan && cmake --build build/tsan --target qp_tests -j",
             "group": "build",
             "problemMatcher": [
                 "$gcc"
             ]
-        },
-        {
-            "label": "Test: qp_sink_fanout_tests (release)",
-            "type": "shell",
-            "command": "./build/release/cmake/data_source/sink/fanout/qp_sink_fanout_tests",
-            "dependsOn": "Build: qp_sink_fanout_tests (release)",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: qp_wire_tests",
-            "type": "shell",
-            "command": "cmake --build build/debug --target qp_wire_tests -j",
-            "dependsOn": "Configure (debug)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "detail": "Wire format round-trip/truncated-tail, day-key/segment-listing, and zstd compress<->decompress tests."
-        },
-        {
-            "label": "Test: qp_wire_tests",
-            "type": "shell",
-            "command": "./build/debug/cmake/data_source/wire/qp_wire_tests",
-            "dependsOn": "Build: qp_wire_tests",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: qp_wire_tests (release)",
-            "type": "shell",
-            "command": "cmake --build build/release --target qp_wire_tests -j",
-            "dependsOn": "Configure (release)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ]
-        },
-        {
-            "label": "Test: qp_wire_tests (release)",
-            "type": "shell",
-            "command": "./build/release/cmake/data_source/wire/qp_wire_tests",
-            "dependsOn": "Build: qp_wire_tests (release)",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: qp_clock_tests",
-            "type": "shell",
-            "command": "cmake --build build/debug --target qp_clock_tests -j",
-            "dependsOn": "Configure (debug)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "detail": "Clock concept satisfaction, SimClock advance() semantics, WallClock real-time/no-op checks."
-        },
-        {
-            "label": "Test: qp_clock_tests",
-            "type": "shell",
-            "command": "./build/debug/cmake/clock/qp_clock_tests",
-            "dependsOn": "Build: qp_clock_tests",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: qp_clock_tests (release)",
-            "type": "shell",
-            "command": "cmake --build build/release --target qp_clock_tests -j",
-            "dependsOn": "Configure (release)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ]
-        },
-        {
-            "label": "Test: qp_clock_tests (release)",
-            "type": "shell",
-            "command": "./build/release/cmake/clock/qp_clock_tests",
-            "dependsOn": "Build: qp_clock_tests (release)",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: qp_execution_sim_tests",
-            "type": "shell",
-            "command": "cmake --build build/debug --target qp_execution_sim_tests -j",
-            "dependsOn": "Configure (debug)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "detail": "ExecutionGateway/Matcher concept satisfaction, SimExecution<LastTradeMatcher>: reject-before-price, fill-at-last-price, fills()/rejects() accumulation."
-        },
-        {
-            "label": "Test: qp_execution_sim_tests",
-            "type": "shell",
-            "command": "./build/debug/cmake/execution/sim/qp_execution_sim_tests",
-            "dependsOn": "Build: qp_execution_sim_tests",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: qp_execution_sim_tests (release)",
-            "type": "shell",
-            "command": "cmake --build build/release --target qp_execution_sim_tests -j",
-            "dependsOn": "Configure (release)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ]
-        },
-        {
-            "label": "Test: qp_execution_sim_tests (release)",
-            "type": "shell",
-            "command": "./build/release/cmake/execution/sim/qp_execution_sim_tests",
-            "dependsOn": "Build: qp_execution_sim_tests (release)",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: qp_strategy_tests",
-            "type": "shell",
-            "command": "cmake --build build/debug --target qp_strategy_tests -j",
-            "dependsOn": "Configure (debug)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "detail": "Strategy concept satisfaction against an inline NoopStrategy."
-        },
-        {
-            "label": "Test: qp_strategy_tests",
-            "type": "shell",
-            "command": "./build/debug/cmake/strategy/qp_strategy_tests",
-            "dependsOn": "Build: qp_strategy_tests",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: qp_strategy_tests (release)",
-            "type": "shell",
-            "command": "cmake --build build/release --target qp_strategy_tests -j",
-            "dependsOn": "Configure (release)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ]
-        },
-        {
-            "label": "Test: qp_strategy_tests (release)",
-            "type": "shell",
-            "command": "./build/release/cmake/strategy/qp_strategy_tests",
-            "dependsOn": "Build: qp_strategy_tests (release)",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: qp_carry_tests",
-            "type": "shell",
-            "command": "cmake --build build/debug --target qp_carry_tests -j",
-            "dependsOn": "Configure (debug)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "detail": "FundingCarryStrategy: entry/exit/hold thresholds against synthetic funding events."
-        },
-        {
-            "label": "Test: qp_carry_tests",
-            "type": "shell",
-            "command": "./build/debug/cmake/strategy/carry/qp_carry_tests",
-            "dependsOn": "Build: qp_carry_tests",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: qp_carry_tests (release)",
-            "type": "shell",
-            "command": "cmake --build build/release --target qp_carry_tests -j",
-            "dependsOn": "Configure (release)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ]
-        },
-        {
-            "label": "Test: qp_carry_tests (release)",
-            "type": "shell",
-            "command": "./build/release/cmake/strategy/carry/qp_carry_tests",
-            "dependsOn": "Build: qp_carry_tests (release)",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: qp_risk_tests",
-            "type": "shell",
-            "command": "cmake --build build/debug --target qp_risk_tests -j",
-            "dependsOn": "Configure (debug)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "detail": "RiskGate concept satisfaction, RiskDecision shape, and BasicRiskGate (exposure cap + drawdown kill switch)."
-        },
-        {
-            "label": "Test: qp_risk_tests",
-            "type": "shell",
-            "command": "./build/debug/cmake/risk/qp_risk_tests",
-            "dependsOn": "Build: qp_risk_tests",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: qp_risk_tests (release)",
-            "type": "shell",
-            "command": "cmake --build build/release --target qp_risk_tests -j",
-            "dependsOn": "Configure (release)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ]
-        },
-        {
-            "label": "Test: qp_risk_tests (release)",
-            "type": "shell",
-            "command": "./build/release/cmake/risk/qp_risk_tests",
-            "dependsOn": "Build: qp_risk_tests (release)",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: qp_risk_bench (release)",
-            "type": "shell",
-            "command": "cmake --build build/release --target qp_risk_bench -j",
-            "dependsOn": "Configure (release)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "detail": "BasicRiskGate::check/on_tick cost, release build."
-        },
-        {
-            "label": "Run risk bench",
-            "type": "shell",
-            "command": "./build/release/cmake/risk/qp_risk_bench",
-            "dependsOn": "Build: qp_risk_bench (release)",
-            "group": "test",
-            "problemMatcher": [],
-            "detail": "Release build \u2014 still WSL2, so trust deltas over absolutes (docs/environment.md)."
-        },
-        {
-            "label": "Build: qp_engine_tests",
-            "type": "shell",
-            "command": "cmake --build build/debug --target qp_engine_tests -j",
-            "dependsOn": "Configure (debug)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "detail": "Engine<Tx,Clk,Exec,Risk,Strategies...> loop end-to-end: transport exhaustion, trade->intent->fill->Portfolio, reject path, run() draining multiple events."
-        },
-        {
-            "label": "Test: qp_engine_tests",
-            "type": "shell",
-            "command": "./build/debug/cmake/engine/qp_engine_tests",
-            "dependsOn": "Build: qp_engine_tests",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: qp_engine_tests (release)",
-            "type": "shell",
-            "command": "cmake --build build/release --target qp_engine_tests -j",
-            "dependsOn": "Configure (release)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ]
-        },
-        {
-            "label": "Test: qp_engine_tests (release)",
-            "type": "shell",
-            "command": "./build/release/cmake/engine/qp_engine_tests",
-            "dependsOn": "Build: qp_engine_tests (release)",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: qp_wire_bench (release)",
-            "type": "shell",
-            "command": "cmake --build build/release --target qp_wire_bench -j",
-            "dependsOn": "Configure (release)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "detail": "Wire format write/read/round-trip cost, release build."
-        },
-        {
-            "label": "Run wire bench",
-            "type": "shell",
-            "command": "./build/release/cmake/data_source/wire/qp_wire_bench",
-            "dependsOn": "Build: qp_wire_bench (release)",
-            "group": "test",
-            "problemMatcher": [],
-            "detail": "Release build \u2014 still WSL2, so trust deltas over absolutes (docs/environment.md)."
-        },
-        {
-            "label": "Build: qp_carry_bench (release)",
-            "type": "shell",
-            "command": "cmake --build build/release --target qp_carry_bench -j",
-            "dependsOn": "Configure (release)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "detail": "FundingCarryStrategy::on_event entry/hold/reject paths, release build."
-        },
-        {
-            "label": "Run carry bench",
-            "type": "shell",
-            "command": "./build/release/cmake/strategy/carry/qp_carry_bench",
-            "dependsOn": "Build: qp_carry_bench (release)",
-            "group": "test",
-            "problemMatcher": [],
-            "detail": "Release build \u2014 still WSL2, so trust deltas over absolutes (docs/environment.md)."
         },
         {
             "label": "Build: qp_bench (release)",
             "type": "shell",
-            "command": "cmake --build build/release --target qp_bench -j",
-            "dependsOn": "Configure (release)",
+            "command": "cmake --preset release && cmake --build build/release --target qp_bench -j",
             "group": "build",
             "problemMatcher": [
                 "$gcc"
-            ],
-            "detail": "Every lib's benchmarks in one binary, release build."
+            ]
         },
         {
-            "label": "Run all benches",
+            "label": "Run: all tests (debug)",
+            "type": "shell",
+            "command": "./build/debug/qp_tests",
+            "dependsOn": "Build: qp_tests (debug)",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "Run: all tests (release)",
+            "type": "shell",
+            "command": "./build/release/qp_tests",
+            "dependsOn": "Build: qp_tests (release)",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "Run: all tests (tsan)",
+            "type": "shell",
+            "command": "setarch $(uname -m) -R ./build/tsan/qp_tests",
+            "dependsOn": "Build: qp_tests (tsan)",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "Run: all benches",
             "type": "shell",
             "command": "./build/release/qp_bench",
             "dependsOn": "Build: qp_bench (release)",
             "group": "test",
-            "problemMatcher": [],
-            "detail": "Release build \u2014 still WSL2, so trust deltas over absolutes (docs/environment.md)."
-        },
-        {
-            "label": "Build: all tests (debug)",
-            "type": "shell",
-            "command": "cmake --build build/debug --target qp_all_tests -j",
-            "dependsOn": "Configure (debug)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "detail": "Every registered test target (qp_all_tests, CMakeLists.txt), debug build."
-        },
-        {
-            "label": "Test: all (debug)",
-            "type": "shell",
-            "command": "ctest --test-dir build/debug --output-on-failure",
-            "dependsOn": "Build: all tests (debug)",
-            "group": "test",
             "problemMatcher": []
-        },
-        {
-            "label": "Build: all tests (release)",
-            "type": "shell",
-            "command": "cmake --build build/release --target qp_all_tests -j",
-            "dependsOn": "Configure (release)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "detail": "Every registered test target (qp_all_tests, CMakeLists.txt), release build."
-        },
-        {
-            "label": "Test: all (release)",
-            "type": "shell",
-            "command": "ctest --test-dir build/release --output-on-failure",
-            "dependsOn": "Build: all tests (release)",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: everything",
-            "type": "shell",
-            "command": "cmake --build build/debug -j",
-            "dependsOn": "Configure (debug)",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "detail": "Full tree. Only reach for this when you actually need it \u2014 prefer a targeted build above."
         }
     ]
 }

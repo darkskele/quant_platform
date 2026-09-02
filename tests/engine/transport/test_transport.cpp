@@ -12,19 +12,30 @@ namespace {
 
 struct GoodTransport {
     std::optional<MarketEvent> next() { return std::nullopt; }
+
+    void flush() noexcept {}
 };
 
 struct WrongReturnType {
     bool next() { return false; }
+
+    void flush() noexcept {}
 };
 
-struct MissingNext {};
+struct MissingNext {
+    void flush() noexcept {}
+};
+
+struct MissingFlush {
+    std::optional<MarketEvent> next() { return std::nullopt; }
+};
 
 }  // namespace
 
 static_assert(Transport<GoodTransport>);
 static_assert(!Transport<WrongReturnType>);
 static_assert(!Transport<MissingNext>);
+static_assert(!Transport<MissingFlush>);
 
 TEST(Transport, PlaceholderKeepsTargetNonEmpty) {
     // The interesting checks are the static_asserts above (compile-time);

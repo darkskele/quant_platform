@@ -7,7 +7,7 @@
 #include <thread>
 
 #include "mpsc_queue.hpp"
-#include "spmc_ring.hpp"
+#include "spmc_queue.hpp"
 
 namespace qp {
 
@@ -16,9 +16,7 @@ namespace qp {
 enum class ControlCommand { Start, Stop };
 
 /// Coordinates start/stop across a fixed, compile-time-known set of
-/// participants. Any attached participant may request_stop(); a dedicated
-/// pump thread drains those requests and broadcasts Start/Stop to
-/// everyone polling, so every participant sees the identical command.
+/// participants.
 template <std::size_t NumConsumers>
 class ControlChannel {
    public:
@@ -48,16 +46,15 @@ class ControlChannel {
         return id;
     }
 
-    /// Owner-side: force a command out to every attached participant now,
+    /// Force a command out to every attached participant now,
     /// bypassing the request inbox.
-    void broadcast(ControlCommand cmd) { broadcast_.push(cmd); }
+    void broadcast(ControlCommand cmd) {
+        while (!broadcast_.push(cmd)) std::this_thread::yield();
+    }
 
-    /// Any attached participant, any thread: ask the owner to stop
-    /// everyone. False only if the request inbox is full — safe to retry.
+    /// Any attached participant, any thread.
     bool request_stop() { return requests_.push(ControlCommand::Stop); }
 
-    /// Participant-side: has a new command arrived for `consumer` since
-    /// its last poll()?
     std::optional<ControlCommand> poll(std::size_t consumer) {
         return broadcast_.try_pop(consumer);
     }
@@ -69,8 +66,7 @@ class ControlChannel {
     }
 
    private:
-    // Control commands are rare (Start once, Stop once, maybe a retry) —
-    // not a data-rate queue.
+    // Control commands are rare (Start once, Stop once, maybe a retry).
     static constexpr std::size_t kCapacity = 8;
 
     // Stop-propagation latency this costs every participant.
@@ -85,11 +81,11 @@ class ControlChannel {
         }
     }
 
-    SpmcRing<ControlCommand, kCapacity, NumConsumers> broadcast_;
-    MpscQueue<ControlCommand, kCapacity>              requests_;
-    std::atomic<std::size_t>                          next_id_{0};
-    std::atomic<bool>                                 stop_pumping_{false};
-    std::thread                                       pump_thread_;
+    SpmcQueue<ControlCommand, kCapacity, NumConsumers> broadcast_;
+    MpscQueue<ControlCommand, kCapacity>               requests_;
+    std::atomic<std::size_t>                           next_id_{0};
+    std::atomic<bool>                                  stop_pumping_{false};
+    std::thread                                        pump_thread_;
 };
 
 }  // namespace qp

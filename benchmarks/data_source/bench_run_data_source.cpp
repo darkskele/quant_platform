@@ -1,64 +1,51 @@
 #include <benchmark/benchmark.h>
 
-#include <atomic>
-#include <optional>
 #include <tuple>
 
+#include "control_channel.hpp"
 #include "run_data_source.hpp"
+#include "source.hpp"
 #include "types.hpp"
 
 using namespace qp;
 using qp::data_source::run_data_source;
+using qp::data_source::source::PullResult;
+using qp::data_source::source::SourceStatus;
 
 namespace {
 
-// run_data_source() owns a while(running) loop itself — there's no single-
-// call granularity to put inside a plain `for (auto _ : state)` body the
-// way every other benchmark in this suite works. Instead, each timed
-// iteration runs it to completion over a fixed round count (the source
-// flips `running` false itself after kRounds calls), and
-// SetItemsProcessed() reports the per-round throughput — the honest unit
-// for a function whose public shape is "drive to completion," not
-// "compute one thing and return."
 constexpr int kRounds = 1000;
 
 struct CountingSource {
-    int                remaining;
-    std::atomic<bool>* running;
+    int remaining;
 
-    std::optional<MarketEvent> next() {
-        if (--remaining <= 0) running->store(false, std::memory_order_release);
-        return TradeEvent{};
+    PullResult next() {
+        if (remaining <= 0) return std::unexpected(SourceStatus::Eof);
+        --remaining;
+        return MarketEvent{TradeEvent{}};
     }
 };
 
-// Counts, doesn't discard: a no-op record() would give the optimizer
-// nothing to observe from the whole run except the final running->store,
-// and everything in between (predictable, closed-form decrements) is
-// exactly the shape an aggressive optimizer can prove equivalent to a
-// closed-form answer and shortcut entirely, skipping the loop altogether —
-// measured 486ns for a nominal 1000 rounds (0.5ns/round) before this fix,
-// an unrealistic number that was really "the compiler proved this loop's
-// only effect and computed it directly." Accumulating into `count` and
-// forcing both it and the round count through DoNotOptimize (making the
-// trip count opaque, not a compile-time constant to fold against) closes
-// both ends of that shortcut.
 struct CountingSink {
     long count = 0;
 
-    void record(MarketEvent) { ++count; }
+    bool record(MarketEvent&&) {
+        ++count;
+        return true;
+    }
 };
 
-// One source/sink pair — the floor: fold-expansion dispatch overhead for
-// N=1.
 void BM_RunDataSource_OnePair(benchmark::State& state) {
+    std::tuple<CountingSource> sources{CountingSource{kRounds}};
+    std::tuple<CountingSink>   sinks{CountingSink{}};
+    ControlChannel<1>          control;
+    std::size_t                idx = control.attach();
+
     for (auto _ : state) {
         int rounds = kRounds;
-        benchmark::DoNotOptimize(rounds);
-        std::atomic<bool>          running{true};
-        std::tuple<CountingSource> sources{CountingSource{rounds, &running}};
-        std::tuple<CountingSink>   sinks{CountingSink{}};
-        run_data_source(sources, sinks, running);
+        benchmark::DoNotOptimize(rounds);  // keep the trip count opaque, see CountingSink above
+        std::get<0>(sources).remaining = rounds;
+        run_data_source(sources, sinks, control, idx);
         benchmark::DoNotOptimize(std::get<0>(sinks).count);
     }
     state.SetItemsProcessed(state.iterations() * kRounds);
@@ -66,19 +53,23 @@ void BM_RunDataSource_OnePair(benchmark::State& state) {
 
 BENCHMARK(BM_RunDataSource_OnePair);
 
-// Four source/sink pairs — how the fold-expansion dispatch cost actually
-// scales with pack size (the real shape: a carry strategy's spot + perp
-// legs is N=2 today, run_data_source.hpp's own doc comment).
+// Four source/sink pairs.
 void BM_RunDataSource_FourPairs(benchmark::State& state) {
+    std::tuple<CountingSource, CountingSource, CountingSource, CountingSource> sources{
+        CountingSource{kRounds}, CountingSource{kRounds}, CountingSource{kRounds},
+        CountingSource{kRounds}};
+    std::tuple<CountingSink, CountingSink, CountingSink, CountingSink> sinks{};
+    ControlChannel<1>                                                  control;
+    std::size_t                                                        idx = control.attach();
+
     for (auto _ : state) {
         int rounds = kRounds;
-        benchmark::DoNotOptimize(rounds);
-        std::atomic<bool>                                                          running{true};
-        std::tuple<CountingSource, CountingSource, CountingSource, CountingSource> sources{
-            CountingSource{rounds, &running}, CountingSource{rounds, &running},
-            CountingSource{rounds, &running}, CountingSource{rounds, &running}};
-        std::tuple<CountingSink, CountingSink, CountingSink, CountingSink> sinks{};
-        run_data_source(sources, sinks, running);
+        benchmark::DoNotOptimize(rounds);  // keep the trip count opaque, see CountingSink above
+        std::get<0>(sources).remaining = rounds;
+        std::get<1>(sources).remaining = rounds;
+        std::get<2>(sources).remaining = rounds;
+        std::get<3>(sources).remaining = rounds;
+        run_data_source(sources, sinks, control, idx);
         benchmark::DoNotOptimize(std::get<0>(sinks).count + std::get<1>(sinks).count +
                                  std::get<2>(sinks).count + std::get<3>(sinks).count);
     }

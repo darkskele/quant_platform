@@ -1,5 +1,5 @@
 #pragma once
-#include <atomic>
+#include <array>
 #include <chrono>
 #include <cstddef>
 #include <optional>
@@ -8,6 +8,7 @@
 #include <utility>
 #include <variant>
 
+#include "control_channel.hpp"
 #include "sink.hpp"
 #include "source.hpp"
 #include "types.hpp"
@@ -16,37 +17,66 @@ namespace qp::data_source {
 
 namespace detail {
 
-// Fold-expansion over Is...: for each i, reads sources[i] and
-// stamps event.venue = i and writes it via sinks[i].record(event). 
-// The *same* compile-time i drives all three (source read, venue 
-// stamp, sink write) because the compiler generates it from one fold
-//  expansion. 
-template <class SourceTup, class SinkTup, std::size_t... Is>
-bool poll_round(SourceTup& sources, SinkTup& sinks, std::index_sequence<Is...>) {
+// Fold-expansion over Is...: for each not-yet-done source i, delivers its
+// pending event via sinks[i].record().
+// A source's Eof marks that leg done; NoData just means nothing this round.
+template <class SourceTup, class SinkTup, std::size_t N, std::size_t... Is>
+bool poll_round(SourceTup& sources, SinkTup& sinks,
+                std::array<std::optional<MarketEvent>, N>& pending, std::array<bool, N>& done,
+                std::index_sequence<Is...>) {
     bool any = false;
     (([&] {
-         if (auto ev = std::get<Is>(sources).next()) {
-             std::visit([](auto& e) { e.venue = static_cast<VenueId>(Is); }, *ev);
-             std::get<Is>(sinks).record(std::move(*ev));
-             any = true;
+         if (done[Is]) return;
+         auto& slot = pending[Is];
+         if (slot) {
+             if (std::get<Is>(sinks).record(std::move(*slot))) {
+                 slot.reset();
+                 any = true;
+             }
+             return;
          }
+         source::PullResult pulled = std::get<Is>(sources).next();
+         if (!pulled) {
+             if (pulled.error() == source::SourceStatus::Eof) done[Is] = true;
+             return;  // NoData or Eof -> nothing to deliver this round
+         }
+         std::visit([](auto& e) { e.venue = static_cast<VenueId>(Is); }, *pulled);
+         if (std::get<Is>(sinks).record(std::move(*pulled)))
+             any = true;
+         else
+             slot = std::move(*pulled);  // sink full -> stage the untouched event for retry
      }()),
      ...);
     return any;
 }
 
+template <std::size_t N, std::size_t... Is>
+bool all_done(const std::array<bool, N>& done, std::index_sequence<Is...>) {
+    return (done[Is] && ...);
+}
+
 }  // namespace detail
 
-/// Drives N sources into N sinks, paired positionally one poll round per loop 
-// iteration, idle-sleeping only once every source came back empty.
-template <source::Source... Sources, sink::Sink... Sinks>
+/// Drives N sources into N sinks, paired positionally, one poll round per
+/// loop iteration, idle-sleeping only once a round delivers nothing and
+/// pulls nothing new.
+template <std::size_t NumControlConsumers, source::Source... Sources, sink::Sink... Sinks>
 void run_data_source(std::tuple<Sources...>& sources, std::tuple<Sinks...>& sinks,
-                     const std::atomic<bool>&  running,
-                     std::chrono::milliseconds idle_sleep = std::chrono::milliseconds(10)) {
+                     ControlChannel<NumControlConsumers>& control, std::size_t control_consumer,
+                     std::chrono::milliseconds idle_sleep      = std::chrono::milliseconds(10),
+                     std::size_t               stop_poll_every = 64) {
     static_assert(sizeof...(Sources) == sizeof...(Sinks),
                   "run_data_source pairs sources and sinks 1:1 by position");
-    while (running.load(std::memory_order_acquire)) {
-        bool any = detail::poll_round(sources, sinks, std::index_sequence_for<Sources...>{});
+    constexpr auto seq = std::index_sequence_for<Sources...>{};
+
+    std::array<std::optional<MarketEvent>, sizeof...(Sources)> pending{};
+    std::array<bool, sizeof...(Sources)>                       done{};
+    for (std::size_t round = 0;; ++round) {
+        bool any = detail::poll_round(sources, sinks, pending, done, seq);
+        if (detail::all_done(done, seq)) return;
+
+        if (round % stop_poll_every == 0 && control.poll(control_consumer) == ControlCommand::Stop)
+            return;
         if (!any) std::this_thread::sleep_for(idle_sleep);
     }
 }

@@ -1,8 +1,12 @@
 #pragma once
+#include <chrono>
+#include <cstddef>
 #include <span>
+#include <thread>
 #include <utility>
 
 #include "clock.hpp"
+#include "control_channel.hpp"
 #include "execution_gateway.hpp"
 #include "portfolio.hpp"
 #include "risk_gate.hpp"
@@ -13,7 +17,7 @@
 namespace qp::engine {
 
 /// The trader composition root. One Strategy, one Risk, one shared Book.
-/// Tx is transport::Transport, a driving loop only ever needs step(). 
+/// Tx is transport::Transport, a driving loop only ever needs step().
 template <transport::Transport Tx, Clock Clk, execution::ExecutionGateway Exec, risk::RiskGate Risk,
           strategy::Strategy S, PortfolioLike Book>
 class Engine {
@@ -25,6 +29,28 @@ class Engine {
           risk_{std::move(risk)},
           strategy_{std::move(strategy)},
           state_{portfolio} {}
+
+    /// Runs until told to stop on `control`. On Stop, flushes the transport
+    /// and drains what's buffered before returning. Meant to be the body of
+    /// its own thread.
+    template <std::size_t NumControlConsumers>
+    void run(ControlChannel<NumControlConsumers>& control, std::size_t consumer) {
+        for (;;) {
+            // Step a batch, then poll once — polling (or reading a clock) on
+            // every event would tax the hot path, and shutdown latency isn't
+            // critical. A plain counter, not steady_clock, gates the poll.
+            bool progressed = false;
+            for (std::size_t i = 0; i < kStepsPerPoll; ++i) {
+                if (!step()) break;  // transport dry -> poll and back off
+                progressed = true;
+            }
+            if (control.poll(consumer) == ControlCommand::Stop) break;
+            if (!progressed) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        transport_.flush();
+        while (step()) {
+        }
+    }
 
     /// Processes exactly one pulled event. False means transport exhausted.
     bool step() {
@@ -46,6 +72,9 @@ class Engine {
     }
 
    private:
+    // Steps between control-channel polls in run().
+    static constexpr std::size_t kStepsPerPoll = 1 << 20;
+
     void submit(const Order& order) { exec_.submit(order, clock_.now()); }
 
     void submit_if_approved(const risk::RiskDecision& decision) {

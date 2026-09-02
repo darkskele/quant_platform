@@ -1,11 +1,4 @@
-# clock — the Clock concept + SimClock (see docs/core/DESIGN.md; WallClock
-# deferred to the live milestone, docs/decisions.md D23). Header-only,
-# depends on core only (Timestamp).
-#
-# qp_clock_bench exists for suite-wide coverage consistency
-# (benchmarks/README.md), not because sim_clock.hpp's own "nothing to
-# benchmark" judgment was wrong — now()/advance() really are a single
-# scalar load/store each. The bench just confirms that empirically.
+# clock — the Clock concept.
 qp_dir(include QP_INC)
 qp_dir(tests QP_TESTS)
 qp_dir(benchmarks QP_BENCH)
