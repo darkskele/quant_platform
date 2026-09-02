@@ -5,3 +5,4 @@
 3. `Strategy::on_timer` is not wired anywhere yet; it waits for a concrete strategy that needs a timed trigger.
 4. `run()` steps in large batches before polling the control channel and sleeps 1ms when the transport is dry, keeping the poll off the hot path.
 5. On Stop, `run()` flushes the transport and drains what is buffered before returning.
+6. `Recorder` is a compile-time policy defaulting to a no-op, sampled once per `step()` after the event is fully applied, so observation costs nothing when unused and never forks the loop.

@@ -21,8 +21,7 @@ namespace qp::engine {
 /// The trader composition root. One Strategy, one Risk, one shared Book.
 /// Tx is transport::Transport, a driving loop only ever needs step().
 template <transport::Transport Tx, Clock Clk, execution::ExecutionGateway Exec, risk::RiskGate Risk,
-          strategy::Strategy S, PortfolioLike Book, class Rec = NullRecorder>
-    requires Recorder<Rec, Book>
+          strategy::Strategy S, PortfolioLike Book, Recorder<Book> Rec = NullRecorder>
 class Engine {
    public:
     Engine(Tx transport, Clk clock, Exec exec, Risk risk, S strategy, Book& portfolio,
