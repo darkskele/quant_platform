@@ -6,6 +6,7 @@
     "gtest",
     "benchmark",
     "boost-beast",
-    "openssl"
+    "openssl",
+    "pybind11"
   ]
 }

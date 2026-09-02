@@ -14,7 +14,7 @@ target_include_directories(qp_engine_test_support INTERFACE ${CMAKE_SOURCE_DIR}/
 
 if(BUILD_TESTING)
     find_package(GTest CONFIG REQUIRED)
-    add_executable(qp_engine_tests ${QP_TESTS}/test_engine.cpp)
+    add_executable(qp_engine_tests ${QP_TESTS}/test_engine.cpp ${QP_TESTS}/test_recorder.cpp)
     target_link_libraries(qp_engine_tests PRIVATE qp_engine qp_execution_sim
                                                    qp_execution_sim_matcher_last_trade
                                                    qp_core_test_support qp_strategy_test_support

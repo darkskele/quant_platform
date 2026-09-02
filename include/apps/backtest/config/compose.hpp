@@ -45,7 +45,8 @@ using Risk     = RiskType<Book>;
 using Strategy = StrategyType<Book>;
 using Tx       = engine::transport::BacktestInProcessTransport<kRingCapacity, kNumVenues>;
 
-using EngineType = engine::Engine<Tx, SimClock, Exec, Risk, Strategy, Book>;
+template <class Recorder = engine::NullRecorder>
+using EngineType = engine::Engine<Tx, SimClock, Exec, Risk, Strategy, Book, Recorder>;
 
 // What this binary trades.
 inline constexpr std::string_view kDataDirStr = QP_BACKTEST_DATA_DIR;

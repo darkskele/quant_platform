@@ -110,3 +110,20 @@ if(QP_BUILD_BENCHMARKS)
     )
     target_compile_definitions(qp_bench PRIVATE QP_REPO_ROOT="${CMAKE_SOURCE_DIR}")
 endif()
+
+# Python bindings for the funding-carry backtest. Off by default; needs
+# python3 dev headers and pybind11.
+option(QP_BUILD_PYTHON "Build the Python bindings" OFF)
+if(QP_BUILD_PYTHON)
+    find_package(pybind11 CONFIG REQUIRED)
+    pybind11_add_module(qp_backtest src/apps/backtest/funding_carry/bindings.cpp)
+    target_link_libraries(qp_backtest PRIVATE qp_backtest_compose)
+    # Which dataset the module replays. Defaults to the committed fixture.
+    set(QP_PY_DATA_DIR "${CMAKE_SOURCE_DIR}/tests/apps/backtest/fixtures"
+        CACHE STRING "Dataset the Python backtest module reads")
+    target_compile_definitions(qp_backtest PRIVATE
+        QP_BACKTEST_DATA_DIR="${QP_PY_DATA_DIR}"
+        QP_BACKTEST_SYMBOL="BTCUSDT"
+        QP_BACKTEST_FIRST_DAY="2024-01-01"
+        QP_BACKTEST_LAST_DAY="2024-01-07")
+endif()

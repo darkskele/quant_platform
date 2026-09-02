@@ -9,6 +9,8 @@
 #include "control_channel.hpp"
 #include "execution_gateway.hpp"
 #include "portfolio.hpp"
+#include "recorder/null/null_recorder.hpp"
+#include "recorder/recorder.hpp"
 #include "risk_gate.hpp"
 #include "strategy.hpp"
 #include "transport.hpp"
@@ -19,16 +21,19 @@ namespace qp::engine {
 /// The trader composition root. One Strategy, one Risk, one shared Book.
 /// Tx is transport::Transport, a driving loop only ever needs step().
 template <transport::Transport Tx, Clock Clk, execution::ExecutionGateway Exec, risk::RiskGate Risk,
-          strategy::Strategy S, PortfolioLike Book>
+          strategy::Strategy S, PortfolioLike Book, class Rec = NullRecorder>
+    requires Recorder<Rec, Book>
 class Engine {
    public:
-    Engine(Tx transport, Clk clock, Exec exec, Risk risk, S strategy, Book& portfolio)
+    Engine(Tx transport, Clk clock, Exec exec, Risk risk, S strategy, Book& portfolio,
+           Rec recorder = {})
         : transport_{std::move(transport)},
           clock_{std::move(clock)},
           exec_{std::move(exec)},
           risk_{std::move(risk)},
           strategy_{std::move(strategy)},
-          state_{portfolio} {}
+          state_{portfolio},
+          recorder_{std::move(recorder)} {}
 
     /// Runs until told to stop on `control`. On Stop, flushes the transport
     /// and drains what's buffered before returning. Meant to be the body of
@@ -68,6 +73,7 @@ class Engine {
         for (const auto& order : risk_.on_tick()) submit(order);
 
         drain_outcomes();
+        recorder_.sample(clock_.now(), state_);  // equity once the event is fully applied
         return true;
     }
 
@@ -93,6 +99,7 @@ class Engine {
     Risk  risk_;
     S     strategy_;
     Book& state_;
+    Rec   recorder_;
 };
 
 }  // namespace qp::engine

@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <cstddef>
 
 #include "funding_carry/funding_carry_backtest.hpp"
 
@@ -32,4 +33,12 @@ TEST(BacktestPipeline, RunsTheRealEntryPointAgainstAWeekOfFixtureDataWithoutViol
     // legs even after the funding cycle's repeated enter/exit churn.
     EXPECT_LE(std::abs(results.final_spot_position), 10.0);
     EXPECT_LE(std::abs(results.final_futures_position), 10.0);
+
+    // The recorder captured a per-step equity series, ordered in replay
+    // time, ending at the same equity the final snapshot reports.
+    ASSERT_FALSE(results.equity_series.empty());
+    for (std::size_t i = 1; i < results.equity_series.size(); ++i) {
+        EXPECT_GE(results.equity_series[i].ts, results.equity_series[i - 1].ts);
+    }
+    EXPECT_DOUBLE_EQ(results.equity_series.back().equity, results.final_equity);
 }

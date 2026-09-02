@@ -1,5 +1,6 @@
 #pragma once
 #include <cstddef>
+#include <span>
 #include <tuple>
 #include <utility>
 
@@ -7,6 +8,7 @@
 #include "basic_risk_gate.hpp"
 #include "config/compose.hpp"
 #include "funding_carry_strategy.hpp"
+#include "recorder/equity_series/equity_series_recorder.hpp"
 #include "sim_clock.hpp"
 #include "types.hpp"
 
@@ -25,19 +27,22 @@ struct Config {
     risk::basic::BasicRiskGateConfig risk{};
 };
 
-/// Enough to prove the wiring and give a test something to assert against;
-/// a real analytics layer (Sharpe, drawdown curve) is deferred.
+/// Final snapshot plus the per-step equity series. Higher-level metrics
+/// (Sharpe, drawdown curve) are computed downstream from the series.
 struct Results {
-    Notional final_cash{};
-    Notional final_equity{};
-    Qty      final_spot_position{};
-    Qty      final_futures_position{};
+    Notional                             final_cash{};
+    Notional                             final_equity{};
+    Qty                                  final_spot_position{};
+    Qty                                  final_futures_position{};
+    std::span<const engine::EquityPoint> equity_series{};
 };
 
 /// The funding-carry backtest variant: futures + spot CSV legs, merged in
 /// timestamp order into the carry strategy behind a basic risk gate.
 class FundingCarryBacktest : public BacktestBase<FundingCarryBacktest> {
    public:
+    using Recorder = engine::EquitySeriesRecorder;
+
     FundingCarryBacktest()
         : futures_source_(config::make_futures_source(config::data_dir(), config::kSymbol,
                                                       config::kFirstDay, config::kLastDay)),
@@ -55,7 +60,7 @@ class FundingCarryBacktest : public BacktestBase<FundingCarryBacktest> {
 
     std::tuple<config::Sink, config::Sink>& sinks() { return sinks_; }
 
-    config::EngineType make_engine() {
+    config::EngineType<Recorder> make_engine() {
         strategy::carry::Config carry = config_.carry;
         carry.symbol                  = config::kSymbolId;
         carry.futures_venue           = kFuturesVenue;
@@ -64,21 +69,27 @@ class FundingCarryBacktest : public BacktestBase<FundingCarryBacktest> {
         risk::basic::BasicRiskGateConfig risk = config_.risk;
         risk.tracked = {{config::kSymbolId, kSpotVenue}, {config::kSymbolId, kFuturesVenue}};
 
+        equity_collector_.start();
+
         // Both sinks have NumConsumers == 1, so this Engine's consumer
         // index on each queue is trivially 0.
         config::Tx transport({&std::get<0>(sinks_).queue(), &std::get<1>(sinks_).queue()}, {0, 0});
         config::Risk     risk_gate{risk, portfolio_};
         config::Strategy strategy{carry, portfolio_};
-        return config::EngineType{std::move(transport), SimClock{},          config::Exec{},
-                                  std::move(risk_gate), std::move(strategy), portfolio_};
+        return config::EngineType<Recorder>{
+            std::move(transport),        SimClock{},          config::Exec{},
+            std::move(risk_gate),        std::move(strategy), portfolio_,
+            Recorder{&equity_collector_}};
     }
 
     Results results() {
+        equity_collector_.finish();
         return Results{
             .final_cash             = portfolio_.cash(),
             .final_equity           = portfolio_.equity(),
             .final_spot_position    = portfolio_.position(config::kSymbolId, kSpotVenue),
             .final_futures_position = portfolio_.position(config::kSymbolId, kFuturesVenue),
+            .equity_series          = equity_collector_.series(),
         };
     }
 
@@ -88,6 +99,7 @@ class FundingCarryBacktest : public BacktestBase<FundingCarryBacktest> {
     std::tuple<config::Sink, config::Sink> sinks_;
     config::Book                           portfolio_;
     Config                                 config_{};
+    engine::EquitySeriesCollector          equity_collector_{};
 };
 
 }  // namespace qp::backtest::funding_carry
