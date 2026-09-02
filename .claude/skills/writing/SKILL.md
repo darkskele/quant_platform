@@ -50,7 +50,7 @@ Same approach — terse, single-source, no cross-references — minus Doxygen.
 
 ## Layout
 
-`docs/` mirrors the source tree. One component doc per directory that owns a concept, named `README.md`. Each module also gets a `DECISIONS.md`. No `STATUS.md` — milestones live in the `README.md`.
+`docs/` mirrors the source tree. A `README.md` goes in each directory that owns a concept, or a composed component with its own internal seam or nested sub-module (even when its public type is a class, not a concept). A leaf variation — a single concrete impl with no further nesting — gets a bullet in its parent's Variations, not its own README. Each module also gets a `DECISIONS.md`. No `STATUS.md` — milestones live in the `README.md`.
 
 Exceptions (no own `README.md`): the `docs/` root, which is an index, and orchestrators (e.g. `RunDataSource`), which are documented in their parent-level doc, not their own.
 
@@ -64,8 +64,10 @@ No implementation detail. That lives in the code.
 
 ## Components vs variations
 
-- A **component** is a sub-module nested below this one, with its own directory and its own doc.
-- A **variation** is a concrete implementation of this level's concept, plugging into it (e.g. `carry/` implementing the `Strategy` concept).
+Decided by the relationship, not by whether it has its own README:
+
+- A **variation** *is-a* this level's concept — a concrete implementation plugging into it (e.g. `carry/` implementing `Strategy`, `sim/` implementing `ExecutionGateway`). Listed under Variations. It may still have its own README when it is substantial or nests further (e.g. `sim/`); link to it, but it stays a variation here.
+- A **component** is a sub-module this one *composes* that implements a different concept — a collaborator with its own seam (e.g. `matcher/` under `sim/`). Listed under Components.
 
 A module may have components, variations, both, or neither.
 
