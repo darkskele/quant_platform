@@ -1,33 +1,7 @@
 # engine decisions
 
-## D29 — `RiskGate::on_tick` runs once per `step()`; `Strategy::on_timer` isn't wired anywhere yet
-`on_tick`'s job (autonomous kill-switch/drawdown flatten) needs *some*
-cadence, and "once per processed event" is the only one available in an
-event-driven core with no idle-time polling — backtest only ever advances
-on pulled events, there's no elapsed-wall-clock tick to hang a different
-cadence off. It needed no new scheduling machinery, just the loop
-iteration `step()` already has. `on_timer` is different: nothing calls it,
-anywhere, in this change. Inventing a timer/scheduling mechanism now, ahead
-of any real caller, would be exactly the speculative machinery "seams
-first, generality later" warns against — it waits for a concrete strategy
-that actually needs a wall-clock or bar-close trigger to shape what that
-mechanism should look like.
-
-## ~~D30 — Engine's `Tx` stays constrained on `source::Source`, not renamed `Transport`~~
-**Superseded by D39** (`libs/data_source/transport/docs/DECISIONS.md`) — a
-new `transport` city now provides a real `Transport` concept +
-`InProcessTransport` (fixed to actually satisfy it) + `CombinedTransport`;
-`Engine`'s `Tx` is constrained on `transport::Transport`.
-
-`docs/decisions.md` D22 renamed the *concept* Engine depends on from
-`Source` to `Transport` in the docs, but deliberately left
-`libs/data_source/source/include/source.hpp`'s `Source` concept unrenamed
-until Engine/the ring-reading adapter were actually built — to avoid
-doc/code drift in the meantime. Engine is now built, but a bare rename
-still isn't the right move today: `InProcessTransport` (an in-process ring
-reader, the adapter D22's rename was originally motivated by) returns
-`optional<shared_ptr<const MarketEvent>>`, not `optional<MarketEvent>` — it
-doesn't structurally satisfy `Source` as currently written, so renaming the
-concept now would leave that shape mismatch unresolved for no concrete
-benefit (nothing wires `InProcessTransport` to an `Engine` yet). Deferred
-to whenever something concretely needs it, same as D22 already decided.
+1. Every collaborator (`Transport`/`Clock`/`ExecutionGateway`/`RiskGate`/`Strategy`/`Portfolio`) is a template parameter constrained by its concept — no vtable or heap on the `step()` path.
+2. `RiskGate::on_tick()` runs once per `step()` — the only cadence an event-driven core has, and it needs no scheduling machinery.
+3. `Strategy::on_timer` is not wired anywhere yet; it waits for a concrete strategy that needs a timed trigger.
+4. `run()` steps in large batches before polling the control channel and sleeps 1ms when the transport is dry, keeping the poll off the hot path.
+5. On Stop, `run()` flushes the transport and drains what is buffered before returning.

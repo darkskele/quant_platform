@@ -33,7 +33,8 @@ target_compile_definitions(qp_backtest_compose INTERFACE
 )
 target_link_libraries(qp_backtest_compose INTERFACE qp_data_source qp_csv_source
                                                     qp_source_venue_binance_historical
-                                                    qp_sink_fanout qp_transport qp_engine
+                                                    qp_sink_fanout qp_transport
+                                                    qp_transport_backtest_in_process qp_engine
                                                     qp_execution_sim
                                                     qp_execution_sim_matcher_last_trade qp_risk_basic
                                                     qp_strategy_carry)

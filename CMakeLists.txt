@@ -81,7 +81,7 @@ if(BUILD_TESTING)
         tests/data_source/source/venue/binance/binance_historical/test_bin_hist_venue.cpp
         tests/data_source/test_run_data_source.cpp
         tests/engine/test_engine.cpp
-        tests/engine/transport/test_backtest_in_process_transport.cpp
+        tests/engine/transport/backtest_in_process/test_backtest_in_process_transport.cpp
         tests/engine/transport/test_transport.cpp
         tests/execution/sim/test_sim_execution.cpp
         tests/risk/basic/test_basic_risk_gate.cpp
@@ -93,7 +93,8 @@ if(BUILD_TESTING)
     target_link_libraries(qp_tests PRIVATE
         qp_core qp_core_test_support qp_clock qp_execution qp_execution_sim
         qp_execution_sim_matcher_last_trade qp_csv_source qp_sink qp_sink_fanout qp_data_source
-        qp_engine qp_transport qp_strategy qp_strategy_test_support qp_strategy_carry qp_risk
+        qp_engine qp_transport qp_transport_backtest_in_process qp_strategy qp_strategy_test_support
+        qp_strategy_carry qp_risk
         qp_risk_test_support qp_risk_basic qp_engine_test_support qp_source_venue_binance_historical
         qp_backtest_compose Threads::Threads GTest::gtest GTest::gtest_main
     )
@@ -120,7 +121,7 @@ if(QP_BUILD_BENCHMARKS)
         benchmarks/data_source/source/venue/binance/binance_historical/bench_bin_hist_symbol_table.cpp
         benchmarks/data_source/source/venue/binance/binance_historical/bench_bin_hist_parser_policy.cpp
         benchmarks/engine/bench_engine.cpp
-        benchmarks/engine/transport/bench_backtest_in_process_transport.cpp
+        benchmarks/engine/transport/backtest_in_process/bench_backtest_in_process_transport.cpp
         benchmarks/strategy/carry/bench_funding_carry_strategy.cpp
         benchmarks/risk/basic/bench_basic_risk_gate.cpp
         benchmarks/execution/sim/matcher/last_trade/bench_last_trade_matcher.cpp
@@ -131,7 +132,8 @@ if(QP_BUILD_BENCHMARKS)
     target_link_libraries(qp_bench PRIVATE
         qp_core qp_core_test_support qp_clock qp_execution qp_execution_sim
         qp_execution_sim_matcher_last_trade qp_source_pure qp_csv_source
-        qp_sink qp_sink_fanout qp_data_source qp_engine qp_transport qp_strategy_test_support
+        qp_sink qp_sink_fanout qp_data_source qp_engine qp_transport qp_transport_backtest_in_process
+        qp_strategy_test_support
         qp_risk_test_support qp_engine_test_support qp_strategy_carry qp_risk qp_risk_basic
         qp_source_venue_binance_historical
         benchmark::benchmark
