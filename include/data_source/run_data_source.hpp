@@ -77,7 +77,14 @@ void run_data_source(std::tuple<Sources...>& sources, std::tuple<Sinks...>& sink
 
         if (round % stop_poll_every == 0 && control.poll(control_consumer) == ControlCommand::Stop)
             return;
-        if (!any) std::this_thread::sleep_for(idle_sleep);
+        // Yield, not sleep, when idle_sleep is zero: a backtest replay wants to
+        // blast through, not pace itself off a wall-clock delay.
+        if (!any) {
+            if (idle_sleep == std::chrono::milliseconds::zero())
+                std::this_thread::yield();
+            else
+                std::this_thread::sleep_for(idle_sleep);
+        }
     }
 }
 

@@ -38,7 +38,8 @@ class Engine {
     /// and drains what's buffered before returning. Meant to be the body of
     /// its own thread.
     template <std::size_t NumControlConsumers>
-    void run(ControlChannel<NumControlConsumers>& control, std::size_t consumer) {
+    void run(ControlChannel<NumControlConsumers>& control, std::size_t consumer,
+             std::chrono::microseconds idle_sleep = std::chrono::milliseconds(1)) {
         for (;;) {
             // Step a batch, then poll once: polling (or reading a clock) on
             // every event would tax the hot path, and shutdown latency isn't
@@ -49,7 +50,14 @@ class Engine {
                 progressed = true;
             }
             if (control.poll(consumer) == ControlCommand::Stop) break;
-            if (!progressed) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            // Yield, not sleep, when idle_sleep is zero: a backtest replay
+            // wants to blast through, not pace itself off a wall-clock delay.
+            if (!progressed) {
+                if (idle_sleep == std::chrono::microseconds::zero())
+                    std::this_thread::yield();
+                else
+                    std::this_thread::sleep_for(idle_sleep);
+            }
         }
         transport_.flush();
         while (step()) {

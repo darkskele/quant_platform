@@ -1,4 +1,5 @@
 #pragma once
+#include <chrono>
 #include <cstddef>
 #include <thread>
 
@@ -31,9 +32,14 @@ class BacktestBase {
         std::size_t       source_consumer = control.attach();
         std::size_t       engine_consumer = control.attach();
 
-        std::thread source_thread(
-            [&] { data_source::run_data_source(srcs, sinks, control, source_consumer); });
-        std::thread engine_thread([&] { engine.run(control, engine_consumer); });
+        // Backtest replay: yield instead of sleeping when a thread is briefly
+        // starved, so the run is bounded by throughput, not wall-clock backoff.
+        std::thread source_thread([&] {
+            data_source::run_data_source(srcs, sinks, control, source_consumer,
+                                         std::chrono::milliseconds::zero());
+        });
+        std::thread engine_thread(
+            [&] { engine.run(control, engine_consumer, std::chrono::microseconds::zero()); });
 
         // Sources drained (all Eof) -> ask the engine to stop; it flushes
         // and drains whatever's still buffered before its run() returns.
