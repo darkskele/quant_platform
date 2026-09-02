@@ -76,7 +76,7 @@ A module may have components, variations, both, or neither.
 In this order. Omit a section that does not apply:
 
 1. What the component is. Brief.
-2. ASCII diagram: how its parts fit into it. Stops at the seam (the output boundary), never drawing the consumer beyond it.
+2. ASCII diagram: how its parts fit into it. Names only this level's own concepts and seams, never a specific variation or its mechanism (a `Sink`, not a `FanoutSink`; "consumers", not "in-process readers"). Stops at the seam (the output boundary), never drawing the consumer beyond it.
 3. Components: sub-modules nested below, and how they wire together. Terse.
 4. Variations: one bullet each, name and what it does.
 5. Milestones and sub-goals. A checklist. Strike through as achieved. Sub-goals are indented bullets under their milestone.
