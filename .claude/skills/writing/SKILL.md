@@ -77,7 +77,7 @@ In this order. Omit a section that does not apply:
 2. ASCII diagram: how its parts fit into it. Stops at the seam (the output boundary), never drawing the consumer beyond it.
 3. Components: sub-modules nested below, and how they wire together. Terse.
 4. Variations: one bullet each, name and what it does.
-5. Milestones and sub-goals. A checklist. Strike through as achieved.
+5. Milestones and sub-goals. A checklist. Strike through as achieved. Sub-goals are indented bullets under their milestone.
 
 ## DECISIONS.md
 
