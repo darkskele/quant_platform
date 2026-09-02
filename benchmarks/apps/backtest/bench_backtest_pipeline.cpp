@@ -1,6 +1,10 @@
 #include <benchmark/benchmark.h>
 
+#include <chrono>
 #include <cstddef>
+#include <cstdint>
+#include <filesystem>
+#include <string_view>
 
 #include "config/compose.hpp"
 #include "funding_carry/funding_carry_backtest.hpp"
@@ -28,10 +32,17 @@ std::size_t drain(Source& source) {
 
 }  // namespace
 
+// The committed fixture, passed at runtime the way a real run picks a dataset.
+const std::filesystem::path       kDataDir  = QP_BACKTEST_DATA_DIR;
+constexpr std::string_view        kSymbol   = QP_BACKTEST_SYMBOL;
+const std::chrono::year_month_day kFirstDay = *config::parse_day(QP_BACKTEST_FIRST_DAY);
+const std::chrono::year_month_day kLastDay  = *config::parse_day(QP_BACKTEST_LAST_DAY);
+
 // Real end-to-end pipeline throughput.
 void BM_BacktestPipeline_RunOneWeek(benchmark::State& state) {
     for (auto _ : state) {
-        qp::backtest::funding_carry::FundingCarryBacktest backtest;
+        qp::backtest::funding_carry::FundingCarryBacktest backtest{kDataDir, kSymbol, kFirstDay,
+                                                                   kLastDay};
         auto                                              results = backtest.run();
         benchmark::DoNotOptimize(results);
     }
@@ -42,11 +53,9 @@ BENCHMARK(BM_BacktestPipeline_RunOneWeek)->Unit(benchmark::kMillisecond);
 void BM_BacktestSources_ReplayOneWeek(benchmark::State& state) {
     std::size_t events = 0;
     for (auto _ : state) {
-        auto futures = config::make_futures_source(config::data_dir(), config::kSymbol,
-                                                   config::kFirstDay, config::kLastDay);
-        auto spot = config::make_spot_source(config::data_dir(), config::kSymbol, config::kFirstDay,
-                                             config::kLastDay);
-        events    = drain(futures) + drain(spot);
+        auto futures = config::make_futures_source(kDataDir, kSymbol, kFirstDay, kLastDay);
+        auto spot    = config::make_spot_source(kDataDir, kSymbol, kFirstDay, kLastDay);
+        events       = drain(futures) + drain(spot);
     }
     state.SetItemsProcessed(static_cast<std::int64_t>(state.iterations() * events));
 }

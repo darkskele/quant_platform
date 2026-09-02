@@ -115,19 +115,10 @@ endif()
 # python3 dev headers and pybind11.
 option(QP_BUILD_PYTHON "Build the Python bindings" OFF)
 if(QP_BUILD_PYTHON)
+    # Use the modern FindPython instead of pybind11's deprecated
+    # FindPythonLibs path, which trips CMP0148.
+    set(PYBIND11_FINDPYTHON ON)
     find_package(pybind11 CONFIG REQUIRED)
     pybind11_add_module(qp_backtest src/apps/backtest/funding_carry/bindings.cpp)
     target_link_libraries(qp_backtest PRIVATE qp_backtest_compose)
-    # What the module replays. Defaults to the committed fixture; override to
-    # point at real data over any range without editing this file.
-    set(QP_PY_DATA_DIR "${CMAKE_SOURCE_DIR}/tests/apps/backtest/fixtures"
-        CACHE STRING "Dataset the Python backtest module reads")
-    set(QP_PY_SYMBOL "BTCUSDT" CACHE STRING "Symbol the Python module trades")
-    set(QP_PY_FIRST_DAY "2024-01-01" CACHE STRING "First replay day (YYYY-MM-DD)")
-    set(QP_PY_LAST_DAY "2024-01-07" CACHE STRING "Last replay day (YYYY-MM-DD)")
-    target_compile_definitions(qp_backtest PRIVATE
-        QP_BACKTEST_DATA_DIR="${QP_PY_DATA_DIR}"
-        QP_BACKTEST_SYMBOL="${QP_PY_SYMBOL}"
-        QP_BACKTEST_FIRST_DAY="${QP_PY_FIRST_DAY}"
-        QP_BACKTEST_LAST_DAY="${QP_PY_LAST_DAY}")
 endif()

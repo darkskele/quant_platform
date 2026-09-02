@@ -1,6 +1,5 @@
 #include <benchmark/benchmark.h>
 
-#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -67,7 +66,7 @@ void BM_CsvSource_SingleStreamKlines(benchmark::State& state) {
     auto       files = write_kline_stream(dir.path, kEvents, kFiles, 1'717'200'000'000);
 
     for (auto _ : state) {
-        CsvSource<BinHistVenue, 1> source({files});
+        CsvSource<BinHistVenue> source({files});
         drain(source);
     }
     state.SetItemsProcessed(state.iterations() * kEvents);
@@ -82,8 +81,8 @@ void BM_CsvSource_MultiStreamMerge(benchmark::State& state) {
     static constexpr std::size_t kEventsPerStream = 5'000;
     static constexpr std::size_t kTotalEvents     = kStreams * kEventsPerStream;
 
-    ScratchDir                                               dir;
-    std::array<std::vector<std::filesystem::path>, kStreams> streams;
+    ScratchDir                                      dir;
+    std::vector<std::vector<std::filesystem::path>> streams(kStreams);
     for (std::size_t s = 0; s < kStreams; ++s) {
         // Offset each stream's start by less than one bar interval so
         // next() can't just drain one stream dry before touching anothers.
@@ -92,7 +91,7 @@ void BM_CsvSource_MultiStreamMerge(benchmark::State& state) {
     }
 
     for (auto _ : state) {
-        CsvSource<BinHistVenue, kStreams> source(streams);
+        CsvSource<BinHistVenue> source(streams);
         drain(source);
     }
     state.SetItemsProcessed(state.iterations() * kTotalEvents);

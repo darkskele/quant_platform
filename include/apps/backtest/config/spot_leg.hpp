@@ -11,7 +11,7 @@ namespace qp::backtest::config {
 // The spot leg's own Source shape: 1 stream (klines only). Spot has no
 // funding, no official mark price, so unlike the futures leg there's
 // nothing else to timestamp-merge in.
-using SpotSource = LegSource<1>;
+using SpotSource = LegSource;
 
 inline SpotSource make_spot_source(const std::filesystem::path& data_dir, std::string_view symbol,
                                    std::chrono::year_month_day first_day,

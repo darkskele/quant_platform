@@ -18,7 +18,7 @@ namespace qp::backtest::config {
 // klines). Same LegParser as the spot leg today (source_config.hpp). Nothing
 // requires that to stay true; a different venue backing this leg would
 // pick its own Parser here without spot's leg needing to change.
-using FuturesSource = LegSource<3>;
+using FuturesSource = LegSource;
 
 inline FuturesSource make_futures_source(const std::filesystem::path& data_dir,
                                          std::string_view             symbol,

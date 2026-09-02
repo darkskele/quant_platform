@@ -56,6 +56,15 @@
             ]
         },
         {
+            "label": "Build: qp_backtest python module (release)",
+            "type": "shell",
+            "command": "cmake --preset release -DQP_BUILD_PYTHON=ON -DPYTHON_EXECUTABLE=$HOME/miniconda3/envs/qp-research/bin/python && cmake --build build/release --target qp_backtest -j",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
             "label": "Run: all tests (debug)",
             "type": "shell",
             "command": "./build/debug/qp_tests",

@@ -1,6 +1,11 @@
 #pragma once
+#include <chrono>
 #include <cstddef>
+#include <filesystem>
 #include <span>
+#include <stdexcept>
+#include <string>
+#include <string_view>
 #include <tuple>
 #include <utility>
 
@@ -19,9 +24,8 @@ inline constexpr VenueId kFuturesVenue = 0;
 inline constexpr VenueId kSpotVenue    = 1;
 
 /// The runtime-swept knobs: exactly what a Python-side optimizer sets
-/// between runs. Symbol/dataset/component types are all compile-time.
-/// carry's symbol/venue fields are filled in by make_engine(); only the
-/// threshold/size fields are set.
+/// between runs. carry's symbol/venue fields
+/// are filled in by make_engine(); only the threshold/size fields are set.
 struct Config {
     strategy::carry::Config          carry{};
     risk::basic::BasicRiskGateConfig risk{};
@@ -38,16 +42,18 @@ struct Results {
 };
 
 /// The funding-carry backtest variant: futures + spot CSV legs, merged in
-/// timestamp order into the carry strategy behind a basic risk gate.
+/// timestamp order into the carry strategy behind a basic risk gate. The
+/// dataset (root dir, symbol, inclusive day range) is chosen per run.
 class FundingCarryBacktest : public BacktestBase<FundingCarryBacktest> {
    public:
     using Recorder = engine::EquitySeriesRecorder;
 
-    FundingCarryBacktest()
-        : futures_source_(config::make_futures_source(config::data_dir(), config::kSymbol,
-                                                      config::kFirstDay, config::kLastDay)),
-          spot_source_(config::make_spot_source(config::data_dir(), config::kSymbol,
-                                                config::kFirstDay, config::kLastDay)) {}
+    FundingCarryBacktest(const std::filesystem::path& data_dir, std::string_view symbol,
+                         std::chrono::year_month_day first_day,
+                         std::chrono::year_month_day last_day)
+        : symbol_id_(resolve_symbol(symbol)),
+          futures_source_(config::make_futures_source(data_dir, symbol, first_day, last_day)),
+          spot_source_(config::make_spot_source(data_dir, symbol, first_day, last_day)) {}
 
     void set_carry_config(const strategy::carry::Config& carry) { config_.carry = carry; }
 
@@ -62,12 +68,12 @@ class FundingCarryBacktest : public BacktestBase<FundingCarryBacktest> {
 
     config::EngineType<Recorder> make_engine() {
         strategy::carry::Config carry = config_.carry;
-        carry.symbol                  = config::kSymbolId;
+        carry.symbol                  = symbol_id_;
         carry.futures_venue           = kFuturesVenue;
         carry.spot_venue              = kSpotVenue;
 
         risk::basic::BasicRiskGateConfig risk = config_.risk;
-        risk.tracked = {{config::kSymbolId, kSpotVenue}, {config::kSymbolId, kFuturesVenue}};
+        risk.tracked = {{symbol_id_, kSpotVenue}, {symbol_id_, kFuturesVenue}};
 
         equity_collector_.start();
 
@@ -87,13 +93,22 @@ class FundingCarryBacktest : public BacktestBase<FundingCarryBacktest> {
         return Results{
             .final_cash             = portfolio_.cash(),
             .final_equity           = portfolio_.equity(),
-            .final_spot_position    = portfolio_.position(config::kSymbolId, kSpotVenue),
-            .final_futures_position = portfolio_.position(config::kSymbolId, kFuturesVenue),
+            .final_spot_position    = portfolio_.position(symbol_id_, kSpotVenue),
+            .final_futures_position = portfolio_.position(symbol_id_, kFuturesVenue),
             .equity_series          = equity_collector_.series(),
         };
     }
 
    private:
+    // Runtime lookup into the compile-time symbol universe. Throws rather
+    // than return a sentinel so a bad symbol fails the run, not silently.
+    static SymbolId resolve_symbol(std::string_view symbol) {
+        auto id = config::FuturesTable::id_of(symbol);
+        if (!id) throw std::invalid_argument("unknown symbol: " + std::string(symbol));
+        return *id;
+    }
+
+    SymbolId                               symbol_id_;
     config::FuturesSource                  futures_source_;
     config::SpotSource                     spot_source_;
     std::tuple<config::Sink, config::Sink> sinks_;

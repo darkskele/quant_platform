@@ -1,19 +1,43 @@
 #include <pybind11/pybind11.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
+#include <filesystem>
 #include <span>
+#include <stdexcept>
+#include <string>
 
 #include "funding_carry/funding_carry_backtest.hpp"
 
-namespace py = pybind11;
+namespace py     = pybind11;
+namespace config = qp::backtest::config;
 
 namespace {
 
 using CarryConfig = qp::strategy::carry::Config;
 using RiskConfig  = qp::risk::basic::BasicRiskGateConfig;
 using EquityPoint = qp::engine::EquityPoint;
+
+// One dataset the notebook picks at runtime: where the CSVs live, which
+// symbol, and the inclusive day range. Built once, reused across a config
+// sweep. Dates are "YYYY-MM-DD"; a bad one fails construction.
+struct Dataset {
+    std::filesystem::path       data_dir;
+    std::string                 symbol;
+    std::chrono::year_month_day first_day;
+    std::chrono::year_month_day last_day;
+
+    Dataset(std::string dir, std::string sym, const std::string& first, const std::string& last)
+        : data_dir(std::move(dir)), symbol(std::move(sym)) {
+        auto f = config::parse_day(first);
+        auto l = config::parse_day(last);
+        if (!f) throw std::invalid_argument("bad first_day: " + first);
+        if (!l) throw std::invalid_argument("bad last_day: " + last);
+        first_day = *f, last_day = *l;
+    }
+};
 
 constexpr double kNsPerYear = 365.25 * 24 * 60 * 60 * 1e9;
 
@@ -42,8 +66,8 @@ py::dict window_metrics(std::span<const EquityPoint> pts) {
         var += d * d;
     }
     var /= static_cast<double>(pts.size() - 1);
-    double sd            = std::sqrt(var);
-    double span_ns       = static_cast<double>(pts.back().ts - pts.front().ts);
+    double sd             = std::sqrt(var);
+    double span_ns        = static_cast<double>(pts.back().ts - pts.front().ts);
     double steps_per_year = span_ns > 0.0 ? (pts.size() - 1) / (span_ns / kNsPerYear) : 0.0;
 
     out["pnl"]          = pnl;
@@ -52,19 +76,30 @@ py::dict window_metrics(std::span<const EquityPoint> pts) {
     return out;
 }
 
-qp::backtest::funding_carry::Results run(const CarryConfig& carry, const RiskConfig& risk,
-                                         qp::backtest::funding_carry::FundingCarryBacktest& bt) {
+// The backtest owns the buffer Results::equity_series views, so the results
+// must be consumed while it is still alive. Returning them out of here would
+// dangle the span: a use-after-free that only bites once the freed buffer is
+// large enough to be unmapped.
+template <class Consume>
+auto with_run(const Dataset& ds, const CarryConfig& carry, const RiskConfig& risk,
+              Consume&& consume) {
+    qp::backtest::funding_carry::FundingCarryBacktest bt{ds.data_dir, ds.symbol, ds.first_day,
+                                                         ds.last_day};
     bt.set_carry_config(carry);
     bt.set_risk_config(risk);
-    return bt.run();
+    return consume(bt.run());
 }
 
 }  // namespace
 
-// Only the runtime-swept knobs are exposed. Symbol, dataset, date range, and
-// component types are compile-time, baked in by the target's defines.
+// Component types stay compile-time. The dataset (root dir, symbol, day
+// range) and the swept Config are runtime: one build serves every symbol.
 PYBIND11_MODULE(qp_backtest, m) {
-    m.doc() = "Funding-carry backtest: sweep the runtime Config, get metrics or an equity series.";
+    m.doc() = "Funding-carry backtest: pick a Dataset, sweep the Config, get metrics or a series.";
+
+    py::class_<Dataset>(m, "Dataset")
+        .def(py::init<std::string, std::string, std::string, std::string>(), py::arg("data_dir"),
+             py::arg("symbol"), py::arg("first_day"), py::arg("last_day"));
 
     py::class_<CarryConfig>(m, "CarryConfig")
         .def(py::init<>())
@@ -85,23 +120,23 @@ PYBIND11_MODULE(qp_backtest, m) {
     // return scalar metrics per window. No per-point objects cross over.
     m.def(
         "run_metrics",
-        [](CarryConfig carry, RiskConfig risk, double train_fraction) {
-            qp::backtest::funding_carry::FundingCarryBacktest bt;
-            auto        r     = run(carry, risk, bt);
-            auto        s     = r.equity_series;
-            std::size_t split = static_cast<std::size_t>(s.size() * train_fraction);
+        [](const Dataset& dataset, CarryConfig carry, RiskConfig risk, double train_fraction) {
+            return with_run(dataset, carry, risk, [&](const auto& r) {
+                auto        s     = r.equity_series;
+                std::size_t split = static_cast<std::size_t>(s.size() * train_fraction);
 
-            py::dict out;
-            out["final_cash"]             = r.final_cash;
-            out["final_equity"]           = r.final_equity;
-            out["final_spot_position"]    = r.final_spot_position;
-            out["final_futures_position"] = r.final_futures_position;
-            out["points"]                 = s.size();
-            out["train"]                  = window_metrics(s.subspan(0, split));
-            out["val"]                    = window_metrics(s.subspan(split));
-            return out;
+                py::dict out;
+                out["final_cash"]             = r.final_cash;
+                out["final_equity"]           = r.final_equity;
+                out["final_spot_position"]    = r.final_spot_position;
+                out["final_futures_position"] = r.final_futures_position;
+                out["points"]                 = s.size();
+                out["train"]                  = window_metrics(s.subspan(0, split));
+                out["val"]                    = window_metrics(s.subspan(split));
+                return out;
+            });
         },
-        py::arg("carry") = CarryConfig{}, py::arg("risk") = RiskConfig{},
+        py::arg("dataset"), py::arg("carry") = CarryConfig{}, py::arg("risk") = RiskConfig{},
         py::arg("train_fraction") = 0.7,
         "Run and return scalar train/validation metrics (no full series).");
 
@@ -109,15 +144,15 @@ PYBIND11_MODULE(qp_backtest, m) {
     // transfer and the plot cheap.
     m.def(
         "run_series",
-        [](CarryConfig carry, RiskConfig risk, std::size_t stride) {
-            qp::backtest::funding_carry::FundingCarryBacktest bt;
-            auto r = run(carry, risk, bt);
-            if (stride < 1) stride = 1;
-            py::list series;
-            const auto s = r.equity_series;
-            for (std::size_t i = 0; i < s.size(); i += stride) series.append(s[i]);
-            return series;
+        [](const Dataset& dataset, CarryConfig carry, RiskConfig risk, std::size_t stride) {
+            return with_run(dataset, carry, risk, [&](const auto& r) {
+                if (stride < 1) stride = 1;
+                py::list   series;
+                const auto s = r.equity_series;
+                for (std::size_t i = 0; i < s.size(); i += stride) series.append(s[i]);
+                return series;
+            });
         },
-        py::arg("carry") = CarryConfig{}, py::arg("risk") = RiskConfig{}, py::arg("stride") = 1,
-        "Run and return the equity series, taking every stride-th point.");
+        py::arg("dataset"), py::arg("carry") = CarryConfig{}, py::arg("risk") = RiskConfig{},
+        py::arg("stride") = 1, "Run and return the equity series, taking every stride-th point.");
 }

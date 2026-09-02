@@ -18,8 +18,8 @@ string(TOUPPER "${QP_BACKTEST_STRATEGY}" _qp_bt_strategy)
 # The backtest is header-only (BacktestBase + the funding-carry variant),
 # so there's no library or app binary to build — this INTERFACE target just
 # carries the component-selection macros, include dir, and the composed
-# component libs. Which data to read (QP_BACKTEST_DATA_DIR/SYMBOL/FIRST_DAY/
-# LAST_DAY) is set per consumer target below. There is no production CLI
+# component libs. The dataset (root dir, symbol, day range) is a runtime
+# constructor argument, so it's not set here. There is no production CLI
 # entry point: a run is driven by constructing a backtest and calling run()
 # (the pybind path), exercised here by the test and bench.
 add_library(qp_backtest_compose INTERFACE)
@@ -39,7 +39,7 @@ target_link_libraries(qp_backtest_compose INTERFACE qp_data_source qp_csv_source
                                                     qp_execution_sim_matcher_last_trade qp_risk_basic
                                                     qp_strategy_carry)
 
-# Test + bench point the composition at the committed fixture dataset.
+# Test + bench pass the committed fixture dataset in as runtime arguments.
 set(_qp_fixture_defs
     QP_BACKTEST_DATA_DIR="${CMAKE_SOURCE_DIR}/tests/apps/backtest/fixtures"
     QP_BACKTEST_SYMBOL="BTCUSDT"

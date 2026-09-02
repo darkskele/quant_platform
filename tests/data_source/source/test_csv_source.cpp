@@ -1,6 +1,5 @@
 #include <gtest/gtest.h>
 
-#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -53,8 +52,8 @@ TEST(CsvSource, SingleStreamReturnsEventsInFileOrder) {
     auto path = write_file(dir.path / "a.csv", kline_line(0) + "\n" + kline_line(60'000) + "\n" +
                                                    kline_line(120'000) + "\n");
 
-    std::array<std::vector<std::filesystem::path>, 1> streams{{{path}}};
-    CsvSource<BinHistVenue, 1>                        source(streams);
+    std::vector<std::vector<std::filesystem::path>> streams{{path}};
+    CsvSource<BinHistVenue>                         source(streams);
 
     for (std::int64_t expected : {0, 60'000, 120'000}) {
         auto ev = next_blocking(source);
@@ -73,8 +72,8 @@ TEST(CsvSource, MergesTwoStreamsByTimestampNotStreamOrder) {
         write_file(dir.path / "klines.csv", kline_line(0) + "\n" + kline_line(60'000) + "\n");
     auto funding = write_file(dir.path / "funding.csv", funding_line(30'000) + "\n");
 
-    std::array<std::vector<std::filesystem::path>, 2> streams{{{klines}, {funding}}};
-    CsvSource<BinHistVenue, 2>                        source(streams);
+    std::vector<std::vector<std::filesystem::path>> streams{{klines}, {funding}};
+    CsvSource<BinHistVenue>                         source(streams);
 
     for (std::int64_t expected : {0, 30'000, 60'000}) {
         auto ev = next_blocking(source);
@@ -89,8 +88,8 @@ TEST(CsvSource, ContinuesAcrossMultipleFilesInOneStream) {
     auto file0 = write_file(dir.path / "0.csv", kline_line(0) + "\n" + kline_line(60'000) + "\n");
     auto file1 = write_file(dir.path / "1.csv", kline_line(120'000) + "\n");
 
-    std::array<std::vector<std::filesystem::path>, 1> streams{{{file0, file1}}};
-    CsvSource<BinHistVenue, 1>                        source(streams);
+    std::vector<std::vector<std::filesystem::path>> streams{{file0, file1}};
+    CsvSource<BinHistVenue>                         source(streams);
 
     for (std::int64_t expected : {0, 60'000, 120'000}) {
         auto ev = next_blocking(source);
@@ -106,8 +105,8 @@ TEST(CsvSource, SkipsUnparseableAndBlankLinesWithoutFailing) {
                                                    "NOTASYMBOL,K,1,2,3,4,5,6,7\n" +
                                                    kline_line(60'000) + "\n");
 
-    std::array<std::vector<std::filesystem::path>, 1> streams{{{path}}};
-    CsvSource<BinHistVenue, 1>                        source(streams);
+    std::vector<std::vector<std::filesystem::path>> streams{{path}};
+    CsvSource<BinHistVenue>                         source(streams);
 
     for (std::int64_t expected : {0, 60'000}) {
         auto ev = next_blocking(source);
@@ -122,8 +121,8 @@ TEST(CsvSource, EmptyFileProducesNoEventsAndStillReachesEof) {
     auto       empty  = write_file(dir.path / "empty.csv", "");
     auto       klines = write_file(dir.path / "klines.csv", kline_line(0) + "\n");
 
-    std::array<std::vector<std::filesystem::path>, 2> streams{{{empty}, {klines}}};
-    CsvSource<BinHistVenue, 2>                        source(streams);
+    std::vector<std::vector<std::filesystem::path>> streams{{empty}, {klines}};
+    CsvSource<BinHistVenue>                         source(streams);
 
     auto ev = next_blocking(source);
     ASSERT_TRUE(ev.has_value());
@@ -135,8 +134,8 @@ TEST(CsvSource, ThrowsIfAFileCannotBeOpened) {
     ScratchDir dir;
     auto       missing = dir.path / "does_not_exist.csv";
 
-    std::array<std::vector<std::filesystem::path>, 1> streams{{{missing}}};
-    CsvSource<BinHistVenue, 1>                        source(streams);
+    std::vector<std::vector<std::filesystem::path>> streams{{missing}};
+    CsvSource<BinHistVenue>                         source(streams);
 
     bool threw = false;
     for (int i = 0; i < 1'000'000 && !threw; ++i) {

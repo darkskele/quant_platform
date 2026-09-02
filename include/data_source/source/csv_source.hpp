@@ -1,5 +1,4 @@
 #pragma once
-#include <array>
 #include <atomic>
 #include <cstddef>
 #include <filesystem>
@@ -21,23 +20,22 @@
 
 namespace qp::data_source::source {
 
-/// Backtest `Source` for CSV-line-shaped venue data. Merges N logical streams
-/// by timestamp, each an ordered list of files.
+/// Backtest `Source` for CSV-line-shaped venue data. Merges a runtime number
+/// of logical streams by timestamp, each an ordered list of files.
 /// One background thread reads every stream's files ahead of consumption,
 /// pushing complete lines into a per-stream queue.
-template <venue::Parser Parser, std::size_t N, std::size_t LineQueueCapacity = 512>
+template <venue::Parser Parser, std::size_t LineQueueCapacity = 512>
 class CsvSource {
-    static_assert(N >= 1);
-
     static std::span<const std::byte> as_bytes(std::string_view text) {
         return {reinterpret_cast<const std::byte*>(text.data()), text.size()};
     }
 
    public:
     /// `files[i]` is stream i's complete file list, already in the order
-    /// they should be merged in.
-    explicit CsvSource(std::array<std::vector<std::filesystem::path>, N> files) {
-        for (std::size_t i = 0; i < N; ++i) producer_[i].files = std::move(files[i]);
+    /// they should be merged in. The stream count is files.size().
+    explicit CsvSource(std::vector<std::vector<std::filesystem::path>> files)
+        : n_(files.size()), producer_(n_), shared_(n_), lookahead_(n_) {
+        for (std::size_t i = 0; i < n_; ++i) producer_[i].files = std::move(files[i]);
         producer_thread_ = std::thread([this] { producer_loop(); });
     }
 
@@ -60,7 +58,7 @@ class CsvSource {
         bool                       any_missing = false;
         std::optional<std::size_t> earliest;
 
-        for (std::size_t i = 0; i < N; ++i) {
+        for (std::size_t i = 0; i < n_; ++i) {
             if (!lookahead_[i]) {
                 switch (try_refill(i)) {
                     case RefillResult::Filled:
@@ -191,14 +189,12 @@ class CsvSource {
         return true;
     }
 
-    template <std::size_t... Is>
-    bool producer_round(std::index_sequence<Is...>) {
+    bool producer_round() {
         bool any_progress = false;
-        (([&] {
-             if (shared_[Is].done.load(std::memory_order_relaxed)) return;
-             if (producer_fill_one(Is)) any_progress = true;
-         }()),
-         ...);
+        for (std::size_t i = 0; i < n_; ++i) {
+            if (shared_[i].done.load(std::memory_order_relaxed)) continue;
+            if (producer_fill_one(i)) any_progress = true;
+        }
         return any_progress;
     }
 
@@ -207,7 +203,7 @@ class CsvSource {
     void producer_loop() {
         while (!stop_requested_.load(std::memory_order_relaxed)) {
             bool all_done = true;
-            for (std::size_t i = 0; i < N; ++i) {
+            for (std::size_t i = 0; i < n_; ++i) {
                 if (!shared_[i].done.load(std::memory_order_relaxed)) {
                     all_done = false;
                     break;
@@ -215,15 +211,16 @@ class CsvSource {
             }
             if (all_done) return;
 
-            if (!producer_round(std::make_index_sequence<N>{})) {
+            if (!producer_round()) {
                 std::this_thread::yield();
             }
         }
     }
 
-    std::array<ProducerState, N>              producer_;
-    std::array<SharedState, N>                shared_;
-    std::array<std::optional<MarketEvent>, N> lookahead_{};
+    std::size_t                             n_;
+    std::vector<ProducerState>              producer_;
+    std::vector<SharedState>                shared_;
+    std::vector<std::optional<MarketEvent>> lookahead_;
 
     std::thread       producer_thread_;
     std::atomic<bool> stop_requested_{false};
