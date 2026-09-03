@@ -57,6 +57,11 @@ inline std::string format_month(std::chrono::year_month day) {
 /// One path per UTC day in [first_day, last_day], inclusive, for the
 /// daily klines/markprice dumps. `kind_dir` is "futures/klines",
 /// "futures/markprice", or "spot/klines".
+/// Only days that exist on disk are returned: data.binance.vision has
+/// genuine one-off holes (e.g. no SOLUSDT markPrice for 2023-11-15), and a
+/// vendor gap should leave that day out of the merge, not abort the run.
+/// A wholly-missing symbol still yields an empty stream, the same soft
+/// failure a wrong data_dir already produces.
 inline std::vector<std::filesystem::path> daily_files(const std::filesystem::path& data_dir,
                                                       std::string_view             symbol,
                                                       std::string_view             kind_dir,
@@ -66,8 +71,9 @@ inline std::vector<std::filesystem::path> daily_files(const std::filesystem::pat
     for (auto day = std::chrono::sys_days{first_day}; day <= std::chrono::sys_days{last_day};
          day += std::chrono::days{1}) {
         std::chrono::year_month_day ymd{day};
-        files.push_back(data_dir / symbol / kind_dir /
-                        (std::string(symbol) + "-1m-" + format_day(ymd) + ".csv"));
+        auto                        path = data_dir / symbol / kind_dir /
+                    (std::string(symbol) + "-1m-" + format_day(ymd) + ".csv");
+        if (std::filesystem::exists(path)) files.push_back(std::move(path));
     }
     return files;
 }
