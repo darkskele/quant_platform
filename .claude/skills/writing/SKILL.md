@@ -87,7 +87,7 @@ Numbered bullet list, one line per decision, stated in that module's terms. Numb
 
 ## Style
 
-Markdown-formatting-happy but terse. Lines at a time, not paragraphs. Bullets over prose. Soft-wrap. No em dashes; use a colon or a second sentence instead.
+Markdown-formatting-happy but terse. Lines at a time, not paragraphs. Bullets over prose. Soft-wrap. No em dashes, no colons, no semicolons, no double-hyphens (`--`). Use a second sentence, or a bullet, instead.
 
 ## Documenting a module
 

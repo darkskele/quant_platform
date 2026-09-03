@@ -4,20 +4,26 @@
 # binance_historical/bin_hist_symbol_table.hpp's detail::kSymbols — update
 # both if that list ever changes) and re-tags every line
 # "SYMBOL,KIND,<original CSV fields>" (KIND: K=kline, M=markPriceKline,
-# F=fundingRate) into the directory layout
-# include/apps/backtest/config/data_layout.hpp reads from. The two must
-# agree — this script's layout comments and that header's are the same
-# text on purpose.
+# F=fundingRate, P=premiumIndexKline) into the directory layout
+# include/apps/backtest/config/data_layout.hpp reads from for K/M/F.
+# The two must agree on those three — this script's layout comments and
+# that header's are the same text on purpose. P (premiumindex/) is
+# Python-research-only for now, data_layout.hpp doesn't read it, no
+# engine consumer yet.
 #
 # Verified against real data.binance.vision responses (2026-08-31), not
 # assumed (D13's own lesson: spot and futures differ even where you'd
 # expect them not to):
-#   - futures klines/markPriceKlines: daily dumps, HAVE a header row.
+#   - futures klines/markPriceKlines/premiumIndexKlines: daily dumps,
+#     HAVE a header row.
 #   - futures fundingRate: MONTHLY-only (the daily path 404s) — HAS a
 #     header row.
 #   - spot klines: daily dumps, NO header row.
 #   - spot has neither markPriceKline nor fundingRate (no perpetual, no
 #     official mark) — nothing to fetch for those on the spot leg.
+#   - premiumIndexKlines' close column is Binance's own real premium
+#     (mark vs index), the exact input avg_premium_index time-averages
+#     into funding — no need to approximate it from spot klines.
 #
 # Usage: tools/fetch_backtest_data.sh [--data-dir DIR] [--symbols A,B,...]
 #          [--first-day YYYY-MM-DD] [--last-day YYYY-MM-DD]
@@ -105,6 +111,9 @@ for symbol in "${symbol_list[@]}"; do
         fetch_and_tag \
             "https://data.binance.vision/data/spot/daily/klines/${symbol}/1m/${symbol}-1m-${day}.zip" \
             "$DATA_DIR/${symbol}/spot/klines/${symbol}-1m-${day}.csv" "$symbol" 0 K
+        fetch_and_tag \
+            "https://data.binance.vision/data/futures/um/daily/premiumIndexKlines/${symbol}/1m/${symbol}-1m-${day}.zip" \
+            "$DATA_DIR/${symbol}/futures/premiumindex/${symbol}-1m-${day}.csv" "$symbol" 1 P
         day="$(date -u -d "$day + 1 day" +%Y-%m-%d)"
     done
 
