@@ -9,3 +9,5 @@ dependencies:
   - jupyterlab
   - ipykernel
   - optuna
+  - scikit-learn
+  - lightgbm
