@@ -52,13 +52,21 @@ function(qp_register_test name)
     add_dependencies(qp_all_tests ${name})
 endfunction()
 
+option(QP_BUILD_PYTHON "Build the Python bindings" OFF)
+if(QP_BUILD_PYTHON)
+    # Use the modern FindPython instead of pybind11's deprecated
+    # FindPythonLibs path, which trips CMP0148.
+    set(PYBIND11_FINDPYTHON ON)
+    find_package(pybind11 CONFIG REQUIRED)
+endif()
+
 add_subdirectory(cmake/core)
-add_subdirectory(cmake/clock)              
-add_subdirectory(cmake/execution)          
-add_subdirectory(cmake/strategy) 
-add_subdirectory(cmake/risk)             
+add_subdirectory(cmake/clock)
+add_subdirectory(cmake/execution)
+add_subdirectory(cmake/strategy)
+add_subdirectory(cmake/risk)
 add_subdirectory(cmake/data_source/sink)
-add_subdirectory(cmake/data_source/source) 
+add_subdirectory(cmake/data_source/source)
 
 
 add_subdirectory(cmake/data_source)
@@ -71,6 +79,9 @@ if(BUILD_TESTING)
     # Every test_*.cpp under tests/. CONFIGURE_DEPENDS re-globs at build
     # time, so a new file needs no edit here.
     file(GLOB_RECURSE QP_TEST_SRCS CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/tests/test_*.cpp)
+    # tests/*/python/ needs pybind11 and its own embed-linking target, so
+    # it stays out of this aggregate.
+    list(FILTER QP_TEST_SRCS EXCLUDE REGEX "/python/")
     add_executable(qp_tests ${QP_TEST_SRCS})
     target_link_libraries(qp_tests PRIVATE
         qp_core qp_core_test_support qp_clock qp_execution qp_execution_sim
@@ -111,14 +122,7 @@ if(QP_BUILD_BENCHMARKS)
     target_compile_definitions(qp_bench PRIVATE QP_REPO_ROOT="${CMAKE_SOURCE_DIR}")
 endif()
 
-# Python bindings for the funding-carry backtest. Off by default; needs
-# python3 dev headers and pybind11.
-option(QP_BUILD_PYTHON "Build the Python bindings" OFF)
 if(QP_BUILD_PYTHON)
-    # Use the modern FindPython instead of pybind11's deprecated
-    # FindPythonLibs path, which trips CMP0148.
-    set(PYBIND11_FINDPYTHON ON)
-    find_package(pybind11 CONFIG REQUIRED)
     pybind11_add_module(qp_backtest src/apps/backtest/funding_carry/bindings.cpp)
     target_link_libraries(qp_backtest PRIVATE qp_backtest_compose)
 endif()

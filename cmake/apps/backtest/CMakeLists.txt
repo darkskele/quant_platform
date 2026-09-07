@@ -62,3 +62,7 @@ if(QP_BUILD_BENCHMARKS)
                                                             benchmark::benchmark_main)
     target_compile_definitions(qp_backtest_pipeline_bench PRIVATE ${_qp_fixture_defs})
 endif()
+
+if(QP_BUILD_PYTHON)
+    add_subdirectory(python)
+endif()

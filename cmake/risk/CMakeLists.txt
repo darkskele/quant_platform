@@ -21,3 +21,7 @@ if(BUILD_TESTING)
 endif()
 
 add_subdirectory(basic)
+
+if(QP_BUILD_PYTHON)
+    add_subdirectory(python)
+endif()

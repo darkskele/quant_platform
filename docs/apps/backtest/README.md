@@ -19,6 +19,7 @@ BacktestBase::run()  (two threads, joined)
 ## Variations
 
 - **`FundingCarryBacktest`** (`funding_carry/`): futures + spot CSV legs merged in `ts` order. Runtime-swept `Config` (carry + risk knobs), reports `Results`.
+- **`PythonBacktest`** (`python/`): same source pipeline, but Strategy and RiskGate are the python adapters. Callbacks are set from the notebook via `set_on_event`/`set_on_timer`/`set_check`/`set_on_tick` and driven by `run()`.
 
 ## Milestones
 

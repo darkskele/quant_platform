@@ -6,3 +6,5 @@
 4. Drawdown is an absolute `Notional` decline from peak, not a percentage, since `Portfolio` has no starting-capital concept to divide by.
 5. The kill switch trips once and stays tripped; resuming is an operator decision.
 6. Known (symbol, venue) pairs are tracked in a flat bool array indexed by dense ids, not a set.
+7. `PythonRiskGate` acquires the GIL per call and forwards to two `py::object` callables. Single-threaded backtest scope.
+8. A `py::none` callback slot means a no-op; `None` from `check` is `Rejected`, `None` from `on_tick` is an empty order iterable.

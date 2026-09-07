@@ -17,8 +17,10 @@ RiskDecision / span<const Order>
 ## Variations
 
 - **`BasicRiskGate`** (`basic/`): per-(symbol, venue) exposure cap in `check()`, equity-drawdown kill switch in `on_tick()`.
+- **`PythonRiskGate`** (`python/`): forwards `check`/`on_tick` to `py::object` callables so the gate body can live in a notebook.
 
 ## Milestones
 
 - [x] ~~`RiskGate` concept + `RiskDecision`~~
 - [x] ~~Concrete gate: exposure cap + drawdown kill switch~~
+- [x] ~~Python adapter~~

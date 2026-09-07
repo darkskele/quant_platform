@@ -17,8 +17,10 @@ Strategy::on_event() / on_timer()      (strategy.hpp: the concept)
 ## Variations
 
 - **`FundingCarryStrategy`** (`carry/`): long spot, short perp, delta-neutral. Sizes and thresholds by `Config` to collect funding.
+- **`PythonStrategy`** (`python/`): forwards `on_event`/`on_timer` to `py::object` callables so the strategy body can live in a notebook.
 
 ## Milestones
 
 - [x] ~~`Strategy` concept~~
 - [x] ~~Funding carry strategy~~
+- [x] ~~Python adapter~~
