@@ -14,6 +14,62 @@ Delta-neutral: spot long + futures short, harvest funding while it is persistent
 ### Open caveat (gates every result below)
 Sharpe numbers here are cost-blind: no fees, no funding paid on the short leg, no slippage in `SimExecution`. Treat every figure as an upper bound until execution costs are honest. This is the next build.
 
+### Pooled vs per-symbol, funding_signal 1-row purge (2026-09-07) - pooling wins decisively, signal-notebook read stands
+
+Followups to the same review, with matching markdown-cell rewrites so both notebooks read cleanly against the current numbers.
+
+Pooled v5 elasticnet (fit once with symbol dummies + basket features) vs a private elasticnet per symbol on v5 features, per-symbol view. Pooled wins on every symbol.
+
+- Mean pooled rank IC 0.786 vs per-symbol 0.677, +0.11.
+- Mean pooled R2 0.530 vs per-symbol 0.069, +0.46.
+- dir_acc is a wash (0.883 vs 0.891).
+
+SOL is the extreme case, per-symbol R2 collapses to -1.5 (its ~500-row train window straddles FTX and the private fit cannot pool through it). Pooling is not just sample-size, the basket features (`basket_spread`, `basket_z_*`, `basket_rank_*`) carry real cross-symbol information the per-symbol fit throws away.
+
+`funding_signal.ipynb`'s local `walk_forward_r2` gained a 1-row purge (target is `funding_next=shift(-1)`, so the last train row's label sat at the first test row). Numbers moved by less than 0.01 R2 anywhere; the H4 read (basis matters for SOL, not for BTC or most symbols) stands unchanged.
+
+### Horizon-fixed rerun and LightGBM re-eval (2026-09-07) - GBM wins on rank IC and dir_acc, ties on R2
+
+`funding_model_experiment.ipynb` rerun with `walk_forward_splits(..., horizon=HORIZON=24)` at every call site (previously default 1). New GBM cell with per-fold early stopping and a 5-config sweep on v5 features.
+
+Horizon fix moved almost nothing. v5 elasticnet_l1r0.7 went from prior 0.47 R2, 0.72 rank IC to 0.4545 R2, 0.7199 rank IC. Purge added roughly 7% of rows per fold, not enough to shift the winner. Reviewer overpredicted the damage. The fix is still correct methodology.
+
+LightGBM with proper early stopping is genuinely competitive on v5. Best config gbm_lr0.02_l15 (`num_leaves=15`, `min_data_in_leaf=500`) converges at ~380 boost rounds:
+
+- rank IC 0.7577 vs elasticnet's 0.7199, +0.038
+- dir_acc 0.9163 vs 0.8831, +0.033
+- R2 0.4275 vs 0.4545, -0.027
+
+Rank IC and dir_acc are what a signal-gated carry strategy actually cares about (ordering, sign). R2 is scale fit and trees underperform there by design. Old three-config GBM sweep was under-regularized and had no early stopping, hence the earlier "trees do not help" read.
+
+Read. LightGBM is a live option for the final v5 signal, not a curiosity. The scale-fit loss is small; the rank IC and dir_acc lift is real. Two open items before adoption. Rerun on `net_funding_after_costs` once the honest cost matcher lands (this is the load-bearing final check). Sort export path, `booster.dump_model()` codegens to nested if/else or we bind libLightGBM directly.
+
+Housekeeping done in the same pass. `research/models.py:94` dead `if False else` deleted. `research/features.py` gained a `_test_add_cum_target` self-check runnable via `python research/features.py` (verifies row-t label = sum of next 24 realized). See the follow-up entry above for the `funding_signal.ipynb` 1-row purge and the pooled-vs-per-symbol side-by-side.
+
+### External review of the signal-research pipeline (2026-09-07) - one real bug, one deferred, rest is polish
+
+Independent read of `funding_signal.ipynb`, `funding_model_experiment.ipynb`, `research/cv.py`, `features.py`, `models.py`.
+
+Load-bearing items.
+- Horizon/purge mismatch. `add_cum_target(horizon=24)` labels but `run_registry` calls `walk_forward_splits(..., embargo=5)` without passing `horizon`, defaulting to `1`. The purge is 23 rows too narrow. Adjacent train rows share up to 23/24 forward prints with test rows, inflating R2 and rank IC on every model. Fix at the call site, re-run the frozen-winner selection, log the new numbers. Fixes the cross-symbol pooling concern too (purge is by ts-index, was just wrong-sized).
+- Cost-blind objective. Every headline number is on gross cumulative funding, not `net_funding_after_costs`. This is what the honest cost matcher build addresses. Final signal check before v5 becomes a strategy input is: same features, same CV, target swapped to cost-aware PnL.
+
+Worth doing before re-freezing v5.
+- Export-pipeline sanity check. Train on folds 1..N-1 with the exact `Pipeline(StandardScaler, Ridge(1.0))` used in the export, evaluate on fold N. One number. If it matches the CV mean within noise, ship. If not, the artifact's live behavior is not what CV measured.
+- Drift diagnostic. PSI on the top few features between the fold-1 train window and each test fold. Catches scaler miscalibration silently ruining post-FTX folds.
+- GBM re-run. LightGBM with `early_stopping_rounds` and per-fold hyperparameter search on the same features and CV. Three configs no-early-stopping was thin evidence to dismiss trees. If it wins on cost-aware PnL, adopt it. Export path is `dump_model()` code-gen or a libLightGBM bind, not a blocker.
+
+Polish.
+- Persistence-baseline framing. R2 -0.27 vs 0.47 headline overstates the win. Rank IC 0.664 vs 0.724 is the honest lift (0.06). Reprose only.
+- `research/models.py:94` has a dead `if False else` branch. Delete.
+- Assert `add_cum_target` row-t label equals `sum(realized_funding[t..t+23])` on a known symbol. Cheap insurance.
+- `research/features.py:41` groupby-of-a-re-sorted-parent pattern is legible, refactor is optional.
+
+Not urgent, no action.
+- Cross-symbol pooled vs per-symbol side-by-side comparison. Nice-to-have, not a bug.
+
+Read. Methodology is sound in shape. The horizon bug is the one likely to move the headline numbers. Everything else is scope or write-up. The move to honest costs before locking in v5 is exactly the right ordering.
+
 ### H4 signal research, basis leads funding (2026-09-03) - mixed, symbol dependent
 Steps 1 and 2 of the handoff plan, run in `research/funding_signal.ipynb`.
 

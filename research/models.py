@@ -91,7 +91,7 @@ def _make_gbm(params: dict) -> PredictFn:
         Xtr, cols = _with_symbol_dummies(train, feature_cols)
         ytr = train[target_col].to_numpy()
         dtr = lgb.Dataset(Xtr, label=ytr, feature_name=cols)
-        n_rounds = params.pop("num_boost_round", 400) if False else params.get("num_boost_round", 400)
+        n_rounds = params.get("num_boost_round", 400)
         p = {k: v for k, v in params.items() if k != "num_boost_round"}
         booster = lgb.train(p, dtr, num_boost_round=n_rounds)
         Xte, _ = _with_symbol_dummies(test, feature_cols)

@@ -184,6 +184,22 @@ def add_cum_target(events: pd.DataFrame, horizon: int, name: str = "realized_cum
     return out
 
 
+def _test_add_cum_target() -> None:
+    n = 40
+    frame = pd.DataFrame({
+        "symbol": ["BTC"] * n,
+        "ts": pd.date_range("2024-01-01", periods=n, freq="8h", tz="UTC"),
+        "realized_funding": np.linspace(1.0, 4.0, n),
+    })
+    horizon = 24
+    labelled = add_cum_target(frame, horizon=horizon).dropna(subset=["realized_cum"])
+    for row in labelled.itertuples(index=True):
+        expected = frame["realized_funding"].iloc[row.Index : row.Index + horizon].sum()
+        assert np.isclose(row.realized_cum, expected), (row.Index, row.realized_cum, expected)
+    assert labelled.iloc[-1].name == n - horizon
+    print(f"add_cum_target: {len(labelled)} rows verified against manual sum(next {horizon})")
+
+
 def add_time_features(events: pd.DataFrame) -> pd.DataFrame:
     """Hour-of-day and day-of-week of the settlement ts."""
     out = events.copy()
@@ -267,3 +283,6 @@ def add_kline_features(events: pd.DataFrame, klines_by_symbol: dict[str, pd.Data
         agg = aggregate_klines_to_intervals(klines_by_symbol[symbol], g["ts"])
         parts.append(g.merge(agg, on="ts", how="left"))
     return pd.concat(parts, ignore_index=True)
+
+if __name__ == "__main__":
+    _test_add_cum_target()
