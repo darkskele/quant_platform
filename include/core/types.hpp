@@ -7,9 +7,9 @@
 
 namespace qp {
 
-using Timestamp = std::int64_t;  ///< Nanoseconds since epoch.
-using Price     = double;        ///< @todo: fixed-point ticks for exactness.
-using Qty       = double;        ///< Same open exactness gap as Price: step size, not tick size.
+using Timestamp = std::int64_t;   ///< Nanoseconds since epoch.
+using Price     = double;         ///< @todo: fixed-point ticks for exactness.
+using Qty       = double;         ///< Same open exactness gap as Price: step size, not tick size.
 using SymbolId  = std::uint32_t;  ///< Index into venue symbol table.
 using VenueId   = std::uint8_t;   ///< Which leg/venue produced this event. (SymbolId, VenueId)
                                   ///< together identify an instrument, SymbolId alone doesn't.
@@ -183,9 +183,8 @@ struct Fill {
 
 static_assert(sizeof(Fill) == 48, "unexpected padding/size regression");
 
-/// Reasons grow as real ones appear: NoPriceAvailable is SimExecution's
-/// only one today.
-enum class RejectReason : std::uint8_t { NoPriceAvailable };
+/// Reasons grow as real ones appear.
+enum class RejectReason : std::uint8_t { NoPriceAvailable, NoCostAvailable };
 
 /// What happened to a submitted Order: didn't. symbol/reason/venue sit
 /// right after order_id, saving 8 bytes of padding versus declaration order.

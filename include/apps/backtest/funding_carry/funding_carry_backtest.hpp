@@ -50,10 +50,12 @@ class FundingCarryBacktest : public BacktestBase<FundingCarryBacktest> {
 
     FundingCarryBacktest(const std::filesystem::path& data_dir, std::string_view symbol,
                          std::chrono::year_month_day first_day,
-                         std::chrono::year_month_day last_day)
+                         std::chrono::year_month_day last_day,
+                         std::filesystem::path       cost_table_path = {})
         : symbol_id_(resolve_symbol(symbol)),
           futures_source_(config::make_futures_source(data_dir, symbol, first_day, last_day)),
-          spot_source_(config::make_spot_source(data_dir, symbol, first_day, last_day)) {}
+          spot_source_(config::make_spot_source(data_dir, symbol, first_day, last_day)),
+          cost_table_path_(std::move(cost_table_path)) {}
 
     void set_carry_config(const strategy::carry::Config& carry) { config_.carry = carry; }
 
@@ -82,8 +84,11 @@ class FundingCarryBacktest : public BacktestBase<FundingCarryBacktest> {
         config::Tx transport({&std::get<0>(sinks_).queue(), &std::get<1>(sinks_).queue()}, {0, 0});
         config::Risk     risk_gate{risk, portfolio_};
         config::Strategy strategy{carry, portfolio_};
+        // make_matcher is variation-specific: LastTrade ignores the path,
+        // cost-aware reads it.
+        config::Exec exec{config::make_matcher<config::Book>(cost_table_path_)};
         return config::EngineType<Recorder>{
-            std::move(transport),        SimClock{},          config::Exec{},
+            std::move(transport),        SimClock{},          std::move(exec),
             std::move(risk_gate),        std::move(strategy), portfolio_,
             Recorder{&equity_collector_}};
     }
@@ -115,6 +120,7 @@ class FundingCarryBacktest : public BacktestBase<FundingCarryBacktest> {
     config::Book                           portfolio_;
     Config                                 config_{};
     engine::EquitySeriesCollector          equity_collector_{};
+    std::filesystem::path                  cost_table_path_;
 };
 
 }  // namespace qp::backtest::funding_carry

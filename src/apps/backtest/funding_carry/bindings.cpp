@@ -23,14 +23,18 @@ using EquityPoint = qp::engine::EquityPoint;
 // One dataset the notebook picks at runtime: where the CSVs live, which
 // symbol, and the inclusive day range. Built once, reused across a config
 // sweep. Dates are "YYYY-MM-DD"; a bad one fails construction.
+// cost_table_path is used only when the matcher is cost-aware. Empty is fine
+// for LastTradeMatcher builds.
 struct Dataset {
     std::filesystem::path       data_dir;
     std::string                 symbol;
     std::chrono::year_month_day first_day;
     std::chrono::year_month_day last_day;
+    std::filesystem::path       cost_table_path;
 
-    Dataset(std::string dir, std::string sym, const std::string& first, const std::string& last)
-        : data_dir(std::move(dir)), symbol(std::move(sym)) {
+    Dataset(std::string dir, std::string sym, const std::string& first, const std::string& last,
+            std::string cost_path = "")
+        : data_dir(std::move(dir)), symbol(std::move(sym)), cost_table_path(std::move(cost_path)) {
         auto f = config::parse_day(first);
         auto l = config::parse_day(last);
         if (!f) throw std::invalid_argument("bad first_day: " + first);
@@ -84,7 +88,7 @@ template <class Consume>
 auto with_run(const Dataset& ds, const CarryConfig& carry, const RiskConfig& risk,
               Consume&& consume) {
     qp::backtest::funding_carry::FundingCarryBacktest bt{ds.data_dir, ds.symbol, ds.first_day,
-                                                         ds.last_day};
+                                                         ds.last_day, ds.cost_table_path};
     bt.set_carry_config(carry);
     bt.set_risk_config(risk);
     return consume(bt.run());
@@ -98,8 +102,9 @@ PYBIND11_MODULE(qp_backtest, m) {
     m.doc() = "Funding-carry backtest: pick a Dataset, sweep the Config, get metrics or a series.";
 
     py::class_<Dataset>(m, "Dataset")
-        .def(py::init<std::string, std::string, std::string, std::string>(), py::arg("data_dir"),
-             py::arg("symbol"), py::arg("first_day"), py::arg("last_day"));
+        .def(py::init<std::string, std::string, std::string, std::string, std::string>(),
+             py::arg("data_dir"), py::arg("symbol"), py::arg("first_day"), py::arg("last_day"),
+             py::arg("cost_table_path") = "");
 
     py::class_<CarryConfig>(m, "CarryConfig")
         .def(py::init<>())

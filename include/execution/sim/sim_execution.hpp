@@ -27,6 +27,11 @@ class SimExecution {
     static constexpr std::size_t kMaxOutcomes = Book::kMaxInstruments + 64;
 
    public:
+    SimExecution() = default;
+
+    // Non-default matchers carry runtime config, e.g. a CostModel.
+    explicit SimExecution(M matcher) noexcept : matcher_(std::move(matcher)) {}
+
     void on_market_event(const MarketEvent& ev) {
         reset_outcomes();
         matcher_.on_market_event(ev);

@@ -1,0 +1,8 @@
+# execution/sim/matcher/cost_aware/cost_model
+qp_dir(include QP_INC)
+
+add_subdirectory(half_spread_linear)
+
+add_library(qp_execution_sim_matcher_cost_aware_cost_model INTERFACE)
+target_include_directories(qp_execution_sim_matcher_cost_aware_cost_model INTERFACE ${QP_INC})
+target_link_libraries(qp_execution_sim_matcher_cost_aware_cost_model INTERFACE qp_execution_sim_matcher_cost_aware)

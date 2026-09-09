@@ -85,7 +85,9 @@ if(BUILD_TESTING)
     add_executable(qp_tests ${QP_TEST_SRCS})
     target_link_libraries(qp_tests PRIVATE
         qp_core qp_core_test_support qp_clock qp_execution qp_execution_sim
-        qp_execution_sim_matcher_last_trade qp_csv_source qp_sink qp_sink_fanout qp_data_source
+        qp_execution_sim_matcher_last_trade
+        qp_execution_sim_matcher_cost_aware_cost_model_half_spread_linear
+        qp_csv_source qp_sink qp_sink_fanout qp_data_source
         qp_engine qp_transport qp_transport_backtest_in_process qp_strategy qp_strategy_test_support
         qp_strategy_carry qp_risk
         qp_risk_test_support qp_risk_basic qp_engine_test_support qp_source_venue_binance_historical
@@ -112,7 +114,9 @@ if(QP_BUILD_BENCHMARKS)
     add_executable(qp_bench ${QP_BENCH_SRCS})
     target_link_libraries(qp_bench PRIVATE
         qp_core qp_core_test_support qp_clock qp_execution qp_execution_sim
-        qp_execution_sim_matcher_last_trade qp_source_pure qp_csv_source
+        qp_execution_sim_matcher_last_trade
+        qp_execution_sim_matcher_cost_aware_cost_model_half_spread_linear
+        qp_source_pure qp_csv_source
         qp_sink qp_sink_fanout qp_data_source qp_engine qp_transport qp_transport_backtest_in_process
         qp_strategy_test_support
         qp_risk_test_support qp_engine_test_support qp_strategy_carry qp_risk qp_risk_basic

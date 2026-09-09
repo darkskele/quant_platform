@@ -3,6 +3,7 @@ qp_dir(include QP_INC)
 qp_dir(tests QP_TESTS)
 
 add_subdirectory(last_trade)
+add_subdirectory(cost_aware)
 
 add_library(qp_execution_sim_matcher INTERFACE)
 target_include_directories(qp_execution_sim_matcher INTERFACE ${QP_INC})

@@ -31,12 +31,21 @@ target_compile_definitions(qp_backtest_compose INTERFACE
     QP_RISK_${_qp_bt_risk}
     QP_STRATEGY_${_qp_bt_strategy}
 )
+# Pick the matcher lib that matches QP_BACKTEST_MATCHER.
+if(QP_BACKTEST_MATCHER STREQUAL "last_trade")
+    set(_qp_bt_matcher_lib qp_execution_sim_matcher_last_trade)
+elseif(QP_BACKTEST_MATCHER STREQUAL "cost_aware")
+    set(_qp_bt_matcher_lib qp_execution_sim_matcher_cost_aware_cost_model_half_spread_linear)
+else()
+    message(FATAL_ERROR "unknown QP_BACKTEST_MATCHER '${QP_BACKTEST_MATCHER}'")
+endif()
+
 target_link_libraries(qp_backtest_compose INTERFACE qp_data_source qp_csv_source
                                                     qp_source_venue_binance_historical
                                                     qp_sink_fanout qp_transport
                                                     qp_transport_backtest_in_process qp_engine
                                                     qp_execution_sim
-                                                    qp_execution_sim_matcher_last_trade qp_risk_basic
+                                                    ${_qp_bt_matcher_lib} qp_risk_basic
                                                     qp_strategy_carry)
 
 # Test + bench pass the committed fixture dataset in as runtime arguments.
