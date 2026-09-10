@@ -27,18 +27,23 @@ using EquityPoint    = qp::engine::EquityPoint;
 // Dataset. Dates are "YYYY-MM-DD"; a bad one fails construction.
 struct Dataset {
     std::filesystem::path       data_dir;
-    std::string                 symbol;
+    std::vector<std::string>    symbols;
     std::chrono::year_month_day first_day;
     std::chrono::year_month_day last_day;
 
-    Dataset(std::string dir, std::string sym, const std::string& first, const std::string& last)
-        : data_dir(std::move(dir)), symbol(std::move(sym)) {
+    Dataset(std::string dir, std::vector<std::string> syms, const std::string& first,
+            const std::string& last)
+        : data_dir(std::move(dir)), symbols(std::move(syms)) {
         auto f = config::parse_day(first);
         auto l = config::parse_day(last);
         if (!f) throw std::invalid_argument("bad first_day: " + first);
         if (!l) throw std::invalid_argument("bad last_day: " + last);
         first_day = *f, last_day = *l;
     }
+
+    Dataset(std::string dir, const std::string& sym, const std::string& first,
+            const std::string& last)
+        : Dataset(std::move(dir), std::vector<std::string>{sym}, first, last) {}
 };
 
 }  // namespace
@@ -160,18 +165,20 @@ PYBIND11_MODULE(qp_python_backtest, m) {
     py::class_<Results>(m, "Results")
         .def_readonly("final_cash", &Results::final_cash)
         .def_readonly("final_equity", &Results::final_equity)
-        .def_readonly("symbol_id", &Results::symbol_id)
+        .def_readonly("symbol_ids", &Results::symbol_ids)
         .def_property_readonly("equity_series", [](const Results& r) {
             return std::vector<EquityPoint>(r.equity_series.begin(), r.equity_series.end());
         });
 
     py::class_<Dataset>(m, "Dataset")
         .def(py::init<std::string, std::string, std::string, std::string>(), py::arg("data_dir"),
-             py::arg("symbol"), py::arg("first_day"), py::arg("last_day"));
+             py::arg("symbol"), py::arg("first_day"), py::arg("last_day"))
+        .def(py::init<std::string, std::vector<std::string>, std::string, std::string>(),
+             py::arg("data_dir"), py::arg("symbols"), py::arg("first_day"), py::arg("last_day"));
 
     py::class_<PythonBacktest>(m, "PythonBacktest")
         .def(py::init([](const Dataset& d) {
-            return std::make_unique<PythonBacktest>(d.data_dir, d.symbol, d.first_day, d.last_day);
+            return std::make_unique<PythonBacktest>(d.data_dir, d.symbols, d.first_day, d.last_day);
         }))
         .def("set_on_event", &PythonBacktest::set_on_event, py::arg("cb"))
         .def("set_on_timer", &PythonBacktest::set_on_timer, py::arg("cb"))

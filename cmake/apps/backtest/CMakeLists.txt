@@ -58,8 +58,10 @@ set(_qp_fixture_defs
 
 if(BUILD_TESTING)
     find_package(GTest CONFIG REQUIRED)
-    add_executable(qp_backtest_pipeline_tests ${QP_TESTS}/test_backtest_pipeline.cpp)
-    target_link_libraries(qp_backtest_pipeline_tests PRIVATE qp_backtest_compose GTest::gtest
+    file(GLOB QP_BACKTEST_TESTS CONFIGURE_DEPENDS ${QP_TESTS}/test_*.cpp)
+    add_executable(qp_backtest_pipeline_tests ${QP_BACKTEST_TESTS})
+    target_link_libraries(qp_backtest_pipeline_tests PRIVATE qp_backtest_compose
+                                                             qp_core_test_support GTest::gtest
                                                              GTest::gtest_main)
     target_compile_definitions(qp_backtest_pipeline_tests PRIVATE ${_qp_fixture_defs})
     qp_register_test(qp_backtest_pipeline_tests)

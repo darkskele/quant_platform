@@ -10,6 +10,7 @@
 #include <string_view>
 #include <tuple>
 #include <utility>
+#include <vector>
 
 #include "backtest_base.hpp"
 #include "config/compose.hpp"
@@ -28,11 +29,11 @@ class PythonBacktest : public BacktestBase<PythonBacktest> {
    public:
     using Recorder = engine::EquitySeriesRecorder;
 
-    PythonBacktest(const std::filesystem::path& data_dir, std::string_view symbol,
+    PythonBacktest(const std::filesystem::path& data_dir, const std::vector<std::string>& symbols,
                    std::chrono::year_month_day first_day, std::chrono::year_month_day last_day)
-        : symbol_id_(resolve_symbol(symbol)),
-          futures_source_(config::make_futures_source(data_dir, symbol, first_day, last_day)),
-          spot_source_(config::make_spot_source(data_dir, symbol, first_day, last_day)) {}
+        : symbol_ids_(resolve_symbols(symbols)),
+          futures_source_(config::make_futures_source(data_dir, symbols, first_day, last_day)),
+          spot_source_(config::make_spot_source(data_dir, symbols, first_day, last_day)) {}
 
     void set_on_event(pybind11::object cb) { on_event_ = std::move(cb); }
 
@@ -65,7 +66,7 @@ class PythonBacktest : public BacktestBase<PythonBacktest> {
     struct Results {
         Notional                             final_cash{};
         Notional                             final_equity{};
-        SymbolId                             symbol_id{};
+        std::vector<SymbolId>                symbol_ids{};
         std::span<const engine::EquityPoint> equity_series{};
     };
 
@@ -74,7 +75,7 @@ class PythonBacktest : public BacktestBase<PythonBacktest> {
         return Results{
             .final_cash    = portfolio_.cash(),
             .final_equity  = portfolio_.equity(),
-            .symbol_id     = symbol_id_,
+            .symbol_ids    = symbol_ids_,
             .equity_series = equity_collector_.series(),
         };
     }
@@ -82,13 +83,18 @@ class PythonBacktest : public BacktestBase<PythonBacktest> {
     const config::Book& portfolio() const { return portfolio_; }
 
    private:
-    static SymbolId resolve_symbol(std::string_view symbol) {
-        auto id = config::FuturesTable::id_of(symbol);
-        if (!id) throw std::invalid_argument("unknown symbol: " + std::string(symbol));
-        return *id;
+    static std::vector<SymbolId> resolve_symbols(const std::vector<std::string>& symbols) {
+        std::vector<SymbolId> ids;
+        ids.reserve(symbols.size());
+        for (const auto& symbol : symbols) {
+            auto id = config::FuturesTable::id_of(symbol);
+            if (!id) throw std::invalid_argument("unknown symbol: " + symbol);
+            ids.push_back(*id);
+        }
+        return ids;
     }
 
-    SymbolId                               symbol_id_;
+    std::vector<SymbolId>                  symbol_ids_;
     config::FuturesSource                  futures_source_;
     config::SpotSource                     spot_source_;
     std::tuple<config::Sink, config::Sink> sinks_;
