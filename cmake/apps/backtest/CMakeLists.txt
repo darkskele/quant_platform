@@ -54,6 +54,7 @@ set(_qp_fixture_defs
     QP_BACKTEST_SYMBOL="BTCUSDT"
     QP_BACKTEST_FIRST_DAY="2024-01-01"
     QP_BACKTEST_LAST_DAY="2024-01-07"
+    QP_BACKTEST_COST_TABLE="${CMAKE_SOURCE_DIR}/tests/apps/backtest/fixtures/cost_table.csv"
 )
 
 if(BUILD_TESTING)

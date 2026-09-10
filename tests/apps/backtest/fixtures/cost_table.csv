@@ -1,0 +1,5 @@
+symbol,venue,week_start,half_spread_bps,impact_bps_per_unit,taker_fee_bps
+BTCUSDT,0,2023-12-25,1.0,0.01,4.0
+BTCUSDT,0,2024-01-01,1.0,0.01,4.0
+BTCUSDT,1,2023-12-25,1.5,0.01,10.0
+BTCUSDT,1,2024-01-01,1.5,0.01,10.0

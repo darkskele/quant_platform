@@ -104,7 +104,7 @@ void BM_BacktestInProcessTransport_NRingsContended(benchmark::State& state) {
         transport.flush();
         for (auto _ : state) {
             for (std::size_t n = 0; n < N; ++n) {
-                std::optional<qp::MarketEvent> out;
+                std::optional<qp::engine::transport::EngineInput> out;
                 while (!(out = transport.next())) {
                 }
                 benchmark::DoNotOptimize(out);

@@ -1,6 +1,7 @@
 #pragma once
 #include <optional>
 
+#include "transport.hpp"
 #include "types.hpp"
 
 namespace qp::test {
@@ -10,7 +11,9 @@ namespace qp::test {
 struct InfiniteTransport {
     MarketEvent event;
 
-    std::optional<MarketEvent> next() { return event; }
+    std::optional<engine::transport::EngineInput> next() {
+        return engine::transport::EngineInput{header_of(event).ts, event};
+    }
 
     void flush() noexcept {}
 };
@@ -21,12 +24,10 @@ struct SeedThenSteadyStateTransport {
     MarketEvent steady_state;
     bool        seeded = false;
 
-    std::optional<MarketEvent> next() {
-        if (!seeded) {
-            seeded = true;
-            return seed;
-        }
-        return steady_state;
+    std::optional<engine::transport::EngineInput> next() {
+        const MarketEvent& e = seeded ? steady_state : seed;
+        seeded               = true;
+        return engine::transport::EngineInput{header_of(e).ts, e};
     }
 
     void flush() noexcept {}

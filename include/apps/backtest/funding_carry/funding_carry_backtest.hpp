@@ -14,7 +14,6 @@
 #include "config/compose.hpp"
 #include "funding_carry_strategy.hpp"
 #include "recorder/equity_series/equity_series_recorder.hpp"
-#include "sim_clock.hpp"
 #include "types.hpp"
 
 namespace qp::backtest::funding_carry {
@@ -87,10 +86,9 @@ class FundingCarryBacktest : public BacktestBase<FundingCarryBacktest> {
         // make_matcher is variation-specific: LastTrade ignores the path,
         // cost-aware reads it.
         config::Exec exec{config::make_matcher<config::Book>(cost_table_path_)};
-        return config::EngineType<Recorder>{
-            std::move(transport),        SimClock{},          std::move(exec),
-            std::move(risk_gate),        std::move(strategy), portfolio_,
-            Recorder{&equity_collector_}};
+        return config::EngineType<Recorder>{std::move(transport), std::move(exec),
+                                            std::move(risk_gate), std::move(strategy),
+                                            portfolio_,           Recorder{&equity_collector_}};
     }
 
     Results results() {

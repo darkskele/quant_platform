@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <concepts>
@@ -22,9 +23,11 @@ class Portfolio {
     }();
 
     void apply_fill(const Fill& fill) noexcept {
-        Qty delta = fill.side == Side::Buy ? fill.qty : -fill.qty;
-        positions_[index(fill.symbol, fill.venue)] += delta;
+        std::size_t i     = index(fill.symbol, fill.venue);
+        Qty         delta = fill.side == Side::Buy ? fill.qty : -fill.qty;
+        positions_[i] += delta;
         cash_ -= delta * fill.price + fill.fee;  // buying costs cash, fee always does
+        fees_[i] += fill.fee;
     }
 
     /// No-op unless `event` holds a FundingEvent. Settles against the
@@ -36,8 +39,12 @@ class Portfolio {
         if (!funding) return;
         // Positive funding_rate: longs pay shorts, so a long position debits
         // cash, a short one credits it.
-        std::size_t i = index(funding->symbol, funding->venue);
-        cash_ -= positions_[i] * funding_mark_price_[i] * funding->funding_rate;
+        std::size_t i    = index(funding->symbol, funding->venue);
+        Notional    flow = positions_[i] * funding_mark_price_[i] * funding->funding_rate;
+        cash_ -= flow;
+        // Split settled funding into its two signs branchlessly.
+        funding_paid_[i] += std::max(flow, 0.0);
+        funding_received_[i] -= std::min(flow, 0.0);
     }
 
     /// Marks (symbol, venue) at whichever scalar price `event` carries:
@@ -68,6 +75,25 @@ class Portfolio {
     }
 
     Notional cash() const noexcept { return cash_; }
+
+    /// Attribution, cumulative per instrument. fees is always positive,
+    /// funding_paid/received are the two signs of settled funding split
+    /// apart. mark is the latest valuation price, for a basis split.
+    Notional fees(SymbolId symbol, VenueId venue) const noexcept {
+        return fees_[index(symbol, venue)];
+    }
+
+    Notional funding_paid(SymbolId symbol, VenueId venue) const noexcept {
+        return funding_paid_[index(symbol, venue)];
+    }
+
+    Notional funding_received(SymbolId symbol, VenueId venue) const noexcept {
+        return funding_received_[index(symbol, venue)];
+    }
+
+    Price mark(SymbolId symbol, VenueId venue) const noexcept {
+        return mark_price_[index(symbol, venue)];
+    }
 
     /// cash() plus every position's mark-to-market value. Linear scan, not
     /// tracked incrementally, called at most once per Engine::step(),
@@ -103,10 +129,13 @@ class Portfolio {
         funding_mark_price_[index(symbol, venue)] = price;
     }
 
-    std::array<Qty, kMaxInstruments>   positions_{};
-    std::array<Price, kMaxInstruments> mark_price_{};
-    std::array<Price, kMaxInstruments> funding_mark_price_{};
-    Notional                           cash_{0.0};
+    std::array<Qty, kMaxInstruments>      positions_{};
+    std::array<Price, kMaxInstruments>    mark_price_{};
+    std::array<Price, kMaxInstruments>    funding_mark_price_{};
+    std::array<Notional, kMaxInstruments> fees_{};
+    std::array<Notional, kMaxInstruments> funding_paid_{};
+    std::array<Notional, kMaxInstruments> funding_received_{};
+    Notional                              cash_{0.0};
 };
 
 /// The seam Engine/Strategy/RiskGate depend on instead of the concrete

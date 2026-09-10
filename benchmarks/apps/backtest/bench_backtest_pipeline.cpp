@@ -33,16 +33,17 @@ std::size_t drain(Source& source) {
 }  // namespace
 
 // The committed fixture, passed at runtime the way a real run picks a dataset.
-const std::filesystem::path       kDataDir  = QP_BACKTEST_DATA_DIR;
-constexpr std::string_view        kSymbol   = QP_BACKTEST_SYMBOL;
-const std::chrono::year_month_day kFirstDay = *config::parse_day(QP_BACKTEST_FIRST_DAY);
-const std::chrono::year_month_day kLastDay  = *config::parse_day(QP_BACKTEST_LAST_DAY);
+const std::filesystem::path       kDataDir   = QP_BACKTEST_DATA_DIR;
+constexpr std::string_view        kSymbol    = QP_BACKTEST_SYMBOL;
+const std::chrono::year_month_day kFirstDay  = *config::parse_day(QP_BACKTEST_FIRST_DAY);
+const std::chrono::year_month_day kLastDay   = *config::parse_day(QP_BACKTEST_LAST_DAY);
+const std::filesystem::path       kCostTable = QP_BACKTEST_COST_TABLE;
 
 // Real end-to-end pipeline throughput.
 void BM_BacktestPipeline_RunOneWeek(benchmark::State& state) {
     for (auto _ : state) {
         qp::backtest::funding_carry::FundingCarryBacktest backtest{kDataDir, kSymbol, kFirstDay,
-                                                                   kLastDay};
+                                                                   kLastDay, kCostTable};
         auto                                              results = backtest.run();
         benchmark::DoNotOptimize(results);
     }

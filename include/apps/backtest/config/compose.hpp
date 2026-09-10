@@ -5,7 +5,6 @@
 #include "engine.hpp"
 #include "engine_config.hpp"
 #include "futures_leg.hpp"
-#include "sim_clock.hpp"
 #include "sim_execution.hpp"
 #include "sink_config.hpp"
 #include "spot_leg.hpp"
@@ -29,6 +28,6 @@ using Strategy = StrategyType<Book>;
 using Tx       = engine::transport::BacktestInProcessTransport<kRingCapacity, kNumVenues>;
 
 template <class Recorder = engine::NullRecorder>
-using EngineType = engine::Engine<Tx, SimClock, Exec, Risk, Strategy, Book, Recorder>;
+using EngineType = engine::Engine<Tx, Exec, Risk, Strategy, Book, Recorder>;
 
 }  // namespace qp::backtest::config

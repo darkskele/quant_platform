@@ -2,13 +2,11 @@
 
 #include <array>
 
-#include "clock.hpp"
 #include "engine.hpp"
 #include "execution_gateway.hpp"
 #include "matcher/last_trade/last_trade_matcher.hpp"
 #include "portfolio.hpp"
 #include "risk_gate.hpp"
-#include "sim_clock.hpp"
 #include "sim_execution.hpp"
 #include "strategy.hpp"
 #include "support/fake_transport.hpp"
@@ -33,14 +31,10 @@ using TestExec = qp::execution::sim::SimExecution<
 // advance, exec.on_market_event, and one direct Strategy call.
 void BM_Engine_StepOneNoopStrategy(benchmark::State& state) {
     Book portfolio;
-    qp::engine::Engine<InfiniteTransport, qp::SimClock, TestExec, AlwaysApproveRiskGate,
-                       NoopStrategy, Book>
+    qp::engine::Engine<InfiniteTransport, TestExec, AlwaysApproveRiskGate, NoopStrategy, Book>
         engine{InfiniteTransport{qp::test::make_funding(1, 0, 0.0)},
-               qp::SimClock{},
-               TestExec{},
-               AlwaysApproveRiskGate{},
-               NoopStrategy{},
-               portfolio};
+
+               TestExec{}, AlwaysApproveRiskGate{}, NoopStrategy{}, portfolio};
     // DoNotOptimize(portfolio), not just the discarded step() bool: step()'s
     // real effects are writes into portfolio's memory (apply_fill/
     // apply_funding/apply_mark_price) that nothing here ever reads back —
@@ -64,14 +58,11 @@ BENCHMARK(BM_Engine_StepOneNoopStrategy);
 // actually runs.
 void BM_Engine_StepOneStrategyFullPipeline(benchmark::State& state) {
     Book portfolio;
-    qp::engine::Engine<InfiniteTransport, qp::SimClock, TestExec, AlwaysApproveRiskGate,
-                       AlwaysIntentStrategy, Book>
+    qp::engine::Engine<InfiniteTransport, TestExec, AlwaysApproveRiskGate, AlwaysIntentStrategy,
+                       Book>
         engine{InfiniteTransport{qp::test::make_trade(1, 0, 100.0)},
-               qp::SimClock{},
-               TestExec{},
-               AlwaysApproveRiskGate{},
-               AlwaysIntentStrategy{},
-               portfolio};
+
+               TestExec{}, AlwaysApproveRiskGate{}, AlwaysIntentStrategy{}, portfolio};
     for (auto _ : state) {
         engine.step();
         benchmark::DoNotOptimize(portfolio);
@@ -90,15 +81,12 @@ BENCHMARK(BM_Engine_StepOneStrategyFullPipeline);
 // subsequent step is the Funding event under measurement.
 void BM_Engine_StepFundingEventFullPipeline(benchmark::State& state) {
     Book portfolio;
-    qp::engine::Engine<SeedThenSteadyStateTransport, qp::SimClock, TestExec, AlwaysApproveRiskGate,
+    qp::engine::Engine<SeedThenSteadyStateTransport, TestExec, AlwaysApproveRiskGate,
                        AlwaysIntentStrategy, Book>
         engine{SeedThenSteadyStateTransport{qp::test::make_trade(1, 0, 100.0),
                                             qp::test::make_funding(1, 0, 0.0001)},
-               qp::SimClock{},
-               TestExec{},
-               AlwaysApproveRiskGate{},
-               AlwaysIntentStrategy{},
-               portfolio};
+
+               TestExec{}, AlwaysApproveRiskGate{}, AlwaysIntentStrategy{}, portfolio};
     for (auto _ : state) {
         engine.step();
         benchmark::DoNotOptimize(portfolio);

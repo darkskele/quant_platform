@@ -13,7 +13,7 @@ TEST(BacktestPipeline, RunsTheRealEntryPointAgainstAWeekOfFixtureDataWithoutViol
     namespace config = qp::backtest::config;
     qp::backtest::funding_carry::FundingCarryBacktest backtest{
         QP_BACKTEST_DATA_DIR, QP_BACKTEST_SYMBOL, *config::parse_day(QP_BACKTEST_FIRST_DAY),
-        *config::parse_day(QP_BACKTEST_LAST_DAY)};
+        *config::parse_day(QP_BACKTEST_LAST_DAY), QP_BACKTEST_COST_TABLE};
     auto results = backtest.run();
 
     // Finite, not NaN/inf — a real run that actually touched the book,

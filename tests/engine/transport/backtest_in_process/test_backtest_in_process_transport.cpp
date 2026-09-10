@@ -44,7 +44,7 @@ TEST(BacktestInProcessTransport, OrdersByTimestampNotArrivalOrder) {
     for (qp::Timestamp expected : {100, 200, 300, 400}) {
         auto out = t.next();
         ASSERT_TRUE(out.has_value());
-        EXPECT_EQ(header_of(*out).ts, expected);
+        EXPECT_EQ(out->ts, expected);
     }
 }
 
@@ -59,7 +59,7 @@ TEST(BacktestInProcessTransport, WaitsUntilEveryLegHasSomethingBuffered) {
     push(b, 999, 2);
     auto out = t.next();
     ASSERT_TRUE(out.has_value());
-    EXPECT_EQ(header_of(*out).ts, 50);
+    EXPECT_EQ(out->ts, 50);
 }
 
 TEST(BacktestInProcessTransport, StallsRatherThanGuessingAnEmptyLegIsDone) {
@@ -82,7 +82,7 @@ TEST(BacktestInProcessTransport, TiesBreakToTheLowestQueueIndex) {
 
     auto out = t.next();
     ASSERT_TRUE(out.has_value());
-    EXPECT_EQ(header_of(*out).symbol, 1u);
+    EXPECT_EQ(header_of(*out->event).symbol, 1u);
 }
 
 TEST(BacktestInProcessTransport, InterleavesThreeLegsInTimestampOrder) {
@@ -103,7 +103,7 @@ TEST(BacktestInProcessTransport, InterleavesThreeLegsInTimestampOrder) {
     for (qp::Timestamp expected : {10, 20, 30, 40, 50, 60}) {
         auto out = t.next();
         ASSERT_TRUE(out.has_value());
-        EXPECT_EQ(header_of(*out).ts, expected);
+        EXPECT_EQ(out->ts, expected);
     }
 }
 
@@ -115,14 +115,14 @@ TEST(BacktestInProcessTransport, FlushDrainsBufferedEventsInsteadOfStallingOnAnE
 
     Transport t({&a, &b}, {0, 0});
 
-    EXPECT_EQ(header_of(*t.next()).ts, 10);
-    EXPECT_EQ(header_of(*t.next()).ts, 20);
+    EXPECT_EQ(t.next()->ts, 10);
+    EXPECT_EQ(t.next()->ts, 20);
     EXPECT_FALSE(t.next().has_value());
 
     t.flush();
     auto flushed = t.next();
     ASSERT_TRUE(flushed.has_value());
-    EXPECT_EQ(header_of(*flushed).ts, 30);
+    EXPECT_EQ(flushed->ts, 30);
     EXPECT_FALSE(t.next().has_value());
 }
 
@@ -139,7 +139,7 @@ TEST(BacktestInProcessTransport, FlushEmittedInTimestampOrderAcrossLegs) {
     for (qp::Timestamp expected : {10, 20, 30, 40}) {
         auto out = t.next();
         ASSERT_TRUE(out.has_value());
-        EXPECT_EQ(header_of(*out).ts, expected);
+        EXPECT_EQ(out->ts, expected);
     }
     EXPECT_FALSE(t.next().has_value());
 }
@@ -184,8 +184,8 @@ TEST(BacktestInProcessTransport, ConcurrentProducersMergeCorrectlyUnderRealThrea
             flushed = true;
         }
         if (auto out = t.next()) {
-            EXPECT_GE(header_of(*out).ts, last_ts);
-            last_ts = header_of(*out).ts;
+            EXPECT_GE(out->ts, last_ts);
+            last_ts = out->ts;
             ++consumed;
         }
     }
@@ -193,4 +193,31 @@ TEST(BacktestInProcessTransport, ConcurrentProducersMergeCorrectlyUnderRealThrea
     joiner.join();
     EXPECT_EQ(consumed, N * kEventsPerLeg);
     EXPECT_FALSE(t.next().has_value());
+}
+
+TEST(BacktestInProcessTransport, InjectsTimerTicksOnPeriodBetweenEvents) {
+    Queue a, b;
+    push(a, 100, 1);
+    push(a, 450, 1);
+    push(a, kSentinel, 1);
+    push(b, kSentinel, 2);
+
+    Transport t({&a, &b}, {0, 0}, /*timer_period=*/100);
+
+    auto first = t.next();  // event at 100, arms the timer one period on
+    ASSERT_TRUE(first.has_value());
+    ASSERT_TRUE(first->event.has_value());
+    EXPECT_EQ(first->ts, 100);
+
+    for (qp::Timestamp tick : {200, 300, 400}) {  // ticks before the next event
+        auto out = t.next();
+        ASSERT_TRUE(out.has_value());
+        EXPECT_FALSE(out->event.has_value());
+        EXPECT_EQ(out->ts, tick);
+    }
+
+    auto next_event = t.next();
+    ASSERT_TRUE(next_event.has_value());
+    ASSERT_TRUE(next_event->event.has_value());
+    EXPECT_EQ(next_event->ts, 450);
 }

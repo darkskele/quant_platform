@@ -170,6 +170,10 @@ PYBIND11_MODULE(qp_python_backtest, m) {
         .def_readonly("final_cash", &Results::final_cash)
         .def_readonly("final_equity", &Results::final_equity)
         .def_readonly("symbol_ids", &Results::symbol_ids)
+        .def_readonly("fees", &Results::fees)
+        .def_readonly("funding_received", &Results::funding_received)
+        .def_readonly("funding_paid", &Results::funding_paid)
+        .def_readonly("basis_pnl", &Results::basis_pnl)
         .def_property_readonly("equity_series", [](const Results& r) {
             return std::vector<EquityPoint>(r.equity_series.begin(), r.equity_series.end());
         });
@@ -192,6 +196,11 @@ PYBIND11_MODULE(qp_python_backtest, m) {
         .def("set_on_timer", &PythonBacktest::set_on_timer, py::arg("cb"))
         .def("set_check", &PythonBacktest::set_check, py::arg("cb"))
         .def("set_on_tick", &PythonBacktest::set_on_tick, py::arg("cb"))
+        .def("set_timer_period", &PythonBacktest::set_timer_period, py::arg("period_ns"))
+        // Read-only book state, callable from inside the python callbacks.
+        .def("equity", &PythonBacktest::equity)
+        .def("cash", &PythonBacktest::cash)
+        .def("position", &PythonBacktest::position, py::arg("symbol"), py::arg("venue"))
         // Engine runs on a worker thread that calls the python callbacks;
         // release the GIL here so those callbacks can acquire it.
         .def("run", &PythonBacktest::run, py::call_guard<py::gil_scoped_release>());

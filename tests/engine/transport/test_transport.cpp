@@ -5,13 +5,13 @@
 #include "transport.hpp"
 #include "types.hpp"
 
-using qp::MarketEvent;
+using qp::engine::transport::EngineInput;
 using qp::engine::transport::Transport;
 
 namespace {
 
 struct GoodTransport {
-    std::optional<MarketEvent> next() { return std::nullopt; }
+    std::optional<EngineInput> next() { return std::nullopt; }
 
     void flush() noexcept {}
 };
@@ -27,7 +27,7 @@ struct MissingNext {
 };
 
 struct MissingFlush {
-    std::optional<MarketEvent> next() { return std::nullopt; }
+    std::optional<EngineInput> next() { return std::nullopt; }
 };
 
 }  // namespace

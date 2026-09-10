@@ -8,14 +8,12 @@
 #include <thread>
 #include <vector>
 
-#include "clock.hpp"
 #include "control_channel.hpp"
 #include "engine.hpp"
 #include "execution_gateway.hpp"
 #include "matcher/last_trade/last_trade_matcher.hpp"
 #include "portfolio.hpp"
 #include "risk_gate.hpp"
-#include "sim_clock.hpp"
 #include "sim_execution.hpp"
 #include "strategy.hpp"
 #include "support/market_event_builders.hpp"
@@ -40,9 +38,10 @@ struct FakeTransport {
     std::vector<qp::MarketEvent> events;
     std::size_t                  index = 0;
 
-    std::optional<qp::MarketEvent> next() {
+    std::optional<qp::engine::transport::EngineInput> next() {
         if (index >= events.size()) return std::nullopt;
-        return events[index++];
+        auto& e = events[index++];
+        return qp::engine::transport::EngineInput{qp::header_of(e).ts, e};
     }
 
     void flush() noexcept {}
@@ -80,10 +79,10 @@ struct CountingStrategy {
 
 using TestExec = qp::execution::sim::SimExecution<
     qp::execution::sim::matcher::last_trade::LastTradeMatcher<Portfolio>, Portfolio>;
-using SingleTest = qp::engine::Engine<FakeTransport, qp::SimClock, TestExec, AlwaysApproveRiskGate,
+using SingleTest = qp::engine::Engine<FakeTransport, TestExec, AlwaysApproveRiskGate,
                                       SingleIntentStrategy, Portfolio>;
-using CountTest  = qp::engine::Engine<FakeTransport, qp::SimClock, TestExec, AlwaysApproveRiskGate,
-                                      CountingStrategy, Portfolio>;
+using CountTest =
+    qp::engine::Engine<FakeTransport, TestExec, AlwaysApproveRiskGate, CountingStrategy, Portfolio>;
 
 }  // namespace
 
@@ -95,11 +94,9 @@ static_assert(qp::risk::RiskGate<AlwaysApproveRiskGate>);
 TEST(Engine, StepReturnsFalseWhenTransportExhausted) {
     Portfolio  portfolio;
     SingleTest engine{FakeTransport{},
-                      qp::SimClock{},
-                      TestExec{},
-                      AlwaysApproveRiskGate{},
-                      SingleIntentStrategy{.symbol = 1, .target_position = 2.0},
-                      portfolio};
+
+                      TestExec{}, AlwaysApproveRiskGate{},
+                      SingleIntentStrategy{.symbol = 1, .target_position = 2.0}, portfolio};
 
     EXPECT_FALSE(engine.step());
 }
@@ -108,11 +105,9 @@ TEST(Engine, TradeThenIntentApprovedFillsAndUpdatesPortfolio) {
     std::vector<qp::MarketEvent> events{make_trade(1, 1000, 100.0)};
     Portfolio                    portfolio;
     SingleTest                   engine{FakeTransport{events},
-                      qp::SimClock{},
-                      TestExec{},
-                      AlwaysApproveRiskGate{},
-                      SingleIntentStrategy{.symbol = 1, .target_position = 2.0},
-                      portfolio};
+
+                      TestExec{}, AlwaysApproveRiskGate{},
+                      SingleIntentStrategy{.symbol = 1, .target_position = 2.0}, portfolio};
 
     EXPECT_TRUE(engine.step());
     EXPECT_EQ(portfolio.position(1, 0), 2.0);
@@ -123,11 +118,9 @@ TEST(Engine, NoPriceSeenYetRejectsAndLeavesPortfolioUnaffected) {
     std::vector<qp::MarketEvent> events{make_funding(1, 1000, 0.0)};  // not a Trade -> no price
     Portfolio                    portfolio;
     SingleTest                   engine{FakeTransport{events},
-                      qp::SimClock{},
-                      TestExec{},
-                      AlwaysApproveRiskGate{},
-                      SingleIntentStrategy{.symbol = 1, .target_position = 2.0},
-                      portfolio};
+
+                      TestExec{}, AlwaysApproveRiskGate{},
+                      SingleIntentStrategy{.symbol = 1, .target_position = 2.0}, portfolio};
 
     EXPECT_TRUE(engine.step());
     EXPECT_EQ(portfolio.position(1, 0), 0.0);
@@ -141,8 +134,8 @@ TEST(Engine, RunDrainsEveryEventInTheTransport) {
         make_funding(1, 3000, 0.0),
     };
     Portfolio portfolio;
-    CountTest engine{FakeTransport{events},   qp::SimClock{},           TestExec{},
-                     AlwaysApproveRiskGate{}, CountingStrategy{&calls}, portfolio};
+    CountTest engine{FakeTransport{events}, TestExec{}, AlwaysApproveRiskGate{},
+                     CountingStrategy{&calls}, portfolio};
 
     while (engine.step()) {
     }
@@ -160,8 +153,8 @@ TEST(Engine, RunProcessesEveryEventThenExitsOnControlStop) {
         make_funding(1, 3000, 0.0),
     };
     Portfolio portfolio;
-    CountTest engine{FakeTransport{events},   qp::SimClock{},           TestExec{},
-                     AlwaysApproveRiskGate{}, CountingStrategy{&calls}, portfolio};
+    CountTest engine{FakeTransport{events}, TestExec{}, AlwaysApproveRiskGate{},
+                     CountingStrategy{&calls}, portfolio};
 
     qp::ControlChannel<1> control;
     std::size_t           consumer = control.attach();
@@ -183,11 +176,9 @@ TEST(Engine, FundingEventSettlesAgainstCurrentPositionBeforeStrategyReacts) {
     };
     Portfolio  portfolio;
     SingleTest engine{FakeTransport{events},
-                      qp::SimClock{},
-                      TestExec{},
-                      AlwaysApproveRiskGate{},
-                      SingleIntentStrategy{.symbol = 1, .target_position = 2.0},
-                      portfolio};
+
+                      TestExec{}, AlwaysApproveRiskGate{},
+                      SingleIntentStrategy{.symbol = 1, .target_position = 2.0}, portfolio};
 
     EXPECT_TRUE(engine.step());  // Trade -> intent -> fill: position 2, cash -200 - taker fee
     EXPECT_TRUE(engine.step());  // MarkPriceKline -> sets the price funding settles against
@@ -204,17 +195,13 @@ TEST(Engine, SiblingEnginesShareOnePortfolioAcrossBothStrategiesFills) {
     std::vector<qp::MarketEvent> events_b{make_trade(1, 1000, 100.0)};
     Portfolio                    portfolio;
     SingleTest                   engine_a{FakeTransport{events_a},
-                        qp::SimClock{},
-                        TestExec{},
-                        AlwaysApproveRiskGate{},
-                        SingleIntentStrategy{.symbol = 1, .target_position = 2.0},
-                        portfolio};
+
+                        TestExec{}, AlwaysApproveRiskGate{},
+                        SingleIntentStrategy{.symbol = 1, .target_position = 2.0}, portfolio};
     SingleTest                   engine_b{FakeTransport{events_b},
-                        qp::SimClock{},
-                        TestExec{},
-                        AlwaysApproveRiskGate{},
-                        SingleIntentStrategy{.symbol = 1, .target_position = 3.0},
-                        portfolio};
+
+                        TestExec{}, AlwaysApproveRiskGate{},
+                        SingleIntentStrategy{.symbol = 1, .target_position = 3.0}, portfolio};
 
     EXPECT_TRUE(engine_a.step());
     EXPECT_TRUE(engine_b.step());
@@ -231,15 +218,13 @@ TEST(Engine, SiblingEnginesShareOnePortfolioAcrossBothStrategiesFills) {
 TEST(Engine, RiskGateOnTickOrdersAreSubmittedAndAppliedToThePortfolio) {
     std::vector<qp::MarketEvent> events{make_trade(1, 1000, 100.0)};
     Portfolio                    portfolio;
-    qp::engine::Engine<FakeTransport, qp::SimClock, TestExec, AlwaysFlattenRiskGate, NoopStrategy,
-                       Portfolio>
+    qp::engine::Engine<FakeTransport, TestExec, AlwaysFlattenRiskGate, NoopStrategy, Portfolio>
         engine{FakeTransport{events},
-               qp::SimClock{},
+
                TestExec{},
                AlwaysFlattenRiskGate{
                    .order = qp::Order{.id = 1, .symbol = 1, .side = qp::Side::Sell, .qty = 2.0}},
-               NoopStrategy{},
-               portfolio};
+               NoopStrategy{}, portfolio};
 
     EXPECT_TRUE(engine.step());  // same-step Trade primes the matcher's price for the fill
 
