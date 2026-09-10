@@ -11,3 +11,4 @@ dependencies:
   - optuna
   - scikit-learn
   - lightgbm
+  - pyarrow
