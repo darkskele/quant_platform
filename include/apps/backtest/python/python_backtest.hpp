@@ -30,10 +30,12 @@ class PythonBacktest : public BacktestBase<PythonBacktest> {
     using Recorder = engine::EquitySeriesRecorder;
 
     PythonBacktest(const std::filesystem::path& data_dir, const std::vector<std::string>& symbols,
-                   std::chrono::year_month_day first_day, std::chrono::year_month_day last_day)
+                   std::chrono::year_month_day first_day, std::chrono::year_month_day last_day,
+                   std::filesystem::path cost_table_path = {})
         : symbol_ids_(resolve_symbols(symbols)),
           futures_source_(config::make_futures_source(data_dir, symbols, first_day, last_day)),
-          spot_source_(config::make_spot_source(data_dir, symbols, first_day, last_day)) {}
+          spot_source_(config::make_spot_source(data_dir, symbols, first_day, last_day)),
+          cost_table_path_(std::move(cost_table_path)) {}
 
     void set_on_event(pybind11::object cb) { on_event_ = std::move(cb); }
 
@@ -53,10 +55,13 @@ class PythonBacktest : public BacktestBase<PythonBacktest> {
     config::EngineType<Recorder> make_engine() {
         equity_collector_.start();
         config::Tx transport({&std::get<0>(sinks_).queue(), &std::get<1>(sinks_).queue()}, {0, 0});
+        // make_matcher is variation-specific: LastTrade ignores the path,
+        // cost-aware reads the honest fee/spread/impact table from it.
+        config::Exec exec{config::make_matcher<config::Book>(cost_table_path_)};
         return config::EngineType<Recorder>{
             std::move(transport),
             SimClock{},
-            config::Exec{},
+            std::move(exec),
             risk::python::PythonRiskGate<>{check_, on_tick_},
             strategy::python::PythonStrategy<>{on_event_, on_timer_},
             portfolio_,
@@ -97,6 +102,7 @@ class PythonBacktest : public BacktestBase<PythonBacktest> {
     std::vector<SymbolId>                  symbol_ids_;
     config::FuturesSource                  futures_source_;
     config::SpotSource                     spot_source_;
+    std::filesystem::path                  cost_table_path_;
     std::tuple<config::Sink, config::Sink> sinks_;
     config::Book                           portfolio_;
     pybind11::object                       on_event_{pybind11::none()};

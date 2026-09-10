@@ -30,10 +30,13 @@ struct Dataset {
     std::vector<std::string>    symbols;
     std::chrono::year_month_day first_day;
     std::chrono::year_month_day last_day;
+    std::filesystem::path       cost_table_path;
 
     Dataset(std::string dir, std::vector<std::string> syms, const std::string& first,
-            const std::string& last)
-        : data_dir(std::move(dir)), symbols(std::move(syms)) {
+            const std::string& last, std::string cost_table = {})
+        : data_dir(std::move(dir)),
+          symbols(std::move(syms)),
+          cost_table_path(std::move(cost_table)) {
         auto f = config::parse_day(first);
         auto l = config::parse_day(last);
         if (!f) throw std::invalid_argument("bad first_day: " + first);
@@ -42,8 +45,9 @@ struct Dataset {
     }
 
     Dataset(std::string dir, const std::string& sym, const std::string& first,
-            const std::string& last)
-        : Dataset(std::move(dir), std::vector<std::string>{sym}, first, last) {}
+            const std::string& last, std::string cost_table = {})
+        : Dataset(std::move(dir), std::vector<std::string>{sym}, first, last,
+                  std::move(cost_table)) {}
 };
 
 }  // namespace
@@ -53,10 +57,10 @@ PYBIND11_MODULE(qp_python_backtest, m) {
 
     py::enum_<qp::Side>(m, "Side").value("Buy", qp::Side::Buy).value("Sell", qp::Side::Sell);
 
-    py::enum_<qp::RiskOutcome>(m, "RiskOutcome")
-        .value("Approved", qp::RiskOutcome::Approved)
-        .value("Resized", qp::RiskOutcome::Resized)
-        .value("Rejected", qp::RiskOutcome::Rejected);
+    py::enum_<qp::risk::RiskOutcome>(m, "RiskOutcome")
+        .value("Approved", qp::risk::RiskOutcome::Approved)
+        .value("Resized", qp::risk::RiskOutcome::Resized)
+        .value("Rejected", qp::risk::RiskOutcome::Rejected);
 
     py::enum_<qp::EventKind>(m, "EventKind")
         .value("BookDiff", qp::EventKind::BookDiff)
@@ -150,13 +154,13 @@ PYBIND11_MODULE(qp_python_backtest, m) {
         .def_readwrite("venue", &qp::Order::venue)
         .def_readwrite("qty", &qp::Order::qty);
 
-    py::class_<qp::RiskDecision>(m, "RiskDecision")
-        .def(py::init([](qp::RiskOutcome oc, std::optional<qp::Order> ord) {
-                 return qp::RiskDecision{.outcome = oc, .order = ord};
+    py::class_<qp::risk::RiskDecision>(m, "RiskDecision")
+        .def(py::init([](qp::risk::RiskOutcome oc, std::optional<qp::Order> ord) {
+                 return qp::risk::RiskDecision{.outcome = oc, .order = ord};
              }),
              py::arg("outcome"), py::arg("order") = std::nullopt)
-        .def_readwrite("outcome", &qp::RiskDecision::outcome)
-        .def_readwrite("order", &qp::RiskDecision::order);
+        .def_readwrite("outcome", &qp::risk::RiskDecision::outcome)
+        .def_readwrite("order", &qp::risk::RiskDecision::order);
 
     py::class_<EquityPoint>(m, "EquityPoint")
         .def_readonly("ts", &EquityPoint::ts)
@@ -171,14 +175,18 @@ PYBIND11_MODULE(qp_python_backtest, m) {
         });
 
     py::class_<Dataset>(m, "Dataset")
-        .def(py::init<std::string, std::string, std::string, std::string>(), py::arg("data_dir"),
-             py::arg("symbol"), py::arg("first_day"), py::arg("last_day"))
-        .def(py::init<std::string, std::vector<std::string>, std::string, std::string>(),
-             py::arg("data_dir"), py::arg("symbols"), py::arg("first_day"), py::arg("last_day"));
+        .def(py::init<std::string, std::string, std::string, std::string, std::string>(),
+             py::arg("data_dir"), py::arg("symbol"), py::arg("first_day"), py::arg("last_day"),
+             py::arg("cost_table") = std::string{})
+        .def(py::init<std::string, std::vector<std::string>, std::string, std::string,
+                      std::string>(),
+             py::arg("data_dir"), py::arg("symbols"), py::arg("first_day"), py::arg("last_day"),
+             py::arg("cost_table") = std::string{});
 
     py::class_<PythonBacktest>(m, "PythonBacktest")
         .def(py::init([](const Dataset& d) {
-            return std::make_unique<PythonBacktest>(d.data_dir, d.symbols, d.first_day, d.last_day);
+            return std::make_unique<PythonBacktest>(d.data_dir, d.symbols, d.first_day, d.last_day,
+                                                    d.cost_table_path);
         }))
         .def("set_on_event", &PythonBacktest::set_on_event, py::arg("cb"))
         .def("set_on_timer", &PythonBacktest::set_on_timer, py::arg("cb"))

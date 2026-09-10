@@ -28,5 +28,6 @@ config/*.local.*
 .DS_Store
 
 # Research
-*/__pycache__/
+__pycache__/
+*.py[cod]
 *.pkl

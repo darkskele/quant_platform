@@ -3,6 +3,9 @@
 # The matcher axis follows QP_BACKTEST_MATCHER so cost_aware backtests can
 # also drive Python strategies.
 qp_dir(include QP_INC)
+# bindings.cpp and python_backtest.hpp include config/ and python/ from the
+# backtest include root, one level above this module's own include dir.
+get_filename_component(QP_BACKTEST_INC "${QP_INC}" DIRECTORY)
 
 if(QP_BACKTEST_MATCHER STREQUAL "last_trade")
     set(_qp_bt_py_matcher_macro QP_MATCHER_LAST_TRADE)
@@ -15,7 +18,7 @@ else()
 endif()
 
 add_library(qp_backtest_python_compose INTERFACE)
-target_include_directories(qp_backtest_python_compose INTERFACE ${QP_INC})
+target_include_directories(qp_backtest_python_compose INTERFACE ${QP_BACKTEST_INC})
 target_compile_definitions(qp_backtest_python_compose INTERFACE
     QP_SOURCE_CSV_BINHIST
     QP_SINK_FANOUT
