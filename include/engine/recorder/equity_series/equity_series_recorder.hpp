@@ -77,17 +77,27 @@ class EquitySeriesCollector {
 
 /// The record-thread handle Engine drives. sample() hands one point to the
 /// collector, which owns the allocation and the drain.
+///
+/// @tparam min_interval_ns Minimum replay time between kept samples. 
 class EquitySeriesRecorder {
    public:
-    explicit EquitySeriesRecorder(EquitySeriesCollector* sink) noexcept : sink_(sink) {}
+    explicit EquitySeriesRecorder(EquitySeriesCollector* sink,
+                                  Timestamp              min_interval_ns = 0) noexcept
+        : sink_(sink), min_interval_ns_(min_interval_ns) {}
 
     template <class Book>
     void sample(Timestamp ts, const Book& book) {
+        if (min_interval_ns_ > 0 && primed_ && ts - last_ts_ < min_interval_ns_) return;
+        last_ts_ = ts;
+        primed_  = true;
         sink_->push({ts, book.equity()});
     }
 
    private:
     EquitySeriesCollector* sink_;
+    Timestamp              min_interval_ns_;
+    Timestamp              last_ts_{};
+    bool                   primed_{false};
 };
 
 static_assert(Recorder<EquitySeriesRecorder, qp::Portfolio<qp::detail::kTrivialCounts>>);

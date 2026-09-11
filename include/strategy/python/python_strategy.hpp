@@ -2,6 +2,7 @@
 #include <pybind11/pybind11.h>
 
 #include <cstddef>
+#include <cstdint>
 #include <span>
 #include <utility>
 
@@ -19,10 +20,16 @@ class PythonStrategy {
    public:
     static constexpr std::size_t kMaxIntents = MaxIntents;
 
-    PythonStrategy(pybind11::object on_event_cb, pybind11::object on_timer_cb)
-        : on_event_cb_{std::move(on_event_cb)}, on_timer_cb_{std::move(on_timer_cb)} {}
+    PythonStrategy(pybind11::object on_event_cb, pybind11::object on_timer_cb,
+                   std::uint8_t kind_mask = 0xFF)
+        : on_event_cb_{std::move(on_event_cb)},
+          on_timer_cb_{std::move(on_timer_cb)},
+          kind_mask_{kind_mask} {}
 
     std::span<const Intent> on_event(const MarketEvent& event) {
+        // Skip the GIL and the Python call entirely for unsubscribed kinds.
+        // A funding-only strategy pays nothing per kline this way.
+        if (!(kind_mask_ & (1u << static_cast<unsigned>(header_of(event).kind)))) return {};
         return invoke(on_event_cb_, event);
     }
 
@@ -44,6 +51,7 @@ class PythonStrategy {
 
     pybind11::object          on_event_cb_;
     pybind11::object          on_timer_cb_;
+    std::uint8_t              kind_mask_;
     IntentBuffer<kMaxIntents> buffer_{};
 };
 

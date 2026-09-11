@@ -197,10 +197,12 @@ PYBIND11_MODULE(qp_python_backtest, m) {
         .def("set_check", &PythonBacktest::set_check, py::arg("cb"))
         .def("set_on_tick", &PythonBacktest::set_on_tick, py::arg("cb"))
         .def("set_timer_period", &PythonBacktest::set_timer_period, py::arg("period_ns"))
+        .def("set_event_kinds", &PythonBacktest::set_event_kinds, py::arg("kinds"))
         // Read-only book state, callable from inside the python callbacks.
         .def("equity", &PythonBacktest::equity)
         .def("cash", &PythonBacktest::cash)
         .def("position", &PythonBacktest::position, py::arg("symbol"), py::arg("venue"))
+        .def("mark", &PythonBacktest::mark, py::arg("symbol"), py::arg("venue"))
         // Engine runs on a worker thread that calls the python callbacks;
         // release the GIL here so those callbacks can acquire it.
         .def("run", &PythonBacktest::run, py::call_guard<py::gil_scoped_release>());

@@ -3,6 +3,7 @@
 
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <span>
 #include <stdexcept>
@@ -46,6 +47,18 @@ class PythonBacktest : public BacktestBase<PythonBacktest> {
 
     void set_timer_period(Timestamp period_ns) { timer_period_ns_ = period_ns; }
 
+    // Restricts which event kinds reach the python on_event, empty means all.
+    // A funding-only strategy skips the per-kline python call this way.
+    void set_event_kinds(const std::vector<EventKind>& kinds) {
+        if (kinds.empty()) {
+            event_kind_mask_ = 0xFF;
+            return;
+        }
+        std::uint8_t mask = 0;
+        for (EventKind k : kinds) mask |= static_cast<std::uint8_t>(1u << static_cast<unsigned>(k));
+        event_kind_mask_ = mask;
+    }
+
     // Read-only book state for the python strategy and risk to size by
     // equity and to turn a target position into the right order delta.
     Notional equity() const { return portfolio_.equity(); }
@@ -55,6 +68,10 @@ class PythonBacktest : public BacktestBase<PythonBacktest> {
     Qty position(SymbolId symbol, VenueId venue) const {
         return portfolio_.position(symbol, venue);
     }
+
+    // Latest mark for the leg, so the python strategy can size a target
+    // notional into a quantity.
+    Price mark(SymbolId symbol, VenueId venue) const { return portfolio_.mark(symbol, venue); }
 
     auto sources() {
         return std::tuple<config::FuturesSource&, config::SpotSource&>{futures_source_,
@@ -74,9 +91,9 @@ class PythonBacktest : public BacktestBase<PythonBacktest> {
             std::move(transport),
             std::move(exec),
             risk::python::PythonRiskGate<>{check_, on_tick_},
-            strategy::python::PythonStrategy<>{on_event_, on_timer_},
+            strategy::python::PythonStrategy<>{on_event_, on_timer_, event_kind_mask_},
             portfolio_,
-            Recorder{&equity_collector_}};
+            Recorder{&equity_collector_, kEquitySampleIntervalNs}};
     }
 
     // Per-symbol attribution aligned to symbol_ids. basis_pnl is the open
@@ -141,7 +158,12 @@ class PythonBacktest : public BacktestBase<PythonBacktest> {
     pybind11::object                       check_{pybind11::none()};
     pybind11::object                       on_tick_{pybind11::none()};
     Timestamp                              timer_period_ns_{0};
+    std::uint8_t                           event_kind_mask_{0xFF};
     engine::EquitySeriesCollector          equity_collector_{};
+
+    // One equity point per replay day. A per-event series over 10 symbols and
+    // three years is tens of millions of points, too large to hand to python.
+    static constexpr Timestamp kEquitySampleIntervalNs = 24LL * 60 * 60 * 1'000'000'000;
 };
 
 }  // namespace qp::backtest::python
