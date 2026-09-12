@@ -7,6 +7,33 @@ What we are testing, what we ran, what we found. One entry per hypothesis, newes
 - Module: build `qp_backtest` (VS Code task "Build: qp_backtest python module (release)"). It is a C extension, so a rebuild needs a kernel restart to take effect.
 - Data: 10 symbols, 2022-01-01 to 2024-12-31, under `data/binance_historical/`. Fetch/refresh with `tools/fetch_backtest_data.sh`.
 
+## Roadmap
+
+Strategies ordered by the data they need, least first. Each tier is a step change in data and nothing in a tier waits on the next.
+
+| tier | data | size and cost | unlocks |
+|---|---|---|---|
+| 0 | on disk now, 10 symbols, 1m spot and perp, 2022 to 2024, cost table | 0 | trend on 10 perps, basis-dislocation entry for carry |
+| 1 | free bars, every perp and spot pair, 1h from 2020 and 2017, funding, 5m open interest and positioning | 1 to 10 GB, free, local | wide-universe trend, cross-sectional stat arb, cross-sectional funding, positioning signals, regime features |
+| 1.5 | live recorder collecting bookTicker, forceOrder, open interest from day one | grows about 1 GB a day, free | future maker, liquidation and spread research |
+| 2 | free depth and aggTrades, all markets | 2.3 TB, $15 to $40 a month, remote store | per-symbol cost table, book-walking matcher, trade-flow signals, intraday reversal |
+| 3 | free bookTicker, May 2023 to April 2024 only | plus 1.4 TB | maker fill model, spread capture, adverse selection |
+| 4 | paid L2 increments, liquidations, options | $700 a month and up | book-imbalance, liquidation cascades, vol premium |
+
+The remote store is a tier 2 need. Tiers 0 and 1 live in the shared data dir.
+
+Strategy order within tiers 0 and 1.
+
+1. Time-series trend. Vol-scaled, weekly rebalance, per perp. Tier 0 now, tier 1 later.
+2. Cross-sectional stat arb. Residual reversal, momentum and funding, one sort framework. Cointegrated pairs only if the residual axis moves. Tier 1.
+3. Open interest and positioning signals, standalone and as regime features. Tier 1.
+4. Basis-dislocation entry for carry. Tier 0.
+5. Intraday flow and reversal. Tier 2.
+6. Maker and market making. Tier 3.
+7. L2, liquidation and options strategies. Tier 4.
+
+Lanes are git worktrees, one per chat. Main is carry. `alpha-research` is trend. `xs-research` is cross-sectional stat arb. `data-store` builds the store layout on tier 1 data so the bucket is a config change later. `live-path` is the C++ live lane.
+
 ## Funding carry
 
 Delta-neutral: spot long + futures short, harvest funding while it is persistently positive.

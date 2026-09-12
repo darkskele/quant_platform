@@ -51,11 +51,14 @@ Platform:
 - [ ] More sophisticated sim execution
 - [ ] Analytics and observability: metrics, logs, equity/PnL series (for live, not backtest)
 - [ ] Live execution and data via testnet (same code, testnet endpoints)
+- [ ] Remote data store: partitioned parquet, catalog, one store for research and the engine
 
 Strategies, in order of increasing sophistication and data appetite:
 
 - [x] ~~Funding / basis carry~~
-- [ ] Statistical arbitrage
-- [ ] Order-book / ML microstructure
-- [ ] Low-latency MFT
-- [ ] Market making / HFT-style (only if the hardware ever justifies it)
+- [ ] Time-series trend
+- [ ] Cross-sectional statistical arbitrage: residual reversal, momentum, funding
+- [ ] Open interest and positioning signals, regime gating
+- [ ] Intraday flow and reversal on depth and trades
+- [ ] Maker execution and market making on top-of-book
+- [ ] Order-book / ML microstructure, liquidation and options on paid L2

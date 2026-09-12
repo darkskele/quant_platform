@@ -6,7 +6,7 @@ Venue- and asset-agnostic by design. Binance USD-M perpetuals and medium-frequen
 
 ## Strategy arc
 
-Developed in order of increasing sophistication and data appetite: funding / basis carry, then statistical arbitrage, then order-book and ML microstructure. A market-data collector runs continuously, so the data for later strategies accumulates while the earlier ones run.
+Developed in order of increasing sophistication and data appetite: funding / basis carry, then trend and cross-sectional statistical arbitrage on free bar data, then intraday flow and maker execution on free depth and tick data, then order-book and ML microstructure on paid L2. A market-data collector runs continuously, so the data for later strategies accumulates while the earlier ones run.
 
 ## Success, in honest tiers
 
