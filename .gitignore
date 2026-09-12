@@ -17,8 +17,8 @@ secrets.*
 *.key
 config/*.local.*
 
-# Data — never commit collected market data
-/data/
+# Data — never commit collected market data (dir or symlink to shared store)
+/data
 *.parquet
 *.zst
 *.bin

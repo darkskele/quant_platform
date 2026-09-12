@@ -28,8 +28,15 @@ Per-module `qp_<module>_tests` / `_bench` targets exist for narrower runs. Dev i
 
 ## Data
 
+- Historical data lives in a shared store at `~/quant-data`, symlinked into the repo as `data/` (gitignored). One copy backs every worktree.
 - `tools/fetch_backtest_data.sh`: download `data.binance.vision` historical dumps for the fixed symbol universe into the layout the backtest reads.
 - `tools/gen_backtest_fixture.py`: regenerate the committed test fixtures under `tests/apps/backtest/fixtures/`.
+
+## Worktrees
+
+Concurrent work runs in git worktrees, one branch per worktree, sharing one `.git` and the one `~/quant-data`.
+
+- `tools/qp-worktree.sh <branch> [base]`: create a sibling worktree at `../quant-platform-<branch>` and link the shared data store into it. Each worktree builds into its own `build/`.
 
 ## Backtest
 
