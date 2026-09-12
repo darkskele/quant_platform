@@ -50,7 +50,7 @@ Prose follows the `writing` skill, terse, no em dashes, no colons or semicolons,
 ## Working with the repo owner and git
 
 - Never `git commit`, `git add`, or touch the index, however the request is phrased, unless commit permission is given explicitly for that turn. The owner commits, often between turns, and works out of staged changes as pre-commit review.
-- Plan docs are never committed, a hard rule. A research plan markdown is a working file only, gitignored, it never enters a commit.
+- Plan docs are never committed, a hard rule. A research plan markdown is a working file only, it never enters a commit and no reference to it does either, not in a tracked file, not in a commit message.
 - Push, merge and branch only when prompted. Merge with `--ff-only` so no merge commit is created, which also keeps it inside the no-commit rule.
 - Do not edit research notebooks to answer a question, answer in chat unless asked to write it in.
 - Give direct technical answers and correct a wrong premise. Size cancels out of the fee breakeven because fees and funding both scale with notional. Persistence is period-based and uses only the last print.

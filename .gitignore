@@ -17,9 +17,6 @@ secrets.*
 *.key
 config/*.local.*
 
-# Research plan docs are working files, never committed
-/funding_carry_research.md
-
 # Data — never commit collected market data (dir or symlink to shared store)
 /data
 *.parquet
