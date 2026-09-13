@@ -321,7 +321,7 @@ p { margin: 0 0 14px; }
     </div>
     <div class="fact">
       <p class="fact-label">Cadence</p>
-      <p class="fact-value">Weekly rebalance</p>
+      <p class="fact-value">Weekly, dead band tested null</p>
     </div>
     <div class="fact">
       <p class="fact-label">Cost</p>
@@ -350,7 +350,7 @@ p { margin: 0 0 14px; }
   <p>Target weekly vol per symbol, capped. Sizing does not change the profit hurdle because fees and funding both scale with notional. It sets dollar PnL, drawdown, and impact. The book uses equal-weight for now with realized-vol scaling deferred until the surviving signal is picked.</p>
 
   <h3>Cadence</h3>
-  <p>Weekly rebalance is the default, low turnover keeps fee drag small. A daily-with-dead-band variant is the natural next lever, only flipping the sign when the trailing return crosses a threshold rather than every zero-crossing.</p>
+  <p>Weekly rebalance is the default and the right one on this sample. A dead band that only flips the sign when the trailing return magnitude exceeds a threshold cuts turnover as designed but does not lift Sharpe. Daily cadence loses across the whole grid, the signal has no useful sub-weekly information at these lookbacks.</p>
 
   <h3>Funding-aware sign</h3>
   <p>A long in a hot-funding regime pays more than a small trailing price move earns. Subtracting the trailing funding from the trailing return before taking the sign flips the marginal weeks that were only nominally trending up. Lifts book Sharpe by about 0.06 at L=1 and 0.04 at L=4 on the current sample.</p>
@@ -415,7 +415,7 @@ p { margin: 0 0 14px; }
   </div>
 
   <h2>Where this stands</h2>
-  <p>L=1 book Sharpe 0.78 net of cost and funding, lifts to 0.85 with the funding-aware sign. L=4 lands at 0.61, lifts to 0.65. Both are positive in every calendar year, both keep their sign at 2x cost, and both beat long-only on the 2022 regime. The soft part is the lookback grid, a sawtooth of two winners with negative neighbours, on three years of data.</p>
+  <p>L=1 book Sharpe 0.78 net of cost and funding, lifts to 0.85 with the funding-aware sign. L=4 lands at 0.61, lifts to 0.65. Both are positive in every calendar year, both keep their sign at 2x cost, and both beat long-only on the 2022 regime. Dead band and daily cadence tested null, weekly is the right cadence. The soft part is the lookback grid, a sawtooth of two winners with negative neighbours that survives every dead band tested, on three years of data.</p>
 
   <div class="grid-current">
     <p class="caption">Current pooled Sharpe by lookback, funding-aware sign, net of cost and funding</p>
