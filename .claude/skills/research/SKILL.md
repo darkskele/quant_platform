@@ -26,10 +26,21 @@ Reuse the feature pipeline and the walk-forward splits, do not re-derive them. P
 
 Prose follows the `writing` skill, terse, no em dashes, no colons or semicolons, one line per paragraph, no hard wrap.
 
-- Each section stands alone, what this is, what you are doing, the code, the results, the interpretation, the next thing.
+- Match the voice of the sibling notebooks before writing a new one.
 - No cross-references. No see-below, no cell-N, no naming another doc, and never reference the plan from inside a notebook.
 - State the finding directly and stay honest about softness, a soft Sharpe is called soft.
-- Match the voice of the sibling notebooks before writing a new one.
+- Easy on the jargon, explain the concept once in plain terms before naming it.
+- Math in KaTeX with dollar delimiters. Inline is `$x$`, display is `$$x$$`.
+
+## Notebook section pattern
+
+Every section, top to bottom, follows one shape.
+
+1. Intro. What we are about to do. What we hope it shows. How we do it. A short paragraph, before any code.
+2. Code. The cells that do the thing.
+3. Findings. What the numbers say. Written from the executed outputs, never a prediction.
+
+Do NOT write cells that describe what was just done, and do NOT write "next steps" cells. The intro says what is about to happen, the findings say what did. No section closes with a bridge to the next.
 
 ## Analytical discipline
 
