@@ -333,7 +333,7 @@ p { margin: 0 0 14px; }
     </div>
     <div class="fact">
       <p class="fact-label">Status</p>
-      <p class="fact-value status-live">L=1, L=4 both survive</p>
+      <p class="fact-value status-live">L=1 wins out of sample</p>
     </div>
   </div>
 
@@ -354,6 +354,9 @@ p { margin: 0 0 14px; }
 
   <h3>Funding-aware sign</h3>
   <p>A long in a hot-funding regime pays more than a small trailing price move earns. Subtracting the trailing funding from the trailing return before taking the sign flips the marginal weeks that were only nominally trending up. Lifts book Sharpe by about 0.06 at L=1 and 0.04 at L=4 on the current sample.</p>
+
+  <h3>Combining lookbacks</h3>
+  <p>Naive winner-average, sawtooth-fitted, and adaptive rolling-Sharpe combiners tested against plain L=1 on a five-fold walk-forward. None lift the book out of sample. The sawtooth pattern is not a stable feature, its lookback signs move fold to fold. A combiner that reads the sawtooth as signal chases luck.</p>
 
   <h2>The bar</h2>
   <p>Written before runs so a result cannot be steered. Profitable means all of the following hold, out of sample, per year:</p>
@@ -415,7 +418,7 @@ p { margin: 0 0 14px; }
   </div>
 
   <h2>Where this stands</h2>
-  <p>L=1 book Sharpe 0.78 net of cost and funding, lifts to 0.85 with the funding-aware sign. L=4 lands at 0.61, lifts to 0.65. Both are positive in every calendar year, both keep their sign at 2x cost, and both beat long-only on the 2022 regime. Dead band and daily cadence tested null, weekly is the right cadence. The soft part is the lookback grid, a sawtooth of two winners with negative neighbours that survives every dead band tested, on three years of data.</p>
+  <p>L=1 book Sharpe 0.78 net of cost and funding on the full sample, lifts to 0.85 with the funding-aware sign. On a five-fold walk-forward with a four-week purge, plain L=1 lands at 0.53 out of sample and no tested combiner improves it. L=4 lands at 0.61 in sample, 0.65 with the funding-aware sign. Both are positive in every calendar year, both keep their sign at 2x cost, and both beat long-only on the 2022 regime. Dead band and daily cadence tested null, weekly is the right cadence. The soft part is a small out-of-sample sample, four test folds of about 30 weeks each, and a lookback grid that stays a sawtooth on every axis tested.</p>
 
   <div class="grid-current">
     <p class="caption">Current pooled Sharpe by lookback, funding-aware sign, net of cost and funding</p>
