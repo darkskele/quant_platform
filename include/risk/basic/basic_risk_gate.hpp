@@ -12,20 +12,20 @@
 
 namespace qp::risk::basic {
 
-/// A (symbol, venue) pair considered for flattening when the kill switch trips.
+/// A (symbol, market) pair considered for flattening when the kill switch trips.
 struct TrackedInstrument {
     SymbolId symbol{};
-    VenueId  venue{};
+    MarketId market{};
 };
 
 /// Parameters for BasicRiskGate.
 struct BasicRiskGateConfig {
-    Qty                            max_position_qty{10.0};  ///< Per (symbol, venue) exposure cap.
+    Qty                            max_position_qty{10.0};  ///< Per (symbol, market) exposure cap.
     Notional                       max_drawdown{50.0};      ///< Trips the kill switch past this.
     std::vector<TrackedInstrument> tracked{};               ///< Flattened once tripped.
 };
 
-/// Per-(symbol, venue) exposure cap plus an equity-drawdown kill switch.
+/// Per-(symbol, market) exposure cap plus an equity-drawdown kill switch.
 template <PortfolioLike Book>
 class BasicRiskGate {
    public:
@@ -37,7 +37,7 @@ class BasicRiskGate {
     RiskDecision check(Intent intent) {
         if (tripped_) return {.outcome = RiskOutcome::Rejected, .order = std::nullopt};
 
-        Qty current = portfolio_.position(intent.symbol, intent.venue);
+        Qty current = portfolio_.position(intent.symbol, intent.market);
         Qty target =
             std::clamp(intent.target_position, -config_.max_position_qty, config_.max_position_qty);
         Qty delta = target - current;
@@ -47,7 +47,7 @@ class BasicRiskGate {
         return {outcome, Order{.id     = next_id(),
                                .symbol = intent.symbol,
                                .side   = delta >= 0 ? Side::Buy : Side::Sell,
-                               .venue  = intent.venue,
+                               .market = intent.market,
                                .qty    = std::abs(delta)}};
     }
 
@@ -60,13 +60,13 @@ class BasicRiskGate {
 
         tripped_ = true;
         orders_.reset();
-        for (const auto& [symbol, venue] : config_.tracked) {
-            Qty pos = portfolio_.position(symbol, venue);
+        for (const auto& [symbol, market] : config_.tracked) {
+            Qty pos = portfolio_.position(symbol, market);
             if (pos == 0.0) continue;
             orders_.push(Order{.id     = next_id(),
                                .symbol = symbol,
                                .side   = pos > 0 ? Side::Sell : Side::Buy,
-                               .venue  = venue,
+                               .market = market,
                                .qty    = std::abs(pos)});
         }
         return orders_.view();

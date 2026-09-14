@@ -17,7 +17,7 @@ using Pool = qp::ViewablePool<qp::Intent, kCapacity, UseHeap>;
 template <bool UseHeap>
 void BM_ViewablePool_Push(benchmark::State& state) {
     Pool<UseHeap> pool;
-    qp::Intent    intent{.symbol = 1, .venue = 0, .target_position = 2.0};
+    qp::Intent    intent{.symbol = 1, .market = 0, .target_position = 2.0};
     for (auto _ : state) {
         if (pool.size() == pool.capacity()) {
             state.PauseTiming();
@@ -42,7 +42,7 @@ void BM_ViewablePool_Emplace(benchmark::State& state) {
             pool.reset();
             state.ResumeTiming();
         }
-        pool.emplace(qp::SymbolId{1}, qp::VenueId{0}, qp::Qty{2.0});
+        pool.emplace(qp::SymbolId{1}, qp::MarketId{0}, qp::Qty{2.0});
         benchmark::DoNotOptimize(pool);
     }
 }
@@ -57,7 +57,7 @@ template <bool UseHeap>
 void BM_ViewablePool_ViewAccess(benchmark::State& state) {
     Pool<UseHeap> pool;
     for (std::size_t i = 0; i < kCapacity; ++i)
-        pool.push(qp::Intent{.symbol = 1, .venue = 0, .target_position = double(i)});
+        pool.push(qp::Intent{.symbol = 1, .market = 0, .target_position = double(i)});
 
     auto        view = pool.view();
     std::size_t i    = 0;
@@ -96,7 +96,7 @@ template <bool UseHeap>
 void BM_ViewablePool_MoveRoundTrip(benchmark::State& state) {
     Pool<UseHeap> source;
     for (std::size_t i = 0; i < kCapacity; ++i)
-        source.push(qp::Intent{.symbol = 1, .venue = 0, .target_position = double(i)});
+        source.push(qp::Intent{.symbol = 1, .market = 0, .target_position = double(i)});
 
     for (auto _ : state) {
         Pool<UseHeap> dest{std::move(source)};

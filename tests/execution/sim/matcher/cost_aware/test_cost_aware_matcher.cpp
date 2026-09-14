@@ -35,7 +35,7 @@ CostMatch make_matcher() {
     return CostMatch{HalfSpreadLinearImpact<Book>{{
         CostRow{
             .symbol              = 0,
-            .venue               = 0,
+            .market               = 0,
             .week_start_ns       = 0,
             .half_spread_bps     = 2.0,
             .impact_bps_per_unit = 0.0,
@@ -90,7 +90,7 @@ TEST(CostAwareMatcher, SellFillPriceRecedesByHalfSpread) {
 
 TEST(CostAwareMatcher, SequentialFillsUsesLatestReferencePrice) {
     // A stream of trades updates last_price_; each fill must use the
-    // most-recent value for that (symbol, venue).
+    // most-recent value for that (symbol, market).
     auto m = make_matcher();
     m.on_market_event(qp::test::make_trade(0, 5, 100.0));
     auto out1 = m.try_fill(Order{.id = 1, .symbol = 0, .side = Side::Buy, .qty = 1.0}, kWeekNs);

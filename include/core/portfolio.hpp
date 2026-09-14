@@ -10,12 +10,12 @@
 
 namespace qp {
 
-/// Net position per (symbol, venue) plus cash balance.
-/// Direct-indexed by (SymbolId, VenueId).
+/// Net position per (symbol, market) plus cash balance.
+/// Direct-indexed by (SymbolId, MarketId).
 template <auto Counts>
 class Portfolio {
    public:
-    static constexpr std::size_t kNumVenues      = Counts.size();
+    static constexpr std::size_t kNumMarkets     = Counts.size();
     static constexpr std::size_t kMaxInstruments = [] {
         std::size_t total = 0;
         for (std::size_t c : Counts) total += c;
@@ -23,7 +23,7 @@ class Portfolio {
     }();
 
     void apply_fill(const Fill& fill) noexcept {
-        std::size_t i     = index(fill.symbol, fill.venue);
+        std::size_t i     = index(fill.symbol, fill.market);
         Qty         delta = fill.side == Side::Buy ? fill.qty : -fill.qty;
         positions_[i] += delta;
         cash_ -= delta * fill.price + fill.fee;  // buying costs cash, fee always does
@@ -39,7 +39,7 @@ class Portfolio {
         if (!funding) return;
         // Positive funding_rate: longs pay shorts, so a long position debits
         // cash, a short one credits it.
-        std::size_t i    = index(funding->symbol, funding->venue);
+        std::size_t i    = index(funding->symbol, funding->market);
         Notional    flow = positions_[i] * funding_mark_price_[i] * funding->funding_rate;
         cash_ -= flow;
         // Split settled funding into its two signs branchlessly.
@@ -47,7 +47,7 @@ class Portfolio {
         funding_received_[i] -= std::min(flow, 0.0);
     }
 
-    /// Marks (symbol, venue) at whichever scalar price `event` carries:
+    /// Marks (symbol, market) at whichever scalar price `event` carries:
     /// Trade's price, Kline's close, or MarkPriceKline's close. Feeds
     /// equity(). MarkPriceKline also updates funding_mark_price_, kept as
     /// a separate array so a later Trade/Kline can update valuation
@@ -57,21 +57,21 @@ class Portfolio {
             [this](const auto& e) {
                 using E = std::decay_t<decltype(e)>;
                 if constexpr (std::is_same_v<E, TradeEvent>) {
-                    mark(e.symbol, e.venue, e.price);
+                    mark(e.symbol, e.market, e.price);
                 } else if constexpr (std::is_same_v<E, KlineEvent>) {
-                    mark(e.symbol, e.venue, e.close);
+                    mark(e.symbol, e.market, e.close);
                 } else if constexpr (std::is_same_v<E, MarkPriceKlineEvent>) {
-                    mark(e.symbol, e.venue, e.close);
-                    mark_funding(e.symbol, e.venue, e.close);
+                    mark(e.symbol, e.market, e.close);
+                    mark_funding(e.symbol, e.market, e.close);
                 }
             },
             event);
     }
 
-    /// No default for `venue`: (symbol, venue) together identify an
+    /// No default for `market`: (symbol, market) together identify an
     /// instrument, symbol alone doesn't.
-    Qty position(SymbolId symbol, VenueId venue) const noexcept {
-        return positions_[index(symbol, venue)];
+    Qty position(SymbolId symbol, MarketId market) const noexcept {
+        return positions_[index(symbol, market)];
     }
 
     Notional cash() const noexcept { return cash_; }
@@ -79,20 +79,20 @@ class Portfolio {
     /// Attribution, cumulative per instrument. fees is always positive,
     /// funding_paid/received are the two signs of settled funding split
     /// apart. mark is the latest valuation price, for a basis split.
-    Notional fees(SymbolId symbol, VenueId venue) const noexcept {
-        return fees_[index(symbol, venue)];
+    Notional fees(SymbolId symbol, MarketId market) const noexcept {
+        return fees_[index(symbol, market)];
     }
 
-    Notional funding_paid(SymbolId symbol, VenueId venue) const noexcept {
-        return funding_paid_[index(symbol, venue)];
+    Notional funding_paid(SymbolId symbol, MarketId market) const noexcept {
+        return funding_paid_[index(symbol, market)];
     }
 
-    Notional funding_received(SymbolId symbol, VenueId venue) const noexcept {
-        return funding_received_[index(symbol, venue)];
+    Notional funding_received(SymbolId symbol, MarketId market) const noexcept {
+        return funding_received_[index(symbol, market)];
     }
 
-    Price mark(SymbolId symbol, VenueId venue) const noexcept {
-        return mark_price_[index(symbol, venue)];
+    Price mark(SymbolId symbol, MarketId market) const noexcept {
+        return mark_price_[index(symbol, market)];
     }
 
     /// cash() plus every position's mark-to-market value. Linear scan, not
@@ -104,29 +104,29 @@ class Portfolio {
         return total;
     }
 
-    static constexpr std::size_t index(SymbolId symbol, VenueId venue) noexcept {
-        assert(venue < kNumVenues);
-        assert(symbol < Counts[venue]);
-        return kPrefix[venue] + symbol;
+    static constexpr std::size_t index(SymbolId symbol, MarketId market) noexcept {
+        assert(market < kNumMarkets);
+        assert(symbol < Counts[market]);
+        return kPrefix[market] + symbol;
     }
 
    private:
     static constexpr auto kPrefix = [] {
-        std::array<std::size_t, kNumVenues> prefix{};
-        std::size_t                         running = 0;
-        for (std::size_t i = 0; i < kNumVenues; ++i) {
+        std::array<std::size_t, kNumMarkets> prefix{};
+        std::size_t                          running = 0;
+        for (std::size_t i = 0; i < kNumMarkets; ++i) {
             prefix[i] = running;
             running += Counts[i];
         }
         return prefix;
     }();
 
-    void mark(SymbolId symbol, VenueId venue, Price price) noexcept {
-        mark_price_[index(symbol, venue)] = price;
+    void mark(SymbolId symbol, MarketId market, Price price) noexcept {
+        mark_price_[index(symbol, market)] = price;
     }
 
-    void mark_funding(SymbolId symbol, VenueId venue, Price price) noexcept {
-        funding_mark_price_[index(symbol, venue)] = price;
+    void mark_funding(SymbolId symbol, MarketId market, Price price) noexcept {
+        funding_mark_price_[index(symbol, market)] = price;
     }
 
     std::array<Qty, kMaxInstruments>      positions_{};
@@ -142,13 +142,13 @@ class Portfolio {
 /// Portfolio.
 template <class T>
 concept PortfolioLike =
-    requires(T p, const Fill& fill, const MarketEvent& event, SymbolId symbol, VenueId venue) {
+    requires(T p, const Fill& fill, const MarketEvent& event, SymbolId symbol, MarketId market) {
         { T::kMaxInstruments } -> std::convertible_to<std::size_t>;
-        { T::index(symbol, venue) } -> std::same_as<std::size_t>;
+        { T::index(symbol, market) } -> std::same_as<std::size_t>;
         { p.apply_fill(fill) } -> std::same_as<void>;
         { p.apply_funding(event) } -> std::same_as<void>;
         { p.apply_mark_price(event) } -> std::same_as<void>;
-        { p.position(symbol, venue) } -> std::same_as<Qty>;
+        { p.position(symbol, market) } -> std::same_as<Qty>;
         { p.equity() } -> std::same_as<Notional>;
     };
 

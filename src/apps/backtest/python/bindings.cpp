@@ -80,7 +80,7 @@ PYBIND11_MODULE(qp_python_backtest, m) {
 
     py::class_<qp::TradeEvent>(m, "TradeEvent")
         .def_readonly("kind", &qp::TradeEvent::kind)
-        .def_readonly("venue", &qp::TradeEvent::venue)
+        .def_readonly("market", &qp::TradeEvent::market)
         .def_readonly("symbol", &qp::TradeEvent::symbol)
         .def_readonly("ts", &qp::TradeEvent::ts)
         .def_readonly("side", &qp::TradeEvent::side)
@@ -89,14 +89,14 @@ PYBIND11_MODULE(qp_python_backtest, m) {
 
     py::class_<qp::FundingEvent>(m, "FundingEvent")
         .def_readonly("kind", &qp::FundingEvent::kind)
-        .def_readonly("venue", &qp::FundingEvent::venue)
+        .def_readonly("market", &qp::FundingEvent::market)
         .def_readonly("symbol", &qp::FundingEvent::symbol)
         .def_readonly("ts", &qp::FundingEvent::ts)
         .def_readonly("funding_rate", &qp::FundingEvent::funding_rate);
 
     py::class_<qp::KlineEvent>(m, "KlineEvent")
         .def_readonly("kind", &qp::KlineEvent::kind)
-        .def_readonly("venue", &qp::KlineEvent::venue)
+        .def_readonly("market", &qp::KlineEvent::market)
         .def_readonly("symbol", &qp::KlineEvent::symbol)
         .def_readonly("ts", &qp::KlineEvent::ts)
         .def_readonly("close_time", &qp::KlineEvent::close_time)
@@ -108,7 +108,7 @@ PYBIND11_MODULE(qp_python_backtest, m) {
 
     py::class_<qp::MarkPriceKlineEvent>(m, "MarkPriceKlineEvent")
         .def_readonly("kind", &qp::MarkPriceKlineEvent::kind)
-        .def_readonly("venue", &qp::MarkPriceKlineEvent::venue)
+        .def_readonly("market", &qp::MarkPriceKlineEvent::market)
         .def_readonly("symbol", &qp::MarkPriceKlineEvent::symbol)
         .def_readonly("ts", &qp::MarkPriceKlineEvent::ts)
         .def_readonly("close_time", &qp::MarkPriceKlineEvent::close_time)
@@ -119,7 +119,7 @@ PYBIND11_MODULE(qp_python_backtest, m) {
 
     py::class_<qp::BookDiffEvent>(m, "BookDiffEvent")
         .def_readonly("kind", &qp::BookDiffEvent::kind)
-        .def_readonly("venue", &qp::BookDiffEvent::venue)
+        .def_readonly("market", &qp::BookDiffEvent::market)
         .def_readonly("symbol", &qp::BookDiffEvent::symbol)
         .def_readonly("ts", &qp::BookDiffEvent::ts)
         .def_readonly("first_seq", &qp::BookDiffEvent::first_seq)
@@ -129,29 +129,29 @@ PYBIND11_MODULE(qp_python_backtest, m) {
 
     py::class_<qp::BookSnapshotEvent>(m, "BookSnapshotEvent")
         .def_readonly("kind", &qp::BookSnapshotEvent::kind)
-        .def_readonly("venue", &qp::BookSnapshotEvent::venue)
+        .def_readonly("market", &qp::BookSnapshotEvent::market)
         .def_readonly("symbol", &qp::BookSnapshotEvent::symbol)
         .def_readonly("ts", &qp::BookSnapshotEvent::ts)
         .def_readonly("levels", &qp::BookSnapshotEvent::levels);
 
     py::class_<qp::Intent>(m, "Intent")
-        .def(py::init([](qp::SymbolId s, qp::VenueId v, qp::Qty q) {
-                 return qp::Intent{.symbol = s, .venue = v, .target_position = q};
+        .def(py::init([](qp::SymbolId s, qp::MarketId v, qp::Qty q) {
+                 return qp::Intent{.symbol = s, .market = v, .target_position = q};
              }),
-             py::arg("symbol"), py::arg("venue"), py::arg("target_position"))
+             py::arg("symbol"), py::arg("market"), py::arg("target_position"))
         .def_readwrite("symbol", &qp::Intent::symbol)
-        .def_readwrite("venue", &qp::Intent::venue)
+        .def_readwrite("market", &qp::Intent::market)
         .def_readwrite("target_position", &qp::Intent::target_position);
 
     py::class_<qp::Order>(m, "Order")
-        .def(py::init([](qp::OrderId id, qp::SymbolId s, qp::Side side, qp::VenueId v, qp::Qty q) {
-                 return qp::Order{.id = id, .symbol = s, .side = side, .venue = v, .qty = q};
+        .def(py::init([](qp::OrderId id, qp::SymbolId s, qp::Side side, qp::MarketId v, qp::Qty q) {
+                 return qp::Order{.id = id, .symbol = s, .side = side, .market = v, .qty = q};
              }),
-             py::arg("id"), py::arg("symbol"), py::arg("side"), py::arg("venue"), py::arg("qty"))
+             py::arg("id"), py::arg("symbol"), py::arg("side"), py::arg("market"), py::arg("qty"))
         .def_readwrite("id", &qp::Order::id)
         .def_readwrite("symbol", &qp::Order::symbol)
         .def_readwrite("side", &qp::Order::side)
-        .def_readwrite("venue", &qp::Order::venue)
+        .def_readwrite("market", &qp::Order::market)
         .def_readwrite("qty", &qp::Order::qty);
 
     py::class_<qp::risk::RiskDecision>(m, "RiskDecision")
@@ -201,8 +201,8 @@ PYBIND11_MODULE(qp_python_backtest, m) {
         // Read-only book state, callable from inside the python callbacks.
         .def("equity", &PythonBacktest::equity)
         .def("cash", &PythonBacktest::cash)
-        .def("position", &PythonBacktest::position, py::arg("symbol"), py::arg("venue"))
-        .def("mark", &PythonBacktest::mark, py::arg("symbol"), py::arg("venue"))
+        .def("position", &PythonBacktest::position, py::arg("symbol"), py::arg("market"))
+        .def("mark", &PythonBacktest::mark, py::arg("symbol"), py::arg("market"))
         // Engine runs on a worker thread that calls the python callbacks;
         // release the GIL here so those callbacks can acquire it.
         .def("run", &PythonBacktest::run, py::call_guard<py::gil_scoped_release>());

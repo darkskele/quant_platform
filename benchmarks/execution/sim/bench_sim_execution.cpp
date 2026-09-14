@@ -14,7 +14,7 @@ using qp::execution::sim::matcher::last_trade::LastTradeMatcher;
 namespace {
 
 constexpr SymbolId                   kSymbol = 1;
-constexpr VenueId                    kVenue  = 0;
+constexpr MarketId                    kMarket  = 0;
 constexpr std::array<std::size_t, 1> kCounts{2};
 using Book = Portfolio<kCounts>;
 using Exec = SimExecution<LastTradeMatcher<Book>, Book>;
@@ -31,11 +31,11 @@ void BM_SimExecution_SubmitFills(benchmark::State& state) {
     Exec       exec;
     TradeEvent trade;
     trade.symbol = kSymbol;
-    trade.venue  = kVenue;
+    trade.market  = kMarket;
     trade.price  = 100.0;
     exec.on_market_event(trade);
 
-    Order order{.id = 1, .symbol = kSymbol, .side = Side::Buy, .venue = kVenue, .qty = 1.0};
+    Order order{.id = 1, .symbol = kSymbol, .side = Side::Buy, .market = kMarket, .qty = 1.0};
     for (auto _ : state) {
         exec.reset_outcomes();
         exec.submit(order, 0);
@@ -50,7 +50,7 @@ BENCHMARK(BM_SimExecution_SubmitFills);
 // rejects() instead.
 void BM_SimExecution_SubmitRejects(benchmark::State& state) {
     Exec  exec;
-    Order order{.id = 1, .symbol = kSymbol, .side = Side::Buy, .venue = kVenue, .qty = 1.0};
+    Order order{.id = 1, .symbol = kSymbol, .side = Side::Buy, .market = kMarket, .qty = 1.0};
     for (auto _ : state) {
         exec.reset_outcomes();
         exec.submit(order, 0);

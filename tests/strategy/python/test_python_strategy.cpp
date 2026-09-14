@@ -11,12 +11,12 @@ using qp::strategy::python::PythonStrategy;
 
 PYBIND11_EMBEDDED_MODULE(qp_test_types_strategy, m) {
     py::class_<qp::Intent>(m, "Intent")
-        .def(py::init([](qp::SymbolId s, qp::VenueId v, qp::Qty q) {
-                 return qp::Intent{.symbol = s, .venue = v, .target_position = q};
+        .def(py::init([](qp::SymbolId s, qp::MarketId v, qp::Qty q) {
+                 return qp::Intent{.symbol = s, .market = v, .target_position = q};
              }),
-             py::arg("symbol"), py::arg("venue"), py::arg("target_position"))
+             py::arg("symbol"), py::arg("market"), py::arg("target_position"))
         .def_readwrite("symbol", &qp::Intent::symbol)
-        .def_readwrite("venue", &qp::Intent::venue)
+        .def_readwrite("market", &qp::Intent::market)
         .def_readwrite("target_position", &qp::Intent::target_position);
 }
 
@@ -50,8 +50,8 @@ TEST_F(PythonStrategyTest, OnTimerReturnsIntentsFromPython) {
     py::exec(
         "def cb(ts):\n"
         "    return [\n"
-        "        types.Intent(symbol=1, venue=2, target_position=3.5),\n"
-        "        types.Intent(symbol=4, venue=5, target_position=-6.0),\n"
+        "        types.Intent(symbol=1, market=2, target_position=3.5),\n"
+        "        types.Intent(symbol=4, market=5, target_position=-6.0),\n"
         "    ]\n",
         py::globals(), locals);
 
@@ -60,10 +60,10 @@ TEST_F(PythonStrategyTest, OnTimerReturnsIntentsFromPython) {
 
     ASSERT_EQ(intents.size(), 2u);
     EXPECT_EQ(intents[0].symbol, 1u);
-    EXPECT_EQ(intents[0].venue, 2u);
+    EXPECT_EQ(intents[0].market, 2u);
     EXPECT_DOUBLE_EQ(intents[0].target_position, 3.5);
     EXPECT_EQ(intents[1].symbol, 4u);
-    EXPECT_EQ(intents[1].venue, 5u);
+    EXPECT_EQ(intents[1].market, 5u);
     EXPECT_DOUBLE_EQ(intents[1].target_position, -6.0);
 }
 
@@ -83,7 +83,7 @@ TEST_F(PythonStrategyTest, BufferIsReusedAcrossCalls) {
         "state = [0]\n"
         "def cb(ts):\n"
         "    state[0] += 1\n"
-        "    return [types.Intent(symbol=state[0], venue=0, target_position=float(state[0]))]\n",
+        "    return [types.Intent(symbol=state[0], market=0, target_position=float(state[0]))]\n",
         py::globals(), locals);
 
     PythonStrategy<> strategy{py::none(), locals["cb"]};

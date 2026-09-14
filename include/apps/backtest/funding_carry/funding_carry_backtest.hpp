@@ -18,12 +18,12 @@
 
 namespace qp::backtest::funding_carry {
 
-// Venue indices, matching config::VenueTables' declaration order.
-inline constexpr VenueId kFuturesVenue = 0;
-inline constexpr VenueId kSpotVenue    = 1;
+// Market indices, matching config::MarketTables' declaration order.
+inline constexpr MarketId kFuturesMarket = 0;
+inline constexpr MarketId kSpotMarket    = 1;
 
 /// The runtime-swept knobs: exactly what a Python-side optimizer sets
-/// between runs. carry's symbol/venue fields
+/// between runs. carry's symbol/market fields
 /// are filled in by make_engine(); only the threshold/size fields are set.
 struct Config {
     strategy::carry::Config          carry{};
@@ -70,11 +70,11 @@ class FundingCarryBacktest : public BacktestBase<FundingCarryBacktest> {
     config::EngineType<Recorder> make_engine() {
         strategy::carry::Config carry = config_.carry;
         carry.symbol                  = symbol_id_;
-        carry.futures_venue           = kFuturesVenue;
-        carry.spot_venue              = kSpotVenue;
+        carry.futures_market           = kFuturesMarket;
+        carry.spot_market              = kSpotMarket;
 
         risk::basic::BasicRiskGateConfig risk = config_.risk;
-        risk.tracked = {{symbol_id_, kSpotVenue}, {symbol_id_, kFuturesVenue}};
+        risk.tracked = {{symbol_id_, kSpotMarket}, {symbol_id_, kFuturesMarket}};
 
         equity_collector_.start();
 
@@ -96,8 +96,8 @@ class FundingCarryBacktest : public BacktestBase<FundingCarryBacktest> {
         return Results{
             .final_cash             = portfolio_.cash(),
             .final_equity           = portfolio_.equity(),
-            .final_spot_position    = portfolio_.position(symbol_id_, kSpotVenue),
-            .final_futures_position = portfolio_.position(symbol_id_, kFuturesVenue),
+            .final_spot_position    = portfolio_.position(symbol_id_, kSpotMarket),
+            .final_futures_position = portfolio_.position(symbol_id_, kFuturesMarket),
             .equity_series          = equity_collector_.series(),
         };
     }

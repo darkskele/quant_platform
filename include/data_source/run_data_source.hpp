@@ -40,7 +40,7 @@ bool poll_round(SourceTup& sources, SinkTup& sinks,
              if (pulled.error() == source::SourceStatus::Eof) done[Is] = true;
              return;  // NoData or Eof -> nothing to deliver this round
          }
-         std::visit([](auto& e) { e.venue = static_cast<VenueId>(Is); }, *pulled);
+         std::visit([](auto& e) { e.market = static_cast<MarketId>(Is); }, *pulled);
          if (std::get<Is>(sinks).record(std::move(*pulled)))
              any = true;
          else

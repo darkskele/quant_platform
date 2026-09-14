@@ -17,7 +17,7 @@ struct AlwaysApproveRiskGate {
                 .order   = Order{.id     = next_id++,
                                  .symbol = intent.symbol,
                                  .side   = side,
-                                 .venue  = intent.venue,
+                                 .market  = intent.market,
                                  .qty    = std::abs(intent.target_position)}};
     }
 

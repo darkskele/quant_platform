@@ -25,7 +25,7 @@ class HalfSpreadLinearImpact {
     /// span into that block for each slot.
     explicit HalfSpreadLinearImpact(std::vector<CostRow> table) {
         std::array<std::uint32_t, Book::kMaxInstruments> counts{};
-        for (const auto& r : table) ++counts[Book::index(r.symbol, r.venue)];
+        for (const auto& r : table) ++counts[Book::index(r.symbol, r.market)];
 
         std::array<std::uint32_t, Book::kMaxInstruments> offsets{};
         std::uint32_t                                    running = 0;
@@ -37,7 +37,7 @@ class HalfSpreadLinearImpact {
         rows_.resize(table.size());
         std::array<std::uint32_t, Book::kMaxInstruments> writes{};
         for (const auto& r : table) {
-            auto slot                           = Book::index(r.symbol, r.venue);
+            auto slot                           = Book::index(r.symbol, r.market);
             rows_[offsets[slot] + writes[slot]] = r;
             ++writes[slot];
         }
@@ -61,7 +61,7 @@ class HalfSpreadLinearImpact {
     HalfSpreadLinearImpact& operator=(HalfSpreadLinearImpact&&) noexcept = default;
 
     std::optional<FillPricing> price(const Order& o, Price ref, Timestamp ts) const noexcept {
-        auto series = by_instrument_[Book::index(o.symbol, o.venue)];
+        auto series = by_instrument_[Book::index(o.symbol, o.market)];
         if (series.empty()) return std::nullopt;
         auto row = std::upper_bound(
             series.begin(), series.end(), ts,

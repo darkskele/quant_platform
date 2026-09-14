@@ -25,10 +25,10 @@ TEST(RiskGate, ApprovedDecisionCarriesAnOrderSizedFromIntent) {
 TEST(RiskGate, ApprovedOrderCarriesTheIntentsVenue) {
     AlwaysApproveRiskGate gate;
 
-    auto decision = gate.check(qp::Intent{.symbol = 1, .venue = 1, .target_position = 2.0});
+    auto decision = gate.check(qp::Intent{.symbol = 1, .market = 1, .target_position = 2.0});
 
     ASSERT_TRUE(decision.order.has_value());
-    EXPECT_EQ(decision.order->venue, 1);
+    EXPECT_EQ(decision.order->market, 1);
 }
 
 TEST(RiskGate, RejectedDecisionCarriesNoOrder) {

@@ -81,7 +81,7 @@ static_assert(qp::data_source::sink::Sink<FakeSink>);
 static_assert(qp::data_source::sink::Sink<BoundedSink>);
 
 // The property this driver exists for: source[i]'s event always lands in
-// sink[i], stamped venue=i, the pairing generated once by the fold. Both
+// sink[i], stamped market=i, the pairing generated once by the fold. Both
 // sources Eof after one item, so run_data_source returns on its own.
 TEST(RunDataSource, PairsEachSourceWithTheMatchingSinkAndStampsVenue) {
     std::tuple<FakeSource, FakeSource> sources{FakeSource{{100.0}}, FakeSource{{200.0}}};
@@ -92,11 +92,11 @@ TEST(RunDataSource, PairsEachSourceWithTheMatchingSinkAndStampsVenue) {
     run_data_source(sources, sinks, control, idx);
 
     ASSERT_EQ(std::get<0>(sinks).recorded.size(), 1u);
-    EXPECT_EQ(qp::header_of(std::get<0>(sinks).recorded[0]).venue, 0);
+    EXPECT_EQ(qp::header_of(std::get<0>(sinks).recorded[0]).market, 0);
     EXPECT_DOUBLE_EQ(std::get<qp::TradeEvent>(std::get<0>(sinks).recorded[0]).price, 100.0);
 
     ASSERT_EQ(std::get<1>(sinks).recorded.size(), 1u);
-    EXPECT_EQ(qp::header_of(std::get<1>(sinks).recorded[0]).venue, 1);
+    EXPECT_EQ(qp::header_of(std::get<1>(sinks).recorded[0]).market, 1);
     EXPECT_DOUBLE_EQ(std::get<qp::TradeEvent>(std::get<1>(sinks).recorded[0]).price, 200.0);
 }
 

@@ -24,20 +24,20 @@ class CostAwareMatcher {
     // Trade at all, only Kline/Funding.
     void on_market_event(const MarketEvent& ev) {
         if (const auto* trade = std::get_if<TradeEvent>(&ev)) {
-            last_price_[Book::index(trade->symbol, trade->venue)] = trade->price;
+            last_price_[Book::index(trade->symbol, trade->market)] = trade->price;
         } else if (const auto* kline = std::get_if<KlineEvent>(&ev)) {
-            last_price_[Book::index(kline->symbol, kline->venue)] = kline->close;
+            last_price_[Book::index(kline->symbol, kline->market)] = kline->close;
         }
     }
 
     std::variant<Fill, Reject> try_fill(Order o, Timestamp ts) {
-        Price ref = last_price_[Book::index(o.symbol, o.venue)];
+        Price ref = last_price_[Book::index(o.symbol, o.market)];
         if (ref == 0.0) {
             return Reject{
                 .order_id = o.id,
                 .symbol   = o.symbol,
                 .reason   = RejectReason::NoPriceAvailable,
-                .venue    = o.venue,
+                .market    = o.market,
                 .ts       = ts,
             };
         }
@@ -48,7 +48,7 @@ class CostAwareMatcher {
                 .order_id = o.id,
                 .symbol   = o.symbol,
                 .reason   = RejectReason::NoCostAvailable,
-                .venue    = o.venue,
+                .market    = o.market,
                 .ts       = ts,
             };
         }
@@ -56,7 +56,7 @@ class CostAwareMatcher {
             .order_id = o.id,
             .symbol   = o.symbol,
             .side     = o.side,
-            .venue    = o.venue,
+            .market    = o.market,
             .ts       = ts,
             .price    = pricing->fill_price,
             .qty      = o.qty,
@@ -66,7 +66,7 @@ class CostAwareMatcher {
 
    private:
     CM cost_;
-    // one symbol's whole venue row fits one cache line.
+    // one symbol's whole market row fits one cache line.
     alignas(64) std::array<Price, Book::kMaxInstruments> last_price_{};
 };
 

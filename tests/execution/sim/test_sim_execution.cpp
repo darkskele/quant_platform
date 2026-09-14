@@ -115,20 +115,20 @@ TEST(SimExecution, DifferentSymbolsTrackIndependentPrices) {
 }
 
 // Two venues intern the same underlying instrument to the same SymbolId —
-// the matcher must key on (symbol, venue), or a spot and a perp trade for
+// the matcher must key on (symbol, market), or a spot and a perp trade for
 // "symbol 7" would collide into one slot.
 TEST(SimExecution, DifferentVenuesTrackIndependentPricesForTheSameSymbol) {
     auto gateway = make_gateway();
 
-    gateway.on_market_event(qp::test::make_trade(7, 10, 100.0, 1.0, Side::Buy, /*venue=*/0));
-    gateway.on_market_event(qp::test::make_trade(7, 10, 200.0, 1.0, Side::Buy, /*venue=*/1));
+    gateway.on_market_event(qp::test::make_trade(7, 10, 100.0, 1.0, Side::Buy, /*market=*/0));
+    gateway.on_market_event(qp::test::make_trade(7, 10, 200.0, 1.0, Side::Buy, /*market=*/1));
 
-    gateway.submit(Order{.id = 1, .symbol = 7, .side = Side::Buy, .venue = 0, .qty = 1.0}, 20);
-    gateway.submit(Order{.id = 2, .symbol = 7, .side = Side::Buy, .venue = 1, .qty = 1.0}, 20);
+    gateway.submit(Order{.id = 1, .symbol = 7, .side = Side::Buy, .market = 0, .qty = 1.0}, 20);
+    gateway.submit(Order{.id = 2, .symbol = 7, .side = Side::Buy, .market = 1, .qty = 1.0}, 20);
 
     ASSERT_EQ(gateway.fills().size(), 2u);
-    EXPECT_EQ(gateway.fills()[0].venue, 0);
+    EXPECT_EQ(gateway.fills()[0].market, 0);
     EXPECT_DOUBLE_EQ(gateway.fills()[0].price, 100.0);
-    EXPECT_EQ(gateway.fills()[1].venue, 1);
+    EXPECT_EQ(gateway.fills()[1].market, 1);
     EXPECT_DOUBLE_EQ(gateway.fills()[1].price, 200.0);
 }

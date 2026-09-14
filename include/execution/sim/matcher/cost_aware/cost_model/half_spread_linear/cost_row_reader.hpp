@@ -20,7 +20,7 @@ namespace qp::execution::sim::matcher::cost_aware::cost_model::half_spread_linea
 
 /// Loads a cost table CSV into `vector<CostRow>`. The CSV is expected to
 /// carry a header row naming at least these columns (extras are ignored):
-///   symbol, venue, week_start, half_spread_bps, impact_bps_per_unit,
+///   symbol, market, week_start, half_spread_bps, impact_bps_per_unit,
 ///   taker_fee_bps
 template <class SymbolTable>
 std::vector<CostRow> read_cost_rows_csv(const std::filesystem::path& path);
@@ -76,7 +76,7 @@ inline std::vector<std::string_view> split_csv(std::string_view line) {
 }
 
 struct HeaderIndex {
-    int symbol{-1}, venue{-1}, week_start{-1};
+    int symbol{-1}, market{-1}, week_start{-1};
     int half_spread_bps{-1}, impact_bps_per_unit{-1}, taker_fee_bps{-1};
 };
 
@@ -87,8 +87,8 @@ inline HeaderIndex parse_header(std::string_view header_line) {
         auto f = fields[i];
         if (f == "symbol")
             h.symbol = i;
-        else if (f == "venue")
-            h.venue = i;
+        else if (f == "market")
+            h.market = i;
         else if (f == "week_start")
             h.week_start = i;
         else if (f == "half_spread_bps")
@@ -102,7 +102,7 @@ inline HeaderIndex parse_header(std::string_view header_line) {
 }
 
 inline bool header_complete(const HeaderIndex& h) noexcept {
-    return h.symbol >= 0 && h.venue >= 0 && h.week_start >= 0 && h.half_spread_bps >= 0 &&
+    return h.symbol >= 0 && h.market >= 0 && h.week_start >= 0 && h.half_spread_bps >= 0 &&
            h.impact_bps_per_unit >= 0 && h.taker_fee_bps >= 0;
 }
 
@@ -136,7 +136,7 @@ std::vector<CostRow> read_cost_rows_csv(const std::filesystem::path& path) {
         auto fields = detail::split_csv(line);
 
         auto need       = [&](int idx) -> std::string_view { return fields[idx]; };
-        auto max_needed = std::max({hdr.symbol, hdr.venue, hdr.week_start, hdr.half_spread_bps,
+        auto max_needed = std::max({hdr.symbol, hdr.market, hdr.week_start, hdr.half_spread_bps,
                                     hdr.impact_bps_per_unit, hdr.taker_fee_bps});
         if (static_cast<int>(fields.size()) <= max_needed) {
             std::ostringstream oss;
@@ -147,12 +147,12 @@ std::vector<CostRow> read_cost_rows_csv(const std::filesystem::path& path) {
         auto sym_id = SymbolTable::id_of(need(hdr.symbol));
         if (!sym_id) continue;  // symbol not in this build's universe, skip cleanly
 
-        auto ven_str = need(hdr.venue);
+        auto ven_str = need(hdr.market);
         int  ven_i{};
         if (std::from_chars(ven_str.data(), ven_str.data() + ven_str.size(), ven_i).ec !=
             std::errc{}) {
             std::ostringstream oss;
-            oss << "cost_table csv line " << line_no << " has bad venue '" << ven_str << "'";
+            oss << "cost_table csv line " << line_no << " has bad market '" << ven_str << "'";
             throw std::runtime_error(oss.str());
         }
 
@@ -190,7 +190,7 @@ std::vector<CostRow> read_cost_rows_csv(const std::filesystem::path& path) {
 
         rows.push_back(CostRow{
             .symbol              = *sym_id,
-            .venue               = static_cast<VenueId>(ven_i),
+            .market               = static_cast<MarketId>(ven_i),
             .week_start_ns       = *ws_ns,
             .half_spread_bps     = *hs,
             .impact_bps_per_unit = im_val,

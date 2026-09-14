@@ -50,7 +50,7 @@ struct TempFile {
 TEST(CostRowReader, ParsesTypicalFinalizeOutput) {
     // Column order taken from research/build_cost_table.ipynb's finalize().
     constexpr std::string_view kCsv =
-        "symbol,venue,week_start,half_spread_bps,half_spread_source,"
+        "symbol,market,week_start,half_spread_bps,half_spread_source,"
         "impact_bps_per_unit,taker_fee_bps,n_days_book,n_days_trade,n_bars\n"
         "AAA,1,2023-05-15,0.25,book,0.001,4.0,7,7,10080\n"
         "AAA,1,2023-05-22,0.30,book,0.002,4.0,7,7,10080\n"
@@ -60,9 +60,9 @@ TEST(CostRowReader, ParsesTypicalFinalizeOutput) {
     auto rows = read_cost_rows_csv<TestSymbolTable>(f.path);
     ASSERT_EQ(rows.size(), 3u);
 
-    // First row: AAA (id 0), venue 1, 2023-05-15.
+    // First row: AAA (id 0), market 1, 2023-05-15.
     EXPECT_EQ(rows[0].symbol, 0u);
-    EXPECT_EQ(rows[0].venue, 1);
+    EXPECT_EQ(rows[0].market, 1);
     EXPECT_DOUBLE_EQ(rows[0].half_spread_bps, 0.25);
     EXPECT_DOUBLE_EQ(rows[0].impact_bps_per_unit, 0.001);
     EXPECT_DOUBLE_EQ(rows[0].taker_fee_bps, 4.0);
@@ -78,7 +78,7 @@ TEST(CostRowReader, ParsesTypicalFinalizeOutput) {
 
 TEST(CostRowReader, DropsUnknownSymbolRows) {
     constexpr std::string_view kCsv =
-        "symbol,venue,week_start,half_spread_bps,impact_bps_per_unit,taker_fee_bps\n"
+        "symbol,market,week_start,half_spread_bps,impact_bps_per_unit,taker_fee_bps\n"
         "AAA,1,2023-05-15,0.25,0.001,4.0\n"
         "ZZZ,1,2023-05-15,9.99,0.001,4.0\n";  // ZZZ unknown, silently skipped
     TempFile f{kCsv};
@@ -91,7 +91,7 @@ TEST(CostRowReader, DropsUnknownSymbolRows) {
 TEST(CostRowReader, ThrowsOnMissingHeaderColumn) {
     // Missing taker_fee_bps.
     constexpr std::string_view kCsv =
-        "symbol,venue,week_start,half_spread_bps,impact_bps_per_unit\n"
+        "symbol,market,week_start,half_spread_bps,impact_bps_per_unit\n"
         "AAA,1,2023-05-15,0.25,0.001\n";
     TempFile f{kCsv};
     EXPECT_THROW(read_cost_rows_csv<TestSymbolTable>(f.path), std::runtime_error);
@@ -100,7 +100,7 @@ TEST(CostRowReader, ThrowsOnMissingHeaderColumn) {
 TEST(CostRowReader, ThrowsOnEmptyRequiredValue) {
     // half_spread_bps empty for a real row is a bad row.
     constexpr std::string_view kCsv =
-        "symbol,venue,week_start,half_spread_bps,impact_bps_per_unit,taker_fee_bps\n"
+        "symbol,market,week_start,half_spread_bps,impact_bps_per_unit,taker_fee_bps\n"
         "AAA,1,2023-05-15,,0.001,4.0\n";
     TempFile f{kCsv};
     EXPECT_THROW(read_cost_rows_csv<TestSymbolTable>(f.path), std::runtime_error);
@@ -108,7 +108,7 @@ TEST(CostRowReader, ThrowsOnEmptyRequiredValue) {
 
 TEST(CostRowReader, ThrowsOnBadDate) {
     constexpr std::string_view kCsv =
-        "symbol,venue,week_start,half_spread_bps,impact_bps_per_unit,taker_fee_bps\n"
+        "symbol,market,week_start,half_spread_bps,impact_bps_per_unit,taker_fee_bps\n"
         "AAA,1,2023-13-40,0.25,0.001,4.0\n";
     TempFile f{kCsv};
     EXPECT_THROW(read_cost_rows_csv<TestSymbolTable>(f.path), std::runtime_error);
@@ -122,7 +122,7 @@ TEST(CostRowReader, ThrowsOnMissingFile) {
 
 TEST(CostRowReader, ThrowsOnNonNumericHalfSpread) {
     constexpr std::string_view kCsv =
-        "symbol,venue,week_start,half_spread_bps,impact_bps_per_unit,taker_fee_bps\n"
+        "symbol,market,week_start,half_spread_bps,impact_bps_per_unit,taker_fee_bps\n"
         "AAA,1,2023-05-15,notanumber,0.001,4.0\n";
     TempFile f{kCsv};
     EXPECT_THROW(read_cost_rows_csv<TestSymbolTable>(f.path), std::runtime_error);
@@ -130,7 +130,7 @@ TEST(CostRowReader, ThrowsOnNonNumericHalfSpread) {
 
 TEST(CostRowReader, ThrowsOnNonNumericFee) {
     constexpr std::string_view kCsv =
-        "symbol,venue,week_start,half_spread_bps,impact_bps_per_unit,taker_fee_bps\n"
+        "symbol,market,week_start,half_spread_bps,impact_bps_per_unit,taker_fee_bps\n"
         "AAA,1,2023-05-15,0.25,0.001,bogus\n";
     TempFile f{kCsv};
     EXPECT_THROW(read_cost_rows_csv<TestSymbolTable>(f.path), std::runtime_error);
@@ -138,7 +138,7 @@ TEST(CostRowReader, ThrowsOnNonNumericFee) {
 
 TEST(CostRowReader, ThrowsOnBadVenueInteger) {
     constexpr std::string_view kCsv =
-        "symbol,venue,week_start,half_spread_bps,impact_bps_per_unit,taker_fee_bps\n"
+        "symbol,market,week_start,half_spread_bps,impact_bps_per_unit,taker_fee_bps\n"
         "AAA,abc,2023-05-15,0.25,0.001,4.0\n";
     TempFile f{kCsv};
     EXPECT_THROW(read_cost_rows_csv<TestSymbolTable>(f.path), std::runtime_error);
@@ -147,7 +147,7 @@ TEST(CostRowReader, ThrowsOnBadVenueInteger) {
 TEST(CostRowReader, HandlesCrlfLineEndings) {
     // Windows line endings should be stripped, not carried into fields.
     constexpr std::string_view kCsv =
-        "symbol,venue,week_start,half_spread_bps,impact_bps_per_unit,taker_fee_bps\r\n"
+        "symbol,market,week_start,half_spread_bps,impact_bps_per_unit,taker_fee_bps\r\n"
         "AAA,1,2023-05-15,0.25,0.001,4.0\r\n";
     TempFile f{kCsv};
     auto     rows = read_cost_rows_csv<TestSymbolTable>(f.path);
@@ -157,7 +157,7 @@ TEST(CostRowReader, HandlesCrlfLineEndings) {
 
 TEST(CostRowReader, HandlesBlankLines) {
     constexpr std::string_view kCsv =
-        "symbol,venue,week_start,half_spread_bps,impact_bps_per_unit,taker_fee_bps\n"
+        "symbol,market,week_start,half_spread_bps,impact_bps_per_unit,taker_fee_bps\n"
         "AAA,1,2023-05-15,0.25,0.001,4.0\n"
         "\n"
         "BBB,1,2023-05-15,0.30,0.002,4.0\n";
@@ -168,7 +168,7 @@ TEST(CostRowReader, HandlesBlankLines) {
 
 TEST(CostRowReader, ParsesMultipleSymbolsInterleaved) {
     constexpr std::string_view kCsv =
-        "symbol,venue,week_start,half_spread_bps,impact_bps_per_unit,taker_fee_bps\n"
+        "symbol,market,week_start,half_spread_bps,impact_bps_per_unit,taker_fee_bps\n"
         "AAA,1,2023-05-15,0.25,0.001,4.0\n"
         "BBB,1,2023-05-15,0.75,0.002,4.0\n"
         "AAA,1,2023-05-22,0.30,0.001,4.0\n"
@@ -191,13 +191,13 @@ TEST(CostRowReader, AcceptsHeaderInAnyColumnOrder) {
     // The loader indexes columns by name, so reordering the header must
     // not affect row parsing.
     constexpr std::string_view kCsv =
-        "taker_fee_bps,impact_bps_per_unit,week_start,venue,symbol,half_spread_bps\n"
+        "taker_fee_bps,impact_bps_per_unit,week_start,market,symbol,half_spread_bps\n"
         "4.0,0.001,2023-05-15,1,AAA,0.25\n";
     TempFile f{kCsv};
     auto     rows = read_cost_rows_csv<TestSymbolTable>(f.path);
     ASSERT_EQ(rows.size(), 1u);
     EXPECT_EQ(rows[0].symbol, 0u);
-    EXPECT_EQ(rows[0].venue, 1);
+    EXPECT_EQ(rows[0].market, 1);
     EXPECT_DOUBLE_EQ(rows[0].half_spread_bps, 0.25);
     EXPECT_DOUBLE_EQ(rows[0].impact_bps_per_unit, 0.001);
     EXPECT_DOUBLE_EQ(rows[0].taker_fee_bps, 4.0);
@@ -206,7 +206,7 @@ TEST(CostRowReader, AcceptsHeaderInAnyColumnOrder) {
 TEST(CostRowReader, ThrowsOnNonNumericImpact) {
     // Empty impact is legal (treated as 0). A non-empty garbage value is not.
     constexpr std::string_view kCsv =
-        "symbol,venue,week_start,half_spread_bps,impact_bps_per_unit,taker_fee_bps\n"
+        "symbol,market,week_start,half_spread_bps,impact_bps_per_unit,taker_fee_bps\n"
         "AAA,1,2023-05-15,0.25,notanumber,4.0\n";
     TempFile f{kCsv};
     EXPECT_THROW(read_cost_rows_csv<TestSymbolTable>(f.path), std::runtime_error);
@@ -217,7 +217,7 @@ TEST(CostRowReader, IgnoresExtraColumns) {
     // required ones (n_days_book, n_days_trade, n_bars, half_spread_source).
     // The loader must ignore them cleanly.
     constexpr std::string_view kCsv =
-        "symbol,venue,week_start,half_spread_bps,half_spread_source,"
+        "symbol,market,week_start,half_spread_bps,half_spread_source,"
         "impact_bps_per_unit,taker_fee_bps,n_days_book,n_days_trade,n_bars,extra\n"
         "AAA,1,2023-05-15,0.25,book,0.001,4.0,7,7,10080,ignored\n";
     TempFile f{kCsv};

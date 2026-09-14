@@ -14,20 +14,20 @@ using qp::execution::sim::matcher::last_trade::LastTradeMatcher;
 namespace {
 
 constexpr SymbolId                   kSymbol = 1;
-constexpr VenueId                    kVenue  = 0;
+constexpr MarketId                    kMarket  = 0;
 constexpr std::array<std::size_t, 1> kCounts{2};
 using Book = Portfolio<kCounts>;
 
 MarketEvent make_trade_event() {
     TradeEvent ev;
     ev.symbol = kSymbol;
-    ev.venue  = kVenue;
+    ev.market  = kMarket;
     ev.price  = 100.0;
     ev.qty    = 1.0;
     return ev;
 }
 
-// Isolation: on_market_event() — the array write per (symbol, venue) index.
+// Isolation: on_market_event() — the array write per (symbol, market) index.
 // DoNotOptimize(matcher) is load-bearing here, not decorative: the write
 // only touches matcher's own last_price_ array, which nothing reads
 // afterward and which never escapes this function, so without it the
@@ -60,7 +60,7 @@ void BM_LastTradeMatcher_OnMarketEventDiscardsPopulatedBookDiff(benchmark::State
     std::vector<PriceLevel> bids(kLevels, PriceLevel{.price = 100.0, .qty = 1.0});
     std::vector<PriceLevel> asks(kLevels, PriceLevel{.price = 101.0, .qty = 1.0});
     auto ev = qp::test::make_book_diff(kSymbol, /*ts=*/0, /*first_seq=*/0, /*seq=*/0,
-                                       /*prev_seq=*/0, bids, asks, kVenue);
+                                       /*prev_seq=*/0, bids, asks, kMarket);
     for (auto _ : state) {
         matcher.on_market_event(ev);
         benchmark::DoNotOptimize(matcher);
@@ -70,11 +70,11 @@ void BM_LastTradeMatcher_OnMarketEventDiscardsPopulatedBookDiff(benchmark::State
 BENCHMARK(BM_LastTradeMatcher_OnMarketEventDiscardsPopulatedBookDiff);
 
 // Isolation: try_fill(), fill path — a price has been seen for this
-// (symbol, venue).
+// (symbol, market).
 void BM_LastTradeMatcher_TryFillFills(benchmark::State& state) {
     LastTradeMatcher<Book> matcher;
     matcher.on_market_event(make_trade_event());
-    Order order{.id = 1, .symbol = kSymbol, .side = Side::Buy, .venue = kVenue, .qty = 1.0};
+    Order order{.id = 1, .symbol = kSymbol, .side = Side::Buy, .market = kMarket, .qty = 1.0};
     for (auto _ : state) {
         auto outcome = matcher.try_fill(order, 0);
         benchmark::DoNotOptimize(outcome);
@@ -84,11 +84,11 @@ void BM_LastTradeMatcher_TryFillFills(benchmark::State& state) {
 BENCHMARK(BM_LastTradeMatcher_TryFillFills);
 
 // Isolation: try_fill(), reject path — no Trade ever seen for this
-// (symbol, venue), the early "can't fill" floor every other case pays on
+// (symbol, market), the early "can't fill" floor every other case pays on
 // top of.
 void BM_LastTradeMatcher_TryFillRejects(benchmark::State& state) {
     LastTradeMatcher<Book> matcher;
-    Order order{.id = 1, .symbol = kSymbol, .side = Side::Buy, .venue = kVenue, .qty = 1.0};
+    Order order{.id = 1, .symbol = kSymbol, .side = Side::Buy, .market = kMarket, .qty = 1.0};
     for (auto _ : state) {
         auto outcome = matcher.try_fill(order, 0);
         benchmark::DoNotOptimize(outcome);

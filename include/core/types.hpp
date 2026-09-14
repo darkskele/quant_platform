@@ -5,14 +5,14 @@
 #include <variant>
 #include <vector>
 
+#include "markets.hpp"
+
 namespace qp {
 
 using Timestamp = std::int64_t;   ///< Nanoseconds since epoch.
 using Price     = double;         ///< @todo: fixed-point ticks for exactness.
 using Qty       = double;         ///< Same open exactness gap as Price: step size, not tick size.
-using SymbolId  = std::uint32_t;  ///< Index into venue symbol table.
-using VenueId   = std::uint8_t;   ///< Which leg/venue produced this event. (SymbolId, VenueId)
-                                  ///< together identify an instrument, SymbolId alone doesn't.
+using SymbolId  = std::uint32_t;  ///< Index into market symbol table.
 
 enum class Side : std::uint8_t { Buy, Sell };
 
@@ -40,11 +40,11 @@ enum class EventKind : std::uint8_t {
 };
 
 /// One flat struct per event kind, not one struct with every kind's
-/// fields. First four members are always kind/venue/symbol/ts, in that
+/// fields. First four members are always kind/market/symbol/ts, in that
 /// order, so header_of() below reads the same way regardless of kind.
 struct TradeEvent {
     EventKind kind = EventKind::Trade;
-    VenueId   venue{};
+    MarketId  market{};
     SymbolId  symbol{};
     Timestamp ts{};
     Side      side{};
@@ -56,7 +56,7 @@ static_assert(std::is_trivially_copyable_v<TradeEvent>);
 
 struct FundingEvent {
     EventKind kind = EventKind::Funding;
-    VenueId   venue{};
+    MarketId  market{};
     SymbolId  symbol{};
     Timestamp ts{};
     double    funding_rate{};
@@ -66,7 +66,7 @@ static_assert(std::is_trivially_copyable_v<FundingEvent>);
 
 struct KlineEvent {
     EventKind kind = EventKind::Kline;
-    VenueId   venue{};
+    MarketId  market{};
     SymbolId  symbol{};
     Timestamp ts{};  ///< Bar open time.
     Timestamp close_time{};
@@ -83,7 +83,7 @@ static_assert(std::is_trivially_copyable_v<KlineEvent>);
 /// so funding settlement can't be gamed by spoofing the last trade price.
 struct MarkPriceKlineEvent {
     EventKind kind = EventKind::MarkPriceKline;
-    VenueId   venue{};
+    MarketId  market{};
     SymbolId  symbol{};
     Timestamp ts{};  ///< Bar open time.
     Timestamp close_time{};
@@ -105,7 +105,7 @@ struct BookLevels {
 
 struct BookDiffEvent {
     EventKind                         kind = EventKind::BookDiff;
-    VenueId                           venue{};
+    MarketId                          market{};
     SymbolId                          symbol{};
     Timestamp                         ts{};
     std::uint64_t                     first_seq{};  ///< First seq in event (Binance's U).
@@ -116,7 +116,7 @@ struct BookDiffEvent {
 
 struct BookSnapshotEvent {
     EventKind                         kind = EventKind::BookSnapshot;
-    VenueId                           venue{};
+    MarketId                          market{};
     SymbolId                          symbol{};
     Timestamp                         ts{};
     std::shared_ptr<const BookLevels> levels;
@@ -133,25 +133,25 @@ using MarketEvent = std::variant<TradeEvent, FundingEvent, KlineEvent, MarkPrice
 /// looking at.
 struct EventHeader {
     EventKind kind{};
-    VenueId   venue{};
+    MarketId  market{};
     SymbolId  symbol{};
     Timestamp ts{};
 };
 
 constexpr EventHeader header_of(const MarketEvent& event) {
     return std::visit(
-        [](const auto& e) -> EventHeader { return {e.kind, e.venue, e.symbol, e.ts}; }, event);
+        [](const auto& e) -> EventHeader { return {e.kind, e.market, e.symbol, e.ts}; }, event);
 }
 
 using OrderId  = std::uint64_t;  ///< Caller-assigned; unique per submitted Order.
 using Notional = double;         ///< Quote-currency amount (fees, PnL).
 
 /// A strategy's desired end-state for one symbol: a target position, not
-/// a delta or a venue order ("be +2 BTC", not "buy 2 BTC"). RiskGate turns
+/// a delta or a market order ("be +2 BTC", not "buy 2 BTC"). RiskGate turns
 /// this into concrete Order(s), computing the delta itself.
 struct Intent {
     SymbolId symbol{};
-    VenueId  venue{};            ///< Which leg. (symbol, venue) together identify an instrument.
+    MarketId market{};           ///< Which market. (symbol, market) together identify an instrument.
     Qty      target_position{};  ///< Signed: positive = net long, negative = net short.
 };
 
@@ -162,19 +162,19 @@ struct Order {
     OrderId  id{};
     SymbolId symbol{};
     Side     side{};
-    VenueId  venue{};  ///< Which leg; see Intent::venue.
+    MarketId market{};  ///< Which market; see Intent::market.
     Qty      qty{};
 };
 
 static_assert(sizeof(Order) == 24, "unexpected padding/size regression");
 
-/// What happened to a submitted Order: filled. symbol/side/venue sit right
+/// What happened to a submitted Order: filled. symbol/side/market sit right
 /// after order_id, saving 8 bytes of padding versus declaration order.
 struct Fill {
     OrderId   order_id{};
     SymbolId  symbol{};
     Side      side{};
-    VenueId   venue{};  ///< Which leg; see Intent::venue.
+    MarketId  market{};  ///< Which market; see Intent::market.
     Timestamp ts{};
     Price     price{};
     Qty       qty{};  ///< == Order::qty always for now, no partials.
@@ -186,13 +186,13 @@ static_assert(sizeof(Fill) == 48, "unexpected padding/size regression");
 /// Reasons grow as real ones appear.
 enum class RejectReason : std::uint8_t { NoPriceAvailable, NoCostAvailable };
 
-/// What happened to a submitted Order: didn't. symbol/reason/venue sit
+/// What happened to a submitted Order: didn't. symbol/reason/market sit
 /// right after order_id, saving 8 bytes of padding versus declaration order.
 struct Reject {
     OrderId      order_id{};
     SymbolId     symbol{};
     RejectReason reason{};
-    VenueId      venue{};  ///< Which leg; see Intent::venue.
+    MarketId     market{};  ///< Which market; see Intent::market.
     Timestamp    ts{};
 };
 

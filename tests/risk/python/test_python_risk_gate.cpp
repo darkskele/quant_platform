@@ -17,20 +17,20 @@ PYBIND11_EMBEDDED_MODULE(qp_test_types_risk, m) {
     py::class_<qp::Intent>(m, "Intent")
         .def(py::init<>())
         .def_readwrite("symbol", &qp::Intent::symbol)
-        .def_readwrite("venue", &qp::Intent::venue)
+        .def_readwrite("market", &qp::Intent::market)
         .def_readwrite("target_position", &qp::Intent::target_position);
 
     py::enum_<qp::Side>(m, "Side").value("Buy", qp::Side::Buy).value("Sell", qp::Side::Sell);
 
     py::class_<qp::Order>(m, "Order")
-        .def(py::init([](qp::OrderId id, qp::SymbolId s, qp::Side side, qp::VenueId v, qp::Qty q) {
-                 return qp::Order{.id = id, .symbol = s, .side = side, .venue = v, .qty = q};
+        .def(py::init([](qp::OrderId id, qp::SymbolId s, qp::Side side, qp::MarketId v, qp::Qty q) {
+                 return qp::Order{.id = id, .symbol = s, .side = side, .market = v, .qty = q};
              }),
-             py::arg("id"), py::arg("symbol"), py::arg("side"), py::arg("venue"), py::arg("qty"))
+             py::arg("id"), py::arg("symbol"), py::arg("side"), py::arg("market"), py::arg("qty"))
         .def_readwrite("id", &qp::Order::id)
         .def_readwrite("symbol", &qp::Order::symbol)
         .def_readwrite("side", &qp::Order::side)
-        .def_readwrite("venue", &qp::Order::venue)
+        .def_readwrite("market", &qp::Order::market)
         .def_readwrite("qty", &qp::Order::qty);
 
     py::enum_<qp::RiskOutcome>(m, "RiskOutcome")
@@ -71,19 +71,19 @@ TEST_F(PythonRiskGateTest, CheckReturnsPythonDecision) {
     py::exec(
         "def cb(intent):\n"
         "    order = types.Order(id=7, symbol=intent.symbol, side=types.Side.Buy,\n"
-        "                        venue=intent.venue, qty=abs(intent.target_position))\n"
+        "                        market=intent.market, qty=abs(intent.target_position))\n"
         "    return types.RiskDecision(outcome=types.RiskOutcome.Approved, order=order)\n",
         py::globals(), locals);
 
     PythonRiskGate<> gate{locals["cb"], py::none()};
-    auto decision = gate.check(qp::Intent{.symbol = 1, .venue = 2, .target_position = 3.0});
+    auto decision = gate.check(qp::Intent{.symbol = 1, .market = 2, .target_position = 3.0});
 
     EXPECT_EQ(decision.outcome, RiskOutcome::Approved);
     ASSERT_TRUE(decision.order.has_value());
     EXPECT_EQ(decision.order->id, 7u);
     EXPECT_EQ(decision.order->symbol, 1u);
     EXPECT_EQ(decision.order->side, qp::Side::Buy);
-    EXPECT_EQ(decision.order->venue, 2u);
+    EXPECT_EQ(decision.order->market, 2u);
     EXPECT_DOUBLE_EQ(decision.order->qty, 3.0);
 }
 
@@ -104,8 +104,8 @@ TEST_F(PythonRiskGateTest, OnTickReturnsOrders) {
     py::exec(
         "def cb():\n"
         "    return [\n"
-        "        types.Order(id=1, symbol=10, side=types.Side.Sell, venue=0, qty=1.5),\n"
-        "        types.Order(id=2, symbol=11, side=types.Side.Buy, venue=1, qty=2.5),\n"
+        "        types.Order(id=1, symbol=10, side=types.Side.Sell, market=0, qty=1.5),\n"
+        "        types.Order(id=2, symbol=11, side=types.Side.Buy, market=1, qty=2.5),\n"
         "    ]\n",
         py::globals(), locals);
 

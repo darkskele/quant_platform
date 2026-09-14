@@ -54,9 +54,9 @@ TEST(Portfolio, SymbolsAreIndependent) {
 TEST(Portfolio, SameSymbolOnDifferentVenuesIsIndependent) {
     Portfolio portfolio;
     portfolio.apply_fill(make_fill(1, qp::Side::Buy, 2.0, /*price=*/100.0, /*order_id=*/1,
-                                   /*ts=*/0, /*fee=*/0.0, /*venue=*/0));
+                                   /*ts=*/0, /*fee=*/0.0, /*market=*/0));
     portfolio.apply_fill(make_fill(1, qp::Side::Sell, 1.0, /*price=*/100.0, /*order_id=*/2,
-                                   /*ts=*/0, /*fee=*/0.0, /*venue=*/1));
+                                   /*ts=*/0, /*fee=*/0.0, /*market=*/1));
 
     EXPECT_EQ(portfolio.position(1, 0), 2.0);
     EXPECT_EQ(portfolio.position(1, 1), -1.0);

@@ -8,8 +8,8 @@
 namespace qp::data_source::sink::fanout {
 
 /// Redistributes record()ed events to NumConsumers in-process readers.
-/// A multi-venue setup uses one FanoutSink per venue, paired with its
-/// source by run_data_source, which is also what stamps MarketEvent::venue.
+/// A multi-market setup uses one FanoutSink per market, paired with its
+/// source by run_data_source, which is also what stamps MarketEvent::market.
 template <std::size_t Capacity, std::size_t NumConsumers>
 class FanoutSink {
    public:

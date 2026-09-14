@@ -10,7 +10,7 @@ using namespace qp;
 namespace {
 
 constexpr SymbolId                   kSymbol = 1;
-constexpr VenueId                    kVenue  = 0;
+constexpr MarketId                    kMarket  = 0;
 constexpr std::array<std::size_t, 1> kCounts{2};
 
 // Isolation only: Portfolio's write side (apply_fill/apply_funding/
@@ -21,7 +21,7 @@ constexpr std::array<std::size_t, 1> kCounts{2};
 
 void BM_Portfolio_ApplyFill(benchmark::State& state) {
     Portfolio<kCounts> portfolio;
-    Fill fill{.symbol = kSymbol, .side = Side::Buy, .venue = kVenue, .price = 100.0, .qty = 1.0};
+    Fill fill{.symbol = kSymbol, .side = Side::Buy, .market = kMarket, .price = 100.0, .qty = 1.0};
     for (auto _ : state) {
         portfolio.apply_fill(fill);
         benchmark::DoNotOptimize(portfolio);
@@ -33,10 +33,10 @@ BENCHMARK(BM_Portfolio_ApplyFill);
 void BM_Portfolio_ApplyFunding(benchmark::State& state) {
     Portfolio<kCounts> portfolio;
     portfolio.apply_fill(
-        Fill{.symbol = kSymbol, .side = Side::Buy, .venue = kVenue, .price = 100.0, .qty = 1.0});
+        Fill{.symbol = kSymbol, .side = Side::Buy, .market = kMarket, .price = 100.0, .qty = 1.0});
     FundingEvent event;
     event.symbol       = kSymbol;
-    event.venue        = kVenue;
+    event.market        = kMarket;
     event.funding_rate = 0.0001;
     // No mark_price to set — FundingEvent no longer carries one (settlement
     // now reads Portfolio's own funding_mark_price_, fed by
@@ -55,7 +55,7 @@ void BM_Portfolio_ApplyMarkPrice(benchmark::State& state) {
     Portfolio<kCounts> portfolio;
     TradeEvent         event;
     event.symbol = kSymbol;
-    event.venue  = kVenue;
+    event.market  = kMarket;
     event.price  = 100.0;
     for (auto _ : state) {
         portfolio.apply_mark_price(event);
@@ -71,7 +71,7 @@ void BM_Portfolio_ApplyMarkPriceFromMarkPriceKline(benchmark::State& state) {
     Portfolio<kCounts>  portfolio;
     MarkPriceKlineEvent event;
     event.symbol = kSymbol;
-    event.venue  = kVenue;
+    event.market  = kMarket;
     event.close  = 100.0;
     for (auto _ : state) {
         portfolio.apply_mark_price(event);
@@ -88,7 +88,7 @@ void BM_Portfolio_ApplyMarkPriceIgnoresBookDiff(benchmark::State& state) {
     Portfolio<kCounts> portfolio;
     BookDiffEvent      event;
     event.symbol = kSymbol;
-    event.venue  = kVenue;
+    event.market  = kMarket;
     for (auto _ : state) {
         portfolio.apply_mark_price(event);
         benchmark::DoNotOptimize(portfolio);
@@ -100,8 +100,8 @@ BENCHMARK(BM_Portfolio_ApplyMarkPriceIgnoresBookDiff);
 void BM_Portfolio_Position(benchmark::State& state) {
     Portfolio<kCounts> portfolio;
     portfolio.apply_fill(
-        Fill{.symbol = kSymbol, .side = Side::Buy, .venue = kVenue, .price = 100.0, .qty = 1.0});
-    for (auto _ : state) benchmark::DoNotOptimize(portfolio.position(kSymbol, kVenue));
+        Fill{.symbol = kSymbol, .side = Side::Buy, .market = kMarket, .price = 100.0, .qty = 1.0});
+    for (auto _ : state) benchmark::DoNotOptimize(portfolio.position(kSymbol, kMarket));
 }
 
 BENCHMARK(BM_Portfolio_Position);
@@ -113,10 +113,10 @@ BENCHMARK(BM_Portfolio_Position);
 void BM_Portfolio_Equity(benchmark::State& state) {
     Portfolio<kCounts> portfolio;
     portfolio.apply_fill(
-        Fill{.symbol = kSymbol, .side = Side::Buy, .venue = kVenue, .price = 100.0, .qty = 1.0});
+        Fill{.symbol = kSymbol, .side = Side::Buy, .market = kMarket, .price = 100.0, .qty = 1.0});
     TradeEvent mark;
     mark.symbol = kSymbol;
-    mark.venue  = kVenue;
+    mark.market  = kMarket;
     mark.price  = 105.0;
     portfolio.apply_mark_price(mark);
     for (auto _ : state) benchmark::DoNotOptimize(portfolio.equity());

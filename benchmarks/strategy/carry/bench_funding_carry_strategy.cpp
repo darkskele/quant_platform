@@ -12,15 +12,15 @@ using qp::strategy::carry::Config;
 using qp::strategy::carry::FundingCarryStrategy;
 
 constexpr qp::SymbolId               kSymbol       = 1;
-constexpr qp::VenueId                kSpotVenue    = 0;
-constexpr qp::VenueId                kFuturesVenue = 1;
+constexpr qp::MarketId                kSpotMarket    = 0;
+constexpr qp::MarketId                kFuturesMarket = 1;
 constexpr std::array<std::size_t, 2> kCounts{2, 2};
 using Book = qp::Portfolio<kCounts>;
 
 Config make_config() {
     return Config{.symbol             = kSymbol,
-                  .spot_venue         = kSpotVenue,
-                  .futures_venue      = kFuturesVenue,
+                  .spot_market         = kSpotMarket,
+                  .futures_market      = kFuturesMarket,
                   .target_qty         = 2.0,
                   .entry_funding_rate = 0.0001,
                   .exit_funding_rate  = 0.0};
@@ -33,7 +33,7 @@ Config make_config() {
 void BM_FundingCarryStrategy_EntersPosition(benchmark::State& state) {
     Book                       portfolio;
     FundingCarryStrategy<Book> strategy{make_config(), portfolio};
-    auto                       event = qp::test::make_funding(kSymbol, 0, 0.0002, kFuturesVenue);
+    auto                       event = qp::test::make_funding(kSymbol, 0, 0.0002, kFuturesMarket);
 
     for (auto _ : state) {
         auto intents = strategy.on_event(event);
@@ -50,10 +50,10 @@ void BM_FundingCarryStrategy_HoldsPosition(benchmark::State& state) {
     Book                       portfolio;
     FundingCarryStrategy<Book> strategy{make_config(), portfolio};
     portfolio.apply_fill(
-        qp::Fill{.symbol = kSymbol, .side = qp::Side::Buy, .venue = kSpotVenue, .qty = 2.0});
+        qp::Fill{.symbol = kSymbol, .side = qp::Side::Buy, .market = kSpotMarket, .qty = 2.0});
     portfolio.apply_fill(
-        qp::Fill{.symbol = kSymbol, .side = qp::Side::Sell, .venue = kFuturesVenue, .qty = 2.0});
-    auto event = qp::test::make_funding(kSymbol, 0, 0.00005, kFuturesVenue);
+        qp::Fill{.symbol = kSymbol, .side = qp::Side::Sell, .market = kFuturesMarket, .qty = 2.0});
+    auto event = qp::test::make_funding(kSymbol, 0, 0.00005, kFuturesMarket);
 
     for (auto _ : state) {
         auto intents = strategy.on_event(event);
@@ -68,10 +68,10 @@ void BM_FundingCarryStrategy_FlattensPosition(benchmark::State& state) {
     Book                       portfolio;
     FundingCarryStrategy<Book> strategy{make_config(), portfolio};
     portfolio.apply_fill(
-        qp::Fill{.symbol = kSymbol, .side = qp::Side::Buy, .venue = kSpotVenue, .qty = 2.0});
+        qp::Fill{.symbol = kSymbol, .side = qp::Side::Buy, .market = kSpotMarket, .qty = 2.0});
     portfolio.apply_fill(
-        qp::Fill{.symbol = kSymbol, .side = qp::Side::Sell, .venue = kFuturesVenue, .qty = 2.0});
-    auto event = qp::test::make_funding(kSymbol, 0, 0.0, kFuturesVenue);
+        qp::Fill{.symbol = kSymbol, .side = qp::Side::Sell, .market = kFuturesMarket, .qty = 2.0});
+    auto event = qp::test::make_funding(kSymbol, 0, 0.0, kFuturesMarket);
 
     for (auto _ : state) {
         auto intents = strategy.on_event(event);
@@ -81,7 +81,7 @@ void BM_FundingCarryStrategy_FlattensPosition(benchmark::State& state) {
 
 BENCHMARK(BM_FundingCarryStrategy_FlattensPosition);
 
-// Reject path: wrong kind/symbol/venue — the early return every other case
+// Reject path: wrong kind/symbol/market — the early return every other case
 // pays on top of, isolated here as the floor.
 void BM_FundingCarryStrategy_IgnoresNonMatchingEvent(benchmark::State& state) {
     Book                       portfolio;

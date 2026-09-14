@@ -28,14 +28,14 @@ using qp::execution::sim::matcher::cost_aware::cost_model::half_spread_linear::
 
 namespace {
 
-// Venue 0 holds one spot symbol, venue 1 holds one perp symbol. The
-// (symbol, venue) pair identifies an instrument; symbol id 0 on both.
+// Market 0 holds one spot symbol, market 1 holds one perp symbol. The
+// (symbol, market) pair identifies an instrument; symbol id 0 on both.
 constexpr std::array<std::size_t, 2> kCounts{1, 1};
 using Book      = qp::Portfolio<kCounts>;
 using CostMatch = CostAwareMatcher<Book, HalfSpreadLinearImpact<Book>>;
 
-constexpr qp::VenueId  kSpot = 0;
-constexpr qp::VenueId  kPerp = 1;
+constexpr qp::MarketId  kSpot = 0;
+constexpr qp::MarketId  kPerp = 1;
 constexpr qp::SymbolId kSym  = 0;
 
 constexpr double kRef          = 100.0;
@@ -54,7 +54,7 @@ sim::SimExecution<CostMatch, Book> make_gateway() {
     std::vector<CostRow> table{
         CostRow{
             .symbol              = kSym,
-            .venue               = kSpot,
+            .market               = kSpot,
             .week_start_ns       = 0,
             .half_spread_bps     = kHalfSpreadBp,
             .impact_bps_per_unit = 0.0,
@@ -62,7 +62,7 @@ sim::SimExecution<CostMatch, Book> make_gateway() {
         },
         CostRow{
             .symbol              = kSym,
-            .venue               = kPerp,
+            .market               = kPerp,
             .week_start_ns       = 0,
             .half_spread_bps     = kHalfSpreadBp,
             .impact_bps_per_unit = 0.0,
@@ -104,8 +104,8 @@ TEST(RoundTripDeltaNeutral, CashMatchesHandComputedFundingMinusSpreadAndFees) {
 
     // Open: long 1 spot, short 1 perp.
     Order open_orders[] = {
-        {.id = 1, .symbol = kSym, .side = Side::Buy, .venue = kSpot, .qty = 1.0},
-        {.id = 2, .symbol = kSym, .side = Side::Sell, .venue = kPerp, .qty = 1.0},
+        {.id = 1, .symbol = kSym, .side = Side::Buy, .market = kSpot, .qty = 1.0},
+        {.id = 2, .symbol = kSym, .side = Side::Sell, .market = kPerp, .qty = 1.0},
     };
     submit_and_drain(gateway, book, open_orders, /*ts=*/10);
 
@@ -126,8 +126,8 @@ TEST(RoundTripDeltaNeutral, CashMatchesHandComputedFundingMinusSpreadAndFees) {
 
     // Close: sell the spot, buy back the perp.
     Order close_orders[] = {
-        {.id = 3, .symbol = kSym, .side = Side::Sell, .venue = kSpot, .qty = 1.0},
-        {.id = 4, .symbol = kSym, .side = Side::Buy, .venue = kPerp, .qty = 1.0},
+        {.id = 3, .symbol = kSym, .side = Side::Sell, .market = kSpot, .qty = 1.0},
+        {.id = 4, .symbol = kSym, .side = Side::Buy, .market = kPerp, .qty = 1.0},
     };
     submit_and_drain(gateway, book, close_orders, /*ts=*/30);
 
@@ -152,8 +152,8 @@ TEST(RoundTripDeltaNeutral, NegativeFundingBillsTheShort) {
         qp::test::make_mark_price_kline(kSym, 1, kRef, 2, kRef, kRef, kRef, kPerp));
 
     Order open_orders[] = {
-        {.id = 1, .symbol = kSym, .side = Side::Buy, .venue = kSpot, .qty = 1.0},
-        {.id = 2, .symbol = kSym, .side = Side::Sell, .venue = kPerp, .qty = 1.0},
+        {.id = 1, .symbol = kSym, .side = Side::Buy, .market = kSpot, .qty = 1.0},
+        {.id = 2, .symbol = kSym, .side = Side::Sell, .market = kPerp, .qty = 1.0},
     };
     submit_and_drain(gateway, book, open_orders, 10);
     EXPECT_NEAR(book.cash(), -0.12, kEps);

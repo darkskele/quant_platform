@@ -11,8 +11,8 @@ namespace qp::strategy::carry {
 /// Parameters for FundingCarryStrategy.
 struct Config {
     SymbolId symbol{};
-    VenueId  spot_venue{};
-    VenueId  futures_venue{};
+    MarketId  spot_market{};
+    MarketId  futures_market{};
     Qty      target_qty{1.0};
     double   entry_funding_rate{0.0001};  ///< Enter or hold once funding_rate reaches this.
     double   exit_funding_rate{0.0};      ///< Flatten once funding_rate drops to this or below.
@@ -30,14 +30,14 @@ class FundingCarryStrategy {
         : config_{config}, portfolio_{portfolio} {}
 
     /// Reacts to funding events for the configured symbol and futures
-    /// venue, ignores everything else. Sizes both legs to the target
+    /// market, ignores everything else. Sizes both legs to the target
     /// quantity once funding clears the entry threshold, flattens both
     /// legs at or below the exit threshold, otherwise holds the current
     /// position.
     std::span<const Intent> on_event(const MarketEvent& event) {
         const auto* funding = std::get_if<FundingEvent>(&event);
         if (!funding || funding->symbol != config_.symbol ||
-            funding->venue != config_.futures_venue) {
+            funding->market != config_.futures_market) {
             return {};
         }
 
@@ -45,13 +45,13 @@ class FundingCarryStrategy {
         Qty target = funding->funding_rate >= config_.entry_funding_rate ? config_.target_qty
                      : funding->funding_rate <= config_.exit_funding_rate
                          ? 0.0
-                         : portfolio_.position(config_.symbol, config_.spot_venue);
+                         : portfolio_.position(config_.symbol, config_.spot_market);
 
         buffer_.reset();
         buffer_.push(Intent{
-            .symbol = config_.symbol, .venue = config_.spot_venue, .target_position = target});
+            .symbol = config_.symbol, .market = config_.spot_market, .target_position = target});
         buffer_.push(Intent{
-            .symbol = config_.symbol, .venue = config_.futures_venue, .target_position = -target});
+            .symbol = config_.symbol, .market = config_.futures_market, .target_position = -target});
         return buffer_.view();
     }
 

@@ -65,13 +65,13 @@ class PythonBacktest : public BacktestBase<PythonBacktest> {
 
     Notional cash() const { return portfolio_.cash(); }
 
-    Qty position(SymbolId symbol, VenueId venue) const {
-        return portfolio_.position(symbol, venue);
+    Qty position(SymbolId symbol, MarketId market) const {
+        return portfolio_.position(symbol, market);
     }
 
     // Latest mark for the leg, so the python strategy can size a target
     // notional into a quantity.
-    Price mark(SymbolId symbol, VenueId venue) const { return portfolio_.mark(symbol, venue); }
+    Price mark(SymbolId symbol, MarketId market) const { return portfolio_.mark(symbol, market); }
 
     auto sources() {
         return std::tuple<config::FuturesSource&, config::SpotSource&>{futures_source_,
@@ -119,7 +119,7 @@ class PythonBacktest : public BacktestBase<PythonBacktest> {
         };
         for (SymbolId s : symbol_ids_) {
             Notional fee = 0.0, recv = 0.0, paid = 0.0, basis = 0.0;
-            for (VenueId v = 0; v < config::Book::kNumVenues; ++v) {
+            for (MarketId v = 0; v < config::Book::kNumMarkets; ++v) {
                 fee += portfolio_.fees(s, v);
                 recv += portfolio_.funding_received(s, v);
                 paid += portfolio_.funding_paid(s, v);

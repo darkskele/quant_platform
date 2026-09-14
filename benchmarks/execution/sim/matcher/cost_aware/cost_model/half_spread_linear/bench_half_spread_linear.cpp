@@ -17,7 +17,7 @@ using qp::execution::sim::matcher::cost_aware::cost_model::half_spread_linear::
 
 namespace {
 
-// 10 symbols on one venue, matches the funding-carry universe.
+// 10 symbols on one market, matches the funding-carry universe.
 constexpr std::array<std::size_t, 1> kCounts{10};
 using Book = Portfolio<kCounts>;
 using Cost = HalfSpreadLinearImpact<Book>;
@@ -34,7 +34,7 @@ std::vector<CostRow> build_table(std::size_t weeks_per_symbol) {
         for (std::size_t w = 0; w < weeks_per_symbol; ++w) {
             rows.push_back(CostRow{
                 .symbol              = static_cast<SymbolId>(sym),
-                .venue               = 0,
+                .market               = 0,
                 .week_start_ns       = static_cast<Timestamp>(w) * kWeekNs,
                 .half_spread_bps     = 1.0 + 0.01 * static_cast<double>(w % 20),
                 .impact_bps_per_unit = 0.0,
@@ -52,7 +52,7 @@ std::vector<CostRow> build_table(std::size_t weeks_per_symbol) {
 // a small contiguous span.
 void BM_HalfSpreadLinearImpact_Price(benchmark::State& state) {
     Cost            cost{build_table(/*weeks_per_symbol=*/150)};
-    Order           o{.id = 0, .symbol = 3, .side = Side::Buy, .venue = 0, .qty = 1.0};
+    Order           o{.id = 0, .symbol = 3, .side = Side::Buy, .market = 0, .qty = 1.0};
     const Price     ref = 50000.0;
     const Timestamp ts  = 75 * kWeekNs;
     for (auto _ : state) {
@@ -63,18 +63,18 @@ void BM_HalfSpreadLinearImpact_Price(benchmark::State& state) {
 
 BENCHMARK(BM_HalfSpreadLinearImpact_Price);
 
-// price() miss path: (symbol, venue) is out of the table's populated
+// price() miss path: (symbol, market) is out of the table's populated
 // slots. Slot lookup still O(1), returns empty span, no binary search.
 void BM_HalfSpreadLinearImpact_PriceMiss(benchmark::State& state) {
     // Table only carries symbol 0. Look up symbol 7.
     std::vector<CostRow> rows{CostRow{.symbol              = 0,
-                                      .venue               = 0,
+                                      .market               = 0,
                                       .week_start_ns       = 0,
                                       .half_spread_bps     = 1.0,
                                       .impact_bps_per_unit = 0.0,
                                       .taker_fee_bps       = 4.0}};
     Cost                 cost{std::move(rows)};
-    Order                o{.id = 0, .symbol = 7, .side = Side::Buy, .venue = 0, .qty = 1.0};
+    Order                o{.id = 0, .symbol = 7, .side = Side::Buy, .market = 0, .qty = 1.0};
     const Price          ref = 50000.0;
     const Timestamp      ts  = kWeekNs;
     for (auto _ : state) {
@@ -96,7 +96,7 @@ void BM_HalfSpreadLinearImpact_PriceRotatingSymbol(benchmark::State& state) {
         Order o{.id     = 0,
                 .symbol = static_cast<SymbolId>(i % kSymbols),
                 .side   = Side::Buy,
-                .venue  = 0,
+                .market  = 0,
                 .qty    = 1.0};
         auto  out = cost.price(o, ref, ts);
         benchmark::DoNotOptimize(out);
