@@ -23,18 +23,20 @@ using qp::test::InfiniteTransport;
 using qp::test::NoopStrategy;
 using qp::test::SeedThenSteadyStateTransport;
 constexpr std::array<std::size_t, 1> kCounts{2};
-using Book     = qp::Portfolio<kCounts>;
-using TestExec = qp::execution::sim::SimExecution<
-    qp::execution::sim::matcher::last_trade::LastTradeMatcher<Book>, Book>;
+using Book     = qp::Portfolio;
+using TestExec =
+    qp::execution::sim::SimExecution<qp::execution::sim::matcher::last_trade::LastTradeMatcher>;
 
 // Floor: no Intent, no risk/submit/fill work — just transport pull, clock
 // advance, exec.on_market_event, and one direct Strategy call.
 void BM_Engine_StepOneNoopStrategy(benchmark::State& state) {
-    Book portfolio;
-    qp::engine::Engine<InfiniteTransport, TestExec, AlwaysApproveRiskGate, NoopStrategy, Book>
+    Book portfolio{kCounts};
+    qp::engine::Engine<InfiniteTransport, TestExec, AlwaysApproveRiskGate, NoopStrategy>
         engine{InfiniteTransport{qp::test::make_funding(1, 0, 0.0)},
 
-               TestExec{}, AlwaysApproveRiskGate{}, NoopStrategy{}, portfolio};
+               TestExec{portfolio,
+                        qp::execution::sim::matcher::last_trade::LastTradeMatcher{portfolio}},
+               AlwaysApproveRiskGate{}, NoopStrategy{}, portfolio};
     // DoNotOptimize(portfolio), not just the discarded step() bool: step()'s
     // real effects are writes into portfolio's memory (apply_fill/
     // apply_funding/apply_mark_price) that nothing here ever reads back —
@@ -57,12 +59,13 @@ BENCHMARK(BM_Engine_StepOneNoopStrategy);
 // for the apply_funding-driven shape a real funding-reactive strategy
 // actually runs.
 void BM_Engine_StepOneStrategyFullPipeline(benchmark::State& state) {
-    Book portfolio;
-    qp::engine::Engine<InfiniteTransport, TestExec, AlwaysApproveRiskGate, AlwaysIntentStrategy,
-                       Book>
+    Book portfolio{kCounts};
+    qp::engine::Engine<InfiniteTransport, TestExec, AlwaysApproveRiskGate, AlwaysIntentStrategy>
         engine{InfiniteTransport{qp::test::make_trade(1, 0, 100.0)},
 
-               TestExec{}, AlwaysApproveRiskGate{}, AlwaysIntentStrategy{}, portfolio};
+               TestExec{portfolio,
+                        qp::execution::sim::matcher::last_trade::LastTradeMatcher{portfolio}},
+               AlwaysApproveRiskGate{}, AlwaysIntentStrategy{}, portfolio};
     for (auto _ : state) {
         engine.step();
         benchmark::DoNotOptimize(portfolio);
@@ -80,13 +83,15 @@ BENCHMARK(BM_Engine_StepOneStrategyFullPipeline);
 // price once so submit() fills instead of rejecting, then every
 // subsequent step is the Funding event under measurement.
 void BM_Engine_StepFundingEventFullPipeline(benchmark::State& state) {
-    Book portfolio;
+    Book portfolio{kCounts};
     qp::engine::Engine<SeedThenSteadyStateTransport, TestExec, AlwaysApproveRiskGate,
-                       AlwaysIntentStrategy, Book>
+                       AlwaysIntentStrategy>
         engine{SeedThenSteadyStateTransport{qp::test::make_trade(1, 0, 100.0),
                                             qp::test::make_funding(1, 0, 0.0001)},
 
-               TestExec{}, AlwaysApproveRiskGate{}, AlwaysIntentStrategy{}, portfolio};
+               TestExec{portfolio,
+                        qp::execution::sim::matcher::last_trade::LastTradeMatcher{portfolio}},
+               AlwaysApproveRiskGate{}, AlwaysIntentStrategy{}, portfolio};
     for (auto _ : state) {
         engine.step();
         benchmark::DoNotOptimize(portfolio);

@@ -13,21 +13,19 @@
 // The one place the backtest variants look for a concrete composed type.
 namespace qp::backtest::config {
 
-inline constexpr std::size_t kNumMarkets = std::tuple_size_v<MarketTables>;
-
 // Not tuned against real replay throughput yet. @todo
 inline constexpr std::size_t kRingCapacity = 1024;
 
 // This backtest is Engine's sole consumer of each leg's queue.
 using Sink = LegSink<kRingCapacity, /*NumConsumers=*/1>;
 
-using Matcher  = MatcherType<Book>;
-using Exec     = execution::sim::SimExecution<Matcher, Book>;
-using Risk     = RiskType<Book>;
-using Strategy = StrategyType<Book>;
-using Tx       = engine::transport::BacktestInProcessTransport<kRingCapacity, kNumMarkets>;
+using Matcher  = MatcherType;
+using Exec     = execution::sim::SimExecution<Matcher>;
+using Risk     = RiskType;
+using Strategy = StrategyType;
+using Tx       = engine::transport::BacktestInProcessTransport<kRingCapacity, kNumLegs>;
 
 template <class Recorder = engine::NullRecorder>
-using EngineType = engine::Engine<Tx, Exec, Risk, Strategy, Book, Recorder>;
+using EngineType = engine::Engine<Tx, Exec, Risk, Strategy, Recorder>;
 
 }  // namespace qp::backtest::config

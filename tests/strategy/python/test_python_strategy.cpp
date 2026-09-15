@@ -11,7 +11,7 @@ using qp::strategy::python::PythonStrategy;
 
 PYBIND11_EMBEDDED_MODULE(qp_test_types_strategy, m) {
     py::class_<qp::Intent>(m, "Intent")
-        .def(py::init([](qp::SymbolId s, qp::MarketId v, qp::Qty q) {
+        .def(py::init([](qp::SymbolId s, qp::Market v, qp::Qty q) {
                  return qp::Intent{.symbol = s, .market = v, .target_position = q};
              }),
              py::arg("symbol"), py::arg("market"), py::arg("target_position"))
@@ -39,7 +39,8 @@ TEST_F(PythonStrategyTest, OnTimerWithNoneCallbackReturnsEmpty) {
 
 TEST_F(PythonStrategyTest, OnEventWithNoneCallbackReturnsEmpty) {
     PythonStrategy<> strategy{py::none(), py::none()};
-    qp::MarketEvent  evt = qp::TradeEvent{.ts = 0, .price = 100.0, .qty = 1.0};
+    qp::MarketEvent  evt =
+        qp::TradeEvent{.base = {.kind = qp::EventKind::Trade, .ts = 0}, .price = 100.0, .qty = 1.0};
     EXPECT_TRUE(strategy.on_event(evt).empty());
 }
 

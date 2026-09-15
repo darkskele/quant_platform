@@ -3,12 +3,10 @@
 
 namespace qp::execution::sim::matcher::cost_aware::cost_model::half_spread_linear {
 
-/// One row of the honest cost table. Represents the cost parameters that
-/// apply to trades on (symbol, market) for the week starting at
-/// week_start_ns.
+/// One row of the honest cost table.
 struct CostRow {
     SymbolId  symbol{};
-    MarketId   market{};
+    Market    market{};
     Timestamp week_start_ns{};  ///< Nanoseconds since epoch, midnight UTC of the week's ISO Monday.
     double    half_spread_bps{};
     double    impact_bps_per_unit{};

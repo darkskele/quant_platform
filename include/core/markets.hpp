@@ -1,17 +1,18 @@
 #pragma once
+#include <cstddef>
 #include <cstdint>
 
 namespace qp {
 
-/// Identifies a specific market within an exchange.
-using MarketId = std::uint8_t;
+/// The closed universe of markets this platform trades.
+enum class Market : std::uint8_t {
+    BinanceUsdm  = 0,
+    BinanceCoinm = 1,
+    BinanceSpot  = 2,
+};
 
-namespace markets {
-
-inline constexpr MarketId BinanceUsdm  = 0;
-inline constexpr MarketId BinanceCoinm = 1;
-inline constexpr MarketId BinanceSpot  = 2;
-
-}  // namespace markets
+/// Cardinality of the Market enum. Every per-market array is sized off this;
+/// bump when Market gains a value.
+inline constexpr std::size_t kNumMarkets = 3;
 
 }  // namespace qp

@@ -1,6 +1,5 @@
 #pragma once
 #include <algorithm>
-#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -17,51 +16,50 @@ namespace qp::execution::sim::matcher::cost_aware::cost_model::half_spread_linea
 
 /// Fill price crosses a half spread plus a per unit linear impact term.
 /// Fee is a bps rate on filled notional.
-template <qp::PortfolioLike Book>
 class HalfSpreadLinearImpact {
    public:
-    /// Groups the flat table by Book::index, packs into one contiguous
+    /// Groups the flat table by book.index, packs into one contiguous
     /// vector, sorts each per-instrument block by week_start_ns, sets a
     /// span into that block for each slot.
-    explicit HalfSpreadLinearImpact(std::vector<CostRow> table) {
-        std::array<std::uint32_t, Book::kMaxInstruments> counts{};
-        for (const auto& r : table) ++counts[Book::index(r.symbol, r.market)];
+    HalfSpreadLinearImpact(const Portfolio& book, std::vector<CostRow> table) : book_{&book} {
+        const std::size_t n = book.max_instruments();
+        by_instrument_.assign(n, {});
 
-        std::array<std::uint32_t, Book::kMaxInstruments> offsets{};
-        std::uint32_t                                    running = 0;
-        for (std::size_t i = 0; i < Book::kMaxInstruments; ++i) {
+        std::vector<std::uint32_t> counts(n, 0);
+        for (const auto& r : table) ++counts[book.index(r.symbol, r.market)];
+
+        std::vector<std::uint32_t> offsets(n, 0);
+        std::uint32_t              running = 0;
+        for (std::size_t i = 0; i < n; ++i) {
             offsets[i] = running;
             running += counts[i];
         }
 
         rows_.resize(table.size());
-        std::array<std::uint32_t, Book::kMaxInstruments> writes{};
+        std::vector<std::uint32_t> writes(n, 0);
         for (const auto& r : table) {
-            auto slot                           = Book::index(r.symbol, r.market);
+            auto slot                           = book.index(r.symbol, r.market);
             rows_[offsets[slot] + writes[slot]] = r;
             ++writes[slot];
         }
 
-        for (std::size_t i = 0; i < Book::kMaxInstruments; ++i) {
+        for (std::size_t i = 0; i < n; ++i) {
             auto* begin = rows_.data() + offsets[i];
-            auto* end   = begin + counts[i];
-            std::sort(begin, end, [](const CostRow& a, const CostRow& b) noexcept {
+            std::sort(begin, begin + counts[i], [](const CostRow& a, const CostRow& b) noexcept {
                 return a.week_start_ns < b.week_start_ns;
             });
             by_instrument_[i] = std::span<const CostRow>{begin, counts[i]};
         }
     }
 
-    // Spans in by_instrument_ point into rows_. Move steals the vector's
-    // buffer so those pointers remain valid; copy would give the destination
-    // a fresh buffer while its spans still point at the source's buffer.
+    // Spans in by_instrument_ point into rows_. 
     HalfSpreadLinearImpact(const HalfSpreadLinearImpact&)                = delete;
     HalfSpreadLinearImpact& operator=(const HalfSpreadLinearImpact&)     = delete;
     HalfSpreadLinearImpact(HalfSpreadLinearImpact&&) noexcept            = default;
     HalfSpreadLinearImpact& operator=(HalfSpreadLinearImpact&&) noexcept = default;
 
     std::optional<FillPricing> price(const Order& o, Price ref, Timestamp ts) const noexcept {
-        auto series = by_instrument_[Book::index(o.symbol, o.market)];
+        auto series = by_instrument_[book_->index(o.symbol, o.market)];
         if (series.empty()) return std::nullopt;
         auto row = std::upper_bound(
             series.begin(), series.end(), ts,
@@ -81,8 +79,9 @@ class HalfSpreadLinearImpact {
     std::size_t size() const noexcept { return rows_.size(); }
 
    private:
-    std::vector<CostRow>                                        rows_;
-    std::array<std::span<const CostRow>, Book::kMaxInstruments> by_instrument_{};
+    const Portfolio*                      book_{nullptr};
+    std::vector<CostRow>                  rows_;
+    std::vector<std::span<const CostRow>> by_instrument_;
 };
 
 }  // namespace qp::execution::sim::matcher::cost_aware::cost_model::half_spread_linear

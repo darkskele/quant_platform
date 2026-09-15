@@ -70,7 +70,7 @@ class CsvSource {
                         continue;
                 }
             }
-            if (!earliest || header_of(*lookahead_[i]).ts < header_of(*lookahead_[*earliest]).ts) {
+            if (!earliest || base_of(*lookahead_[i]).ts < base_of(*lookahead_[*earliest]).ts) {
                 earliest = i;
             }
         }

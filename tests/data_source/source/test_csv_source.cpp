@@ -58,7 +58,7 @@ TEST(CsvSource, SingleStreamReturnsEventsInFileOrder) {
     for (std::int64_t expected : {0, 60'000, 120'000}) {
         auto ev = next_blocking(source);
         ASSERT_TRUE(ev.has_value());
-        EXPECT_EQ(qp::header_of(*ev).ts, expected * 1'000'000);  // ms -> ns
+        EXPECT_EQ(qp::base_of(*ev).ts, expected * 1'000'000);  // ms -> ns
     }
     EXPECT_FALSE(next_blocking(source).has_value());  // Eof
 }
@@ -78,7 +78,7 @@ TEST(CsvSource, MergesTwoStreamsByTimestampNotStreamOrder) {
     for (std::int64_t expected : {0, 30'000, 60'000}) {
         auto ev = next_blocking(source);
         ASSERT_TRUE(ev.has_value());
-        EXPECT_EQ(qp::header_of(*ev).ts, expected * 1'000'000);
+        EXPECT_EQ(qp::base_of(*ev).ts, expected * 1'000'000);
     }
     EXPECT_FALSE(next_blocking(source).has_value());
 }
@@ -94,7 +94,7 @@ TEST(CsvSource, ContinuesAcrossMultipleFilesInOneStream) {
     for (std::int64_t expected : {0, 60'000, 120'000}) {
         auto ev = next_blocking(source);
         ASSERT_TRUE(ev.has_value());
-        EXPECT_EQ(qp::header_of(*ev).ts, expected * 1'000'000);
+        EXPECT_EQ(qp::base_of(*ev).ts, expected * 1'000'000);
     }
     EXPECT_FALSE(next_blocking(source).has_value());
 }
@@ -111,7 +111,7 @@ TEST(CsvSource, SkipsUnparseableAndBlankLinesWithoutFailing) {
     for (std::int64_t expected : {0, 60'000}) {
         auto ev = next_blocking(source);
         ASSERT_TRUE(ev.has_value());
-        EXPECT_EQ(qp::header_of(*ev).ts, expected * 1'000'000);
+        EXPECT_EQ(qp::base_of(*ev).ts, expected * 1'000'000);
     }
     EXPECT_FALSE(next_blocking(source).has_value());
 }
@@ -126,7 +126,7 @@ TEST(CsvSource, EmptyFileProducesNoEventsAndStillReachesEof) {
 
     auto ev = next_blocking(source);
     ASSERT_TRUE(ev.has_value());
-    EXPECT_EQ(qp::header_of(*ev).ts, 0);
+    EXPECT_EQ(qp::base_of(*ev).ts, 0);
     EXPECT_FALSE(next_blocking(source).has_value());  // Eof
 }
 

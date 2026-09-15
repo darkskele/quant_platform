@@ -11,8 +11,7 @@
 
 namespace qp::data_source::source::venue::binance::binance_historical {
 
-/// binance_historical's Parser policy: the venue-specific half of
-/// venue::Parser<BinHistParserPolicy, Table>.
+/// binance_historical's Parser policy/
 struct BinHistParserPolicy {
     template <SymbolTable Table>
     static std::optional<MarketEvent> parse(std::span<const std::byte> raw) {
@@ -82,8 +81,9 @@ struct BinHistParserPolicy {
         }
 
         return KlineEvent{
-            .symbol     = id,
-            .ts         = static_cast<Timestamp>(*open_time) * 1'000'000,
+            .base       = {.kind   = EventKind::Kline,
+                           .symbol = id,
+                           .ts     = static_cast<Timestamp>(*open_time) * 1'000'000},
             .close_time = static_cast<Timestamp>(*close_time) * 1'000'000,
             .open       = *open,
             .high       = *high,
@@ -106,8 +106,9 @@ struct BinHistParserPolicy {
         if (!open_time || !open || !high || !low || !close || !close_time) return std::nullopt;
 
         return MarkPriceKlineEvent{
-            .symbol     = id,
-            .ts         = static_cast<Timestamp>(*open_time) * 1'000'000,
+            .base       = {.kind   = EventKind::MarkPriceKline,
+                           .symbol = id,
+                           .ts     = static_cast<Timestamp>(*open_time) * 1'000'000},
             .close_time = static_cast<Timestamp>(*close_time) * 1'000'000,
             .open       = *open,
             .high       = *high,
@@ -125,8 +126,9 @@ struct BinHistParserPolicy {
         if (!calc_time || !rate) return std::nullopt;
 
         return FundingEvent{
-            .symbol       = id,
-            .ts           = static_cast<Timestamp>(*calc_time) * 1'000'000,
+            .base         = {.kind   = EventKind::Funding,
+                             .symbol = id,
+                             .ts     = static_cast<Timestamp>(*calc_time) * 1'000'000},
             .funding_rate = *rate,
         };
     }

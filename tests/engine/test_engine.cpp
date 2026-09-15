@@ -22,6 +22,7 @@
 #include "transport.hpp"
 #include "types.hpp"
 
+using qp::Market;
 using qp::test::AlwaysApproveRiskGate;
 using qp::test::AlwaysFlattenRiskGate;
 using qp::test::make_funding;
@@ -32,7 +33,7 @@ using qp::test::NoopStrategy;
 namespace {
 
 constexpr std::array<std::size_t, 1> kCounts{2};
-using Portfolio = qp::Portfolio<kCounts>;
+using Portfolio = qp::Portfolio;
 
 struct FakeTransport {
     std::vector<qp::MarketEvent> events;
@@ -41,7 +42,7 @@ struct FakeTransport {
     std::optional<qp::engine::transport::EngineInput> next() {
         if (index >= events.size()) return std::nullopt;
         auto& e = events[index++];
-        return qp::engine::transport::EngineInput{qp::header_of(e).ts, e};
+        return qp::engine::transport::EngineInput{qp::base_of(e).ts, e};
     }
 
     void flush() noexcept {}
@@ -77,12 +78,12 @@ struct CountingStrategy {
     std::span<const qp::Intent> on_timer(qp::Timestamp) { return {}; }
 };
 
-using TestExec = qp::execution::sim::SimExecution<
-    qp::execution::sim::matcher::last_trade::LastTradeMatcher<Portfolio>, Portfolio>;
-using SingleTest = qp::engine::Engine<FakeTransport, TestExec, AlwaysApproveRiskGate,
-                                      SingleIntentStrategy, Portfolio>;
+using TestExec =
+    qp::execution::sim::SimExecution<qp::execution::sim::matcher::last_trade::LastTradeMatcher>;
+using SingleTest =
+    qp::engine::Engine<FakeTransport, TestExec, AlwaysApproveRiskGate, SingleIntentStrategy>;
 using CountTest =
-    qp::engine::Engine<FakeTransport, TestExec, AlwaysApproveRiskGate, CountingStrategy, Portfolio>;
+    qp::engine::Engine<FakeTransport, TestExec, AlwaysApproveRiskGate, CountingStrategy>;
 
 }  // namespace
 
@@ -92,38 +93,44 @@ static_assert(qp::strategy::Strategy<CountingStrategy>);
 static_assert(qp::risk::RiskGate<AlwaysApproveRiskGate>);
 
 TEST(Engine, StepReturnsFalseWhenTransportExhausted) {
-    Portfolio  portfolio;
-    SingleTest engine{FakeTransport{},
+    Portfolio  portfolio{kCounts};
+    SingleTest engine{
+        FakeTransport{},
 
-                      TestExec{}, AlwaysApproveRiskGate{},
-                      SingleIntentStrategy{.symbol = 1, .target_position = 2.0}, portfolio};
+        TestExec{portfolio, qp::execution::sim::matcher::last_trade::LastTradeMatcher{portfolio}},
+        AlwaysApproveRiskGate{}, SingleIntentStrategy{.symbol = 1, .target_position = 2.0},
+        portfolio};
 
     EXPECT_FALSE(engine.step());
 }
 
 TEST(Engine, TradeThenIntentApprovedFillsAndUpdatesPortfolio) {
     std::vector<qp::MarketEvent> events{make_trade(1, 1000, 100.0)};
-    Portfolio                    portfolio;
-    SingleTest                   engine{FakeTransport{events},
+    Portfolio                    portfolio{kCounts};
+    SingleTest                   engine{
+        FakeTransport{events},
 
-                      TestExec{}, AlwaysApproveRiskGate{},
-                      SingleIntentStrategy{.symbol = 1, .target_position = 2.0}, portfolio};
+        TestExec{portfolio, qp::execution::sim::matcher::last_trade::LastTradeMatcher{portfolio}},
+        AlwaysApproveRiskGate{}, SingleIntentStrategy{.symbol = 1, .target_position = 2.0},
+        portfolio};
 
     EXPECT_TRUE(engine.step());
-    EXPECT_EQ(portfolio.position(1, 0), 2.0);
+    EXPECT_EQ(portfolio.position(1, Market::BinanceUsdm), 2.0);
     EXPECT_FALSE(engine.step());  // transport now exhausted
 }
 
 TEST(Engine, NoPriceSeenYetRejectsAndLeavesPortfolioUnaffected) {
     std::vector<qp::MarketEvent> events{make_funding(1, 1000, 0.0)};  // not a Trade -> no price
-    Portfolio                    portfolio;
-    SingleTest                   engine{FakeTransport{events},
+    Portfolio                    portfolio{kCounts};
+    SingleTest                   engine{
+        FakeTransport{events},
 
-                      TestExec{}, AlwaysApproveRiskGate{},
-                      SingleIntentStrategy{.symbol = 1, .target_position = 2.0}, portfolio};
+        TestExec{portfolio, qp::execution::sim::matcher::last_trade::LastTradeMatcher{portfolio}},
+        AlwaysApproveRiskGate{}, SingleIntentStrategy{.symbol = 1, .target_position = 2.0},
+        portfolio};
 
     EXPECT_TRUE(engine.step());
-    EXPECT_EQ(portfolio.position(1, 0), 0.0);
+    EXPECT_EQ(portfolio.position(1, Market::BinanceUsdm), 0.0);
 }
 
 TEST(Engine, RunDrainsEveryEventInTheTransport) {
@@ -133,9 +140,11 @@ TEST(Engine, RunDrainsEveryEventInTheTransport) {
         make_funding(1, 2000, 0.0),
         make_funding(1, 3000, 0.0),
     };
-    Portfolio portfolio;
-    CountTest engine{FakeTransport{events}, TestExec{}, AlwaysApproveRiskGate{},
-                     CountingStrategy{&calls}, portfolio};
+    Portfolio portfolio{kCounts};
+    CountTest engine{
+        FakeTransport{events},
+        TestExec{portfolio, qp::execution::sim::matcher::last_trade::LastTradeMatcher{portfolio}},
+        AlwaysApproveRiskGate{}, CountingStrategy{&calls}, portfolio};
 
     while (engine.step()) {
     }
@@ -152,9 +161,11 @@ TEST(Engine, RunProcessesEveryEventThenExitsOnControlStop) {
         make_funding(1, 2000, 0.0),
         make_funding(1, 3000, 0.0),
     };
-    Portfolio portfolio;
-    CountTest engine{FakeTransport{events}, TestExec{}, AlwaysApproveRiskGate{},
-                     CountingStrategy{&calls}, portfolio};
+    Portfolio portfolio{kCounts};
+    CountTest engine{
+        FakeTransport{events},
+        TestExec{portfolio, qp::execution::sim::matcher::last_trade::LastTradeMatcher{portfolio}},
+        AlwaysApproveRiskGate{}, CountingStrategy{&calls}, portfolio};
 
     qp::ControlChannel<1> control;
     std::size_t           consumer = control.attach();
@@ -174,11 +185,13 @@ TEST(Engine, FundingEventSettlesAgainstCurrentPositionBeforeStrategyReacts) {
         make_mark_price_kline(1, 1500, /*close=*/100.0),
         make_funding(1, 2000, 0.0001),
     };
-    Portfolio  portfolio;
-    SingleTest engine{FakeTransport{events},
+    Portfolio  portfolio{kCounts};
+    SingleTest engine{
+        FakeTransport{events},
 
-                      TestExec{}, AlwaysApproveRiskGate{},
-                      SingleIntentStrategy{.symbol = 1, .target_position = 2.0}, portfolio};
+        TestExec{portfolio, qp::execution::sim::matcher::last_trade::LastTradeMatcher{portfolio}},
+        AlwaysApproveRiskGate{}, SingleIntentStrategy{.symbol = 1, .target_position = 2.0},
+        portfolio};
 
     EXPECT_TRUE(engine.step());  // Trade -> intent -> fill: position 2, cash -200 - taker fee
     EXPECT_TRUE(engine.step());  // MarkPriceKline -> sets the price funding settles against
@@ -193,20 +206,25 @@ TEST(Engine, FundingEventSettlesAgainstCurrentPositionBeforeStrategyReacts) {
 TEST(Engine, SiblingEnginesShareOnePortfolioAcrossBothStrategiesFills) {
     std::vector<qp::MarketEvent> events_a{make_trade(1, 1000, 100.0)};
     std::vector<qp::MarketEvent> events_b{make_trade(1, 1000, 100.0)};
-    Portfolio                    portfolio;
-    SingleTest                   engine_a{FakeTransport{events_a},
+    Portfolio                    portfolio{kCounts};
+    SingleTest                   engine_a{
+        FakeTransport{events_a},
 
-                        TestExec{}, AlwaysApproveRiskGate{},
-                        SingleIntentStrategy{.symbol = 1, .target_position = 2.0}, portfolio};
-    SingleTest                   engine_b{FakeTransport{events_b},
+        TestExec{portfolio, qp::execution::sim::matcher::last_trade::LastTradeMatcher{portfolio}},
+        AlwaysApproveRiskGate{}, SingleIntentStrategy{.symbol = 1, .target_position = 2.0},
+        portfolio};
+    SingleTest engine_b{
+        FakeTransport{events_b},
 
-                        TestExec{}, AlwaysApproveRiskGate{},
-                        SingleIntentStrategy{.symbol = 1, .target_position = 3.0}, portfolio};
+        TestExec{portfolio, qp::execution::sim::matcher::last_trade::LastTradeMatcher{portfolio}},
+        AlwaysApproveRiskGate{}, SingleIntentStrategy{.symbol = 1, .target_position = 3.0},
+        portfolio};
 
     EXPECT_TRUE(engine_a.step());
     EXPECT_TRUE(engine_b.step());
 
-    EXPECT_EQ(portfolio.position(1, 0), 5.0);  // both engines' fills landed on the one shared book
+    EXPECT_EQ(portfolio.position(1, Market::BinanceUsdm),
+              5.0);  // both engines' fills landed on the one shared book
 }
 
 // step()'s two order-generating paths are independent: strategy.on_event()
@@ -217,16 +235,16 @@ TEST(Engine, SiblingEnginesShareOnePortfolioAcrossBothStrategiesFills) {
 // that BasicRiskGate's own on_tick() produces the right Order in isolation.
 TEST(Engine, RiskGateOnTickOrdersAreSubmittedAndAppliedToThePortfolio) {
     std::vector<qp::MarketEvent> events{make_trade(1, 1000, 100.0)};
-    Portfolio                    portfolio;
-    qp::engine::Engine<FakeTransport, TestExec, AlwaysFlattenRiskGate, NoopStrategy, Portfolio>
-        engine{FakeTransport{events},
+    Portfolio                    portfolio{kCounts};
+    qp::engine::Engine<FakeTransport, TestExec, AlwaysFlattenRiskGate, NoopStrategy> engine{
+        FakeTransport{events},
 
-               TestExec{},
-               AlwaysFlattenRiskGate{
-                   .order = qp::Order{.id = 1, .symbol = 1, .side = qp::Side::Sell, .qty = 2.0}},
-               NoopStrategy{}, portfolio};
+        TestExec{portfolio, qp::execution::sim::matcher::last_trade::LastTradeMatcher{portfolio}},
+        AlwaysFlattenRiskGate{
+            .order = qp::Order{.id = 1, .symbol = 1, .side = qp::Side::Sell, .qty = 2.0}},
+        NoopStrategy{}, portfolio};
 
     EXPECT_TRUE(engine.step());  // same-step Trade primes the matcher's price for the fill
 
-    EXPECT_EQ(portfolio.position(1, 0), -2.0);
+    EXPECT_EQ(portfolio.position(1, Market::BinanceUsdm), -2.0);
 }

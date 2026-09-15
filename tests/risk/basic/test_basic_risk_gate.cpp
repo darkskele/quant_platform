@@ -17,14 +17,15 @@ using qp::test::make_trade;
 
 namespace {
 constexpr std::array<std::size_t, 1> kCounts{3};
-using Portfolio = qp::Portfolio<kCounts>;
+using Portfolio = qp::Portfolio;
 }  // namespace
 
 TEST(BasicRiskGate, ApprovesAndSizesTheFullTargetWhenFlat) {
-    Portfolio                portfolio;
-    BasicRiskGate<Portfolio> gate{BasicRiskGateConfig{}, portfolio};
+    Portfolio     portfolio{kCounts};
+    BasicRiskGate gate{BasicRiskGateConfig{}, portfolio};
 
-    auto decision = gate.check(qp::Intent{.symbol = 1, .market = 0, .target_position = 2.0});
+    auto decision =
+        gate.check(qp::Intent{.symbol = 1, .market = Market::BinanceUsdm, .target_position = 2.0});
 
     EXPECT_EQ(decision.outcome, RiskOutcome::Approved);
     ASSERT_TRUE(decision.order.has_value());
@@ -33,11 +34,12 @@ TEST(BasicRiskGate, ApprovesAndSizesTheFullTargetWhenFlat) {
 }
 
 TEST(BasicRiskGate, SizesOrderByDeltaAgainstCurrentPositionNotTheRawTarget) {
-    Portfolio portfolio;
+    Portfolio portfolio{kCounts};
     portfolio.apply_fill(make_fill(1, qp::Side::Buy, 3.0));  // already long 3
-    BasicRiskGate<Portfolio> gate{BasicRiskGateConfig{}, portfolio};
+    BasicRiskGate gate{BasicRiskGateConfig{}, portfolio};
 
-    auto decision = gate.check(qp::Intent{.symbol = 1, .market = 0, .target_position = 5.0});
+    auto decision =
+        gate.check(qp::Intent{.symbol = 1, .market = Market::BinanceUsdm, .target_position = 5.0});
 
     ASSERT_TRUE(decision.order.has_value());
     EXPECT_EQ(decision.order->side, qp::Side::Buy);
@@ -45,11 +47,12 @@ TEST(BasicRiskGate, SizesOrderByDeltaAgainstCurrentPositionNotTheRawTarget) {
 }
 
 TEST(BasicRiskGate, NegativeDeltaProducesASellOrder) {
-    Portfolio portfolio;
+    Portfolio portfolio{kCounts};
     portfolio.apply_fill(make_fill(1, qp::Side::Buy, 5.0));
-    BasicRiskGate<Portfolio> gate{BasicRiskGateConfig{}, portfolio};
+    BasicRiskGate gate{BasicRiskGateConfig{}, portfolio};
 
-    auto decision = gate.check(qp::Intent{.symbol = 1, .market = 0, .target_position = 1.0});
+    auto decision =
+        gate.check(qp::Intent{.symbol = 1, .market = Market::BinanceUsdm, .target_position = 1.0});
 
     ASSERT_TRUE(decision.order.has_value());
     EXPECT_EQ(decision.order->side, qp::Side::Sell);
@@ -57,11 +60,12 @@ TEST(BasicRiskGate, NegativeDeltaProducesASellOrder) {
 }
 
 TEST(BasicRiskGate, ClampsTargetToMaxPositionQtyAndReportsResized) {
-    Portfolio                portfolio;
-    BasicRiskGate<Portfolio> gate{
-        BasicRiskGateConfig{.max_position_qty = 5.0, .max_drawdown = 1000.0}, portfolio};
+    Portfolio     portfolio{kCounts};
+    BasicRiskGate gate{BasicRiskGateConfig{.max_position_qty = 5.0, .max_drawdown = 1000.0},
+                       portfolio};
 
-    auto decision = gate.check(qp::Intent{.symbol = 1, .market = 0, .target_position = 8.0});
+    auto decision =
+        gate.check(qp::Intent{.symbol = 1, .market = Market::BinanceUsdm, .target_position = 8.0});
 
     EXPECT_EQ(decision.outcome, RiskOutcome::Resized);
     ASSERT_TRUE(decision.order.has_value());
@@ -70,11 +74,12 @@ TEST(BasicRiskGate, ClampsTargetToMaxPositionQtyAndReportsResized) {
 }
 
 TEST(BasicRiskGate, ClampsNegativeTargetToMaxPositionQtyAndReportsResized) {
-    Portfolio                portfolio;
-    BasicRiskGate<Portfolio> gate{
-        BasicRiskGateConfig{.max_position_qty = 5.0, .max_drawdown = 1000.0}, portfolio};
+    Portfolio     portfolio{kCounts};
+    BasicRiskGate gate{BasicRiskGateConfig{.max_position_qty = 5.0, .max_drawdown = 1000.0},
+                       portfolio};
 
-    auto decision = gate.check(qp::Intent{.symbol = 1, .market = 0, .target_position = -8.0});
+    auto decision =
+        gate.check(qp::Intent{.symbol = 1, .market = Market::BinanceUsdm, .target_position = -8.0});
 
     EXPECT_EQ(decision.outcome, RiskOutcome::Resized);
     ASSERT_TRUE(decision.order.has_value());
@@ -83,21 +88,22 @@ TEST(BasicRiskGate, ClampsNegativeTargetToMaxPositionQtyAndReportsResized) {
 }
 
 TEST(BasicRiskGate, OnTickReturnsNoOrdersWhenEquityHasNotDrawnDown) {
-    Portfolio                portfolio;
-    BasicRiskGate<Portfolio> gate{BasicRiskGateConfig{}, portfolio};
+    Portfolio     portfolio{kCounts};
+    BasicRiskGate gate{BasicRiskGateConfig{}, portfolio};
 
     EXPECT_TRUE(gate.on_tick().empty());
 }
 
 TEST(BasicRiskGate, OnTickFlattensTrackedPositionsOnceEquityDrawsDownPastTheThreshold) {
-    Portfolio                portfolio;
-    BasicRiskGate<Portfolio> gate{
-        BasicRiskGateConfig{.max_position_qty = 10.0, .max_drawdown = 50.0, .tracked = {{1, 0}}},
+    Portfolio     portfolio{kCounts};
+    BasicRiskGate gate{
+        BasicRiskGateConfig{
+            .max_position_qty = 10.0, .max_drawdown = 50.0, .tracked = {{1, Market::BinanceUsdm}}},
         portfolio};
 
     // check() and the resulting fill are independent steps in the real
     // pipeline (RiskGate -> ExecutionGateway -> Portfolio::apply_fill).
-    gate.check(qp::Intent{.symbol = 1, .market = 0, .target_position = 2.0});
+    gate.check(qp::Intent{.symbol = 1, .market = Market::BinanceUsdm, .target_position = 2.0});
     portfolio.apply_fill(make_fill(1, qp::Side::Buy, 2.0, /*price=*/100.0));
     portfolio.apply_mark_price(make_trade(1, 0, /*price=*/100.0));  // equity == 0 here
 
@@ -108,18 +114,19 @@ TEST(BasicRiskGate, OnTickFlattensTrackedPositionsOnceEquityDrawsDownPastTheThre
     auto orders = gate.on_tick();
     ASSERT_EQ(orders.size(), 1u);
     EXPECT_EQ(orders[0].symbol, 1u);
-    EXPECT_EQ(orders[0].market, 0);
+    EXPECT_EQ(orders[0].market, Market::BinanceUsdm);
     EXPECT_EQ(orders[0].side, qp::Side::Sell);  // flattens the long position
     EXPECT_DOUBLE_EQ(orders[0].qty, 2.0);
 }
 
 TEST(BasicRiskGate, OnTickFlattensAShortPositionWithABuyOrder) {
-    Portfolio                portfolio;
-    BasicRiskGate<Portfolio> gate{
-        BasicRiskGateConfig{.max_position_qty = 10.0, .max_drawdown = 50.0, .tracked = {{1, 0}}},
+    Portfolio     portfolio{kCounts};
+    BasicRiskGate gate{
+        BasicRiskGateConfig{
+            .max_position_qty = 10.0, .max_drawdown = 50.0, .tracked = {{1, Market::BinanceUsdm}}},
         portfolio};
 
-    gate.check(qp::Intent{.symbol = 1, .market = 0, .target_position = -2.0});
+    gate.check(qp::Intent{.symbol = 1, .market = Market::BinanceUsdm, .target_position = -2.0});
     portfolio.apply_fill(make_fill(1, qp::Side::Sell, 2.0, /*price=*/100.0));
     portfolio.apply_mark_price(make_trade(1, 0, /*price=*/100.0));  // equity == 0 here
 
@@ -134,15 +141,16 @@ TEST(BasicRiskGate, OnTickFlattensAShortPositionWithABuyOrder) {
 }
 
 TEST(BasicRiskGate, OnTickSkipsTrackedInstrumentsWithNoPosition) {
-    Portfolio                portfolio;
-    BasicRiskGate<Portfolio> gate{
-        BasicRiskGateConfig{
-            .max_position_qty = 10.0, .max_drawdown = 50.0, .tracked = {{1, 0}, {2, 0}}},
+    Portfolio     portfolio{kCounts};
+    BasicRiskGate gate{
+        BasicRiskGateConfig{.max_position_qty = 10.0,
+                            .max_drawdown     = 50.0,
+                            .tracked = {{1, Market::BinanceUsdm}, {2, Market::BinanceUsdm}}},
         portfolio};
 
     // Symbol 2 is tracked but never traded — on_tick() must not emit a
     // spurious order for a position that's already flat.
-    gate.check(qp::Intent{.symbol = 1, .market = 0, .target_position = 2.0});
+    gate.check(qp::Intent{.symbol = 1, .market = Market::BinanceUsdm, .target_position = 2.0});
     portfolio.apply_fill(make_fill(1, qp::Side::Buy, 2.0, /*price=*/100.0));
     portfolio.apply_mark_price(make_trade(1, 0, /*price=*/20.0));  // decline big enough to trip
 
@@ -151,22 +159,22 @@ TEST(BasicRiskGate, OnTickSkipsTrackedInstrumentsWithNoPosition) {
     EXPECT_EQ(orders[0].symbol, 1u);
 }
 
-// orders_ is a heap-backed ViewablePool<Order, Book::kMaxInstruments> — this
-// drives on_tick() with exactly kMaxInstruments tracked, nonzero positions
-// so it pushes to the pool's exact capacity in one call. Proves the pool
-// doesn't overflow at the boundary, which push()'s own bounds check can't
-// do for us in a release build (assert compiles out under NDEBUG).
+// orders_ is a heap-reserved std::vector<Order> sized off Book's runtime
+// max_instruments() — this drives on_tick() with exactly that many tracked,
+// nonzero positions so push_back lands at the reserved cap in one call.
 TEST(BasicRiskGate, OnTickFillsTheOrderPoolToExactCapacityWithoutOverflow) {
-    Portfolio                portfolio;
-    BasicRiskGate<Portfolio> gate{
-        BasicRiskGateConfig{
-            .max_position_qty = 10.0, .max_drawdown = 50.0, .tracked = {{0, 0}, {1, 0}, {2, 0}}},
-        portfolio};
-    static_assert(Portfolio::kMaxInstruments == 3);  // tracked above must match this exactly
+    Portfolio     portfolio{kCounts};
+    BasicRiskGate gate{BasicRiskGateConfig{.max_position_qty = 10.0,
+                                           .max_drawdown     = 50.0,
+                                           .tracked          = {{0, Market::BinanceUsdm},
+                                                                {1, Market::BinanceUsdm},
+                                                                {2, Market::BinanceUsdm}}},
+                       portfolio};
+    ASSERT_EQ(portfolio.max_instruments(), 3u);  // tracked above must match this exactly
 
-    gate.check(qp::Intent{.symbol = 0, .market = 0, .target_position = 1.0});
-    gate.check(qp::Intent{.symbol = 1, .market = 0, .target_position = 1.0});
-    gate.check(qp::Intent{.symbol = 2, .market = 0, .target_position = 1.0});
+    gate.check(qp::Intent{.symbol = 0, .market = Market::BinanceUsdm, .target_position = 1.0});
+    gate.check(qp::Intent{.symbol = 1, .market = Market::BinanceUsdm, .target_position = 1.0});
+    gate.check(qp::Intent{.symbol = 2, .market = Market::BinanceUsdm, .target_position = 1.0});
     portfolio.apply_fill(make_fill(0, qp::Side::Buy, 1.0, /*price=*/100.0));
     portfolio.apply_fill(make_fill(1, qp::Side::Buy, 1.0, /*price=*/100.0));
     portfolio.apply_fill(make_fill(2, qp::Side::Buy, 1.0, /*price=*/100.0));
@@ -189,11 +197,12 @@ TEST(BasicRiskGate, OnTickFillsTheOrderPoolToExactCapacityWithoutOverflow) {
 }
 
 TEST(BasicRiskGate, OnTickReturnsNoFurtherOrdersOnceAlreadyTripped) {
-    Portfolio                portfolio;
-    BasicRiskGate<Portfolio> gate{
-        BasicRiskGateConfig{.max_position_qty = 10.0, .max_drawdown = 0.0, .tracked = {{1, 0}}},
+    Portfolio     portfolio{kCounts};
+    BasicRiskGate gate{
+        BasicRiskGateConfig{
+            .max_position_qty = 10.0, .max_drawdown = 0.0, .tracked = {{1, Market::BinanceUsdm}}},
         portfolio};
-    gate.check(qp::Intent{.symbol = 1, .market = 0, .target_position = 1.0});
+    gate.check(qp::Intent{.symbol = 1, .market = Market::BinanceUsdm, .target_position = 1.0});
     portfolio.apply_fill(
         make_fill(1, qp::Side::Buy, 1.0, /*price=*/100.0, /*order_id=*/1, /*ts=*/0, /*fee=*/1.0));
 
@@ -204,14 +213,15 @@ TEST(BasicRiskGate, OnTickReturnsNoFurtherOrdersOnceAlreadyTripped) {
 }
 
 TEST(BasicRiskGate, RejectsEveryCheckOnceTripped) {
-    Portfolio                portfolio;
-    BasicRiskGate<Portfolio> gate{
-        BasicRiskGateConfig{.max_position_qty = 10.0, .max_drawdown = 0.0}, portfolio};
+    Portfolio     portfolio{kCounts};
+    BasicRiskGate gate{BasicRiskGateConfig{.max_position_qty = 10.0, .max_drawdown = 0.0},
+                       portfolio};
     portfolio.apply_fill(
         make_fill(1, qp::Side::Buy, 1.0, /*price=*/100.0, /*order_id=*/1, /*ts=*/0, /*fee=*/1.0));
     gate.on_tick();  // trips immediately: any decline clears a 0.0 threshold
 
-    auto decision = gate.check(qp::Intent{.symbol = 2, .market = 0, .target_position = 1.0});
+    auto decision =
+        gate.check(qp::Intent{.symbol = 2, .market = Market::BinanceUsdm, .target_position = 1.0});
 
     EXPECT_EQ(decision.outcome, RiskOutcome::Rejected);
     EXPECT_FALSE(decision.order.has_value());

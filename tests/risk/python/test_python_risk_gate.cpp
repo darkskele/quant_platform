@@ -9,6 +9,7 @@
 #include "types.hpp"
 
 namespace py = pybind11;
+using qp::Market;
 using qp::RiskDecision;
 using qp::RiskOutcome;
 using qp::risk::python::PythonRiskGate;
@@ -23,7 +24,7 @@ PYBIND11_EMBEDDED_MODULE(qp_test_types_risk, m) {
     py::enum_<qp::Side>(m, "Side").value("Buy", qp::Side::Buy).value("Sell", qp::Side::Sell);
 
     py::class_<qp::Order>(m, "Order")
-        .def(py::init([](qp::OrderId id, qp::SymbolId s, qp::Side side, qp::MarketId v, qp::Qty q) {
+        .def(py::init([](qp::OrderId id, qp::SymbolId s, qp::Side side, qp::Market v, qp::Qty q) {
                  return qp::Order{.id = id, .symbol = s, .side = side, .market = v, .qty = q};
              }),
              py::arg("id"), py::arg("symbol"), py::arg("side"), py::arg("market"), py::arg("qty"))
@@ -76,7 +77,8 @@ TEST_F(PythonRiskGateTest, CheckReturnsPythonDecision) {
         py::globals(), locals);
 
     PythonRiskGate<> gate{locals["cb"], py::none()};
-    auto decision = gate.check(qp::Intent{.symbol = 1, .market = 2, .target_position = 3.0});
+    auto             decision =
+        gate.check(qp::Intent{.symbol = 1, .market = Market::BinanceSpot, .target_position = 3.0});
 
     EXPECT_EQ(decision.outcome, RiskOutcome::Approved);
     ASSERT_TRUE(decision.order.has_value());

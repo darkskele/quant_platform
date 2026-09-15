@@ -19,8 +19,7 @@
 namespace qp::engine {
 
 namespace detail {
-/// One PAUSE-class hint: yields the core's pipeline to its SMT sibling for a
-/// spin iteration without giving up the OS timeslice a yield() would.
+/// One PAUSE-class hint. @todo why not thread yield here.
 inline void cpu_relax() noexcept {
 #if defined(__x86_64__) || defined(__i386__)
     __builtin_ia32_pause();
@@ -32,10 +31,10 @@ inline void cpu_relax() noexcept {
 
 /// The trader composition root..
 template <transport::Transport Tx, execution::ExecutionGateway Exec, risk::RiskGate Risk,
-          strategy::Strategy S, PortfolioLike Book, Recorder<Book> Rec = NullRecorder>
+          strategy::Strategy S, Recorder<Portfolio> Rec = NullRecorder>
 class Engine {
    public:
-    Engine(Tx transport, Exec exec, Risk risk, S strategy, Book& portfolio, Rec recorder = {})
+    Engine(Tx transport, Exec exec, Risk risk, S strategy, Portfolio& portfolio, Rec recorder = {})
         : transport_{std::move(transport)},
           exec_{std::move(exec)},
           risk_{std::move(risk)},
@@ -43,17 +42,13 @@ class Engine {
           state_{portfolio},
           recorder_{std::move(recorder)} {}
 
-    /// Runs until told to stop on `control`. On Stop, flushes the transport
-    /// and drains what's buffered before returning. Meant to be the body of
-    /// its own thread.
+    /// Runs until told to stop on `control`.
     template <std::size_t NumControlConsumers>
     void run(ControlChannel<NumControlConsumers>& control, std::size_t consumer,
              std::chrono::microseconds idle_sleep = std::chrono::milliseconds(1)) {
         std::size_t idle = 0;  // consecutive dry outer loops, drives the backoff
         for (;;) {
-            // Step a batch, then poll once: polling (or reading a clock) on
-            // every event would tax the hot path, and shutdown latency isn't
-            // critical. A plain counter, not steady_clock, gates the poll.
+            // Step a batch, then poll once.
             bool progressed = false;
             for (std::size_t i = 0; i < kStepsPerPoll; ++i) {
                 if (!step()) break;  // transport dry -> poll and back off
@@ -98,15 +93,12 @@ class Engine {
     // Steps between control-channel polls in run().
     static constexpr std::size_t kStepsPerPoll = 1 << 20;
 
-    // Backoff schedule while the transport is dry. Not tuned against real
-    // replay throughput yet. @todo
+    // Backoff schedule while the transport is dry. @todo this needs to be tuned.
     static constexpr std::size_t               kSpinRounds  = 64;   // busy-spin, lowest latency
     static constexpr std::size_t               kYieldRounds = 256;  // then yield the timeslice
     static constexpr std::chrono::microseconds kMinNap{1};  // then sleep, doubling to idle_sleep
 
-    /// Escalating idle backoff: spin, then yield, then a sleep that doubles
-    /// up to idle_sleep. idle_sleep 0 never sleeps, a backtest replay blasts
-    /// through transient source starvation on spin then yield.
+    /// Escalating idle backoff.
     void back_off(std::size_t idle, std::chrono::microseconds idle_sleep) const {
         if (idle < kSpinRounds) {
             detail::cpu_relax();
@@ -132,12 +124,12 @@ class Engine {
         // Reject: no Portfolio effect yet, exec_.rejects() is there when it is.
     }
 
-    Tx    transport_;
-    Exec  exec_;
-    Risk  risk_;
-    S     strategy_;
-    Book& state_;
-    Rec   recorder_;
+    Tx         transport_;
+    Exec       exec_;
+    Risk       risk_;
+    S          strategy_;
+    Portfolio& state_;
+    Rec        recorder_;
 };
 
 }  // namespace qp::engine

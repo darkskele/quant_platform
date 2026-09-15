@@ -31,11 +31,11 @@ namespace {
 // Market 0 holds one spot symbol, market 1 holds one perp symbol. The
 // (symbol, market) pair identifies an instrument; symbol id 0 on both.
 constexpr std::array<std::size_t, 2> kCounts{1, 1};
-using Book      = qp::Portfolio<kCounts>;
-using CostMatch = CostAwareMatcher<Book, HalfSpreadLinearImpact<Book>>;
+using Book      = qp::Portfolio;
+using CostMatch = CostAwareMatcher<HalfSpreadLinearImpact>;
 
-constexpr qp::MarketId  kSpot = 0;
-constexpr qp::MarketId  kPerp = 1;
+constexpr qp::Market   kSpot = qp::Market::BinanceUsdm;
+constexpr qp::Market   kPerp = qp::Market::BinanceCoinm;
 constexpr qp::SymbolId kSym  = 0;
 
 constexpr double kRef          = 100.0;
@@ -48,13 +48,13 @@ constexpr double kFundingRate  = 0.001;
 // tighter than any cost we care about.
 constexpr double kEps = 1e-9;
 
-sim::SimExecution<CostMatch, Book> make_gateway() {
+sim::SimExecution<CostMatch> make_gateway(Book& book) {
     // One row per leg, both effective from ts=0 so any test ts inside
     // this run resolves. Same cost parameters both legs.
     std::vector<CostRow> table{
         CostRow{
             .symbol              = kSym,
-            .market               = kSpot,
+            .market              = kSpot,
             .week_start_ns       = 0,
             .half_spread_bps     = kHalfSpreadBp,
             .impact_bps_per_unit = 0.0,
@@ -62,20 +62,20 @@ sim::SimExecution<CostMatch, Book> make_gateway() {
         },
         CostRow{
             .symbol              = kSym,
-            .market               = kPerp,
+            .market              = kPerp,
             .week_start_ns       = 0,
             .half_spread_bps     = kHalfSpreadBp,
             .impact_bps_per_unit = 0.0,
             .taker_fee_bps       = kFeeBp,
         },
     };
-    return sim::SimExecution<CostMatch, Book>{
-        CostMatch{HalfSpreadLinearImpact<Book>{std::move(table)}}};
+    return sim::SimExecution<CostMatch>{
+        book, CostMatch{book, HalfSpreadLinearImpact{book, std::move(table)}}};
 }
 
 // Drives one step's submits into the book: submit each order, drain
 // fills into portfolio, mirroring Engine::step().
-void submit_and_drain(sim::SimExecution<CostMatch, Book>& gateway, Book& book,
+void submit_and_drain(sim::SimExecution<CostMatch>& gateway, Book& book,
                       std::span<const Order> orders, Timestamp ts) {
     for (const auto& o : orders) gateway.submit(o, ts);
     for (const auto& f : gateway.fills()) book.apply_fill(f);
@@ -84,8 +84,8 @@ void submit_and_drain(sim::SimExecution<CostMatch, Book>& gateway, Book& book,
 }  // namespace
 
 TEST(RoundTripDeltaNeutral, CashMatchesHandComputedFundingMinusSpreadAndFees) {
-    auto gateway = make_gateway();
-    Book book;
+    Book book{kCounts};
+    auto gateway = make_gateway(book);
 
     // Prime prices on both legs and the funding mark on the perp.
     gateway.on_market_event(qp::test::make_kline(kSym, /*open_time=*/0, /*close_time=*/1, kRef,
@@ -139,8 +139,8 @@ TEST(RoundTripDeltaNeutral, CashMatchesHandComputedFundingMinusSpreadAndFees) {
 }
 
 TEST(RoundTripDeltaNeutral, NegativeFundingBillsTheShort) {
-    auto gateway = make_gateway();
-    Book book;
+    Book book{kCounts};
+    auto gateway = make_gateway(book);
 
     gateway.on_market_event(qp::test::make_kline(kSym, 0, 1, kRef, kRef, kRef, kRef, 0.0, kSpot));
     book.apply_mark_price(qp::test::make_kline(kSym, 0, 1, kRef, kRef, kRef, kRef, 0.0, kSpot));

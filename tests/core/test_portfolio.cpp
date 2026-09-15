@@ -8,6 +8,7 @@
 #include "support/market_event_builders.hpp"
 #include "types.hpp"
 
+using qp::Market;
 using qp::test::make_book_diff;
 using qp::test::make_fill;
 using qp::test::make_funding;
@@ -16,61 +17,61 @@ using qp::test::make_trade;
 
 namespace {
 constexpr std::array<std::size_t, 2> kCounts{3, 3};
-using Portfolio = qp::Portfolio<kCounts>;
+using Portfolio = qp::Portfolio;
 }  // namespace
 
 TEST(Portfolio, FlatUntilAnyFillArrives) {
-    Portfolio portfolio;
-    EXPECT_EQ(portfolio.position(1, 0), 0.0);
+    Portfolio portfolio{kCounts};
+    EXPECT_EQ(portfolio.position(1, Market::BinanceUsdm), 0.0);
 }
 
 TEST(Portfolio, BuyIncreasesSellDecreasesPosition) {
-    Portfolio portfolio;
+    Portfolio portfolio{kCounts};
     portfolio.apply_fill(make_fill(1, qp::Side::Buy, 2.0));
-    EXPECT_EQ(portfolio.position(1, 0), 2.0);
+    EXPECT_EQ(portfolio.position(1, Market::BinanceUsdm), 2.0);
 
     portfolio.apply_fill(make_fill(1, qp::Side::Sell, 0.5));
-    EXPECT_EQ(portfolio.position(1, 0), 1.5);
+    EXPECT_EQ(portfolio.position(1, Market::BinanceUsdm), 1.5);
 }
 
 TEST(Portfolio, RepeatedFillsAccumulate) {
-    Portfolio portfolio;
+    Portfolio portfolio{kCounts};
     for (int i = 0; i < 3; ++i) portfolio.apply_fill(make_fill(1, qp::Side::Buy, 1.0));
-    EXPECT_EQ(portfolio.position(1, 0), 3.0);
+    EXPECT_EQ(portfolio.position(1, Market::BinanceUsdm), 3.0);
 }
 
 TEST(Portfolio, SymbolsAreIndependent) {
-    Portfolio portfolio;
+    Portfolio portfolio{kCounts};
     portfolio.apply_fill(make_fill(1, qp::Side::Buy, 2.0));
     portfolio.apply_fill(make_fill(2, qp::Side::Sell, 1.0));
 
-    EXPECT_EQ(portfolio.position(1, 0), 2.0);
-    EXPECT_EQ(portfolio.position(2, 0), -1.0);
+    EXPECT_EQ(portfolio.position(1, Market::BinanceUsdm), 2.0);
+    EXPECT_EQ(portfolio.position(2, Market::BinanceUsdm), -1.0);
 }
 
 // D44: the actual property FundingCarryStrategy depends on — the same
 // symbol on two different venues (e.g. spot + perp BTCUSDT) must hold
 // independent positions, not collide into one slot.
 TEST(Portfolio, SameSymbolOnDifferentVenuesIsIndependent) {
-    Portfolio portfolio;
+    Portfolio portfolio{kCounts};
     portfolio.apply_fill(make_fill(1, qp::Side::Buy, 2.0, /*price=*/100.0, /*order_id=*/1,
-                                   /*ts=*/0, /*fee=*/0.0, /*market=*/0));
+                                   /*ts=*/0, /*fee=*/0.0, /*market=*/Market::BinanceUsdm));
     portfolio.apply_fill(make_fill(1, qp::Side::Sell, 1.0, /*price=*/100.0, /*order_id=*/2,
-                                   /*ts=*/0, /*fee=*/0.0, /*market=*/1));
+                                   /*ts=*/0, /*fee=*/0.0, /*market=*/Market::BinanceCoinm));
 
-    EXPECT_EQ(portfolio.position(1, 0), 2.0);
-    EXPECT_EQ(portfolio.position(1, 1), -1.0);
+    EXPECT_EQ(portfolio.position(1, Market::BinanceUsdm), 2.0);
+    EXPECT_EQ(portfolio.position(1, Market::BinanceCoinm), -1.0);
 }
 
 TEST(Portfolio, BuyingCostsCashPlusFee) {
-    Portfolio portfolio;
+    Portfolio portfolio{kCounts};
     portfolio.apply_fill(make_fill(1, qp::Side::Buy, 2.0, /*price=*/100.0, /*order_id=*/1, /*ts=*/0,
                                    /*fee=*/1.5));
     EXPECT_EQ(portfolio.cash(), -201.5);  // -(2*100) - 1.5
 }
 
 TEST(Portfolio, SellingCreditsCashMinusFee) {
-    Portfolio portfolio;
+    Portfolio portfolio{kCounts};
     portfolio.apply_fill(make_fill(1, qp::Side::Sell, 2.0, /*price=*/100.0, /*order_id=*/1,
                                    /*ts=*/0,
                                    /*fee=*/1.5));
@@ -78,7 +79,7 @@ TEST(Portfolio, SellingCreditsCashMinusFee) {
 }
 
 TEST(Portfolio, PositiveFundingRateDebitsALongPosition) {
-    Portfolio portfolio;
+    Portfolio portfolio{kCounts};
     portfolio.apply_fill(make_fill(1, qp::Side::Buy, 2.0));  // now long 2
     // apply_funding() settles against funding_mark_price_, which stays 0
     // (a silent no-op) until a MarkPriceKlineEvent sets it.
@@ -89,7 +90,7 @@ TEST(Portfolio, PositiveFundingRateDebitsALongPosition) {
 }
 
 TEST(Portfolio, PositiveFundingRateCreditsAShortPosition) {
-    Portfolio portfolio;
+    Portfolio portfolio{kCounts};
     portfolio.apply_fill(make_fill(1, qp::Side::Sell, 2.0));  // now short 2
     portfolio.apply_mark_price(make_mark_price_kline(1, 0, 100.0));
 
@@ -98,7 +99,7 @@ TEST(Portfolio, PositiveFundingRateCreditsAShortPosition) {
 }
 
 TEST(Portfolio, FundingIsANoOpUntilAMarkPriceHasBeenSet) {
-    Portfolio portfolio;
+    Portfolio portfolio{kCounts};
     portfolio.apply_fill(make_fill(1, qp::Side::Buy, 2.0));  // now long 2
 
     portfolio.apply_funding(make_funding(1, 0, /*rate=*/0.0001));  // no mark price seen yet
@@ -106,7 +107,7 @@ TEST(Portfolio, FundingIsANoOpUntilAMarkPriceHasBeenSet) {
 }
 
 TEST(Portfolio, FundingHasNoEffectOnAFlatPosition) {
-    Portfolio portfolio;
+    Portfolio portfolio{kCounts};
     portfolio.apply_funding(make_funding(1, 0, 0.0001));
     EXPECT_EQ(portfolio.cash(), 0.0);
 }
@@ -114,13 +115,13 @@ TEST(Portfolio, FundingHasNoEffectOnAFlatPosition) {
 // D46: equity() is what a drawdown/kill-switch RiskGate actually needs —
 // cash() alone can't tell "bought an asset" from "lost money".
 TEST(Portfolio, EquityIsCashUntilAnyPriceIsMarked) {
-    Portfolio portfolio;
+    Portfolio portfolio{kCounts};
     portfolio.apply_fill(make_fill(1, qp::Side::Buy, 2.0, /*price=*/100.0));
     EXPECT_DOUBLE_EQ(portfolio.equity(), portfolio.cash());
 }
 
 TEST(Portfolio, EquityAddsMarkToMarketValueOfHeldPositions) {
-    Portfolio portfolio;
+    Portfolio portfolio{kCounts};
     portfolio.apply_fill(make_fill(1, qp::Side::Buy, 2.0, /*price=*/100.0));  // cash -= 200
     portfolio.apply_mark_price(make_trade(1, 0, /*price=*/110.0));
 
@@ -128,7 +129,7 @@ TEST(Portfolio, EquityAddsMarkToMarketValueOfHeldPositions) {
 }
 
 TEST(Portfolio, EquityAddsMarkToMarketValueFromMarkPriceKlineToo) {
-    Portfolio portfolio;
+    Portfolio portfolio{kCounts};
     portfolio.apply_fill(make_fill(1, qp::Side::Sell, 2.0, /*price=*/100.0));  // cash += 200
     portfolio.apply_mark_price(make_mark_price_kline(1, 0, /*close=*/90.0));
 
@@ -136,7 +137,7 @@ TEST(Portfolio, EquityAddsMarkToMarketValueFromMarkPriceKlineToo) {
 }
 
 TEST(Portfolio, ApplyMarkPriceIgnoresFundingEvents) {
-    Portfolio portfolio;
+    Portfolio portfolio{kCounts};
     portfolio.apply_fill(make_fill(1, qp::Side::Buy, 2.0, /*price=*/100.0));
     portfolio.apply_mark_price(make_funding(1, 0, /*rate=*/0.0001));
 
@@ -144,7 +145,7 @@ TEST(Portfolio, ApplyMarkPriceIgnoresFundingEvents) {
 }
 
 TEST(Portfolio, ApplyMarkPriceIgnoresBookDiffEvents) {
-    Portfolio portfolio;
+    Portfolio portfolio{kCounts};
     portfolio.apply_fill(make_fill(1, qp::Side::Buy, 2.0, /*price=*/100.0));
     portfolio.apply_mark_price(make_book_diff(1, 0, 0, 0, 0));
 

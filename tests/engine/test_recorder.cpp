@@ -16,7 +16,7 @@ using qp::engine::Recorder;
 
 namespace {
 constexpr std::array<std::size_t, 1> kCounts{1};
-using Book = qp::Portfolio<kCounts>;
+using Book = qp::Portfolio;
 }  // namespace
 
 static_assert(Recorder<NullRecorder, Book>);
@@ -24,7 +24,7 @@ static_assert(Recorder<EquitySeriesRecorder, Book>);
 
 TEST(NullRecorder, SampleIsNoOp) {
     NullRecorder rec;
-    Book         book;
+    Book         book{kCounts};
     rec.sample(1, book);
     SUCCEED();
 }
@@ -33,7 +33,7 @@ TEST(EquitySeriesRecorder, CollectsSamplesInOrder) {
     EquitySeriesCollector collector;
     collector.start();
     EquitySeriesRecorder rec{&collector};
-    Book                 book;
+    Book                 book{kCounts};
 
     rec.sample(10, book);
     rec.sample(20, book);
@@ -49,12 +49,13 @@ TEST(EquitySeriesRecorder, CapturesEquityAtSampleTime) {
     EquitySeriesCollector collector;
     collector.start();
     EquitySeriesRecorder rec{&collector};
-    Book                 book;
+    Book                 book{kCounts};
 
     rec.sample(1, book);  // flat: equity 0
     book.apply_fill(
         qp::Fill{.symbol = 0, .side = qp::Side::Buy, .price = 100.0, .qty = 1.0, .fee = 0.5});
-    book.apply_mark_price(qp::MarketEvent{qp::TradeEvent{.symbol = 0, .price = 100.0}});
+    book.apply_mark_price(qp::MarketEvent{
+        qp::TradeEvent{.base = {.kind = qp::EventKind::Trade, .symbol = 0}, .price = 100.0}});
     rec.sample(2, book);  // cash -100.5, position 1 @ 100 -> equity -0.5
     collector.finish();
 
@@ -68,7 +69,7 @@ TEST(EquitySeriesRecorder, DrainsMoreSamplesThanTheQueueHoldsWithoutLoss) {
     EquitySeriesCollector collector;
     collector.start();
     EquitySeriesRecorder rec{&collector};
-    Book                 book;
+    Book                 book{kCounts};
 
     constexpr int N = 200'000;  // exceeds the internal queue, exercises backpressure
     for (int i = 0; i < N; ++i) rec.sample(i, book);

@@ -18,10 +18,7 @@
 
 namespace qp::execution::sim::matcher::cost_aware::cost_model::half_spread_linear {
 
-/// Loads a cost table CSV into `vector<CostRow>`. The CSV is expected to
-/// carry a header row naming at least these columns (extras are ignored):
-///   symbol, market, week_start, half_spread_bps, impact_bps_per_unit,
-///   taker_fee_bps
+/// Loads a cost table CSV into `vector<CostRow>`.
 template <class SymbolTable>
 std::vector<CostRow> read_cost_rows_csv(const std::filesystem::path& path);
 
@@ -174,7 +171,6 @@ std::vector<CostRow> read_cost_rows_csv(const std::filesystem::path& path) {
         }
 
         // Empty impact is treated as 0 (for weeks with no aggTrades summary).
-        // Non-empty but non-numeric is a genuine bad value and throws.
         auto   im_field = need(hdr.impact_bps_per_unit);
         double im_val   = 0.0;
         if (!im_field.empty()) {
@@ -190,7 +186,7 @@ std::vector<CostRow> read_cost_rows_csv(const std::filesystem::path& path) {
 
         rows.push_back(CostRow{
             .symbol              = *sym_id,
-            .market               = static_cast<MarketId>(ven_i),
+            .market              = static_cast<Market>(ven_i),
             .week_start_ns       = *ws_ns,
             .half_spread_bps     = *hs,
             .impact_bps_per_unit = im_val,

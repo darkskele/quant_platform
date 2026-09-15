@@ -16,10 +16,20 @@
 
 using qp::ControlChannel;
 using qp::ControlCommand;
+using qp::Market;
 using qp::MarketEvent;
 using qp::data_source::run_data_source;
 using qp::data_source::source::PullResult;
 using qp::data_source::source::SourceStatus;
+
+namespace {
+
+// Test fixtures use the same Market values a real backtest uses; they're
+// arbitrary placeholders here — Portfolio doesn't get involved.
+constexpr std::array<Market, 1> kLegMarkets1{Market::BinanceUsdm};
+constexpr std::array<Market, 2> kLegMarkets2{Market::BinanceUsdm, Market::BinanceSpot};
+
+}  // namespace
 
 namespace {
 
@@ -89,14 +99,14 @@ TEST(RunDataSource, PairsEachSourceWithTheMatchingSinkAndStampsVenue) {
     ControlChannel<1>                  control;
     std::size_t                        idx = control.attach();
 
-    run_data_source(sources, sinks, control, idx);
+    run_data_source(sources, sinks, kLegMarkets2, control, idx);
 
     ASSERT_EQ(std::get<0>(sinks).recorded.size(), 1u);
-    EXPECT_EQ(qp::header_of(std::get<0>(sinks).recorded[0]).market, 0);
+    EXPECT_EQ(qp::base_of(std::get<0>(sinks).recorded[0]).market, Market::BinanceUsdm);
     EXPECT_DOUBLE_EQ(std::get<qp::TradeEvent>(std::get<0>(sinks).recorded[0]).price, 100.0);
 
     ASSERT_EQ(std::get<1>(sinks).recorded.size(), 1u);
-    EXPECT_EQ(qp::header_of(std::get<1>(sinks).recorded[0]).market, 1);
+    EXPECT_EQ(qp::base_of(std::get<1>(sinks).recorded[0]).market, Market::BinanceSpot);
     EXPECT_DOUBLE_EQ(std::get<qp::TradeEvent>(std::get<1>(sinks).recorded[0]).price, 200.0);
 }
 
@@ -108,7 +118,7 @@ TEST(RunDataSource, ReturnsOnceEverySourceReachesEofHavingDeliveredEverything) {
     ControlChannel<1>                  control;
     std::size_t                        idx = control.attach();
 
-    run_data_source(sources, sinks, control, idx);  // returns synchronously
+    run_data_source(sources, sinks, kLegMarkets2, control, idx);  // returns synchronously
 
     EXPECT_EQ(std::get<0>(sinks).recorded.size(), 2u);
     EXPECT_EQ(std::get<1>(sinks).recorded.size(), 1u);
@@ -124,7 +134,7 @@ TEST(RunDataSource, StopsPromptlyOnExternalStopWhenSourceNeverFinishes) {
 
     auto        start = std::chrono::steady_clock::now();
     std::thread runner([&] {
-        run_data_source(sources, sinks, control, idx, std::chrono::milliseconds(5),
+        run_data_source(sources, sinks, kLegMarkets1, control, idx, std::chrono::milliseconds(5),
                         /*stop_poll_every=*/1);
     });
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
@@ -149,8 +159,9 @@ TEST(RunDataSource, OneLegBackpressuringNeverStallsAnotherLeg) {
     ControlChannel<1>                    control;
     std::size_t                          idx = control.attach();
 
-    std::thread runner(
-        [&] { run_data_source(sources, sinks, control, idx, std::chrono::milliseconds(5)); });
+    std::thread runner([&] {
+        run_data_source(sources, sinks, kLegMarkets2, control, idx, std::chrono::milliseconds(5));
+    });
 
     // Leg 1 (effectively unbounded) delivers all 3 of its own events even
     // though leg 0 is wedged after its first.

@@ -23,8 +23,7 @@
 namespace qp::backtest::python {
 
 /// Backtest variant whose Strategy and RiskGate forward to python callbacks
-/// set from the notebook. Each run reconstructs the adapters around the
-/// current callback slots.
+/// set from the notebook.
 class PythonBacktest : public BacktestBase<PythonBacktest> {
    public:
     using Recorder = engine::EquitySeriesRecorder;
@@ -35,7 +34,8 @@ class PythonBacktest : public BacktestBase<PythonBacktest> {
         : symbol_ids_(resolve_symbols(symbols)),
           futures_source_(config::make_futures_source(data_dir, symbols, first_day, last_day)),
           spot_source_(config::make_spot_source(data_dir, symbols, first_day, last_day)),
-          cost_table_path_(std::move(cost_table_path)) {}
+          cost_table_path_(std::move(cost_table_path)),
+          portfolio_(config::make_subscription()) {}
 
     void set_on_event(pybind11::object cb) { on_event_ = std::move(cb); }
 
@@ -49,6 +49,7 @@ class PythonBacktest : public BacktestBase<PythonBacktest> {
 
     // Restricts which event kinds reach the python on_event, empty means all.
     // A funding-only strategy skips the per-kline python call this way.
+    // @todo Get rid of this. Source's job to give the right data
     void set_event_kinds(const std::vector<EventKind>& kinds) {
         if (kinds.empty()) {
             event_kind_mask_ = 0xFF;
@@ -65,13 +66,13 @@ class PythonBacktest : public BacktestBase<PythonBacktest> {
 
     Notional cash() const { return portfolio_.cash(); }
 
-    Qty position(SymbolId symbol, MarketId market) const {
+    Qty position(SymbolId symbol, Market market) const {
         return portfolio_.position(symbol, market);
     }
 
     // Latest mark for the leg, so the python strategy can size a target
     // notional into a quantity.
-    Price mark(SymbolId symbol, MarketId market) const { return portfolio_.mark(symbol, market); }
+    Price mark(SymbolId symbol, Market market) const { return portfolio_.mark(symbol, market); }
 
     auto sources() {
         return std::tuple<config::FuturesSource&, config::SpotSource&>{futures_source_,
@@ -86,7 +87,7 @@ class PythonBacktest : public BacktestBase<PythonBacktest> {
                              timer_period_ns_);
         // make_matcher is variation-specific: LastTrade ignores the path,
         // cost-aware reads the honest fee/spread/impact table from it.
-        config::Exec exec{config::make_matcher<config::Book>(cost_table_path_)};
+        config::Exec exec{portfolio_, config::make_matcher(portfolio_, cost_table_path_)};
         return config::EngineType<Recorder>{
             std::move(transport),
             std::move(exec),
@@ -119,7 +120,7 @@ class PythonBacktest : public BacktestBase<PythonBacktest> {
         };
         for (SymbolId s : symbol_ids_) {
             Notional fee = 0.0, recv = 0.0, paid = 0.0, basis = 0.0;
-            for (MarketId v = 0; v < config::Book::kNumMarkets; ++v) {
+            for (Market v : config::kLegMarkets) {
                 fee += portfolio_.fees(s, v);
                 recv += portfolio_.funding_received(s, v);
                 paid += portfolio_.funding_paid(s, v);

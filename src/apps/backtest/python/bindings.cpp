@@ -78,27 +78,30 @@ PYBIND11_MODULE(qp_python_backtest, m) {
         .def_readonly("bids", &qp::BookLevels::bids)
         .def_readonly("asks", &qp::BookLevels::asks);
 
+    // Event kind/market/symbol/ts moved onto EventBase (accessed as .base.*
+    // in C++), but keep exposing them at the top level on the Python side so
+    // notebooks don't have to say ev.base.market.
     py::class_<qp::TradeEvent>(m, "TradeEvent")
-        .def_readonly("kind", &qp::TradeEvent::kind)
-        .def_readonly("market", &qp::TradeEvent::market)
-        .def_readonly("symbol", &qp::TradeEvent::symbol)
-        .def_readonly("ts", &qp::TradeEvent::ts)
+        .def_property_readonly("kind", [](const qp::TradeEvent& e) { return e.base.kind; })
+        .def_property_readonly("market", [](const qp::TradeEvent& e) { return e.base.market; })
+        .def_property_readonly("symbol", [](const qp::TradeEvent& e) { return e.base.symbol; })
+        .def_property_readonly("ts", [](const qp::TradeEvent& e) { return e.base.ts; })
         .def_readonly("side", &qp::TradeEvent::side)
         .def_readonly("price", &qp::TradeEvent::price)
         .def_readonly("qty", &qp::TradeEvent::qty);
 
     py::class_<qp::FundingEvent>(m, "FundingEvent")
-        .def_readonly("kind", &qp::FundingEvent::kind)
-        .def_readonly("market", &qp::FundingEvent::market)
-        .def_readonly("symbol", &qp::FundingEvent::symbol)
-        .def_readonly("ts", &qp::FundingEvent::ts)
+        .def_property_readonly("kind", [](const qp::FundingEvent& e) { return e.base.kind; })
+        .def_property_readonly("market", [](const qp::FundingEvent& e) { return e.base.market; })
+        .def_property_readonly("symbol", [](const qp::FundingEvent& e) { return e.base.symbol; })
+        .def_property_readonly("ts", [](const qp::FundingEvent& e) { return e.base.ts; })
         .def_readonly("funding_rate", &qp::FundingEvent::funding_rate);
 
     py::class_<qp::KlineEvent>(m, "KlineEvent")
-        .def_readonly("kind", &qp::KlineEvent::kind)
-        .def_readonly("market", &qp::KlineEvent::market)
-        .def_readonly("symbol", &qp::KlineEvent::symbol)
-        .def_readonly("ts", &qp::KlineEvent::ts)
+        .def_property_readonly("kind", [](const qp::KlineEvent& e) { return e.base.kind; })
+        .def_property_readonly("market", [](const qp::KlineEvent& e) { return e.base.market; })
+        .def_property_readonly("symbol", [](const qp::KlineEvent& e) { return e.base.symbol; })
+        .def_property_readonly("ts", [](const qp::KlineEvent& e) { return e.base.ts; })
         .def_readonly("close_time", &qp::KlineEvent::close_time)
         .def_readonly("open", &qp::KlineEvent::open)
         .def_readonly("high", &qp::KlineEvent::high)
@@ -107,10 +110,12 @@ PYBIND11_MODULE(qp_python_backtest, m) {
         .def_readonly("volume", &qp::KlineEvent::volume);
 
     py::class_<qp::MarkPriceKlineEvent>(m, "MarkPriceKlineEvent")
-        .def_readonly("kind", &qp::MarkPriceKlineEvent::kind)
-        .def_readonly("market", &qp::MarkPriceKlineEvent::market)
-        .def_readonly("symbol", &qp::MarkPriceKlineEvent::symbol)
-        .def_readonly("ts", &qp::MarkPriceKlineEvent::ts)
+        .def_property_readonly("kind", [](const qp::MarkPriceKlineEvent& e) { return e.base.kind; })
+        .def_property_readonly("market",
+                               [](const qp::MarkPriceKlineEvent& e) { return e.base.market; })
+        .def_property_readonly("symbol",
+                               [](const qp::MarkPriceKlineEvent& e) { return e.base.symbol; })
+        .def_property_readonly("ts", [](const qp::MarkPriceKlineEvent& e) { return e.base.ts; })
         .def_readonly("close_time", &qp::MarkPriceKlineEvent::close_time)
         .def_readonly("open", &qp::MarkPriceKlineEvent::open)
         .def_readonly("high", &qp::MarkPriceKlineEvent::high)
@@ -118,24 +123,26 @@ PYBIND11_MODULE(qp_python_backtest, m) {
         .def_readonly("close", &qp::MarkPriceKlineEvent::close);
 
     py::class_<qp::BookDiffEvent>(m, "BookDiffEvent")
-        .def_readonly("kind", &qp::BookDiffEvent::kind)
-        .def_readonly("market", &qp::BookDiffEvent::market)
-        .def_readonly("symbol", &qp::BookDiffEvent::symbol)
-        .def_readonly("ts", &qp::BookDiffEvent::ts)
+        .def_property_readonly("kind", [](const qp::BookDiffEvent& e) { return e.base.kind; })
+        .def_property_readonly("market", [](const qp::BookDiffEvent& e) { return e.base.market; })
+        .def_property_readonly("symbol", [](const qp::BookDiffEvent& e) { return e.base.symbol; })
+        .def_property_readonly("ts", [](const qp::BookDiffEvent& e) { return e.base.ts; })
         .def_readonly("first_seq", &qp::BookDiffEvent::first_seq)
         .def_readonly("seq", &qp::BookDiffEvent::seq)
         .def_readonly("prev_seq", &qp::BookDiffEvent::prev_seq)
         .def_readonly("levels", &qp::BookDiffEvent::levels);
 
     py::class_<qp::BookSnapshotEvent>(m, "BookSnapshotEvent")
-        .def_readonly("kind", &qp::BookSnapshotEvent::kind)
-        .def_readonly("market", &qp::BookSnapshotEvent::market)
-        .def_readonly("symbol", &qp::BookSnapshotEvent::symbol)
-        .def_readonly("ts", &qp::BookSnapshotEvent::ts)
+        .def_property_readonly("kind", [](const qp::BookSnapshotEvent& e) { return e.base.kind; })
+        .def_property_readonly("market",
+                               [](const qp::BookSnapshotEvent& e) { return e.base.market; })
+        .def_property_readonly("symbol",
+                               [](const qp::BookSnapshotEvent& e) { return e.base.symbol; })
+        .def_property_readonly("ts", [](const qp::BookSnapshotEvent& e) { return e.base.ts; })
         .def_readonly("levels", &qp::BookSnapshotEvent::levels);
 
     py::class_<qp::Intent>(m, "Intent")
-        .def(py::init([](qp::SymbolId s, qp::MarketId v, qp::Qty q) {
+        .def(py::init([](qp::SymbolId s, qp::Market v, qp::Qty q) {
                  return qp::Intent{.symbol = s, .market = v, .target_position = q};
              }),
              py::arg("symbol"), py::arg("market"), py::arg("target_position"))
@@ -144,7 +151,7 @@ PYBIND11_MODULE(qp_python_backtest, m) {
         .def_readwrite("target_position", &qp::Intent::target_position);
 
     py::class_<qp::Order>(m, "Order")
-        .def(py::init([](qp::OrderId id, qp::SymbolId s, qp::Side side, qp::MarketId v, qp::Qty q) {
+        .def(py::init([](qp::OrderId id, qp::SymbolId s, qp::Side side, qp::Market v, qp::Qty q) {
                  return qp::Order{.id = id, .symbol = s, .side = side, .market = v, .qty = q};
              }),
              py::arg("id"), py::arg("symbol"), py::arg("side"), py::arg("market"), py::arg("qty"))

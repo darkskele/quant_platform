@@ -1,8 +1,8 @@
 #pragma once
-#include <array>
 #include <cstddef>
 #include <utility>
 #include <variant>
+#include <vector>
 
 #include "cost_model/cost_model.hpp"
 #include "matcher.hpp"
@@ -13,31 +13,29 @@ namespace qp::execution::sim::matcher::cost_aware {
 
 /// Fills a market order fully at the last-seen price, adjusted by a CostModel.
 /// A miss on either the reference price or the cost row is a Reject.
-/// @tparam Book Portfolio-like: provides kMaxInstruments and index().
-/// @tparam CM   CostModel-conforming.
-template <qp::PortfolioLike Book, cost_model::CostModel CM>
+template <cost_model::CostModel CM>
 class CostAwareMatcher {
    public:
-    explicit CostAwareMatcher(CM cost) noexcept : cost_(std::move(cost)) {}
+    CostAwareMatcher(const Portfolio& book, CM cost) noexcept
+        : book_{&book}, cost_{std::move(cost)}, last_price_(book.max_instruments(), 0.0) {}
 
-    // Priced off a Trade or a Kline close: historical data never emits
-    // Trade at all, only Kline/Funding.
+    // Priced off a Trade or a Kline close.
     void on_market_event(const MarketEvent& ev) {
         if (const auto* trade = std::get_if<TradeEvent>(&ev)) {
-            last_price_[Book::index(trade->symbol, trade->market)] = trade->price;
+            last_price_[book_->index(trade->base.symbol, trade->base.market)] = trade->price;
         } else if (const auto* kline = std::get_if<KlineEvent>(&ev)) {
-            last_price_[Book::index(kline->symbol, kline->market)] = kline->close;
+            last_price_[book_->index(kline->base.symbol, kline->base.market)] = kline->close;
         }
     }
 
     std::variant<Fill, Reject> try_fill(Order o, Timestamp ts) {
-        Price ref = last_price_[Book::index(o.symbol, o.market)];
+        Price ref = last_price_[book_->index(o.symbol, o.market)];
         if (ref == 0.0) {
             return Reject{
                 .order_id = o.id,
                 .symbol   = o.symbol,
                 .reason   = RejectReason::NoPriceAvailable,
-                .market    = o.market,
+                .market   = o.market,
                 .ts       = ts,
             };
         }
@@ -48,7 +46,7 @@ class CostAwareMatcher {
                 .order_id = o.id,
                 .symbol   = o.symbol,
                 .reason   = RejectReason::NoCostAvailable,
-                .market    = o.market,
+                .market   = o.market,
                 .ts       = ts,
             };
         }
@@ -56,7 +54,7 @@ class CostAwareMatcher {
             .order_id = o.id,
             .symbol   = o.symbol,
             .side     = o.side,
-            .market    = o.market,
+            .market   = o.market,
             .ts       = ts,
             .price    = pricing->fill_price,
             .qty      = o.qty,
@@ -65,9 +63,9 @@ class CostAwareMatcher {
     }
 
    private:
-    CM cost_;
-    // one symbol's whole market row fits one cache line.
-    alignas(64) std::array<Price, Book::kMaxInstruments> last_price_{};
+    const Portfolio*   book_;
+    CM                 cost_;
+    std::vector<Price> last_price_;
 };
 
 }  // namespace qp::execution::sim::matcher::cost_aware

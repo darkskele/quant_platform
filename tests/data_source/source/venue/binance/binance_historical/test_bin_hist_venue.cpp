@@ -40,9 +40,9 @@ TEST(BinHistVenue, ParsesARealFundingEntry) {
     ASSERT_TRUE(ev.has_value());
     ASSERT_TRUE(std::holds_alternative<FundingEvent>(*ev));
     const auto& funding = std::get<FundingEvent>(*ev);
-    EXPECT_EQ(funding.symbol, *BinHistSymbolTable::id_of("BTCUSDT"));
+    EXPECT_EQ(funding.base.symbol, *BinHistSymbolTable::id_of("BTCUSDT"));
     EXPECT_DOUBLE_EQ(funding.funding_rate, -0.00012359);
-    EXPECT_EQ(funding.ts, 1577836800000LL * 1'000'000);  // ms -> ns
+    EXPECT_EQ(funding.base.ts, 1577836800000LL * 1'000'000);  // ms -> ns
 }
 
 TEST(BinHistVenue, RejectsAFundingEntryForAnUnknownSymbol) {
@@ -80,8 +80,8 @@ TEST(BinHistVenue, ParsesARealKlineRow) {
     ASSERT_TRUE(ev.has_value());
     ASSERT_TRUE(std::holds_alternative<KlineEvent>(*ev));
     const auto& kline = std::get<KlineEvent>(*ev);
-    EXPECT_EQ(kline.symbol, *BinHistSymbolTable::id_of("BTCUSDT"));
-    EXPECT_EQ(kline.ts, 1717200000000LL * 1'000'000);          // ms -> ns
+    EXPECT_EQ(kline.base.symbol, *BinHistSymbolTable::id_of("BTCUSDT"));
+    EXPECT_EQ(kline.base.ts, 1717200000000LL * 1'000'000);     // ms -> ns
     EXPECT_EQ(kline.close_time, 1717200299999LL * 1'000'000);  // ms -> ns
     EXPECT_DOUBLE_EQ(kline.open, 67577.90);
     EXPECT_DOUBLE_EQ(kline.high, 67680.70);
@@ -107,8 +107,8 @@ TEST(BinHistVenue, ParsesARealMarkPriceRow) {
     ASSERT_TRUE(ev.has_value());
     ASSERT_TRUE(std::holds_alternative<MarkPriceKlineEvent>(*ev));
     const auto& mark = std::get<MarkPriceKlineEvent>(*ev);
-    EXPECT_EQ(mark.symbol, *BinHistSymbolTable::id_of("BTCUSDT"));
-    EXPECT_EQ(mark.ts, 1717200000000LL * 1'000'000);          // ms -> ns
+    EXPECT_EQ(mark.base.symbol, *BinHistSymbolTable::id_of("BTCUSDT"));
+    EXPECT_EQ(mark.base.ts, 1717200000000LL * 1'000'000);     // ms -> ns
     EXPECT_EQ(mark.close_time, 1717200299999LL * 1'000'000);  // ms -> ns
     EXPECT_DOUBLE_EQ(mark.open, 67570.93117730);
     EXPECT_DOUBLE_EQ(mark.high, 67680.70000000);

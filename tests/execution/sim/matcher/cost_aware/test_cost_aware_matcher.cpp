@@ -28,20 +28,19 @@ namespace {
 constexpr Timestamp kWeekNs = 7LL * 24LL * 60LL * 60LL * 1'000'000'000LL;
 
 constexpr std::array<std::size_t, 1> kCounts{4};
-using Book      = qp::Portfolio<kCounts>;
-using CostMatch = CostAwareMatcher<Book, HalfSpreadLinearImpact<Book>>;
+using Book      = qp::Portfolio;
+using CostMatch = CostAwareMatcher<HalfSpreadLinearImpact>;
 
-CostMatch make_matcher() {
-    return CostMatch{HalfSpreadLinearImpact<Book>{{
-        CostRow{
-            .symbol              = 0,
-            .market               = 0,
-            .week_start_ns       = 0,
-            .half_spread_bps     = 2.0,
-            .impact_bps_per_unit = 0.0,
-            .taker_fee_bps       = 4.0,
-        },
-    }}};
+CostMatch make_matcher(Book& book) {
+    return CostMatch{book, HalfSpreadLinearImpact{book,
+                                                  {CostRow{
+                                                      .symbol              = 0,
+                                                      .market              = Market::BinanceUsdm,
+                                                      .week_start_ns       = 0,
+                                                      .half_spread_bps     = 2.0,
+                                                      .impact_bps_per_unit = 0.0,
+                                                      .taker_fee_bps       = 4.0,
+                                                  }}}};
 }
 
 }  // namespace
@@ -49,7 +48,8 @@ CostMatch make_matcher() {
 static_assert(Matcher<CostMatch>);
 
 TEST(CostAwareMatcher, RejectsWhenNoPriceSeenYet) {
-    auto m       = make_matcher();
+    Book book{kCounts};
+    auto m       = make_matcher(book);
     auto outcome = m.try_fill(Order{.id = 1, .symbol = 0, .side = Side::Buy, .qty = 1.0}, 10);
     ASSERT_TRUE(std::holds_alternative<qp::Reject>(outcome));
     auto& r = std::get<qp::Reject>(outcome);
@@ -61,7 +61,8 @@ TEST(CostAwareMatcher, RejectsWhenNoPriceSeenYet) {
 TEST(CostAwareMatcher, RejectsWhenNoCostAvailableForTsOrSymbol) {
     // Only symbol 0's row exists, ask for symbol 1. Ref price is set so the
     // reject reason is genuinely NoCostAvailable, not NoPriceAvailable.
-    auto m = make_matcher();
+    Book book{kCounts};
+    auto m = make_matcher(book);
     m.on_market_event(qp::test::make_trade(/*symbol=*/1, /*ts=*/5, /*price=*/100.0));
     auto outcome = m.try_fill(Order{.id = 2, .symbol = 1, .side = Side::Buy, .qty = 1.0}, kWeekNs);
     ASSERT_TRUE(std::holds_alternative<qp::Reject>(outcome));
@@ -69,7 +70,8 @@ TEST(CostAwareMatcher, RejectsWhenNoCostAvailableForTsOrSymbol) {
 }
 
 TEST(CostAwareMatcher, BuyFillPriceCrossesTheHalfSpread) {
-    auto m = make_matcher();
+    Book book{kCounts};
+    auto m = make_matcher(book);
     m.on_market_event(qp::test::make_trade(/*symbol=*/0, /*ts=*/5, /*price=*/100.0));
     auto outcome = m.try_fill(Order{.id = 3, .symbol = 0, .side = Side::Buy, .qty = 1.0}, kWeekNs);
     ASSERT_TRUE(std::holds_alternative<qp::Fill>(outcome));
@@ -81,7 +83,8 @@ TEST(CostAwareMatcher, BuyFillPriceCrossesTheHalfSpread) {
 }
 
 TEST(CostAwareMatcher, SellFillPriceRecedesByHalfSpread) {
-    auto m = make_matcher();
+    Book book{kCounts};
+    auto m = make_matcher(book);
     m.on_market_event(qp::test::make_trade(0, 5, 100.0));
     auto outcome = m.try_fill(Order{.id = 4, .symbol = 0, .side = Side::Sell, .qty = 1.0}, kWeekNs);
     ASSERT_TRUE(std::holds_alternative<qp::Fill>(outcome));
@@ -91,7 +94,8 @@ TEST(CostAwareMatcher, SellFillPriceRecedesByHalfSpread) {
 TEST(CostAwareMatcher, SequentialFillsUsesLatestReferencePrice) {
     // A stream of trades updates last_price_; each fill must use the
     // most-recent value for that (symbol, market).
-    auto m = make_matcher();
+    Book book{kCounts};
+    auto m = make_matcher(book);
     m.on_market_event(qp::test::make_trade(0, 5, 100.0));
     auto out1 = m.try_fill(Order{.id = 1, .symbol = 0, .side = Side::Buy, .qty = 1.0}, kWeekNs);
     ASSERT_TRUE(std::holds_alternative<qp::Fill>(out1));
@@ -104,7 +108,8 @@ TEST(CostAwareMatcher, SequentialFillsUsesLatestReferencePrice) {
 }
 
 TEST(CostAwareMatcher, KlineCloseUpdatesReferencePrice) {
-    auto m = make_matcher();
+    Book book{kCounts};
+    auto m = make_matcher(book);
     m.on_market_event(qp::test::make_kline(/*symbol=*/0, /*open_time=*/1, /*close_time=*/2,
                                            /*open=*/99.0, /*high=*/101.0, /*low=*/98.0,
                                            /*close=*/100.5));

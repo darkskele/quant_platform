@@ -11,6 +11,7 @@
 #include "cost_aware/cost_model/half_spread_linear/cost_row_reader.hpp"
 #include "types.hpp"
 
+using qp::Market;
 using qp::SymbolId;
 using qp::execution::sim::matcher::cost_aware::cost_model::half_spread_linear::CostRow;
 using qp::execution::sim::matcher::cost_aware::cost_model::half_spread_linear::read_cost_rows_csv;
@@ -62,7 +63,7 @@ TEST(CostRowReader, ParsesTypicalFinalizeOutput) {
 
     // First row: AAA (id 0), market 1, 2023-05-15.
     EXPECT_EQ(rows[0].symbol, 0u);
-    EXPECT_EQ(rows[0].market, 1);
+    EXPECT_EQ(rows[0].market, Market::BinanceCoinm);
     EXPECT_DOUBLE_EQ(rows[0].half_spread_bps, 0.25);
     EXPECT_DOUBLE_EQ(rows[0].impact_bps_per_unit, 0.001);
     EXPECT_DOUBLE_EQ(rows[0].taker_fee_bps, 4.0);
@@ -197,7 +198,7 @@ TEST(CostRowReader, AcceptsHeaderInAnyColumnOrder) {
     auto     rows = read_cost_rows_csv<TestSymbolTable>(f.path);
     ASSERT_EQ(rows.size(), 1u);
     EXPECT_EQ(rows[0].symbol, 0u);
-    EXPECT_EQ(rows[0].market, 1);
+    EXPECT_EQ(rows[0].market, Market::BinanceCoinm);
     EXPECT_DOUBLE_EQ(rows[0].half_spread_bps, 0.25);
     EXPECT_DOUBLE_EQ(rows[0].impact_bps_per_unit, 0.001);
     EXPECT_DOUBLE_EQ(rows[0].taker_fee_bps, 4.0);

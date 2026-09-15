@@ -14,16 +14,16 @@ namespace {
 
 qp::MarketEvent make_trade(qp::Timestamp ts = 0) {
     qp::TradeEvent ev;
-    ev.ts    = ts;
-    ev.price = 100.0;
-    ev.qty   = 1.0;
+    ev.base.ts = ts;
+    ev.price   = 100.0;
+    ev.qty     = 1.0;
     return ev;
 }
 
 // kLevels matches a realistic partial-depth update.
 qp::MarketEvent make_book_diff(qp::Timestamp ts, int kLevels = 20) {
     qp::BookDiffEvent ev;
-    ev.ts       = ts;
+    ev.base.ts  = ts;
     auto levels = std::make_shared<qp::BookLevels>();
     levels->bids.assign(kLevels, qp::PriceLevel{.price = 100.0, .qty = 1.0});
     levels->asks.assign(kLevels, qp::PriceLevel{.price = 101.0, .qty = 1.0});
@@ -84,7 +84,7 @@ void BM_BacktestInProcessTransport_TwoRingsPopulatedBookDiff(benchmark::State& s
 
 BENCHMARK(BM_BacktestInProcessTransport_TwoRingsPopulatedBookDiff);
 
-// Real contention: N producer threads, each owning one leg's queue, racing
+//  N producer threads, each owning one leg's queue, racing
 // the consumer thread's next() calls on a shared transport.
 template <std::size_t N>
 void BM_BacktestInProcessTransport_NRingsContended(benchmark::State& state) {

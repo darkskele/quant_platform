@@ -12,14 +12,12 @@
 #include "matcher/last_trade/last_trade_matcher.hpp"
 
 namespace qp::backtest::config {
-template <class Book>
-using MatcherType = execution::sim::matcher::last_trade::LastTradeMatcher<Book>;
+using MatcherType = execution::sim::matcher::last_trade::LastTradeMatcher;
 
 /// LastTradeMatcher takes no config. cost_table_path is accepted for a
 /// uniform call site with cost-aware variants; it is ignored here.
-template <class Book>
-inline MatcherType<Book> make_matcher(const std::filesystem::path& = {}) {
-    return MatcherType<Book>{};
+inline MatcherType make_matcher(const qp::Portfolio& book, const std::filesystem::path& = {}) {
+    return MatcherType{book};
 }
 }  // namespace qp::backtest::config
 #elif defined(QP_MATCHER_COST_AWARE)
@@ -34,17 +32,13 @@ inline MatcherType<Book> make_matcher(const std::filesystem::path& = {}) {
 namespace qp::backtest::config {
 namespace hsl = execution::sim::matcher::cost_aware::cost_model::half_spread_linear;
 
-template <class Book>
-using CostModelType = hsl::HalfSpreadLinearImpact<Book>;
+using CostModelType = hsl::HalfSpreadLinearImpact;
+using MatcherType   = execution::sim::matcher::cost_aware::CostAwareMatcher<CostModelType>;
 
-template <class Book>
-using MatcherType =
-    execution::sim::matcher::cost_aware::CostAwareMatcher<Book, CostModelType<Book> >;
-
-template <class Book>
-inline MatcherType<Book> make_matcher(const std::filesystem::path& cost_table_path) {
+inline MatcherType make_matcher(const qp::Portfolio&         book,
+                                const std::filesystem::path& cost_table_path) {
     auto rows = hsl::read_cost_rows_csv<FuturesTable>(cost_table_path);
-    return MatcherType<Book>{CostModelType<Book>{std::move(rows)}};
+    return MatcherType{book, CostModelType{book, std::move(rows)}};
 }
 }  // namespace qp::backtest::config
 #else
@@ -55,14 +49,12 @@ inline MatcherType<Book> make_matcher(const std::filesystem::path& cost_table_pa
 #include "basic_risk_gate.hpp"
 
 namespace qp::backtest::config {
-template <class Book>
-using RiskType = risk::basic::BasicRiskGate<Book>;
+using RiskType = risk::basic::BasicRiskGate;
 }  // namespace qp::backtest::config
 #elif defined(QP_RISK_PYTHON)
 #include "python_risk_gate.hpp"
 
 namespace qp::backtest::config {
-template <class>
 using RiskType = risk::python::PythonRiskGate<>;
 }  // namespace qp::backtest::config
 #else
@@ -73,14 +65,12 @@ using RiskType = risk::python::PythonRiskGate<>;
 #include "funding_carry_strategy.hpp"
 
 namespace qp::backtest::config {
-template <class Book>
-using StrategyType = strategy::carry::FundingCarryStrategy<Book>;
+using StrategyType = strategy::carry::FundingCarryStrategy;
 }  // namespace qp::backtest::config
 #elif defined(QP_STRATEGY_PYTHON)
 #include "python_strategy.hpp"
 
 namespace qp::backtest::config {
-template <class>
 using StrategyType = strategy::python::PythonStrategy<>;
 }  // namespace qp::backtest::config
 #else

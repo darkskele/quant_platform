@@ -18,20 +18,15 @@
 
 namespace qp::backtest::funding_carry {
 
-// Market indices, matching config::MarketTables' declaration order.
-inline constexpr MarketId kFuturesMarket = 0;
-inline constexpr MarketId kSpotMarket    = 1;
+inline constexpr Market kFuturesMarket = Market::BinanceUsdm;
+inline constexpr Market kSpotMarket    = Market::BinanceSpot;
 
-/// The runtime-swept knobs: exactly what a Python-side optimizer sets
-/// between runs. carry's symbol/market fields
-/// are filled in by make_engine(); only the threshold/size fields are set.
 struct Config {
     strategy::carry::Config          carry{};
     risk::basic::BasicRiskGateConfig risk{};
 };
 
-/// Final snapshot plus the per-step equity series. Higher-level metrics
-/// (Sharpe, drawdown curve) are computed downstream from the series.
+/// Final snapshot plus the per-step equity series. 
 struct Results {
     Notional                             final_cash{};
     Notional                             final_equity{};
@@ -40,9 +35,7 @@ struct Results {
     std::span<const engine::EquityPoint> equity_series{};
 };
 
-/// The funding-carry backtest variant: futures + spot CSV legs, merged in
-/// timestamp order into the carry strategy behind a basic risk gate. The
-/// dataset (root dir, symbol, inclusive day range) is chosen per run.
+/// The funding-carry backtest variant.
 class FundingCarryBacktest : public BacktestBase<FundingCarryBacktest> {
    public:
     using Recorder = engine::EquitySeriesRecorder;
@@ -54,6 +47,7 @@ class FundingCarryBacktest : public BacktestBase<FundingCarryBacktest> {
         : symbol_id_(resolve_symbol(symbol)),
           futures_source_(config::make_futures_source(data_dir, symbol, first_day, last_day)),
           spot_source_(config::make_spot_source(data_dir, symbol, first_day, last_day)),
+          portfolio_(config::make_subscription()),
           cost_table_path_(std::move(cost_table_path)) {}
 
     void set_carry_config(const strategy::carry::Config& carry) { config_.carry = carry; }
@@ -70,8 +64,8 @@ class FundingCarryBacktest : public BacktestBase<FundingCarryBacktest> {
     config::EngineType<Recorder> make_engine() {
         strategy::carry::Config carry = config_.carry;
         carry.symbol                  = symbol_id_;
-        carry.futures_market           = kFuturesMarket;
-        carry.spot_market              = kSpotMarket;
+        carry.futures_market          = kFuturesMarket;
+        carry.spot_market             = kSpotMarket;
 
         risk::basic::BasicRiskGateConfig risk = config_.risk;
         risk.tracked = {{symbol_id_, kSpotMarket}, {symbol_id_, kFuturesMarket}};
@@ -85,7 +79,7 @@ class FundingCarryBacktest : public BacktestBase<FundingCarryBacktest> {
         config::Strategy strategy{carry, portfolio_};
         // make_matcher is variation-specific: LastTrade ignores the path,
         // cost-aware reads it.
-        config::Exec exec{config::make_matcher<config::Book>(cost_table_path_)};
+        config::Exec exec{portfolio_, config::make_matcher(portfolio_, cost_table_path_)};
         return config::EngineType<Recorder>{std::move(transport), std::move(exec),
                                             std::move(risk_gate), std::move(strategy),
                                             portfolio_,           Recorder{&equity_collector_}};
@@ -103,8 +97,7 @@ class FundingCarryBacktest : public BacktestBase<FundingCarryBacktest> {
     }
 
    private:
-    // Runtime lookup into the compile-time symbol universe. Throws rather
-    // than return a sentinel so a bad symbol fails the run, not silently.
+    // Runtime lookup into the compile-time symbol universe.
     static SymbolId resolve_symbol(std::string_view symbol) {
         auto id = config::FuturesTable::id_of(symbol);
         if (!id) throw std::invalid_argument("unknown symbol: " + std::string(symbol));
@@ -116,9 +109,9 @@ class FundingCarryBacktest : public BacktestBase<FundingCarryBacktest> {
     config::SpotSource                     spot_source_;
     std::tuple<config::Sink, config::Sink> sinks_;
     config::Book                           portfolio_;
+    std::filesystem::path                  cost_table_path_;
     Config                                 config_{};
     engine::EquitySeriesCollector          equity_collector_{};
-    std::filesystem::path                  cost_table_path_;
 };
 
 }  // namespace qp::backtest::funding_carry

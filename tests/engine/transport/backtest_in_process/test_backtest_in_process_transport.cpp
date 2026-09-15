@@ -21,8 +21,8 @@ constexpr qp::Timestamp kSentinel = 999999;
 
 MarketEvent trade(qp::Timestamp ts, qp::SymbolId symbol) {
     qp::TradeEvent ev;
-    ev.ts     = ts;
-    ev.symbol = symbol;
+    ev.base.ts     = ts;
+    ev.base.symbol = symbol;
     return ev;
 }
 
@@ -82,7 +82,7 @@ TEST(BacktestInProcessTransport, TiesBreakToTheLowestQueueIndex) {
 
     auto out = t.next();
     ASSERT_TRUE(out.has_value());
-    EXPECT_EQ(header_of(*out->event).symbol, 1u);
+    EXPECT_EQ(base_of(*out->event).symbol, 1u);
 }
 
 TEST(BacktestInProcessTransport, InterleavesThreeLegsInTimestampOrder) {

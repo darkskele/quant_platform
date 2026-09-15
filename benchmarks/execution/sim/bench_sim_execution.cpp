@@ -14,25 +14,18 @@ using qp::execution::sim::matcher::last_trade::LastTradeMatcher;
 namespace {
 
 constexpr SymbolId                   kSymbol = 1;
-constexpr MarketId                    kMarket  = 0;
+constexpr Market                     kMarket = Market::BinanceUsdm;
 constexpr std::array<std::size_t, 1> kCounts{2};
-using Book = Portfolio<kCounts>;
-using Exec = SimExecution<LastTradeMatcher<Book>, Book>;
+using Book = Portfolio;
+using Exec = SimExecution<LastTradeMatcher>;
 
-// Tandem: reset_outcomes() + submit() + fills(), single thread — no real
-// concurrency (SimExecution is Engine-thread-only, same as Portfolio).
-// reset_outcomes(), not on_market_event(), is what belongs in the loop: it's
-// the plumbing SimExecution itself adds (a ViewablePool push/reset behind
-// the matcher's fill decision, no queue, no variant on the outcome side).
-// on_market_event() is seeded once, outside the loop, so this isolates that
-// plumbing from the matcher's own on_market_event()/try_fill() cost
-// (already measured separately in bench_last_trade_matcher.cpp).
 void BM_SimExecution_SubmitFills(benchmark::State& state) {
-    Exec       exec;
+    Book       book{kCounts};
+    Exec       exec{book, LastTradeMatcher{book}};
     TradeEvent trade;
-    trade.symbol = kSymbol;
-    trade.market  = kMarket;
-    trade.price  = 100.0;
+    trade.base.symbol = kSymbol;
+    trade.base.market = kMarket;
+    trade.price       = 100.0;
     exec.on_market_event(trade);
 
     Order order{.id = 1, .symbol = kSymbol, .side = Side::Buy, .market = kMarket, .qty = 1.0};
@@ -46,10 +39,10 @@ void BM_SimExecution_SubmitFills(benchmark::State& state) {
 
 BENCHMARK(BM_SimExecution_SubmitFills);
 
-// Reject-path counterpart: no Trade ever seen, every submit() lands in
-// rejects() instead.
+// Reject-path counterpart
 void BM_SimExecution_SubmitRejects(benchmark::State& state) {
-    Exec  exec;
+    Book  book{kCounts};
+    Exec  exec{book, LastTradeMatcher{book}};
     Order order{.id = 1, .symbol = kSymbol, .side = Side::Buy, .market = kMarket, .qty = 1.0};
     for (auto _ : state) {
         exec.reset_outcomes();

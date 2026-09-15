@@ -74,7 +74,7 @@ std::map<qp::SymbolId, std::vector<std::int64_t>> by_symbol_ms(
     const std::vector<qp::MarketEvent>& events) {
     std::map<qp::SymbolId, std::vector<std::int64_t>> out;
     for (const auto& e : events)
-        out[qp::header_of(e).symbol].push_back(qp::header_of(e).ts / 1'000'000);
+        out[qp::base_of(e).symbol].push_back(qp::base_of(e).ts / 1'000'000);
     return out;
 }
 
@@ -91,7 +91,7 @@ TEST(MultiSymbolDataset, FuturesLegMergesSymbolsByTimestampKeepingIdentity) {
 
     ASSERT_EQ(events.size(), 4u);
     for (std::size_t i = 1; i < events.size(); ++i)
-        EXPECT_GE(qp::header_of(events[i]).ts, qp::header_of(events[i - 1]).ts);
+        EXPECT_GE(qp::base_of(events[i]).ts, qp::base_of(events[i - 1]).ts);
 
     auto btc = config::FuturesTable::id_of("BTCUSDT");
     auto eth = config::FuturesTable::id_of("ETHUSDT");
@@ -111,7 +111,7 @@ TEST(MultiSymbolDataset, SpotLegMergesSymbolsByTimestampKeepingIdentity) {
     auto events = drain(source);
 
     ASSERT_EQ(events.size(), 2u);
-    EXPECT_LE(qp::header_of(events[0]).ts, qp::header_of(events[1]).ts);
+    EXPECT_LE(qp::base_of(events[0]).ts, qp::base_of(events[1]).ts);
 
     auto btc = config::FuturesTable::id_of("BTCUSDT");
     auto eth = config::FuturesTable::id_of("ETHUSDT");
@@ -132,5 +132,5 @@ TEST(MultiSymbolDataset, SingleSymbolOverloadStillComposes) {
     ASSERT_EQ(events.size(), 2u);
     auto btc = config::FuturesTable::id_of("BTCUSDT");
     ASSERT_TRUE(btc);
-    EXPECT_EQ(qp::header_of(events[0]).symbol, *btc);
+    EXPECT_EQ(qp::base_of(events[0]).symbol, *btc);
 }

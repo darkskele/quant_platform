@@ -14,29 +14,25 @@ using qp::execution::sim::matcher::last_trade::LastTradeMatcher;
 namespace {
 
 constexpr SymbolId                   kSymbol = 1;
-constexpr MarketId                    kMarket  = 0;
+constexpr Market                     kMarket = Market::BinanceUsdm;
 constexpr std::array<std::size_t, 1> kCounts{2};
-using Book = Portfolio<kCounts>;
+using Book = Portfolio;
+
+Book make_book() { return Book{kCounts}; }
 
 MarketEvent make_trade_event() {
     TradeEvent ev;
-    ev.symbol = kSymbol;
-    ev.market  = kMarket;
-    ev.price  = 100.0;
-    ev.qty    = 1.0;
+    ev.base.symbol = kSymbol;
+    ev.base.market = kMarket;
+    ev.price       = 100.0;
+    ev.qty         = 1.0;
     return ev;
 }
 
-// Isolation: on_market_event() — the array write per (symbol, market) index.
-// DoNotOptimize(matcher) is load-bearing here, not decorative: the write
-// only touches matcher's own last_price_ array, which nothing reads
-// afterward and which never escapes this function, so without it the
-// optimizer can (and does) prove the whole call dead and delete it —
-// TryFillFills/TryFillRejects below don't need this because DoNotOptimize
-// on their returned outcome already keeps try_fill() alive.
 void BM_LastTradeMatcher_OnMarketEvent(benchmark::State& state) {
-    LastTradeMatcher<Book> matcher;
-    auto                   ev = make_trade_event();
+    Book             book = make_book();
+    LastTradeMatcher matcher{book};
+    auto             ev = make_trade_event();
     for (auto _ : state) {
         matcher.on_market_event(ev);
         benchmark::DoNotOptimize(matcher);
@@ -45,17 +41,9 @@ void BM_LastTradeMatcher_OnMarketEvent(benchmark::State& state) {
 
 BENCHMARK(BM_LastTradeMatcher_OnMarketEvent);
 
-// Isolation, populated depth: a BookDiff — real bid/ask levels, unlike
-// Trade above which never carries any — flowing through on_market_event()
-// only to be discarded immediately (kind != Trade). This is what
-// on_market_event(const MarketEvent&) actually buys over the by-value
-// signature it used to have: no copy of bids/asks for a field this class
-// never reads. kLevels matches a realistic partial-depth update (Binance's
-// 20-level partial book stream), not the always-empty vectors every other
-// benchmark here uses (Trade/Funding never carry book levels at all, so
-// they can't exercise this cost regardless of level count).
 void BM_LastTradeMatcher_OnMarketEventDiscardsPopulatedBookDiff(benchmark::State& state) {
-    LastTradeMatcher<Book>  matcher;
+    Book                    book = make_book();
+    LastTradeMatcher        matcher{book};
     constexpr int           kLevels = 20;
     std::vector<PriceLevel> bids(kLevels, PriceLevel{.price = 100.0, .qty = 1.0});
     std::vector<PriceLevel> asks(kLevels, PriceLevel{.price = 101.0, .qty = 1.0});
@@ -69,10 +57,9 @@ void BM_LastTradeMatcher_OnMarketEventDiscardsPopulatedBookDiff(benchmark::State
 
 BENCHMARK(BM_LastTradeMatcher_OnMarketEventDiscardsPopulatedBookDiff);
 
-// Isolation: try_fill(), fill path — a price has been seen for this
-// (symbol, market).
 void BM_LastTradeMatcher_TryFillFills(benchmark::State& state) {
-    LastTradeMatcher<Book> matcher;
+    Book             book = make_book();
+    LastTradeMatcher matcher{book};
     matcher.on_market_event(make_trade_event());
     Order order{.id = 1, .symbol = kSymbol, .side = Side::Buy, .market = kMarket, .qty = 1.0};
     for (auto _ : state) {
@@ -83,11 +70,9 @@ void BM_LastTradeMatcher_TryFillFills(benchmark::State& state) {
 
 BENCHMARK(BM_LastTradeMatcher_TryFillFills);
 
-// Isolation: try_fill(), reject path — no Trade ever seen for this
-// (symbol, market), the early "can't fill" floor every other case pays on
-// top of.
 void BM_LastTradeMatcher_TryFillRejects(benchmark::State& state) {
-    LastTradeMatcher<Book> matcher;
+    Book             book = make_book();
+    LastTradeMatcher matcher{book};
     Order order{.id = 1, .symbol = kSymbol, .side = Side::Buy, .market = kMarket, .qty = 1.0};
     for (auto _ : state) {
         auto outcome = matcher.try_fill(order, 0);

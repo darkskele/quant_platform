@@ -29,7 +29,7 @@ class PythonStrategy {
     std::span<const Intent> on_event(const MarketEvent& event) {
         // Skip the GIL and the Python call entirely for unsubscribed kinds.
         // A funding-only strategy pays nothing per kline this way.
-        if (!(kind_mask_ & (1u << static_cast<unsigned>(header_of(event).kind)))) return {};
+        if (!(kind_mask_ & (1u << static_cast<unsigned>(base_of(event).kind)))) return {};
         return invoke(on_event_cb_, event);
     }
 
