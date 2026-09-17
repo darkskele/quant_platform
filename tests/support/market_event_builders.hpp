@@ -8,12 +8,12 @@
 
 namespace qp::test {
 
-inline MarketEvent make_book_diff(SlotOffset symbol, Timestamp ts, std::uint64_t first_seq,
+inline MarketEvent make_book_diff(std::uint16_t symbol, Timestamp ts, std::uint64_t first_seq,
                                   std::uint64_t seq, std::uint64_t prev_seq,
                                   std::vector<PriceLevel> bids   = {},
                                   std::vector<PriceLevel> asks   = {},
-                                  SlotOffset              market = 0,
-                                  SlotOffset              exchange = 0) {
+                                  std::uint16_t              market = 0,
+                                  std::uint16_t              exchange = 0) {
     MarketEvent ev;
     ev.base    = {.kind     = EventKind::BookDiff,
                   .exchange = exchange,
@@ -29,11 +29,11 @@ inline MarketEvent make_book_diff(SlotOffset symbol, Timestamp ts, std::uint64_t
     return ev;
 }
 
-inline MarketEvent make_book_snapshot(SlotOffset symbol, Timestamp ts,
+inline MarketEvent make_book_snapshot(std::uint16_t symbol, Timestamp ts,
                                       std::vector<PriceLevel> bids   = {},
                                       std::vector<PriceLevel> asks   = {},
-                                      SlotOffset              market = 0,
-                                      SlotOffset              exchange = 0) {
+                                      std::uint16_t              market = 0,
+                                      std::uint16_t              exchange = 0) {
     MarketEvent ev;
     ev.base    = {.kind     = EventKind::BookSnapshot,
                   .exchange = exchange,
@@ -46,9 +46,9 @@ inline MarketEvent make_book_snapshot(SlotOffset symbol, Timestamp ts,
     return ev;
 }
 
-inline MarketEvent make_trade(SlotOffset symbol, Timestamp ts, Price price, Qty qty = 1.0,
-                              Side side = Side::Buy, SlotOffset market = 0,
-                              SlotOffset exchange = 0) {
+inline MarketEvent make_trade(std::uint16_t symbol, Timestamp ts, Price price, Qty qty = 1.0,
+                              Side side = Side::Buy, std::uint16_t market = 0,
+                              std::uint16_t exchange = 0) {
     MarketEvent ev;
     ev.base    = {.kind     = EventKind::Trade,
                   .exchange = exchange,
@@ -59,8 +59,8 @@ inline MarketEvent make_trade(SlotOffset symbol, Timestamp ts, Price price, Qty 
     return ev;
 }
 
-inline MarketEvent make_funding(SlotOffset symbol, Timestamp ts, double rate,
-                                SlotOffset market = 0, SlotOffset exchange = 0) {
+inline MarketEvent make_funding(std::uint16_t symbol, Timestamp ts, double rate,
+                                std::uint16_t market = 0, std::uint16_t exchange = 0) {
     MarketEvent ev;
     ev.base    = {.kind     = EventKind::Funding,
                   .exchange = exchange,
@@ -71,9 +71,9 @@ inline MarketEvent make_funding(SlotOffset symbol, Timestamp ts, double rate,
     return ev;
 }
 
-inline MarketEvent make_kline(SlotOffset symbol, Timestamp open_time, Timestamp close_time,
+inline MarketEvent make_kline(std::uint16_t symbol, Timestamp open_time, Timestamp close_time,
                               Price open, Price high, Price low, Price close, Qty volume = 0.0,
-                              SlotOffset market = 0, SlotOffset exchange = 0) {
+                              std::uint16_t market = 0, std::uint16_t exchange = 0) {
     MarketEvent ev;
     ev.base    = {.kind     = EventKind::Kline,
                   .exchange = exchange,
@@ -89,10 +89,10 @@ inline MarketEvent make_kline(SlotOffset symbol, Timestamp open_time, Timestamp 
     return ev;
 }
 
-inline MarketEvent make_mark_price_kline(SlotOffset symbol, Timestamp open_time, Price close,
+inline MarketEvent make_mark_price_kline(std::uint16_t symbol, Timestamp open_time, Price close,
                                          Timestamp close_time = 0, Price open = 0.0,
                                          Price high = 0.0, Price low = 0.0,
-                                         SlotOffset market = 0, SlotOffset exchange = 0) {
+                                         std::uint16_t market = 0, std::uint16_t exchange = 0) {
     MarketEvent ev;
     ev.base    = {.kind     = EventKind::MarkPriceKline,
                   .exchange = exchange,

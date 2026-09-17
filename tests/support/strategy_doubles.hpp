@@ -12,11 +12,11 @@ struct NoopStrategy {
 };
 
 struct AlwaysIntentStrategy {
-    SlotOffset exchange        = 0;
-    SlotOffset market          = 0;
-    SlotOffset symbol          = 1;
-    Qty        target_position = 1.0;
-    Intent     intent_{};
+    std::uint16_t exchange        = 0;
+    std::uint16_t market          = 0;
+    std::uint16_t symbol          = 1;
+    Qty           target_position = 1.0;
+    Intent        intent_{};
 
     std::span<const Intent> on_event(const MarketEvent&) {
         intent_ = Intent{.exchange        = exchange,

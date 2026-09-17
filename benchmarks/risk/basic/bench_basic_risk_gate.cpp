@@ -10,7 +10,6 @@
 namespace {
 
 using qp::ExchangeId;
-using qp::SlotOffset;
 using qp::Subscription;
 using qp::SubscriptionBuilder;
 using qp::risk::basic::BasicRiskGate;
@@ -19,9 +18,9 @@ using qp::risk::basic::TrackedInstrument;
 using qp::test::make_fill;
 using qp::test::make_trade;
 
-constexpr SlotOffset kExchange = static_cast<SlotOffset>(ExchangeId::Binance);
-constexpr SlotOffset kUsdm     = 0;
-constexpr SlotOffset kCoinm    = 1;
+constexpr std::uint16_t kExchange = static_cast<std::uint16_t>(ExchangeId::Binance);
+constexpr std::uint16_t kUsdm     = 0;
+constexpr std::uint16_t kCoinm    = 1;
 
 Subscription make_subscription() {
     SubscriptionBuilder sub;
@@ -34,12 +33,12 @@ Subscription make_subscription() {
 
 using Book = qp::Portfolio;
 
-qp::Intent intent(SlotOffset market, SlotOffset symbol, qp::Qty target) {
+qp::Intent intent(std::uint16_t market, std::uint16_t symbol, qp::Qty target) {
     return qp::Intent{
         .exchange = kExchange, .market = market, .symbol = symbol, .target_position = target};
 }
 
-TrackedInstrument tracked(SlotOffset market, SlotOffset symbol) {
+TrackedInstrument tracked(std::uint16_t market, std::uint16_t symbol) {
     return TrackedInstrument{.exchange = kExchange, .market = market, .symbol = symbol};
 }
 

@@ -40,7 +40,7 @@ void BM_ViewablePool_Emplace(benchmark::State& state) {
             pool.reset();
             state.ResumeTiming();
         }
-        pool.emplace(qp::SlotOffset{0}, qp::SlotOffset{0}, qp::SlotOffset{1}, qp::Qty{2.0});
+        pool.emplace(std::uint16_t{0}, std::uint16_t{0}, std::uint16_t{1}, qp::Qty{2.0});
         benchmark::DoNotOptimize(pool);
     }
 }

@@ -25,7 +25,7 @@ namespace {
 
 class FakeSource {
    public:
-    explicit FakeSource(std::deque<qp::Price> prices, qp::SlotOffset market = 0)
+    explicit FakeSource(std::deque<qp::Price> prices, std::uint16_t market = 0)
         : prices_(std::move(prices)), market_(market) {}
 
     PullResult next() {
@@ -39,7 +39,7 @@ class FakeSource {
 
    private:
     std::deque<qp::Price> prices_;
-    qp::SlotOffset        market_;
+    std::uint16_t         market_;
 };
 
 struct NeverDoneSource {

@@ -69,11 +69,11 @@ class PythonBacktest : public BacktestBase<PythonBacktest<Matcher>> {
 
     Notional cash() const { return portfolio_.cash(); }
 
-    Qty position(SlotOffset exchange, SlotOffset market, SlotOffset symbol) const {
+    Qty position(std::uint16_t exchange, std::uint16_t market, std::uint16_t symbol) const {
         return portfolio_.position(exchange, market, symbol);
     }
 
-    Price mark(SlotOffset exchange, SlotOffset market, SlotOffset symbol) const {
+    Price mark(std::uint16_t exchange, std::uint16_t market, std::uint16_t symbol) const {
         return portfolio_.mark(exchange, market, symbol);
     }
 
@@ -141,7 +141,7 @@ class PythonBacktest : public BacktestBase<PythonBacktest<Matcher>> {
                 for (std::size_t i = 0; i < mkt.symbols.size(); ++i)
                     out.push_back({.exchange = ex.exchange,
                                    .market   = mkt.market,
-                                   .symbol   = static_cast<SlotOffset>(i)});
+                                   .symbol   = static_cast<std::uint16_t>(i)});
         return out;
     }
 

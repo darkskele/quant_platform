@@ -8,7 +8,6 @@
 #include "types.hpp"
 
 using qp::ExchangeId;
-using qp::SlotOffset;
 using qp::Subscription;
 using qp::SubscriptionBuilder;
 using qp::test::make_book_diff;
@@ -18,9 +17,9 @@ using qp::test::make_mark_price_kline;
 using qp::test::make_trade;
 
 namespace {
-constexpr SlotOffset kExchange = static_cast<SlotOffset>(ExchangeId::Binance);
-constexpr SlotOffset kUsdm     = 0;
-constexpr SlotOffset kCoinm    = 1;
+constexpr std::uint16_t kExchange = static_cast<std::uint16_t>(ExchangeId::Binance);
+constexpr std::uint16_t kUsdm     = 0;
+constexpr std::uint16_t kCoinm    = 1;
 
 Subscription make_subscription() {
     SubscriptionBuilder sub;

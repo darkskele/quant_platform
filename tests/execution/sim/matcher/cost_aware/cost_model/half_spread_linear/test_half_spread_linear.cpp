@@ -14,7 +14,6 @@ using qp::ExchangeId;
 using qp::Order;
 using qp::Price;
 using qp::Side;
-using qp::SlotOffset;
 using qp::Subscription;
 using qp::SubscriptionBuilder;
 using qp::Timestamp;
@@ -25,9 +24,9 @@ using qp::execution::sim::matcher::cost_aware::cost_model::half_spread_linear::
 
 namespace {
 
-constexpr SlotOffset kExchange = static_cast<SlotOffset>(ExchangeId::Binance);
-constexpr SlotOffset kMarket   = 0;
-constexpr Timestamp  kWeekNs   = 7LL * 24LL * 60LL * 60LL * 1'000'000'000LL;
+constexpr std::uint16_t kExchange = static_cast<std::uint16_t>(ExchangeId::Binance);
+constexpr std::uint16_t kMarket   = 0;
+constexpr Timestamp     kWeekNs   = 7LL * 24LL * 60LL * 60LL * 1'000'000'000LL;
 
 Subscription make_subscription() {
     SubscriptionBuilder sub;
@@ -41,7 +40,7 @@ Subscription make_subscription() {
 using Book = qp::Portfolio;
 using Cost = HalfSpreadLinearImpact;
 
-CostRow row(SlotOffset sym, Timestamp week_start_ns, double half_spread, double impact,
+CostRow row(std::uint16_t sym, Timestamp week_start_ns, double half_spread, double impact,
             double fee) {
     return CostRow{
         .exchange            = kExchange,
@@ -54,7 +53,7 @@ CostRow row(SlotOffset sym, Timestamp week_start_ns, double half_spread, double 
     };
 }
 
-Order order(SlotOffset sym, Side side, qp::Qty qty = 1.0) {
+Order order(std::uint16_t sym, Side side, qp::Qty qty = 1.0) {
     return Order{
         .id = 0, .exchange = kExchange, .market = kMarket, .symbol = sym, .side = side, .qty = qty};
 }

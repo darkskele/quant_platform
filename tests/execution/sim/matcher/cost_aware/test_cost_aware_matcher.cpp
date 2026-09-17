@@ -16,7 +16,6 @@ using qp::ExchangeId;
 using qp::Order;
 using qp::RejectReason;
 using qp::Side;
-using qp::SlotOffset;
 using qp::Subscription;
 using qp::SubscriptionBuilder;
 using qp::Timestamp;
@@ -28,9 +27,9 @@ using qp::execution::sim::matcher::cost_aware::cost_model::half_spread_linear::
 
 namespace {
 
-constexpr Timestamp  kWeekNs   = 7LL * 24LL * 60LL * 60LL * 1'000'000'000LL;
-constexpr SlotOffset kExchange = static_cast<SlotOffset>(ExchangeId::Binance);
-constexpr SlotOffset kMarket   = 0;
+constexpr Timestamp     kWeekNs   = 7LL * 24LL * 60LL * 60LL * 1'000'000'000LL;
+constexpr std::uint16_t kExchange = static_cast<std::uint16_t>(ExchangeId::Binance);
+constexpr std::uint16_t kMarket   = 0;
 
 Subscription make_subscription() {
     SubscriptionBuilder sub;
@@ -57,7 +56,7 @@ CostMatch make_matcher(Book& book) {
                                                   }}}};
 }
 
-Order make_order(qp::OrderId id, SlotOffset symbol, Side side, qp::Qty qty = 1.0) {
+Order make_order(qp::OrderId id, std::uint16_t symbol, Side side, qp::Qty qty = 1.0) {
     return Order{.id       = id,
                  .exchange = kExchange,
                  .market   = kMarket,

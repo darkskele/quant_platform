@@ -9,17 +9,16 @@
 namespace {
 
 using qp::ExchangeId;
-using qp::SlotOffset;
 using qp::Subscription;
 using qp::SubscriptionBuilder;
 using qp::strategy::carry::Config;
 using qp::strategy::carry::FundingCarryStrategy;
 using qp::strategy::carry::Leg;
 
-constexpr SlotOffset kExchange      = static_cast<SlotOffset>(ExchangeId::Binance);
-constexpr SlotOffset kFuturesMarket = 0;
-constexpr SlotOffset kSpotMarket    = 1;
-constexpr SlotOffset kSymbol        = 1;
+constexpr std::uint16_t kExchange      = static_cast<std::uint16_t>(ExchangeId::Binance);
+constexpr std::uint16_t kFuturesMarket = 0;
+constexpr std::uint16_t kSpotMarket    = 1;
+constexpr std::uint16_t kSymbol        = 1;
 
 Subscription make_subscription() {
     SubscriptionBuilder sub;

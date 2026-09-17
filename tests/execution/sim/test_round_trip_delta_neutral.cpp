@@ -16,7 +16,6 @@
 using qp::ExchangeId;
 using qp::Order;
 using qp::Side;
-using qp::SlotOffset;
 using qp::Subscription;
 using qp::SubscriptionBuilder;
 using qp::Timestamp;
@@ -29,10 +28,10 @@ using qp::execution::sim::matcher::cost_aware::cost_model::half_spread_linear::
 
 namespace {
 
-constexpr SlotOffset kExchange = static_cast<SlotOffset>(ExchangeId::Binance);
-constexpr SlotOffset kSpot     = 0;
-constexpr SlotOffset kPerp     = 1;
-constexpr SlotOffset kSym      = 0;
+constexpr std::uint16_t kExchange = static_cast<std::uint16_t>(ExchangeId::Binance);
+constexpr std::uint16_t kSpot     = 0;
+constexpr std::uint16_t kPerp     = 1;
+constexpr std::uint16_t kSym      = 0;
 
 Subscription make_subscription() {
     SubscriptionBuilder sub;
@@ -78,7 +77,7 @@ void submit_and_drain(sim::SimExecution<CostMatch>& gateway, Book& book,
     for (const auto& f : gateway.fills()) book.apply_fill(f);
 }
 
-Order buy(qp::OrderId id, SlotOffset market) {
+Order buy(qp::OrderId id, std::uint16_t market) {
     return Order{.id       = id,
                  .exchange = kExchange,
                  .market   = market,
@@ -87,7 +86,7 @@ Order buy(qp::OrderId id, SlotOffset market) {
                  .qty      = 1.0};
 }
 
-Order sell(qp::OrderId id, SlotOffset market) {
+Order sell(qp::OrderId id, std::uint16_t market) {
     return Order{.id       = id,
                  .exchange = kExchange,
                  .market   = market,

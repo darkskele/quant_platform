@@ -9,9 +9,9 @@
 namespace qp::strategy::carry {
 
 struct Leg {
-    SlotOffset exchange{};
-    SlotOffset market{};
-    SlotOffset symbol{};
+    std::uint16_t exchange{};
+    std::uint16_t market{};
+    std::uint16_t symbol{};
 };
 
 struct Config {

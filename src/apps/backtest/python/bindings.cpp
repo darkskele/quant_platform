@@ -95,7 +95,7 @@ PYBIND11_MODULE(qp_python_backtest, m) {
         });
 
     py::class_<qp::Intent>(m, "Intent")
-        .def(py::init([](qp::SlotOffset ex, qp::SlotOffset mk, qp::SlotOffset sy, qp::Qty q) {
+        .def(py::init([](std::uint16_t ex, std::uint16_t mk, std::uint16_t sy, qp::Qty q) {
                  return qp::Intent{
                      .exchange = ex, .market = mk, .symbol = sy, .target_position = q};
              }),
@@ -106,7 +106,7 @@ PYBIND11_MODULE(qp_python_backtest, m) {
         .def_readwrite("target_position", &qp::Intent::target_position);
 
     py::class_<qp::Order>(m, "Order")
-        .def(py::init([](qp::OrderId id, qp::SlotOffset ex, qp::SlotOffset mk, qp::SlotOffset sy,
+        .def(py::init([](qp::OrderId id, std::uint16_t ex, std::uint16_t mk, std::uint16_t sy,
                          qp::Side side, qp::Qty q) {
                  return qp::Order{
                      .id = id, .exchange = ex, .market = mk, .symbol = sy, .side = side, .qty = q};

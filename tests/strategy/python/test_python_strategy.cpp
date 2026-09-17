@@ -11,7 +11,7 @@ using qp::strategy::python::PythonStrategy;
 
 PYBIND11_EMBEDDED_MODULE(qp_test_types_strategy, m) {
     py::class_<qp::Intent>(m, "Intent")
-        .def(py::init([](qp::SlotOffset ex, qp::SlotOffset mk, qp::SlotOffset sy, qp::Qty q) {
+        .def(py::init([](std::uint16_t ex, std::uint16_t mk, std::uint16_t sy, qp::Qty q) {
                  return qp::Intent{
                      .exchange = ex, .market = mk, .symbol = sy, .target_position = q};
              }),

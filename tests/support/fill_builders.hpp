@@ -3,9 +3,9 @@
 
 namespace qp::test {
 
-inline Fill make_fill(SlotOffset symbol, Side side, Qty qty, Price price = 100.0,
+inline Fill make_fill(std::uint16_t symbol, Side side, Qty qty, Price price = 100.0,
                       OrderId order_id = 1, Timestamp ts = 0, Notional fee = 0.0,
-                      SlotOffset market = 0, SlotOffset exchange = 0) {
+                      std::uint16_t market = 0, std::uint16_t exchange = 0) {
     Fill fill;
     fill.order_id = order_id;
     fill.exchange = exchange;

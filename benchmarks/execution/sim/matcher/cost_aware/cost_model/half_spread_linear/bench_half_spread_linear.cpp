@@ -18,10 +18,10 @@ using qp::execution::sim::matcher::cost_aware::cost_model::half_spread_linear::
 
 namespace {
 
-constexpr SlotOffset  kExchange = static_cast<SlotOffset>(ExchangeId::Binance);
-constexpr SlotOffset  kMarket   = 0;
-constexpr Timestamp   kWeekNs   = 7LL * 24LL * 60LL * 60LL * 1'000'000'000LL;
-constexpr std::size_t kSymbols  = 10;
+constexpr std::uint16_t kExchange = static_cast<std::uint16_t>(ExchangeId::Binance);
+constexpr std::uint16_t kMarket   = 0;
+constexpr Timestamp     kWeekNs   = 7LL * 24LL * 60LL * 60LL * 1'000'000'000LL;
+constexpr std::size_t   kSymbols  = 10;
 
 Subscription make_subscription() {
     SubscriptionBuilder sub;
@@ -44,7 +44,7 @@ std::vector<CostRow> build_table(std::size_t weeks_per_symbol) {
             rows.push_back(CostRow{
                 .exchange            = kExchange,
                 .market              = kMarket,
-                .symbol              = static_cast<SlotOffset>(sym),
+                .symbol              = static_cast<std::uint16_t>(sym),
                 .week_start_ns       = static_cast<Timestamp>(w) * kWeekNs,
                 .half_spread_bps     = 1.0 + 0.01 * static_cast<double>(w % 20),
                 .impact_bps_per_unit = 0.0,
@@ -55,7 +55,7 @@ std::vector<CostRow> build_table(std::size_t weeks_per_symbol) {
     return rows;
 }
 
-Order make_order(SlotOffset symbol) {
+Order make_order(std::uint16_t symbol) {
     return Order{.id       = 0,
                  .exchange = kExchange,
                  .market   = kMarket,
@@ -108,7 +108,7 @@ void BM_HalfSpreadLinearImpact_PriceRotatingSymbol(benchmark::State& state) {
     const Timestamp ts  = 75 * kWeekNs;
     std::size_t     i   = 0;
     for (auto _ : state) {
-        Order o   = make_order(static_cast<SlotOffset>(i % kSymbols));
+        Order o   = make_order(static_cast<std::uint16_t>(i % kSymbols));
         auto  out = cost.price(o, ref, ts);
         benchmark::DoNotOptimize(out);
         ++i;

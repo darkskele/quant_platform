@@ -24,7 +24,6 @@
 #include "types.hpp"
 
 using qp::ExchangeId;
-using qp::SlotOffset;
 using qp::Subscription;
 using qp::SubscriptionBuilder;
 using qp::test::AlwaysApproveRiskGate;
@@ -36,8 +35,8 @@ using qp::test::NoopStrategy;
 
 namespace {
 
-constexpr SlotOffset kExchange = static_cast<SlotOffset>(ExchangeId::Binance);
-constexpr SlotOffset kMarket   = 0;
+constexpr std::uint16_t kExchange = static_cast<std::uint16_t>(ExchangeId::Binance);
+constexpr std::uint16_t kMarket   = 0;
 
 Subscription make_subscription() {
     SubscriptionBuilder sub;
@@ -62,10 +61,10 @@ struct FakeTransport {
 };
 
 struct SingleIntentStrategy {
-    qp::SlotOffset symbol;
-    qp::Qty        target_position;
-    bool           fired = false;
-    qp::Intent     intent_{};
+    std::uint16_t symbol;
+    qp::Qty       target_position;
+    bool          fired = false;
+    qp::Intent    intent_{};
 
     std::span<const qp::Intent> on_event(const qp::MarketEvent&) {
         if (fired) return {};

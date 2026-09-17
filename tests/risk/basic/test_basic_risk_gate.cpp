@@ -9,7 +9,6 @@
 #include "types.hpp"
 
 using qp::ExchangeId;
-using qp::SlotOffset;
 using qp::Subscription;
 using qp::SubscriptionBuilder;
 using qp::risk::RiskOutcome;
@@ -21,8 +20,8 @@ using qp::test::make_trade;
 
 namespace {
 
-constexpr SlotOffset kExchange = static_cast<SlotOffset>(ExchangeId::Binance);
-constexpr SlotOffset kMarket   = 0;
+constexpr std::uint16_t kExchange = static_cast<std::uint16_t>(ExchangeId::Binance);
+constexpr std::uint16_t kMarket   = 0;
 
 Subscription make_subscription() {
     SubscriptionBuilder sub;
@@ -32,12 +31,12 @@ Subscription make_subscription() {
     return std::move(sub).build();
 }
 
-qp::Intent intent(SlotOffset symbol, qp::Qty target) {
+qp::Intent intent(std::uint16_t symbol, qp::Qty target) {
     return qp::Intent{
         .exchange = kExchange, .market = kMarket, .symbol = symbol, .target_position = target};
 }
 
-TrackedInstrument tracked(SlotOffset symbol) {
+TrackedInstrument tracked(std::uint16_t symbol) {
     return TrackedInstrument{.exchange = kExchange, .market = kMarket, .symbol = symbol};
 }
 

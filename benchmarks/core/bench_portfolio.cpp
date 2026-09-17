@@ -9,9 +9,9 @@ using namespace qp;
 
 namespace {
 
-constexpr SlotOffset kExchange = static_cast<SlotOffset>(ExchangeId::Binance);
-constexpr SlotOffset kMarket   = 0;
-constexpr SlotOffset kSymbol   = 1;
+constexpr std::uint16_t kExchange = static_cast<std::uint16_t>(ExchangeId::Binance);
+constexpr std::uint16_t kMarket   = 0;
+constexpr std::uint16_t kSymbol   = 1;
 
 Subscription make_subscription() {
     SubscriptionBuilder sub;

@@ -14,7 +14,6 @@
 #include "types.hpp"
 
 using qp::ExchangeId;
-using qp::SlotOffset;
 using qp::Subscription;
 using qp::SubscriptionBuilder;
 using qp::execution::sim::matcher::cost_aware::cost_model::half_spread_linear::CostRow;
@@ -22,7 +21,7 @@ using qp::execution::sim::matcher::cost_aware::cost_model::half_spread_linear::r
 
 namespace {
 
-constexpr SlotOffset kMarket = 1;
+constexpr std::uint16_t kMarket = 1;
 
 Subscription make_subscription() {
     SubscriptionBuilder sub;

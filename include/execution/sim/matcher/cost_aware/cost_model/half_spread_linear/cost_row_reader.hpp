@@ -102,8 +102,7 @@ inline bool header_complete(const HeaderIndex& h) noexcept {
 }  // namespace detail
 
 inline std::vector<CostRow> read_cost_rows_csv(const std::filesystem::path& path,
-                                               const Subscription&          sub,
-                                               ExchangeId                   exchange) {
+                                               const Subscription& sub, ExchangeId exchange) {
     std::ifstream in{path};
     if (!in) throw std::runtime_error("cost_table csv not readable: " + path.string());
 
@@ -146,7 +145,7 @@ inline std::vector<CostRow> read_cost_rows_csv(const std::filesystem::path& path
                 throw std::runtime_error(oss.str());
             }
         }
-        auto instr = sub.resolve(exchange, static_cast<SlotOffset>(market_i), need(hdr.symbol));
+        auto instr = sub.resolve(exchange, static_cast<std::uint16_t>(market_i), need(hdr.symbol));
         if (!instr) continue;
 
         auto ws_ns = detail::parse_iso_date_to_ns(need(hdr.week_start));

@@ -22,7 +22,8 @@ class Portfolio {
           funding_paid_(sub.total_slots(), 0.0),
           funding_received_(sub.total_slots(), 0.0) {}
 
-    std::size_t index(SlotOffset exchange, SlotOffset market, SlotOffset symbol) const noexcept {
+    std::size_t index(std::uint16_t exchange, std::uint16_t market,
+                      std::uint16_t symbol) const noexcept {
         return std::size_t{exchange} * max_market_ * max_symbol_ +
                std::size_t{market} * max_symbol_ + std::size_t{symbol};
     }
@@ -61,27 +62,29 @@ class Portfolio {
             event.payload);
     }
 
-    Qty position(SlotOffset exchange, SlotOffset market, SlotOffset symbol) const noexcept {
+    Qty position(std::uint16_t exchange, std::uint16_t market,
+                 std::uint16_t symbol) const noexcept {
         return positions_[index(exchange, market, symbol)];
     }
 
     Notional cash() const noexcept { return cash_; }
 
-    Notional fees(SlotOffset exchange, SlotOffset market, SlotOffset symbol) const noexcept {
+    Notional fees(std::uint16_t exchange, std::uint16_t market,
+                  std::uint16_t symbol) const noexcept {
         return fees_[index(exchange, market, symbol)];
     }
 
-    Notional funding_paid(SlotOffset exchange, SlotOffset market,
-                          SlotOffset symbol) const noexcept {
+    Notional funding_paid(std::uint16_t exchange, std::uint16_t market,
+                          std::uint16_t symbol) const noexcept {
         return funding_paid_[index(exchange, market, symbol)];
     }
 
-    Notional funding_received(SlotOffset exchange, SlotOffset market,
-                              SlotOffset symbol) const noexcept {
+    Notional funding_received(std::uint16_t exchange, std::uint16_t market,
+                              std::uint16_t symbol) const noexcept {
         return funding_received_[index(exchange, market, symbol)];
     }
 
-    Price mark(SlotOffset exchange, SlotOffset market, SlotOffset symbol) const noexcept {
+    Price mark(std::uint16_t exchange, std::uint16_t market, std::uint16_t symbol) const noexcept {
         return mark_price_[index(exchange, market, symbol)];
     }
 
@@ -103,8 +106,8 @@ class Portfolio {
         funding_mark_price_[index(base.exchange, base.market, base.symbol)] = price;
     }
 
-    SlotOffset            max_market_;
-    SlotOffset            max_symbol_;
+    std::uint16_t         max_market_;
+    std::uint16_t         max_symbol_;
     std::vector<Qty>      positions_;
     std::vector<Price>    mark_price_;
     std::vector<Price>    funding_mark_price_;

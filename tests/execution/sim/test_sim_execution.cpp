@@ -17,7 +17,6 @@ using qp::Order;
 using qp::Reject;
 using qp::RejectReason;
 using qp::Side;
-using qp::SlotOffset;
 using qp::Subscription;
 using qp::SubscriptionBuilder;
 namespace exec = qp::execution;
@@ -25,9 +24,9 @@ namespace sim  = qp::execution::sim;
 
 namespace {
 
-constexpr SlotOffset kExchange = static_cast<SlotOffset>(ExchangeId::Binance);
-constexpr SlotOffset kUsdm     = 0;
-constexpr SlotOffset kCoinm    = 1;
+constexpr std::uint16_t kExchange = static_cast<std::uint16_t>(ExchangeId::Binance);
+constexpr std::uint16_t kUsdm     = 0;
+constexpr std::uint16_t kCoinm    = 1;
 
 Subscription make_subscription() {
     SubscriptionBuilder sub;
@@ -55,8 +54,8 @@ struct Gateway {
     Gateway() : exec{book, Matcher{book}} {}
 };
 
-Order make_order(qp::OrderId id, SlotOffset symbol, Side side, qp::Qty qty,
-                 SlotOffset market = kUsdm) {
+Order make_order(qp::OrderId id, std::uint16_t symbol, Side side, qp::Qty qty,
+                 std::uint16_t market = kUsdm) {
     return Order{.id       = id,
                  .exchange = kExchange,
                  .market   = market,

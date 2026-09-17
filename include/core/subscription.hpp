@@ -18,27 +18,27 @@ namespace qp {
 class Subscription {
    public:
     struct Instrument {
-        SlotOffset exchange{};
-        SlotOffset market{};
-        SlotOffset symbol{};
+        std::uint16_t exchange{};
+        std::uint16_t market{};
+        std::uint16_t symbol{};
     };
 
     struct MarketSlice {
-        SlotOffset               market{};
+        std::uint16_t            market{};
         std::vector<std::string> symbols;
     };
 
     struct ExchangeSlice {
-        SlotOffset               exchange{};
+        std::uint16_t            exchange{};
         std::vector<MarketSlice> markets;
     };
 
     explicit Subscription(std::vector<ExchangeSlice> exchanges)
         : exchanges_(std::move(exchanges)) {}
 
-    std::optional<Instrument> resolve(ExchangeId exchange, SlotOffset market,
+    std::optional<Instrument> resolve(ExchangeId exchange, std::uint16_t market,
                                       std::string_view symbol) const noexcept {
-        auto  ex_slot = static_cast<SlotOffset>(exchange);
+        auto  ex_slot = static_cast<std::uint16_t>(exchange);
         auto* ex      = find_exchange(ex_slot);
         if (!ex) return std::nullopt;
         auto* mkt = find_market(*ex, market);
@@ -48,29 +48,30 @@ class Subscription {
         return Instrument{
             .exchange = ex_slot,
             .market   = market,
-            .symbol   = static_cast<SlotOffset>(it - mkt->symbols.begin()),
+            .symbol   = static_cast<std::uint16_t>(it - mkt->symbols.begin()),
         };
     }
 
-    SlotOffset max_exchange() const noexcept {
-        SlotOffset m = 0;
-        for (const auto& ex : exchanges_) m = std::max(m, static_cast<SlotOffset>(ex.exchange + 1));
+    std::uint16_t max_exchange() const noexcept {
+        std::uint16_t m = 0;
+        for (const auto& ex : exchanges_)
+            m = std::max(m, static_cast<std::uint16_t>(ex.exchange + 1));
         return m;
     }
 
-    SlotOffset max_market() const noexcept {
-        SlotOffset m = 0;
+    std::uint16_t max_market() const noexcept {
+        std::uint16_t m = 0;
         for (const auto& ex : exchanges_)
             for (const auto& mkt : ex.markets)
-                m = std::max(m, static_cast<SlotOffset>(mkt.market + 1));
+                m = std::max(m, static_cast<std::uint16_t>(mkt.market + 1));
         return m;
     }
 
-    SlotOffset max_symbol() const noexcept {
-        SlotOffset m = 0;
+    std::uint16_t max_symbol() const noexcept {
+        std::uint16_t m = 0;
         for (const auto& ex : exchanges_)
             for (const auto& mkt : ex.markets)
-                m = std::max(m, static_cast<SlotOffset>(mkt.symbols.size()));
+                m = std::max(m, static_cast<std::uint16_t>(mkt.symbols.size()));
         return m;
     }
 
@@ -81,13 +82,13 @@ class Subscription {
     std::span<const ExchangeSlice> exchanges() const noexcept { return exchanges_; }
 
    private:
-    const ExchangeSlice* find_exchange(SlotOffset ex_slot) const noexcept {
+    const ExchangeSlice* find_exchange(std::uint16_t ex_slot) const noexcept {
         for (const auto& ex : exchanges_)
             if (ex.exchange == ex_slot) return &ex;
         return nullptr;
     }
 
-    const MarketSlice* find_market(const ExchangeSlice& ex, SlotOffset market) const noexcept {
+    const MarketSlice* find_market(const ExchangeSlice& ex, std::uint16_t market) const noexcept {
         for (const auto& m : ex.markets)
             if (m.market == market) return &m;
         return nullptr;
@@ -99,8 +100,8 @@ class Subscription {
 // Build it once at startup.
 class SubscriptionBuilder {
    public:
-    void add(ExchangeId exchange, SlotOffset market, std::string_view symbol) {
-        auto  ex_slot = static_cast<SlotOffset>(exchange);
+    void add(ExchangeId exchange, std::uint16_t market, std::string_view symbol) {
+        auto  ex_slot = static_cast<std::uint16_t>(exchange);
         auto& ex      = ensure_exchange(ex_slot);
         auto& mkt     = ensure_market(ex, market);
         mkt.symbols.emplace_back(symbol);
@@ -109,14 +110,15 @@ class SubscriptionBuilder {
     Subscription build() && { return Subscription(std::move(exchanges_)); }
 
    private:
-    Subscription::ExchangeSlice& ensure_exchange(SlotOffset ex_slot) {
+    Subscription::ExchangeSlice& ensure_exchange(std::uint16_t ex_slot) {
         for (auto& ex : exchanges_)
             if (ex.exchange == ex_slot) return ex;
         exchanges_.push_back(Subscription::ExchangeSlice{.exchange = ex_slot, .markets = {}});
         return exchanges_.back();
     }
 
-    Subscription::MarketSlice& ensure_market(Subscription::ExchangeSlice& ex, SlotOffset market) {
+    Subscription::MarketSlice& ensure_market(Subscription::ExchangeSlice& ex,
+                                             std::uint16_t                market) {
         for (auto& m : ex.markets)
             if (m.market == market) return m;
         ex.markets.push_back(Subscription::MarketSlice{.market = market, .symbols = {}});

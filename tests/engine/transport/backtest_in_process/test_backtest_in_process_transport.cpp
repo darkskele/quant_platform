@@ -9,7 +9,6 @@
 #include "support/market_event_builders.hpp"
 
 using qp::MarketEvent;
-using qp::SlotOffset;
 using qp::SpmcQueue;
 using qp::engine::transport::BacktestInProcessTransport;
 
@@ -21,11 +20,11 @@ using Queue                     = Transport::Queue;
 
 constexpr qp::Timestamp kSentinel = 999999;
 
-MarketEvent trade(qp::Timestamp ts, SlotOffset symbol) {
+MarketEvent trade(qp::Timestamp ts, std::uint16_t symbol) {
     return qp::test::make_trade(symbol, ts, 0.0);
 }
 
-void push(Queue& q, qp::Timestamp ts, SlotOffset symbol) { q.push(trade(ts, symbol)); }
+void push(Queue& q, qp::Timestamp ts, std::uint16_t symbol) { q.push(trade(ts, symbol)); }
 
 }  // namespace
 
@@ -158,7 +157,7 @@ TEST(BacktestInProcessTransport, ConcurrentProducersMergeCorrectlyUnderRealThrea
     for (std::size_t leg = 0; leg < N; ++leg) {
         producers[leg] = std::thread([&queues, leg] {
             for (int i = 0; i < kEventsPerLeg; ++i) {
-                while (!queues[leg].push(trade(i, static_cast<SlotOffset>(leg)))) {
+                while (!queues[leg].push(trade(i, static_cast<std::uint16_t>(leg)))) {
                 }
             }
         });

@@ -7,10 +7,9 @@
 
 namespace qp {
 
-using Timestamp  = std::int64_t;
-using Price      = double;
-using Qty        = double;
-using SlotOffset = std::uint16_t;
+using Timestamp = std::int64_t;
+using Price     = double;
+using Qty       = double;
 
 enum class Side : std::uint8_t { Buy, Sell };
 
@@ -32,11 +31,11 @@ enum class EventKind : std::uint8_t {
 };
 
 struct EventBase {
-    EventKind  kind{};
-    SlotOffset exchange{};
-    SlotOffset market{};
-    SlotOffset symbol{};
-    Timestamp  ts{};
+    EventKind     kind{};
+    std::uint16_t exchange{};
+    std::uint16_t market{};
+    std::uint16_t symbol{};
+    Timestamp     ts{};
 };
 
 static_assert(std::is_trivially_copyable_v<EventBase>);
@@ -96,35 +95,35 @@ using OrderId  = std::uint64_t;
 using Notional = double;
 
 struct Intent {
-    SlotOffset exchange{};
-    SlotOffset market{};
-    SlotOffset symbol{};
-    Qty        target_position{};
+    std::uint16_t exchange{};
+    std::uint16_t market{};
+    std::uint16_t symbol{};
+    Qty           target_position{};
 };
 
 static_assert(std::is_trivially_copyable_v<Intent>);
 
 struct Order {
-    OrderId    id{};
-    SlotOffset exchange{};
-    SlotOffset market{};
-    SlotOffset symbol{};
-    Side       side{};
-    Qty        qty{};
+    OrderId       id{};
+    std::uint16_t exchange{};
+    std::uint16_t market{};
+    std::uint16_t symbol{};
+    Side          side{};
+    Qty           qty{};
 };
 
 static_assert(std::is_trivially_copyable_v<Order>);
 
 struct Fill {
-    OrderId    order_id{};
-    SlotOffset exchange{};
-    SlotOffset market{};
-    SlotOffset symbol{};
-    Side       side{};
-    Timestamp  ts{};
-    Price      price{};
-    Qty        qty{};
-    Notional   fee{};
+    OrderId       order_id{};
+    std::uint16_t exchange{};
+    std::uint16_t market{};
+    std::uint16_t symbol{};
+    Side          side{};
+    Timestamp     ts{};
+    Price         price{};
+    Qty           qty{};
+    Notional      fee{};
 };
 
 static_assert(std::is_trivially_copyable_v<Fill>);
@@ -132,12 +131,12 @@ static_assert(std::is_trivially_copyable_v<Fill>);
 enum class RejectReason : std::uint8_t { NoPriceAvailable, NoCostAvailable };
 
 struct Reject {
-    OrderId      order_id{};
-    SlotOffset   exchange{};
-    SlotOffset   market{};
-    SlotOffset   symbol{};
-    RejectReason reason{};
-    Timestamp    ts{};
+    OrderId       order_id{};
+    std::uint16_t exchange{};
+    std::uint16_t market{};
+    std::uint16_t symbol{};
+    RejectReason  reason{};
+    Timestamp     ts{};
 };
 
 static_assert(std::is_trivially_copyable_v<Reject>);
