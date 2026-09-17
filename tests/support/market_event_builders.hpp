@@ -8,81 +8,102 @@
 
 namespace qp::test {
 
-inline MarketEvent make_book_diff(SymbolId symbol, Timestamp ts, std::uint64_t first_seq,
+inline MarketEvent make_book_diff(SlotOffset symbol, Timestamp ts, std::uint64_t first_seq,
                                   std::uint64_t seq, std::uint64_t prev_seq,
-                                  std::vector<PriceLevel> bids = {},
-                                  std::vector<PriceLevel> asks = {}, MarketId market = 0) {
-    BookDiffEvent ev;
-    ev.ts        = ts;
-    ev.first_seq = first_seq;
-    ev.seq       = seq;
-    ev.prev_seq  = prev_seq;
-    ev.symbol    = symbol;
-    ev.market     = market;
-    ev.levels    = std::make_shared<BookLevels>(BookLevels{std::move(bids), std::move(asks)});
+                                  std::vector<PriceLevel> bids   = {},
+                                  std::vector<PriceLevel> asks   = {},
+                                  SlotOffset              market = 0,
+                                  SlotOffset              exchange = 0) {
+    MarketEvent ev;
+    ev.base    = {.kind     = EventKind::BookDiff,
+                  .exchange = exchange,
+                  .market   = market,
+                  .symbol   = symbol,
+                  .ts       = ts};
+    ev.payload = BookDiffEvent{
+        .first_seq = first_seq,
+        .seq       = seq,
+        .prev_seq  = prev_seq,
+        .levels    = std::make_shared<BookLevels>(BookLevels{std::move(bids), std::move(asks)}),
+    };
     return ev;
 }
 
-inline MarketEvent make_book_snapshot(SymbolId symbol, Timestamp ts,
-                                      std::vector<PriceLevel> bids = {},
-                                      std::vector<PriceLevel> asks = {}, MarketId market = 0) {
-    BookSnapshotEvent ev;
-    ev.ts     = ts;
-    ev.symbol = symbol;
-    ev.market  = market;
-    ev.levels = std::make_shared<BookLevels>(BookLevels{std::move(bids), std::move(asks)});
+inline MarketEvent make_book_snapshot(SlotOffset symbol, Timestamp ts,
+                                      std::vector<PriceLevel> bids   = {},
+                                      std::vector<PriceLevel> asks   = {},
+                                      SlotOffset              market = 0,
+                                      SlotOffset              exchange = 0) {
+    MarketEvent ev;
+    ev.base    = {.kind     = EventKind::BookSnapshot,
+                  .exchange = exchange,
+                  .market   = market,
+                  .symbol   = symbol,
+                  .ts       = ts};
+    ev.payload = BookSnapshotEvent{
+        .levels = std::make_shared<BookLevels>(BookLevels{std::move(bids), std::move(asks)}),
+    };
     return ev;
 }
 
-inline MarketEvent make_trade(SymbolId symbol, Timestamp ts, Price price, Qty qty = 1.0,
-                              Side side = Side::Buy, MarketId market = 0) {
-    TradeEvent ev;
-    ev.ts     = ts;
-    ev.symbol = symbol;
-    ev.price  = price;
-    ev.qty    = qty;
-    ev.side   = side;
-    ev.market  = market;
+inline MarketEvent make_trade(SlotOffset symbol, Timestamp ts, Price price, Qty qty = 1.0,
+                              Side side = Side::Buy, SlotOffset market = 0,
+                              SlotOffset exchange = 0) {
+    MarketEvent ev;
+    ev.base    = {.kind     = EventKind::Trade,
+                  .exchange = exchange,
+                  .market   = market,
+                  .symbol   = symbol,
+                  .ts       = ts};
+    ev.payload = TradeEvent{.side = side, .price = price, .qty = qty};
     return ev;
 }
 
-inline MarketEvent make_funding(SymbolId symbol, Timestamp ts, double rate, MarketId market = 0) {
-    FundingEvent ev;
-    ev.ts           = ts;
-    ev.symbol       = symbol;
-    ev.funding_rate = rate;
-    ev.market        = market;
+inline MarketEvent make_funding(SlotOffset symbol, Timestamp ts, double rate,
+                                SlotOffset market = 0, SlotOffset exchange = 0) {
+    MarketEvent ev;
+    ev.base    = {.kind     = EventKind::Funding,
+                  .exchange = exchange,
+                  .market   = market,
+                  .symbol   = symbol,
+                  .ts       = ts};
+    ev.payload = FundingEvent{.funding_rate = rate};
     return ev;
 }
 
-inline MarketEvent make_kline(SymbolId symbol, Timestamp open_time, Timestamp close_time,
+inline MarketEvent make_kline(SlotOffset symbol, Timestamp open_time, Timestamp close_time,
                               Price open, Price high, Price low, Price close, Qty volume = 0.0,
-                              MarketId market = 0) {
-    KlineEvent ev;
-    ev.ts         = open_time;
-    ev.close_time = close_time;
-    ev.symbol     = symbol;
-    ev.open       = open;
-    ev.high       = high;
-    ev.low        = low;
-    ev.close      = close;
-    ev.volume     = volume;
-    ev.market      = market;
+                              SlotOffset market = 0, SlotOffset exchange = 0) {
+    MarketEvent ev;
+    ev.base    = {.kind     = EventKind::Kline,
+                  .exchange = exchange,
+                  .market   = market,
+                  .symbol   = symbol,
+                  .ts       = open_time};
+    ev.payload = KlineEvent{.close_time = close_time,
+                            .open       = open,
+                            .high       = high,
+                            .low        = low,
+                            .close      = close,
+                            .volume     = volume};
     return ev;
 }
 
-inline MarketEvent make_mark_price_kline(SymbolId symbol, Timestamp open_time, Price close,
+inline MarketEvent make_mark_price_kline(SlotOffset symbol, Timestamp open_time, Price close,
                                          Timestamp close_time = 0, Price open = 0.0,
-                                         Price high = 0.0, Price low = 0.0, MarketId market = 0) {
-    MarkPriceKlineEvent ev;
-    ev.ts         = open_time;
-    ev.close_time = close_time;
-    ev.symbol     = symbol;
-    ev.open       = open;
-    ev.high       = high;
-    ev.low        = low;
-    ev.close      = close;
-    ev.market      = market;
+                                         Price high = 0.0, Price low = 0.0,
+                                         SlotOffset market = 0, SlotOffset exchange = 0) {
+    MarketEvent ev;
+    ev.base    = {.kind     = EventKind::MarkPriceKline,
+                  .exchange = exchange,
+                  .market   = market,
+                  .symbol   = symbol,
+                  .ts       = open_time};
+    ev.payload = MarkPriceKlineEvent{.close_time = close_time,
+                                     .open       = open,
+                                     .high       = high,
+                                     .low        = low,
+                                     .close      = close};
     return ev;
 }
 

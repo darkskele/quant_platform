@@ -1,32 +1,30 @@
 #pragma once
-#include <chrono>
 #include <cstddef>
-#include <filesystem>
+#include <functional>
 #include <span>
-#include <stdexcept>
-#include <string>
-#include <string_view>
 #include <tuple>
 #include <utility>
 
 #include "backtest_base.hpp"
-#include "basic_risk_gate.hpp"
-#include "config/compose.hpp"
+#include "backtest_in_process_transport.hpp"
+#include "engine.hpp"
+#include "eof_source.hpp"
+#include "fanout_sink.hpp"
 #include "funding_carry_strategy.hpp"
 #include "recorder/equity_series/equity_series_recorder.hpp"
+#include "sim_execution.hpp"
+#include "subscription.hpp"
 #include "types.hpp"
 
 namespace qp::backtest::funding_carry {
 
-inline constexpr Market kFuturesMarket = Market::BinanceUsdm;
-inline constexpr Market kSpotMarket    = Market::BinanceSpot;
+inline constexpr std::size_t kRingCapacity = 1024;
+inline constexpr std::size_t kNumLegs      = 2;
 
 struct Config {
-    strategy::carry::Config          carry{};
-    risk::basic::BasicRiskGateConfig risk{};
+    strategy::carry::Config carry{};
 };
 
-/// Final snapshot plus the per-step equity series. 
 struct Results {
     Notional                             final_cash{};
     Notional                             final_equity{};
@@ -35,83 +33,82 @@ struct Results {
     std::span<const engine::EquityPoint> equity_series{};
 };
 
-/// The funding-carry backtest variant.
-class FundingCarryBacktest : public BacktestBase<FundingCarryBacktest> {
+// @todo sources() is an EofSource stub until binary+zstd BinanceHistoricalSource lands.
+template <class Matcher, class Risk, class RiskConfig>
+class FundingCarryBacktest : public BacktestBase<FundingCarryBacktest<Matcher, Risk, RiskConfig>> {
    public:
-    using Recorder = engine::EquitySeriesRecorder;
+    using Recorder    = engine::EquitySeriesRecorder;
+    using Strategy    = strategy::carry::FundingCarryStrategy;
+    using Exec        = execution::sim::SimExecution<Matcher>;
+    using Sink        = data_source::sink::fanout::FanoutSink<kRingCapacity, 1>;
+    using Tx          = engine::transport::BacktestInProcessTransport<kRingCapacity, kNumLegs>;
+    using EngineT     = engine::Engine<Tx, Exec, Risk, Strategy, Recorder>;
+    using MakeMatcher = std::function<Matcher(Portfolio&, const Subscription&)>;
 
-    FundingCarryBacktest(const std::filesystem::path& data_dir, std::string_view symbol,
-                         std::chrono::year_month_day first_day,
-                         std::chrono::year_month_day last_day,
-                         std::filesystem::path       cost_table_path = {})
-        : symbol_id_(resolve_symbol(symbol)),
-          futures_source_(config::make_futures_source(data_dir, symbol, first_day, last_day)),
-          spot_source_(config::make_spot_source(data_dir, symbol, first_day, last_day)),
-          portfolio_(config::make_subscription()),
-          cost_table_path_(std::move(cost_table_path)) {}
+    FundingCarryBacktest(Subscription subscription, Subscription::Instrument futures_leg,
+                         Subscription::Instrument spot_leg, MakeMatcher make_matcher)
+        : subscription_(std::move(subscription)),
+          futures_leg_(futures_leg),
+          spot_leg_(spot_leg),
+          portfolio_(subscription_),
+          make_matcher_(std::move(make_matcher)) {}
 
-    void set_carry_config(const strategy::carry::Config& carry) { config_.carry = carry; }
+    void set_carry_config(const strategy::carry::Config& c) { config_.carry = c; }
 
-    void set_risk_config(const risk::basic::BasicRiskGateConfig& risk) { config_.risk = risk; }
+    void set_risk_config(RiskConfig r) { risk_config_ = std::move(r); }
 
     auto sources() {
-        return std::tuple<config::FuturesSource&, config::SpotSource&>{futures_source_,
-                                                                       spot_source_};
+        return std::tuple<data_source::source::EofSource, data_source::source::EofSource>{};
     }
 
-    std::tuple<config::Sink, config::Sink>& sinks() { return sinks_; }
+    std::tuple<Sink, Sink>& sinks() { return sinks_; }
 
-    config::EngineType<Recorder> make_engine() {
+    EngineT make_engine() {
         strategy::carry::Config carry = config_.carry;
-        carry.symbol                  = symbol_id_;
-        carry.futures_market          = kFuturesMarket;
-        carry.spot_market             = kSpotMarket;
-
-        risk::basic::BasicRiskGateConfig risk = config_.risk;
-        risk.tracked = {{symbol_id_, kSpotMarket}, {symbol_id_, kFuturesMarket}};
+        carry.futures = {futures_leg_.exchange, futures_leg_.market, futures_leg_.symbol};
+        carry.spot    = {spot_leg_.exchange, spot_leg_.market, spot_leg_.symbol};
 
         equity_collector_.start();
 
-        // Both sinks have NumConsumers == 1, so this Engine's consumer
-        // index on each queue is trivially 0.
-        config::Tx transport({&std::get<0>(sinks_).queue(), &std::get<1>(sinks_).queue()}, {0, 0});
-        config::Risk     risk_gate{risk, portfolio_};
-        config::Strategy strategy{carry, portfolio_};
-        // make_matcher is variation-specific: LastTrade ignores the path,
-        // cost-aware reads it.
-        config::Exec exec{portfolio_, config::make_matcher(portfolio_, cost_table_path_)};
-        return config::EngineType<Recorder>{std::move(transport), std::move(exec),
-                                            std::move(risk_gate), std::move(strategy),
-                                            portfolio_,           Recorder{&equity_collector_}};
+        Tx       transport({&std::get<0>(sinks_).queue(), &std::get<1>(sinks_).queue()}, {0, 0});
+        Risk     risk_gate{risk_config_, portfolio_};
+        Strategy strategy{carry, portfolio_};
+        Exec     exec{portfolio_, make_matcher_(portfolio_, subscription_)};
+        return EngineT{std::move(transport), std::move(exec), std::move(risk_gate),
+                       std::move(strategy),  portfolio_,      Recorder{&equity_collector_}};
     }
 
     Results results() {
         equity_collector_.finish();
         return Results{
-            .final_cash             = portfolio_.cash(),
-            .final_equity           = portfolio_.equity(),
-            .final_spot_position    = portfolio_.position(symbol_id_, kSpotMarket),
-            .final_futures_position = portfolio_.position(symbol_id_, kFuturesMarket),
+            .final_cash   = portfolio_.cash(),
+            .final_equity = portfolio_.equity(),
+            .final_spot_position =
+                portfolio_.position(spot_leg_.exchange, spot_leg_.market, spot_leg_.symbol),
+            .final_futures_position = portfolio_.position(futures_leg_.exchange,
+                                                          futures_leg_.market, futures_leg_.symbol),
             .equity_series          = equity_collector_.series(),
         };
     }
 
-   private:
-    // Runtime lookup into the compile-time symbol universe.
-    static SymbolId resolve_symbol(std::string_view symbol) {
-        auto id = config::FuturesTable::id_of(symbol);
-        if (!id) throw std::invalid_argument("unknown symbol: " + std::string(symbol));
-        return *id;
-    }
+    const Subscription& subscription() const { return subscription_; }
 
-    SymbolId                               symbol_id_;
-    config::FuturesSource                  futures_source_;
-    config::SpotSource                     spot_source_;
-    std::tuple<config::Sink, config::Sink> sinks_;
-    config::Book                           portfolio_;
-    std::filesystem::path                  cost_table_path_;
-    Config                                 config_{};
-    engine::EquitySeriesCollector          equity_collector_{};
+    const Portfolio& portfolio() const { return portfolio_; }
+
+    Subscription::Instrument futures_leg() const { return futures_leg_; }
+
+    Subscription::Instrument spot_leg() const { return spot_leg_; }
+
+   private:
+    Subscription                  subscription_;
+    Subscription::Instrument      futures_leg_;
+    Subscription::Instrument      spot_leg_;
+    std::tuple<Sink, Sink>        sinks_;
+    Portfolio                     portfolio_;
+    Config                        config_{};
+    RiskConfig                    risk_config_{};
+    engine::EquitySeriesCollector equity_collector_{};
+    MakeMatcher                   make_matcher_;
 };
 
 }  // namespace qp::backtest::funding_carry

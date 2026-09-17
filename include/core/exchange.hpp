@@ -1,24 +1,12 @@
 #pragma once
 #include <cstdint>
 
-#include "markets.hpp"
-
 namespace qp {
 
-/// Identifies an exchange. Multiple Markets map to one ExchangeId.
+/// Identifies an exchange at config/subscription level. Each exchange source
+/// binds to one of these. 
 enum class ExchangeId : std::uint8_t {
     Binance = 0,
 };
-
-/// The exchange that hosts the given market.
-constexpr ExchangeId exchange_of(Market m) noexcept {
-    switch (m) {
-        case Market::BinanceUsdm:
-        case Market::BinanceCoinm:
-        case Market::BinanceSpot:
-            return ExchangeId::Binance;
-    }
-    return ExchangeId::Binance;
-}
 
 }  // namespace qp

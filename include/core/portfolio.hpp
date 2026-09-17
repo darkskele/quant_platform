@@ -1,9 +1,6 @@
 #pragma once
 #include <algorithm>
-#include <array>
-#include <cassert>
 #include <cstddef>
-#include <span>
 #include <type_traits>
 #include <variant>
 #include <vector>
@@ -13,94 +10,81 @@
 
 namespace qp {
 
-/// Net position per (symbol, market) plus cash balance.
 class Portfolio {
    public:
-    explicit Portfolio(const SubscriptionConfig& sub) {
-        std::size_t running = 0;
-        for (std::size_t i = 0; i < kNumMarkets; ++i) {
-            prefix_[i] = running;
-            running += sub.counts[i];
-        }
-        prefix_[kNumMarkets] = running;
-        positions_.assign(running, 0.0);
-        mark_price_.assign(running, 0.0);
-        funding_mark_price_.assign(running, 0.0);
-        fees_.assign(running, 0.0);
-        funding_paid_.assign(running, 0.0);
-        funding_received_.assign(running, 0.0);
+    explicit Portfolio(const Subscription& sub)
+        : max_market_(sub.max_market()),
+          max_symbol_(sub.max_symbol()),
+          positions_(sub.total_slots(), 0.0),
+          mark_price_(sub.total_slots(), 0.0),
+          funding_mark_price_(sub.total_slots(), 0.0),
+          fees_(sub.total_slots(), 0.0),
+          funding_paid_(sub.total_slots(), 0.0),
+          funding_received_(sub.total_slots(), 0.0) {}
+
+    std::size_t index(SlotOffset exchange, SlotOffset market, SlotOffset symbol) const noexcept {
+        return std::size_t{exchange} * max_market_ * max_symbol_ +
+               std::size_t{market} * max_symbol_ + std::size_t{symbol};
     }
 
-    explicit Portfolio(std::span<const std::size_t> counts) : Portfolio{sub_from(counts)} {}
-
     void apply_fill(const Fill& fill) noexcept {
-        std::size_t i     = index(fill.symbol, fill.market);
+        std::size_t i     = index(fill.exchange, fill.market, fill.symbol);
         Qty         delta = fill.side == Side::Buy ? fill.qty : -fill.qty;
         positions_[i] += delta;
-        cash_ -= delta * fill.price + fill.fee;  // buying costs cash, fee always does
+        cash_ -= delta * fill.price + fill.fee;
         fees_[i] += fill.fee;
     }
 
-    /// Settles against the official mark price (funding_mark_price_, starts 
-    /// at 0 until an apply_mark_price(MarkPriceKlineEvent) sets it).
     void apply_funding(const MarketEvent& event) noexcept {
-        const auto* funding = std::get_if<FundingEvent>(&event);
+        const auto* funding = std::get_if<FundingEvent>(&event.payload);
         if (!funding) return;
-        // Longs pay shorts, so a long position debits
-        // cash, a short one credits it. @todo is this strat specific?
-        std::size_t i    = index(funding->base.symbol, funding->base.market);
+        std::size_t i    = index(event.base.exchange, event.base.market, event.base.symbol);
         Notional    flow = positions_[i] * funding_mark_price_[i] * funding->funding_rate;
         cash_ -= flow;
-        // Split settled funding into its two signs branchlessly.
         funding_paid_[i] += std::max(flow, 0.0);
         funding_received_[i] -= std::min(flow, 0.0);
     }
 
-    /// Marks (symbol, market) at whichever scalar price `event` carries.
     void apply_mark_price(const MarketEvent& event) noexcept {
         std::visit(
-            [this](const auto& e) {
-                using E = std::decay_t<decltype(e)>;
-                if constexpr (std::is_same_v<E, TradeEvent>) {
-                    mark(e.base.symbol, e.base.market, e.price);
-                } else if constexpr (std::is_same_v<E, KlineEvent>) {
-                    mark(e.base.symbol, e.base.market, e.close);
-                } else if constexpr (std::is_same_v<E, MarkPriceKlineEvent>) {
-                    mark(e.base.symbol, e.base.market, e.close);
-                    mark_funding(e.base.symbol, e.base.market, e.close);
+            [this, &event](const auto& p) {
+                using P = std::decay_t<decltype(p)>;
+                if constexpr (std::is_same_v<P, TradeEvent>) {
+                    mark(event.base, p.price);
+                } else if constexpr (std::is_same_v<P, KlineEvent>) {
+                    mark(event.base, p.close);
+                } else if constexpr (std::is_same_v<P, MarkPriceKlineEvent>) {
+                    mark(event.base, p.close);
+                    mark_funding(event.base, p.close);
                 }
             },
-            event);
+            event.payload);
     }
 
-    /// No default for `market`: (symbol, market) together identify an
-    /// instrument, symbol alone doesn't.
-    Qty position(SymbolId symbol, Market market) const noexcept {
-        return positions_[index(symbol, market)];
+    Qty position(SlotOffset exchange, SlotOffset market, SlotOffset symbol) const noexcept {
+        return positions_[index(exchange, market, symbol)];
     }
 
     Notional cash() const noexcept { return cash_; }
 
-    /// Attribution, cumulative per instrument. fees is always positive,
-    /// funding_paid/received are the two signs of settled funding split
-    /// apart. mark is the latest valuation price, for a basis split.
-    Notional fees(SymbolId symbol, Market market) const noexcept {
-        return fees_[index(symbol, market)];
+    Notional fees(SlotOffset exchange, SlotOffset market, SlotOffset symbol) const noexcept {
+        return fees_[index(exchange, market, symbol)];
     }
 
-    Notional funding_paid(SymbolId symbol, Market market) const noexcept {
-        return funding_paid_[index(symbol, market)];
+    Notional funding_paid(SlotOffset exchange, SlotOffset market,
+                          SlotOffset symbol) const noexcept {
+        return funding_paid_[index(exchange, market, symbol)];
     }
 
-    Notional funding_received(SymbolId symbol, Market market) const noexcept {
-        return funding_received_[index(symbol, market)];
+    Notional funding_received(SlotOffset exchange, SlotOffset market,
+                              SlotOffset symbol) const noexcept {
+        return funding_received_[index(exchange, market, symbol)];
     }
 
-    Price mark(SymbolId symbol, Market market) const noexcept {
-        return mark_price_[index(symbol, market)];
+    Price mark(SlotOffset exchange, SlotOffset market, SlotOffset symbol) const noexcept {
+        return mark_price_[index(exchange, market, symbol)];
     }
 
-    /// cash() plus every position's mark-to-market value.
     Notional equity() const noexcept {
         Notional          total = cash_;
         const std::size_t n     = positions_.size();
@@ -108,39 +92,26 @@ class Portfolio {
         return total;
     }
 
-    std::size_t index(SymbolId symbol, Market market) const noexcept {
-        const auto m = static_cast<std::size_t>(market);
-        assert(m < kNumMarkets);
-        assert(symbol < prefix_[m + 1] - prefix_[m]);
-        return prefix_[m] + symbol;
-    }
-
     std::size_t max_instruments() const noexcept { return positions_.size(); }
 
    private:
-    static SubscriptionConfig sub_from(std::span<const std::size_t> counts) noexcept {
-        SubscriptionConfig sub{};
-        for (std::size_t i = 0; i < std::min(counts.size(), sub.counts.size()); ++i)
-            sub.counts[i] = counts[i];
-        return sub;
+    void mark(const EventBase& base, Price price) noexcept {
+        mark_price_[index(base.exchange, base.market, base.symbol)] = price;
     }
 
-    void mark(SymbolId symbol, Market market, Price price) noexcept {
-        mark_price_[index(symbol, market)] = price;
+    void mark_funding(const EventBase& base, Price price) noexcept {
+        funding_mark_price_[index(base.exchange, base.market, base.symbol)] = price;
     }
 
-    void mark_funding(SymbolId symbol, Market market, Price price) noexcept {
-        funding_mark_price_[index(symbol, market)] = price;
-    }
-
-    std::array<std::size_t, kNumMarkets + 1> prefix_{};
-    std::vector<Qty>                         positions_;
-    std::vector<Price>                       mark_price_;
-    std::vector<Price>                       funding_mark_price_;
-    std::vector<Notional>                    fees_;
-    std::vector<Notional>                    funding_paid_;
-    std::vector<Notional>                    funding_received_;
-    Notional                                 cash_{0.0};
+    SlotOffset            max_market_;
+    SlotOffset            max_symbol_;
+    std::vector<Qty>      positions_;
+    std::vector<Price>    mark_price_;
+    std::vector<Price>    funding_mark_price_;
+    std::vector<Notional> fees_;
+    std::vector<Notional> funding_paid_;
+    std::vector<Notional> funding_received_;
+    Notional              cash_{0.0};
 };
 
 }  // namespace qp

@@ -6,19 +6,16 @@
 
 namespace qp::test {
 
-/// Never exhausts — returns the same event every call. For per-step()
-/// cost benchmarks, isolated from transport-exhaustion bookkeeping.
 struct InfiniteTransport {
     MarketEvent event;
 
     std::optional<engine::transport::EngineInput> next() {
-        return engine::transport::EngineInput{header_of(event).ts, event};
+        return engine::transport::EngineInput{event.base.ts, event};
     }
 
     void flush() noexcept {}
 };
 
-/// Never exhausts.
 struct SeedThenSteadyStateTransport {
     MarketEvent seed;
     MarketEvent steady_state;
@@ -27,7 +24,7 @@ struct SeedThenSteadyStateTransport {
     std::optional<engine::transport::EngineInput> next() {
         const MarketEvent& e = seeded ? steady_state : seed;
         seeded               = true;
-        return engine::transport::EngineInput{header_of(e).ts, e};
+        return engine::transport::EngineInput{e.base.ts, e};
     }
 
     void flush() noexcept {}

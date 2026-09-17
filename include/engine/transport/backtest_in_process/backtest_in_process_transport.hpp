@@ -41,14 +41,14 @@ class BacktestInProcessTransport {
                     continue;
                 }
             }
-            if (!earliest || base_of(*lookahead_[i]).ts < base_of(*lookahead_[*earliest]).ts)
+            if (!earliest || lookahead_[i]->base.ts < lookahead_[*earliest]->base.ts)
                 earliest = i;
         }
 
-        if (any_missing) return std::nullopt;  // some leg might yet produce an earlier ts
-        if (!earliest) return std::nullopt;    // nothing buffered anywhere
+        if (any_missing) return std::nullopt;
+        if (!earliest) return std::nullopt;
 
-        Timestamp ev_ts = base_of(*lookahead_[*earliest]).ts;
+        Timestamp ev_ts = lookahead_[*earliest]->base.ts;
 
         // A timer boundary at or before the next event fires first, at its
         // own ts, without consuming the event. @todo shouldn't this happen before the lookahead.

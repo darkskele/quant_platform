@@ -11,49 +11,43 @@
 
 namespace qp::risk::basic {
 
-/// A (symbol, market) pair considered for flattening when the kill switch trips.
 struct TrackedInstrument {
-    SymbolId symbol{};
-    Market   market{};
+    SlotOffset exchange{};
+    SlotOffset market{};
+    SlotOffset symbol{};
 };
 
-/// Parameters for BasicRiskGate.
 struct BasicRiskGateConfig {
-    Qty                            max_position_qty{10.0};  ///< Per (symbol, market) exposure cap.
-    Notional                       max_drawdown{50.0};      ///< Trips the kill switch past this.
-    std::vector<TrackedInstrument> tracked{};               ///< Flattened once tripped.
+    Qty                            max_position_qty{10.0};
+    Notional                       max_drawdown{50.0};
+    std::vector<TrackedInstrument> tracked{};
 };
 
-/// Per-(symbol, market) exposure cap plus an equity-drawdown kill switch.
 class BasicRiskGate {
    public:
     BasicRiskGate(BasicRiskGateConfig config, const Portfolio& portfolio)
         : config_{std::move(config)}, portfolio_{&portfolio} {
-        // Worst case: one flatten order per position slot.
         orders_.reserve(portfolio.max_instruments());
     }
 
-    /// Sizes an Order against the current position, clamped to
-    /// max_position_qty. Rejects outright once tripped.
     RiskDecision check(Intent intent) {
         if (tripped_) return {.outcome = RiskOutcome::Rejected, .order = std::nullopt};
 
-        Qty current = portfolio_->position(intent.symbol, intent.market);
+        Qty current = portfolio_->position(intent.exchange, intent.market, intent.symbol);
         Qty target =
             std::clamp(intent.target_position, -config_.max_position_qty, config_.max_position_qty);
         Qty delta = target - current;
 
         auto outcome =
             target == intent.target_position ? RiskOutcome::Approved : RiskOutcome::Resized;
-        return {outcome, Order{.id     = next_id(),
-                               .symbol = intent.symbol,
-                               .side   = delta >= 0 ? Side::Buy : Side::Sell,
-                               .market = intent.market,
-                               .qty    = std::abs(delta)}};
+        return {outcome, Order{.id       = next_id(),
+                               .exchange = intent.exchange,
+                               .market   = intent.market,
+                               .symbol   = intent.symbol,
+                               .side     = delta >= 0 ? Side::Buy : Side::Sell,
+                               .qty      = std::abs(delta)}};
     }
 
-    /// Trips and flattens every tracked position once equity has declined
-    /// past max_drawdown off its peak. No-op once already tripped.
     std::span<const Order> on_tick() {
         Notional equity = portfolio_->equity();
         peak_equity_    = std::max(peak_equity_, equity);
@@ -61,14 +55,15 @@ class BasicRiskGate {
 
         tripped_ = true;
         orders_.clear();
-        for (const auto& [symbol, market] : config_.tracked) {
-            Qty pos = portfolio_->position(symbol, market);
+        for (const auto& t : config_.tracked) {
+            Qty pos = portfolio_->position(t.exchange, t.market, t.symbol);
             if (pos == 0.0) continue;
-            orders_.push_back(Order{.id     = next_id(),
-                                    .symbol = symbol,
-                                    .side   = pos > 0 ? Side::Sell : Side::Buy,
-                                    .market = market,
-                                    .qty    = std::abs(pos)});
+            orders_.push_back(Order{.id       = next_id(),
+                                    .exchange = t.exchange,
+                                    .market   = t.market,
+                                    .symbol   = t.symbol,
+                                    .side     = pos > 0 ? Side::Sell : Side::Buy,
+                                    .qty      = std::abs(pos)});
         }
         return {orders_.data(), orders_.size()};
     }
@@ -77,7 +72,7 @@ class BasicRiskGate {
     OrderId next_id() noexcept { return next_id_++; }
 
     BasicRiskGateConfig config_;
-    const Portfolio*    portfolio_;  ///< Read-only. Engine owns writes.
+    const Portfolio*    portfolio_;
     OrderId             next_id_{1};
     bool                tripped_{false};
     Notional            peak_equity_{0.0};

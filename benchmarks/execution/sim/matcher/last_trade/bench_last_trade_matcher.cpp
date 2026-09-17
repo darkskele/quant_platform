@@ -1,10 +1,11 @@
 #include <benchmark/benchmark.h>
 
-#include <array>
 #include <vector>
 
+#include "exchange.hpp"
 #include "last_trade_matcher.hpp"
 #include "portfolio.hpp"
+#include "subscription.hpp"
 #include "support/market_event_builders.hpp"
 #include "types.hpp"
 
@@ -13,20 +14,36 @@ using qp::execution::sim::matcher::last_trade::LastTradeMatcher;
 
 namespace {
 
-constexpr SymbolId                   kSymbol = 1;
-constexpr Market                     kMarket = Market::BinanceUsdm;
-constexpr std::array<std::size_t, 1> kCounts{2};
+constexpr SlotOffset kExchange = static_cast<SlotOffset>(ExchangeId::Binance);
+constexpr SlotOffset kMarket   = 0;
+constexpr SlotOffset kSymbol   = 1;
+
+Subscription make_subscription() {
+    SubscriptionBuilder sub;
+    sub.add(ExchangeId::Binance, kMarket, "A");
+    sub.add(ExchangeId::Binance, kMarket, "B");
+    return std::move(sub).build();
+}
+
 using Book = Portfolio;
 
-Book make_book() { return Book{kCounts}; }
+Book make_book() { return Book{make_subscription()}; }
 
 MarketEvent make_trade_event() {
-    TradeEvent ev;
-    ev.base.symbol = kSymbol;
-    ev.base.market = kMarket;
-    ev.price       = 100.0;
-    ev.qty         = 1.0;
+    MarketEvent ev;
+    ev.base = {
+        .kind = EventKind::Trade, .exchange = kExchange, .market = kMarket, .symbol = kSymbol};
+    ev.payload = TradeEvent{.price = 100.0, .qty = 1.0};
     return ev;
+}
+
+Order sample_order() {
+    return Order{.id       = 1,
+                 .exchange = kExchange,
+                 .market   = kMarket,
+                 .symbol   = kSymbol,
+                 .side     = Side::Buy,
+                 .qty      = 1.0};
 }
 
 void BM_LastTradeMatcher_OnMarketEvent(benchmark::State& state) {
@@ -47,8 +64,7 @@ void BM_LastTradeMatcher_OnMarketEventDiscardsPopulatedBookDiff(benchmark::State
     constexpr int           kLevels = 20;
     std::vector<PriceLevel> bids(kLevels, PriceLevel{.price = 100.0, .qty = 1.0});
     std::vector<PriceLevel> asks(kLevels, PriceLevel{.price = 101.0, .qty = 1.0});
-    auto ev = qp::test::make_book_diff(kSymbol, /*ts=*/0, /*first_seq=*/0, /*seq=*/0,
-                                       /*prev_seq=*/0, bids, asks, kMarket);
+    auto ev = qp::test::make_book_diff(kSymbol, 0, 0, 0, 0, bids, asks, kMarket, kExchange);
     for (auto _ : state) {
         matcher.on_market_event(ev);
         benchmark::DoNotOptimize(matcher);
@@ -61,7 +77,7 @@ void BM_LastTradeMatcher_TryFillFills(benchmark::State& state) {
     Book             book = make_book();
     LastTradeMatcher matcher{book};
     matcher.on_market_event(make_trade_event());
-    Order order{.id = 1, .symbol = kSymbol, .side = Side::Buy, .market = kMarket, .qty = 1.0};
+    Order order = sample_order();
     for (auto _ : state) {
         auto outcome = matcher.try_fill(order, 0);
         benchmark::DoNotOptimize(outcome);
@@ -73,7 +89,7 @@ BENCHMARK(BM_LastTradeMatcher_TryFillFills);
 void BM_LastTradeMatcher_TryFillRejects(benchmark::State& state) {
     Book             book = make_book();
     LastTradeMatcher matcher{book};
-    Order order{.id = 1, .symbol = kSymbol, .side = Side::Buy, .market = kMarket, .qty = 1.0};
+    Order            order = sample_order();
     for (auto _ : state) {
         auto outcome = matcher.try_fill(order, 0);
         benchmark::DoNotOptimize(outcome);

@@ -1,24 +1,73 @@
 #include <benchmark/benchmark.h>
 
-#include <array>
-#include <cstddef>
-
+#include "exchange.hpp"
 #include "portfolio.hpp"
+#include "subscription.hpp"
 #include "types.hpp"
 
 using namespace qp;
 
 namespace {
 
-constexpr SymbolId                   kSymbol = 1;
-constexpr Market                     kMarket = Market::BinanceUsdm;
-constexpr std::array<std::size_t, 1> kCounts{2};
+constexpr SlotOffset kExchange = static_cast<SlotOffset>(ExchangeId::Binance);
+constexpr SlotOffset kMarket   = 0;
+constexpr SlotOffset kSymbol   = 1;
 
-Portfolio make_portfolio() { return Portfolio{kCounts}; }
+Subscription make_subscription() {
+    SubscriptionBuilder sub;
+    sub.add(ExchangeId::Binance, kMarket, "A");
+    sub.add(ExchangeId::Binance, kMarket, "B");
+    return std::move(sub).build();
+}
+
+Portfolio make_portfolio() { return Portfolio{make_subscription()}; }
+
+Fill sample_fill() {
+    return Fill{.exchange = kExchange,
+                .market   = kMarket,
+                .symbol   = kSymbol,
+                .side     = Side::Buy,
+                .price    = 100.0,
+                .qty      = 1.0};
+}
+
+MarketEvent trade_event(Price price) {
+    MarketEvent ev;
+    ev.base = {
+        .kind = EventKind::Trade, .exchange = kExchange, .market = kMarket, .symbol = kSymbol};
+    ev.payload = TradeEvent{.price = price};
+    return ev;
+}
+
+MarketEvent funding_event(double rate) {
+    MarketEvent ev;
+    ev.base = {
+        .kind = EventKind::Funding, .exchange = kExchange, .market = kMarket, .symbol = kSymbol};
+    ev.payload = FundingEvent{.funding_rate = rate};
+    return ev;
+}
+
+MarketEvent mark_price_kline_event(Price close) {
+    MarketEvent ev;
+    ev.base    = {.kind     = EventKind::MarkPriceKline,
+                  .exchange = kExchange,
+                  .market   = kMarket,
+                  .symbol   = kSymbol};
+    ev.payload = MarkPriceKlineEvent{.close = close};
+    return ev;
+}
+
+MarketEvent book_diff_event() {
+    MarketEvent ev;
+    ev.base = {
+        .kind = EventKind::BookDiff, .exchange = kExchange, .market = kMarket, .symbol = kSymbol};
+    ev.payload = BookDiffEvent{};
+    return ev;
+}
 
 void BM_Portfolio_ApplyFill(benchmark::State& state) {
     Portfolio portfolio = make_portfolio();
-    Fill fill{.symbol = kSymbol, .side = Side::Buy, .market = kMarket, .price = 100.0, .qty = 1.0};
+    Fill      fill      = sample_fill();
     for (auto _ : state) {
         portfolio.apply_fill(fill);
         benchmark::DoNotOptimize(portfolio);
@@ -29,13 +78,8 @@ BENCHMARK(BM_Portfolio_ApplyFill);
 
 void BM_Portfolio_ApplyFunding(benchmark::State& state) {
     Portfolio portfolio = make_portfolio();
-    portfolio.apply_fill(
-        Fill{.symbol = kSymbol, .side = Side::Buy, .market = kMarket, .price = 100.0, .qty = 1.0});
-    FundingEvent event;
-    event.base.symbol  = kSymbol;
-    event.base.market  = kMarket;
-    event.funding_rate = 0.0001;
-    // No mark_price to set.
+    portfolio.apply_fill(sample_fill());
+    auto event = funding_event(0.0001);
     for (auto _ : state) {
         portfolio.apply_funding(event);
         benchmark::DoNotOptimize(portfolio);
@@ -45,11 +89,8 @@ void BM_Portfolio_ApplyFunding(benchmark::State& state) {
 BENCHMARK(BM_Portfolio_ApplyFunding);
 
 void BM_Portfolio_ApplyMarkPrice(benchmark::State& state) {
-    Portfolio  portfolio = make_portfolio();
-    TradeEvent event;
-    event.base.symbol = kSymbol;
-    event.base.market = kMarket;
-    event.price       = 100.0;
+    Portfolio portfolio = make_portfolio();
+    auto      event     = trade_event(100.0);
     for (auto _ : state) {
         portfolio.apply_mark_price(event);
         benchmark::DoNotOptimize(portfolio);
@@ -58,14 +99,9 @@ void BM_Portfolio_ApplyMarkPrice(benchmark::State& state) {
 
 BENCHMARK(BM_Portfolio_ApplyMarkPrice);
 
-// MarkPriceKlineEvent's branch writes both mark_price_ and
-// funding_mark_price.
 void BM_Portfolio_ApplyMarkPriceFromMarkPriceKline(benchmark::State& state) {
-    Portfolio           portfolio = make_portfolio();
-    MarkPriceKlineEvent event;
-    event.base.symbol = kSymbol;
-    event.base.market = kMarket;
-    event.close       = 100.0;
+    Portfolio portfolio = make_portfolio();
+    auto      event     = mark_price_kline_event(100.0);
     for (auto _ : state) {
         portfolio.apply_mark_price(event);
         benchmark::DoNotOptimize(portfolio);
@@ -74,12 +110,9 @@ void BM_Portfolio_ApplyMarkPriceFromMarkPriceKline(benchmark::State& state) {
 
 BENCHMARK(BM_Portfolio_ApplyMarkPriceFromMarkPriceKline);
 
-// Floor.
 void BM_Portfolio_ApplyMarkPriceIgnoresBookDiff(benchmark::State& state) {
-    Portfolio     portfolio = make_portfolio();
-    BookDiffEvent event;
-    event.base.symbol = kSymbol;
-    event.base.market = kMarket;
+    Portfolio portfolio = make_portfolio();
+    auto      event     = book_diff_event();
     for (auto _ : state) {
         portfolio.apply_mark_price(event);
         benchmark::DoNotOptimize(portfolio);
@@ -90,23 +123,16 @@ BENCHMARK(BM_Portfolio_ApplyMarkPriceIgnoresBookDiff);
 
 void BM_Portfolio_Position(benchmark::State& state) {
     Portfolio portfolio = make_portfolio();
-    portfolio.apply_fill(
-        Fill{.symbol = kSymbol, .side = Side::Buy, .market = kMarket, .price = 100.0, .qty = 1.0});
-    for (auto _ : state) benchmark::DoNotOptimize(portfolio.position(kSymbol, kMarket));
+    portfolio.apply_fill(sample_fill());
+    for (auto _ : state) benchmark::DoNotOptimize(portfolio.position(kExchange, kMarket, kSymbol));
 }
 
 BENCHMARK(BM_Portfolio_Position);
 
-// The one op with real algorithmic cost.
 void BM_Portfolio_Equity(benchmark::State& state) {
     Portfolio portfolio = make_portfolio();
-    portfolio.apply_fill(
-        Fill{.symbol = kSymbol, .side = Side::Buy, .market = kMarket, .price = 100.0, .qty = 1.0});
-    TradeEvent mark;
-    mark.base.symbol = kSymbol;
-    mark.base.market = kMarket;
-    mark.price       = 105.0;
-    portfolio.apply_mark_price(mark);
+    portfolio.apply_fill(sample_fill());
+    portfolio.apply_mark_price(trade_event(105.0));
     for (auto _ : state) benchmark::DoNotOptimize(portfolio.equity());
 }
 

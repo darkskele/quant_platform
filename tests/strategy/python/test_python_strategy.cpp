@@ -11,19 +11,19 @@ using qp::strategy::python::PythonStrategy;
 
 PYBIND11_EMBEDDED_MODULE(qp_test_types_strategy, m) {
     py::class_<qp::Intent>(m, "Intent")
-        .def(py::init([](qp::SymbolId s, qp::Market v, qp::Qty q) {
-                 return qp::Intent{.symbol = s, .market = v, .target_position = q};
+        .def(py::init([](qp::SlotOffset ex, qp::SlotOffset mk, qp::SlotOffset sy, qp::Qty q) {
+                 return qp::Intent{
+                     .exchange = ex, .market = mk, .symbol = sy, .target_position = q};
              }),
-             py::arg("symbol"), py::arg("market"), py::arg("target_position"))
-        .def_readwrite("symbol", &qp::Intent::symbol)
+             py::arg("exchange"), py::arg("market"), py::arg("symbol"), py::arg("target_position"))
+        .def_readwrite("exchange", &qp::Intent::exchange)
         .def_readwrite("market", &qp::Intent::market)
+        .def_readwrite("symbol", &qp::Intent::symbol)
         .def_readwrite("target_position", &qp::Intent::target_position);
 }
 
 class PythonStrategyTest : public ::testing::Test {
    protected:
-    // A single interpreter for the whole test binary; scoped_interpreter's
-    // ctor can only run once per process.
     static py::scoped_interpreter& guard() {
         static py::scoped_interpreter g;
         return g;
@@ -39,8 +39,9 @@ TEST_F(PythonStrategyTest, OnTimerWithNoneCallbackReturnsEmpty) {
 
 TEST_F(PythonStrategyTest, OnEventWithNoneCallbackReturnsEmpty) {
     PythonStrategy<> strategy{py::none(), py::none()};
-    qp::MarketEvent  evt =
-        qp::TradeEvent{.base = {.kind = qp::EventKind::Trade, .ts = 0}, .price = 100.0, .qty = 1.0};
+    qp::MarketEvent  evt;
+    evt.base    = {.kind = qp::EventKind::Trade, .ts = 0};
+    evt.payload = qp::TradeEvent{.price = 100.0, .qty = 1.0};
     EXPECT_TRUE(strategy.on_event(evt).empty());
 }
 
@@ -51,8 +52,8 @@ TEST_F(PythonStrategyTest, OnTimerReturnsIntentsFromPython) {
     py::exec(
         "def cb(ts):\n"
         "    return [\n"
-        "        types.Intent(symbol=1, market=2, target_position=3.5),\n"
-        "        types.Intent(symbol=4, market=5, target_position=-6.0),\n"
+        "        types.Intent(exchange=0, market=2, symbol=1, target_position=3.5),\n"
+        "        types.Intent(exchange=0, market=5, symbol=4, target_position=-6.0),\n"
         "    ]\n",
         py::globals(), locals);
 
@@ -84,7 +85,8 @@ TEST_F(PythonStrategyTest, BufferIsReusedAcrossCalls) {
         "state = [0]\n"
         "def cb(ts):\n"
         "    state[0] += 1\n"
-        "    return [types.Intent(symbol=state[0], market=0, target_position=float(state[0]))]\n",
+        "    return [types.Intent(exchange=0, market=0, symbol=state[0], "
+        "target_position=float(state[0]))]\n",
         py::globals(), locals);
 
     PythonStrategy<> strategy{py::none(), locals["cb"]};

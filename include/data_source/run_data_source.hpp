@@ -6,10 +6,8 @@
 #include <thread>
 #include <tuple>
 #include <utility>
-#include <variant>
 
 #include "control_channel.hpp"
-#include "markets.hpp"
 #include "sink.hpp"
 #include "source.hpp"
 #include "types.hpp"
@@ -19,7 +17,7 @@ namespace qp::data_source {
 namespace detail {
 
 template <std::size_t N, class SourceTup, class SinkTup, std::size_t... Is>
-bool poll_round(SourceTup& sources, SinkTup& sinks, const std::array<Market, N>& markets,
+bool poll_round(SourceTup& sources, SinkTup& sinks,
                 std::array<std::optional<MarketEvent>, N>& pending, std::array<bool, N>& done,
                 std::index_sequence<Is...>) {
     bool any = false;
@@ -36,13 +34,12 @@ bool poll_round(SourceTup& sources, SinkTup& sinks, const std::array<Market, N>&
          source::PullResult pulled = std::get<Is>(sources).next();
          if (!pulled) {
              if (pulled.error() == source::SourceStatus::Eof) done[Is] = true;
-             return;  // NoData or Eof -> nothing to deliver this round
+             return;
          }
-         std::visit([&](auto& e) { e.base.market = markets[Is]; }, *pulled);
          if (std::get<Is>(sinks).record(std::move(*pulled)))
              any = true;
          else
-             slot = std::move(*pulled);  // sink full -> stage the untouched event for retry
+             slot = std::move(*pulled);
      }()),
      ...);
     return any;
@@ -55,10 +52,8 @@ bool all_done(const std::array<bool, N>& done, std::index_sequence<Is...>) {
 
 }  // namespace detail
 
-/// Drives N sources into N sinks.
 template <std::size_t NumControlConsumers, source::Source... Sources, sink::Sink... Sinks>
 void run_data_source(std::tuple<Sources...>& sources, std::tuple<Sinks...>& sinks,
-                     const std::array<Market, sizeof...(Sources)>& markets,
                      ControlChannel<NumControlConsumers>& control, std::size_t control_consumer,
                      std::chrono::milliseconds idle_sleep      = std::chrono::milliseconds(10),
                      std::size_t               stop_poll_every = 64) {
@@ -69,12 +64,11 @@ void run_data_source(std::tuple<Sources...>& sources, std::tuple<Sinks...>& sink
     std::array<std::optional<MarketEvent>, sizeof...(Sources)> pending{};
     std::array<bool, sizeof...(Sources)>                       done{};
     for (std::size_t round = 0;; ++round) {
-        bool any = detail::poll_round(sources, sinks, markets, pending, done, seq);
+        bool any = detail::poll_round(sources, sinks, pending, done, seq);
         if (detail::all_done(done, seq)) return;
 
         if (round % stop_poll_every == 0 && control.poll(control_consumer) == ControlCommand::Stop)
             return;
-        // Yield, not sleep, when idle_sleep is zero.
         if (!any) {
             if (idle_sleep == std::chrono::milliseconds::zero())
                 std::this_thread::yield();

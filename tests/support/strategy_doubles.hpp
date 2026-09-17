@@ -11,16 +11,18 @@ struct NoopStrategy {
     std::span<const Intent> on_timer(Timestamp) { return {}; }
 };
 
-/// Emits the same Intent every call — for exercising the full
-/// intent -> risk -> submit path repeatedly (e.g. Engine benchmarks),
-/// unlike a fires-once double.
 struct AlwaysIntentStrategy {
-    SymbolId symbol          = 1;
-    Qty      target_position = 1.0;
-    Intent   intent_{};
+    SlotOffset exchange        = 0;
+    SlotOffset market          = 0;
+    SlotOffset symbol          = 1;
+    Qty        target_position = 1.0;
+    Intent     intent_{};
 
     std::span<const Intent> on_event(const MarketEvent&) {
-        intent_ = Intent{.symbol = symbol, .target_position = target_position};
+        intent_ = Intent{.exchange        = exchange,
+                         .market          = market,
+                         .symbol          = symbol,
+                         .target_position = target_position};
         return {&intent_, 1};
     }
 

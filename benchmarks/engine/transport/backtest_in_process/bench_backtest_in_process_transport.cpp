@@ -13,21 +13,21 @@
 namespace {
 
 qp::MarketEvent make_trade(qp::Timestamp ts = 0) {
-    qp::TradeEvent ev;
-    ev.base.ts = ts;
-    ev.price   = 100.0;
-    ev.qty     = 1.0;
+    qp::MarketEvent ev;
+    ev.base.kind = qp::EventKind::Trade;
+    ev.base.ts   = ts;
+    ev.payload   = qp::TradeEvent{.price = 100.0, .qty = 1.0};
     return ev;
 }
 
-// kLevels matches a realistic partial-depth update.
 qp::MarketEvent make_book_diff(qp::Timestamp ts, int kLevels = 20) {
-    qp::BookDiffEvent ev;
-    ev.base.ts  = ts;
-    auto levels = std::make_shared<qp::BookLevels>();
+    qp::MarketEvent ev;
+    ev.base.kind = qp::EventKind::BookDiff;
+    ev.base.ts   = ts;
+    auto levels  = std::make_shared<qp::BookLevels>();
     levels->bids.assign(kLevels, qp::PriceLevel{.price = 100.0, .qty = 1.0});
     levels->asks.assign(kLevels, qp::PriceLevel{.price = 101.0, .qty = 1.0});
-    ev.levels = std::move(levels);
+    ev.payload = qp::BookDiffEvent{.levels = std::move(levels)};
     return ev;
 }
 

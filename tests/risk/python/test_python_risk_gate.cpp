@@ -9,7 +9,6 @@
 #include "types.hpp"
 
 namespace py = pybind11;
-using qp::Market;
 using qp::RiskDecision;
 using qp::RiskOutcome;
 using qp::risk::python::PythonRiskGate;
@@ -17,21 +16,26 @@ using qp::risk::python::PythonRiskGate;
 PYBIND11_EMBEDDED_MODULE(qp_test_types_risk, m) {
     py::class_<qp::Intent>(m, "Intent")
         .def(py::init<>())
-        .def_readwrite("symbol", &qp::Intent::symbol)
+        .def_readwrite("exchange", &qp::Intent::exchange)
         .def_readwrite("market", &qp::Intent::market)
+        .def_readwrite("symbol", &qp::Intent::symbol)
         .def_readwrite("target_position", &qp::Intent::target_position);
 
     py::enum_<qp::Side>(m, "Side").value("Buy", qp::Side::Buy).value("Sell", qp::Side::Sell);
 
     py::class_<qp::Order>(m, "Order")
-        .def(py::init([](qp::OrderId id, qp::SymbolId s, qp::Side side, qp::Market v, qp::Qty q) {
-                 return qp::Order{.id = id, .symbol = s, .side = side, .market = v, .qty = q};
+        .def(py::init([](qp::OrderId id, qp::SlotOffset ex, qp::SlotOffset mk, qp::SlotOffset sy,
+                         qp::Side side, qp::Qty q) {
+                 return qp::Order{
+                     .id = id, .exchange = ex, .market = mk, .symbol = sy, .side = side, .qty = q};
              }),
-             py::arg("id"), py::arg("symbol"), py::arg("side"), py::arg("market"), py::arg("qty"))
+             py::arg("id"), py::arg("exchange"), py::arg("market"), py::arg("symbol"),
+             py::arg("side"), py::arg("qty"))
         .def_readwrite("id", &qp::Order::id)
+        .def_readwrite("exchange", &qp::Order::exchange)
+        .def_readwrite("market", &qp::Order::market)
         .def_readwrite("symbol", &qp::Order::symbol)
         .def_readwrite("side", &qp::Order::side)
-        .def_readwrite("market", &qp::Order::market)
         .def_readwrite("qty", &qp::Order::qty);
 
     py::enum_<qp::RiskOutcome>(m, "RiskOutcome")
@@ -48,8 +52,6 @@ PYBIND11_EMBEDDED_MODULE(qp_test_types_risk, m) {
 
 class PythonRiskGateTest : public ::testing::Test {
    protected:
-    // A single interpreter for the whole test binary; scoped_interpreter's
-    // ctor can only run once per process.
     static py::scoped_interpreter& guard() {
         static py::scoped_interpreter g;
         return g;
@@ -71,14 +73,15 @@ TEST_F(PythonRiskGateTest, CheckReturnsPythonDecision) {
     locals["types"] = types;
     py::exec(
         "def cb(intent):\n"
-        "    order = types.Order(id=7, symbol=intent.symbol, side=types.Side.Buy,\n"
-        "                        market=intent.market, qty=abs(intent.target_position))\n"
+        "    order = types.Order(id=7, exchange=intent.exchange, market=intent.market,\n"
+        "                        symbol=intent.symbol, side=types.Side.Buy,\n"
+        "                        qty=abs(intent.target_position))\n"
         "    return types.RiskDecision(outcome=types.RiskOutcome.Approved, order=order)\n",
         py::globals(), locals);
 
     PythonRiskGate<> gate{locals["cb"], py::none()};
     auto             decision =
-        gate.check(qp::Intent{.symbol = 1, .market = Market::BinanceSpot, .target_position = 3.0});
+        gate.check(qp::Intent{.exchange = 0, .market = 2, .symbol = 1, .target_position = 3.0});
 
     EXPECT_EQ(decision.outcome, RiskOutcome::Approved);
     ASSERT_TRUE(decision.order.has_value());
@@ -106,8 +109,10 @@ TEST_F(PythonRiskGateTest, OnTickReturnsOrders) {
     py::exec(
         "def cb():\n"
         "    return [\n"
-        "        types.Order(id=1, symbol=10, side=types.Side.Sell, market=0, qty=1.5),\n"
-        "        types.Order(id=2, symbol=11, side=types.Side.Buy, market=1, qty=2.5),\n"
+        "        types.Order(id=1, exchange=0, market=0, symbol=10, side=types.Side.Sell, "
+        "qty=1.5),\n"
+        "        types.Order(id=2, exchange=0, market=1, symbol=11, side=types.Side.Buy, "
+        "qty=2.5),\n"
         "    ]\n",
         py::globals(), locals);
 

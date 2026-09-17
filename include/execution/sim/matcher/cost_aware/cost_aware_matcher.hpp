@@ -11,31 +11,31 @@
 
 namespace qp::execution::sim::matcher::cost_aware {
 
-/// Fills a market order fully at the last-seen price, adjusted by a CostModel.
-/// A miss on either the reference price or the cost row is a Reject.
 template <cost_model::CostModel CM>
 class CostAwareMatcher {
    public:
     CostAwareMatcher(const Portfolio& book, CM cost) noexcept
         : book_{&book}, cost_{std::move(cost)}, last_price_(book.max_instruments(), 0.0) {}
 
-    // Priced off a Trade or a Kline close.
     void on_market_event(const MarketEvent& ev) {
-        if (const auto* trade = std::get_if<TradeEvent>(&ev)) {
-            last_price_[book_->index(trade->base.symbol, trade->base.market)] = trade->price;
-        } else if (const auto* kline = std::get_if<KlineEvent>(&ev)) {
-            last_price_[book_->index(kline->base.symbol, kline->base.market)] = kline->close;
+        if (const auto* trade = std::get_if<TradeEvent>(&ev.payload)) {
+            last_price_[book_->index(ev.base.exchange, ev.base.market, ev.base.symbol)] =
+                trade->price;
+        } else if (const auto* kline = std::get_if<KlineEvent>(&ev.payload)) {
+            last_price_[book_->index(ev.base.exchange, ev.base.market, ev.base.symbol)] =
+                kline->close;
         }
     }
 
     std::variant<Fill, Reject> try_fill(Order o, Timestamp ts) {
-        Price ref = last_price_[book_->index(o.symbol, o.market)];
+        Price ref = last_price_[book_->index(o.exchange, o.market, o.symbol)];
         if (ref == 0.0) {
             return Reject{
                 .order_id = o.id,
+                .exchange = o.exchange,
+                .market   = o.market,
                 .symbol   = o.symbol,
                 .reason   = RejectReason::NoPriceAvailable,
-                .market   = o.market,
                 .ts       = ts,
             };
         }
@@ -44,17 +44,19 @@ class CostAwareMatcher {
         if (!pricing) {
             return Reject{
                 .order_id = o.id,
+                .exchange = o.exchange,
+                .market   = o.market,
                 .symbol   = o.symbol,
                 .reason   = RejectReason::NoCostAvailable,
-                .market   = o.market,
                 .ts       = ts,
             };
         }
         return Fill{
             .order_id = o.id,
+            .exchange = o.exchange,
+            .market   = o.market,
             .symbol   = o.symbol,
             .side     = o.side,
-            .market   = o.market,
             .ts       = ts,
             .price    = pricing->fill_price,
             .qty      = o.qty,

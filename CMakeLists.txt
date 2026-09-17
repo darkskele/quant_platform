@@ -87,18 +87,11 @@ if(BUILD_TESTING)
         qp_core qp_core_test_support qp_clock qp_execution qp_execution_sim
         qp_execution_sim_matcher_last_trade
         qp_execution_sim_matcher_cost_aware_cost_model_half_spread_linear
-        qp_csv_source qp_sink qp_sink_fanout qp_data_source
+        qp_source_pure qp_sink qp_sink_fanout qp_data_source
         qp_engine qp_transport qp_transport_backtest_in_process qp_strategy qp_strategy_test_support
         qp_strategy_carry qp_risk
-        qp_risk_test_support qp_risk_basic qp_engine_test_support qp_source_venue_binance_historical
+        qp_risk_test_support qp_risk_basic qp_engine_test_support
         qp_backtest_compose Threads::Threads GTest::gtest GTest::gtest_main
-    )
-    target_compile_definitions(qp_tests PRIVATE
-        QP_BACKTEST_DATA_DIR="${CMAKE_SOURCE_DIR}/tests/apps/backtest/fixtures"
-        QP_BACKTEST_SYMBOL="BTCUSDT"
-        QP_BACKTEST_FIRST_DAY="2024-01-01"
-        QP_BACKTEST_LAST_DAY="2024-01-07"
-        QP_BACKTEST_COST_TABLE="${CMAKE_SOURCE_DIR}/tests/apps/backtest/fixtures/cost_table.csv"
     )
 endif()
 
@@ -117,11 +110,10 @@ if(QP_BUILD_BENCHMARKS)
         qp_core qp_core_test_support qp_clock qp_execution qp_execution_sim
         qp_execution_sim_matcher_last_trade
         qp_execution_sim_matcher_cost_aware_cost_model_half_spread_linear
-        qp_source_pure qp_csv_source
+        qp_source_pure
         qp_sink qp_sink_fanout qp_data_source qp_engine qp_transport qp_transport_backtest_in_process
         qp_strategy_test_support
         qp_risk_test_support qp_engine_test_support qp_strategy_carry qp_risk qp_risk_basic
-        qp_source_venue_binance_historical
         benchmark::benchmark
     )
     target_compile_definitions(qp_bench PRIVATE QP_REPO_ROOT="${CMAKE_SOURCE_DIR}")

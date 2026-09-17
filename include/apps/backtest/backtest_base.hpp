@@ -4,7 +4,6 @@
 #include <exception>
 #include <thread>
 
-#include "config/venues.hpp"
 #include "control_channel.hpp"
 #include "run_data_source.hpp"
 
@@ -34,8 +33,8 @@ class BacktestBase {
         // Backtest replay.
         std::thread source_thread([&] {
             try {
-                data_source::run_data_source(srcs, sinks, config::kLegMarkets, control,
-                                             source_consumer, std::chrono::milliseconds::zero());
+                data_source::run_data_source(srcs, sinks, control, source_consumer,
+                                             std::chrono::milliseconds::zero());
             } catch (...) {
                 source_error = std::current_exception();
                 control.request_stop();

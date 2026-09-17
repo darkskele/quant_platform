@@ -1,5 +1,4 @@
 #pragma once
-#include <array>
 #include <charconv>
 #include <chrono>
 #include <cmath>
@@ -14,13 +13,11 @@
 #include <vector>
 
 #include "cost_row.hpp"
+#include "exchange.hpp"
+#include "subscription.hpp"
 #include "types.hpp"
 
 namespace qp::execution::sim::matcher::cost_aware::cost_model::half_spread_linear {
-
-/// Loads a cost table CSV into `vector<CostRow>`.
-template <class SymbolTable>
-std::vector<CostRow> read_cost_rows_csv(const std::filesystem::path& path);
 
 namespace detail {
 
@@ -41,7 +38,6 @@ inline std::optional<Timestamp> parse_iso_date_to_ns(std::string_view s) noexcep
     std::chrono::year_month_day ymd{std::chrono::year{*y}, std::chrono::month{unsigned(*m)},
                                     std::chrono::day{unsigned(*d)}};
     if (!ymd.ok()) return std::nullopt;
-    // Cast to nanoseconds since epoch.
     return std::chrono::time_point_cast<std::chrono::nanoseconds>(std::chrono::sys_days{ymd})
         .time_since_epoch()
         .count();
@@ -105,8 +101,9 @@ inline bool header_complete(const HeaderIndex& h) noexcept {
 
 }  // namespace detail
 
-template <class SymbolTable>
-std::vector<CostRow> read_cost_rows_csv(const std::filesystem::path& path) {
+inline std::vector<CostRow> read_cost_rows_csv(const std::filesystem::path& path,
+                                               const Subscription&          sub,
+                                               ExchangeId                   exchange) {
     std::ifstream in{path};
     if (!in) throw std::runtime_error("cost_table csv not readable: " + path.string());
 
@@ -114,7 +111,6 @@ std::vector<CostRow> read_cost_rows_csv(const std::filesystem::path& path) {
     if (!std::getline(in, header)) {
         throw std::runtime_error("cost_table csv empty: " + path.string());
     }
-    // Strip trailing CR from CRLF endings.
     if (!header.empty() && header.back() == '\r') header.pop_back();
 
     auto hdr = detail::parse_header(header);
@@ -141,17 +137,17 @@ std::vector<CostRow> read_cost_rows_csv(const std::filesystem::path& path) {
             throw std::runtime_error(oss.str());
         }
 
-        auto sym_id = SymbolTable::id_of(need(hdr.symbol));
-        if (!sym_id) continue;  // symbol not in this build's universe, skip cleanly
-
-        auto ven_str = need(hdr.market);
-        int  ven_i{};
-        if (std::from_chars(ven_str.data(), ven_str.data() + ven_str.size(), ven_i).ec !=
-            std::errc{}) {
-            std::ostringstream oss;
-            oss << "cost_table csv line " << line_no << " has bad market '" << ven_str << "'";
-            throw std::runtime_error(oss.str());
+        int market_i{};
+        {
+            auto m = need(hdr.market);
+            if (std::from_chars(m.data(), m.data() + m.size(), market_i).ec != std::errc{}) {
+                std::ostringstream oss;
+                oss << "cost_table csv line " << line_no << " has bad market '" << m << "'";
+                throw std::runtime_error(oss.str());
+            }
         }
+        auto instr = sub.resolve(exchange, static_cast<SlotOffset>(market_i), need(hdr.symbol));
+        if (!instr) continue;
 
         auto ws_ns = detail::parse_iso_date_to_ns(need(hdr.week_start));
         if (!ws_ns) {
@@ -170,7 +166,6 @@ std::vector<CostRow> read_cost_rows_csv(const std::filesystem::path& path) {
             throw std::runtime_error(oss.str());
         }
 
-        // Empty impact is treated as 0 (for weeks with no aggTrades summary).
         auto   im_field = need(hdr.impact_bps_per_unit);
         double im_val   = 0.0;
         if (!im_field.empty()) {
@@ -185,8 +180,9 @@ std::vector<CostRow> read_cost_rows_csv(const std::filesystem::path& path) {
         }
 
         rows.push_back(CostRow{
-            .symbol              = *sym_id,
-            .market              = static_cast<Market>(ven_i),
+            .exchange            = instr->exchange,
+            .market              = instr->market,
+            .symbol              = instr->symbol,
             .week_start_ns       = *ws_ns,
             .half_spread_bps     = *hs,
             .impact_bps_per_unit = im_val,

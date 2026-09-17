@@ -4,7 +4,6 @@
 #include "support/risk_gate_doubles.hpp"
 #include "types.hpp"
 
-using qp::Market;
 using qp::test::AlwaysApproveRiskGate;
 using qp::test::AlwaysRejectRiskGate;
 
@@ -27,10 +26,10 @@ TEST(RiskGate, ApprovedOrderCarriesTheIntentsVenue) {
     AlwaysApproveRiskGate gate;
 
     auto decision =
-        gate.check(qp::Intent{.symbol = 1, .market = Market::BinanceCoinm, .target_position = 2.0});
+        gate.check(qp::Intent{.exchange = 0, .market = 1, .symbol = 1, .target_position = 2.0});
 
     ASSERT_TRUE(decision.order.has_value());
-    EXPECT_EQ(decision.order->market, Market::BinanceCoinm);
+    EXPECT_EQ(decision.order->market, 1);
 }
 
 TEST(RiskGate, RejectedDecisionCarriesNoOrder) {
