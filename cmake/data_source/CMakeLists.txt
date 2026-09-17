@@ -5,7 +5,7 @@ qp_dir(benchmarks QP_BENCH)
 
 add_library(qp_data_source INTERFACE)
 target_include_directories(qp_data_source INTERFACE ${QP_INC})
-target_link_libraries(qp_data_source INTERFACE qp_source_pure qp_sink)
+target_link_libraries(qp_data_source INTERFACE qp_source_pure qp_sink qp_network_http)
 
 if(BUILD_TESTING)
     find_package(GTest CONFIG REQUIRED)

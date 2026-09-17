@@ -67,6 +67,7 @@ add_subdirectory(cmake/strategy)
 add_subdirectory(cmake/risk)
 add_subdirectory(cmake/data_source/sink)
 add_subdirectory(cmake/data_source/source)
+add_subdirectory(cmake/data_source/network/http)
 
 
 add_subdirectory(cmake/data_source)
