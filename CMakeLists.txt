@@ -69,6 +69,7 @@ add_subdirectory(cmake/data_source/sink)
 add_subdirectory(cmake/data_source/source)
 add_subdirectory(cmake/data_source/network/http)
 add_subdirectory(cmake/data_source/archive)
+add_subdirectory(cmake/data_source/source/venue/binance/binance_historical)
 
 
 add_subdirectory(cmake/data_source)
