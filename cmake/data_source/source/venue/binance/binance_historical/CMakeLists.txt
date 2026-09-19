@@ -22,6 +22,7 @@ if(BUILD_TESTING)
     add_executable(qp_binance_historical_tests
         ${QP_TESTS}/test_endpoints.cpp
         ${QP_TESTS}/test_listing.cpp
+        ${QP_TESTS}/test_binance_historical_source.cpp
         ${QP_TESTS}/test_stream.cpp
         ${QP_TESTS}/test_http_fetch_pool.cpp
         ${QP_TESTS}/parsers/test_csv_field.cpp

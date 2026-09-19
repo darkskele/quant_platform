@@ -10,15 +10,23 @@
 #include <thread>
 #include <vector>
 
+#include "client.hpp"
 #include "fetch_pool.hpp"
 #include "mpsc_queue.hpp"
 
 namespace qp::data_source::source::venue::binance {
 
 struct HttpFetchPoolConfig {
-    std::size_t               workers     = 8;
+    /// Concurrency ceiling. Blocking calls, so this is how many fetches can be
+    /// in flight at once.
+    std::size_t workers = 8;
+
     std::size_t               max_retries = 3;
     std::chrono::milliseconds backoff_base{200};
+
+    /// Idle connections kept per host. Raised to the worker count when it is
+    /// lower, or the workers past the cap lose keep alive.
+    network::http::HttpConfig http{};
 
     /// A completed window with at least this failure share fires the critical
     /// callback. Evaluated per window, so a single bad file cannot trip it.

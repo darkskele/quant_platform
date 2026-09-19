@@ -216,6 +216,33 @@ TEST(HttpFetchPool, NoTaskSurvivesQuiesce) {
     EXPECT_EQ(stats.cancellations_dropped, 0u);
 }
 
+// Worker count is the concurrency ceiling, so it has to be honoured.
+TEST(HttpFetchPool, WorkerCountIsConfigurable) {
+    HttpFetchPoolConfig config;
+    config.workers = 5;
+
+    HttpFetchPool pool(config);
+    EXPECT_EQ(pool.stats().workers_alive, 5u);
+    pool.quiesce();
+    EXPECT_EQ(pool.stats().workers_alive, 0u);
+}
+
+// A connection cap under the worker count would leave the extra workers
+// dialling fresh every time and losing keep alive.
+TEST(HttpFetchPool, ConnectionCapKeepsUpWithWorkers) {
+    FileQueue           queue;
+    HttpFetchPoolConfig config;
+    config.workers                       = 24;
+    config.http.max_connections_per_host = 4;
+
+    HttpFetchPool pool(config);
+    ASSERT_TRUE(pool.submit(std::string(kRealFile), &queue));
+
+    binance::FetchedFile file;
+    ASSERT_TRUE(await(queue, file));
+    EXPECT_EQ(file.status, FetchStatus::Ok);
+}
+
 // A window of failures raises the alarm once, not per failure.
 TEST(HttpFetchPool, CriticalFiresOnceOnASustainedFailureRate) {
     std::atomic<int>    fired{0};

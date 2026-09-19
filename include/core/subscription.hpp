@@ -81,19 +81,25 @@ class Subscription {
 
     std::span<const ExchangeSlice> exchanges() const noexcept { return exchanges_; }
 
-   private:
+    /// Null when the exchange is not subscribed.
     const ExchangeSlice* find_exchange(std::uint16_t ex_slot) const noexcept {
         for (const auto& ex : exchanges_)
             if (ex.exchange == ex_slot) return &ex;
         return nullptr;
     }
 
+    const ExchangeSlice* find_exchange(ExchangeId exchange) const noexcept {
+        return find_exchange(static_cast<std::uint16_t>(exchange));
+    }
+
+    /// Null when the market is not subscribed under that exchange.
     const MarketSlice* find_market(const ExchangeSlice& ex, std::uint16_t market) const noexcept {
         for (const auto& m : ex.markets)
             if (m.market == market) return &m;
         return nullptr;
     }
 
+   private:
     std::vector<ExchangeSlice> exchanges_;
 };
 

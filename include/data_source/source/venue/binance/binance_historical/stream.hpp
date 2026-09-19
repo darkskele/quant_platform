@@ -48,10 +48,11 @@ class BinanceHistoricalStream {
           interval_(std::move(interval)),
           instrument_(instrument) {}
 
+    /// Bucket prefix holding every file for this stream.
+    std::string prefix() const { return binance::prefix(endpoint_, symbol_, interval_, cadence_); }
+
     /// Discovers the files for this stream and keeps those inside the span.
-    void plan(Timestamp from, Timestamp to) {
-        plan(list_keys(prefix(endpoint_, symbol_, interval_, cadence_)), from, to);
-    }
+    void plan(Timestamp from, Timestamp to) { plan(list_keys(prefix()), from, to); }
 
     /// Same, against a key list already in hand.
     void plan(std::vector<std::string> keys, Timestamp from, Timestamp to) {
@@ -118,6 +119,8 @@ class BinanceHistoricalStream {
     const GapStats& stats() const noexcept { return stats_; }
 
     std::string_view symbol() const noexcept { return symbol_; }
+
+    std::string_view interval() const noexcept { return interval_; }
 
    private:
     /// Files asked for that have not landed in the queue yet. Both terms are

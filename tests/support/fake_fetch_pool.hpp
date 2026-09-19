@@ -36,6 +36,9 @@ class FakeFetchPool {
     /// Completes the oldest submission as a failure, body empty.
     bool deliver_failure(FetchStatus status) { return complete(FetchedFile{{}, status}); }
 
+    /// Part of the pool seam. Nothing runs off thread here.
+    void quiesce() noexcept { saturated_ = true; }
+
     void saturate(bool on) noexcept { saturated_ = on; }
 
     std::size_t in_flight() const noexcept { return pending_.size(); }

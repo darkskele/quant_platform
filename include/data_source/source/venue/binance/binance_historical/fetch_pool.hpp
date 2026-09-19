@@ -36,9 +36,11 @@ using FileQueue = SpscQueue<FetchedFile, kFileQueueCapacity>;
 
 /// Runs GETs off the calling thread and drops each decompressed file into the
 /// queue the caller names. False from submit means saturated, try again later.
+/// quiesce stops the workers, so whoever owns the queues can outlive them.
 template <class T>
 concept FetchPool = requires(T& pool, std::string url, FileQueue* destination) {
     { pool.submit(std::move(url), destination) } -> std::same_as<bool>;
+    { pool.quiesce() };
 };
 
 }  // namespace qp::data_source::source::venue::binance

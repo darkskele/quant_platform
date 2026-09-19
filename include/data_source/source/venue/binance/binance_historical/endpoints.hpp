@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <cstdint>
+#include <iterator>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -14,7 +15,16 @@ inline constexpr std::string_view kDataHost = "https://data.binance.vision";
 inline constexpr std::string_view kListingHost =
     "https://s3-ap-northeast-1.amazonaws.com/data.binance.vision";
 
-enum class BinanceMarket : std::uint8_t { Spot, UsdM };
+/// Doubles as Binance's market slot numbering in a Subscription, so a slot maps
+/// to its path without anybody restating it.
+enum class BinanceMarket : std::uint8_t { Spot = 0, UsdM = 1, CoinM = 2 };
+
+/// Null when the slot is not one of Binance's markets.
+inline constexpr const BinanceMarket* market_of_slot(std::uint16_t slot) noexcept {
+    static constexpr BinanceMarket kMarkets[] = {BinanceMarket::Spot, BinanceMarket::UsdM,
+                                                 BinanceMarket::CoinM};
+    return slot < std::size(kMarkets) ? &kMarkets[slot] : nullptr;
+}
 
 enum class EndpointKind : std::uint8_t { Klines, MarkPriceKlines, PremiumIndexKlines, FundingRate };
 
@@ -39,12 +49,28 @@ inline constexpr std::array kEndpoints = {
     Endpoint{"futures/um", "markPriceKlines", CadenceSupport::Both, true, 12},
     Endpoint{"futures/um", "premiumIndexKlines", CadenceSupport::Both, true, 12},
     Endpoint{"futures/um", "fundingRate", CadenceSupport::MonthlyOnly, false, 3},
+    // Coin-M carries the same layouts. Its kline volume columns count contracts
+    // and its quote volume is the base asset, the inverse of USD-M.
+    Endpoint{"futures/cm", "klines", CadenceSupport::Both, true, 12},
+    Endpoint{"futures/cm", "markPriceKlines", CadenceSupport::Both, true, 12},
+    Endpoint{"futures/cm", "premiumIndexKlines", CadenceSupport::Both, true, 12},
+    Endpoint{"futures/cm", "fundingRate", CadenceSupport::MonthlyOnly, false, 3},
 };
 
-/// Throws if the pair has no dataset.
-inline constexpr const Endpoint& endpoint(BinanceMarket market, EndpointKind kind) {
-    const std::string_view market_path = market == BinanceMarket::Spot ? "spot" : "futures/um";
-    const std::string_view kind_path   = [kind] {
+/// Null when the market does not publish that dataset, such as spot funding.
+inline constexpr const Endpoint* find_endpoint(BinanceMarket market, EndpointKind kind) noexcept {
+    const std::string_view market_path = [market] {
+        switch (market) {
+            case BinanceMarket::Spot:
+                return "spot";
+            case BinanceMarket::UsdM:
+                return "futures/um";
+            case BinanceMarket::CoinM:
+                return "futures/cm";
+        }
+        return "";
+    }();
+    const std::string_view kind_path = [kind] {
         switch (kind) {
             case EndpointKind::Klines:
                 return "klines";
@@ -59,8 +85,15 @@ inline constexpr const Endpoint& endpoint(BinanceMarket market, EndpointKind kin
     }();
 
     for (const auto& e : kEndpoints)
-        if (e.market_path == market_path && e.kind_path == kind_path) return e;
-    throw std::out_of_range("binance: no endpoint for this market and kind");
+        if (e.market_path == market_path && e.kind_path == kind_path) return &e;
+    return nullptr;
+}
+
+/// Throws if the pair has no dataset.
+inline constexpr const Endpoint& endpoint(BinanceMarket market, EndpointKind kind) {
+    const auto* found = find_endpoint(market, kind);
+    if (found == nullptr) throw std::out_of_range("binance: no endpoint for this market and kind");
+    return *found;
 }
 
 inline constexpr bool supports(const Endpoint& e, Cadence cadence) {

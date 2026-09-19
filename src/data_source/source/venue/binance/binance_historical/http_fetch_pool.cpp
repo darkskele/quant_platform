@@ -1,5 +1,6 @@
 #include "http_fetch_pool.hpp"
 
+#include <algorithm>
 #include <utility>
 
 #include "client.hpp"
@@ -25,6 +26,9 @@ constexpr bool retryable(FetchStatus status) noexcept {
 
 HttpFetchPool::HttpFetchPool(HttpFetchPoolConfig config, std::function<void()> on_critical)
     : config_(config), on_critical_(std::move(on_critical)), started_at_(config.workers) {
+    config_.http.max_connections_per_host =
+        std::max(config_.http.max_connections_per_host, config_.workers);
+
     workers_.reserve(config_.workers);
     workers_alive_.store(config_.workers, std::memory_order_relaxed);
     for (std::size_t i = 0; i < config_.workers; ++i)
@@ -148,7 +152,7 @@ void HttpFetchPool::run_task(Task& task, std::size_t index) {
         std::vector<std::byte> zip_bytes;
 
         try {
-            zip_bytes = http::get(task.url);
+            zip_bytes = http::get(task.url, config_.http);
             bytes_fetched_.fetch_add(zip_bytes.size(), std::memory_order_relaxed);
             result.status = FetchStatus::Ok;
         } catch (const http::HttpStatusError& e) {

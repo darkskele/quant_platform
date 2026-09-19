@@ -14,6 +14,7 @@ using binance::endpoint;
 using binance::EndpointKind;
 using binance::file_name;
 using binance::file_url;
+using binance::market_of_slot;
 using binance::prefix;
 using binance::supports;
 
@@ -85,6 +86,27 @@ TEST(BinanceEndpoints, ColumnCounts) {
     EXPECT_EQ(endpoint(BinanceMarket::UsdM, EndpointKind::FundingRate).column_count, 3);
 }
 
+TEST(BinanceEndpoints, CoinMPrefixes) {
+    const auto& klines = endpoint(BinanceMarket::CoinM, EndpointKind::Klines);
+    EXPECT_EQ(prefix(klines, "BTCUSD_PERP", "1h", Cadence::Daily),
+              "data/futures/cm/daily/klines/BTCUSD_PERP/1h/");
+
+    const auto& funding = endpoint(BinanceMarket::CoinM, EndpointKind::FundingRate);
+    EXPECT_EQ(prefix(funding, "BTCUSD_PERP", "", Cadence::Monthly),
+              "data/futures/cm/monthly/fundingRate/BTCUSD_PERP/");
+}
+
+// The enum doubles as the subscription's market slot numbering.
+TEST(BinanceEndpoints, MarketSlotsMapToPaths) {
+    ASSERT_NE(market_of_slot(0), nullptr);
+    ASSERT_NE(market_of_slot(1), nullptr);
+    ASSERT_NE(market_of_slot(2), nullptr);
+    EXPECT_EQ(*market_of_slot(0), BinanceMarket::Spot);
+    EXPECT_EQ(*market_of_slot(1), BinanceMarket::UsdM);
+    EXPECT_EQ(*market_of_slot(2), BinanceMarket::CoinM);
+    EXPECT_EQ(market_of_slot(3), nullptr);
+}
+
 TEST(BinanceEndpoints, SpotHasNoFundingRate) {
     EXPECT_THROW((void)endpoint(BinanceMarket::Spot, EndpointKind::FundingRate), std::out_of_range);
 }
@@ -112,6 +134,20 @@ TEST(BinanceEndpointsLive, EveryEntryResolvesToARealFile) {
         {BinanceMarket::UsdM, EndpointKind::PremiumIndexKlines, Cadence::Daily, "2025-06-02"},
         {BinanceMarket::UsdM, EndpointKind::FundingRate, Cadence::Monthly, "2025-06"},
     };
+
+    const Case coin_m[] = {
+        {BinanceMarket::CoinM, EndpointKind::Klines, Cadence::Daily, "2025-06-02"},
+        {BinanceMarket::CoinM, EndpointKind::MarkPriceKlines, Cadence::Daily, "2025-06-02"},
+        {BinanceMarket::CoinM, EndpointKind::PremiumIndexKlines, Cadence::Daily, "2025-06-02"},
+        {BinanceMarket::CoinM, EndpointKind::FundingRate, Cadence::Monthly, "2025-06"},
+    };
+
+    for (const auto& c : coin_m) {
+        const auto& e   = endpoint(c.market, c.kind);
+        const auto  url = file_url(e, "BTCUSD_PERP", "1h", c.cadence, c.stamp);
+        SCOPED_TRACE(url);
+        EXPECT_FALSE(qp::data_source::network::http::get(url).empty());
+    }
 
     for (const auto& c : cases) {
         const auto& e   = endpoint(c.market, c.kind);
