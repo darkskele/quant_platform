@@ -27,7 +27,8 @@ enum class EventKind : std::uint8_t {
     Funding,
     BookSnapshot,
     Kline,
-    MarkPriceKline
+    MarkPriceKline,
+    PremiumIndexKline
 };
 
 struct EventBase {
@@ -67,6 +68,14 @@ struct MarkPriceKlineEvent {
     Price     close{};
 };
 
+struct PremiumIndexKlineEvent {
+    Timestamp close_time{};
+    Price     open{};
+    Price     high{};
+    Price     low{};
+    Price     close{};
+};
+
 struct BookLevels {
     std::vector<PriceLevel> bids;
     std::vector<PriceLevel> asks;
@@ -84,7 +93,7 @@ struct BookSnapshotEvent {
 };
 
 using MarketEventPayload = std::variant<TradeEvent, FundingEvent, KlineEvent, MarkPriceKlineEvent,
-                                        BookDiffEvent, BookSnapshotEvent>;
+                                        PremiumIndexKlineEvent, BookDiffEvent, BookSnapshotEvent>;
 
 struct MarketEvent {
     EventBase          base{};

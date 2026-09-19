@@ -113,7 +113,7 @@ if(QP_BUILD_BENCHMARKS)
         qp_core qp_core_test_support qp_clock qp_execution qp_execution_sim
         qp_execution_sim_matcher_last_trade
         qp_execution_sim_matcher_cost_aware_cost_model_half_spread_linear
-        qp_source_pure
+        qp_source_pure qp_binance_historical
         qp_sink qp_sink_fanout qp_data_source qp_engine qp_transport qp_transport_backtest_in_process
         qp_strategy_test_support
         qp_risk_test_support qp_engine_test_support qp_strategy_carry qp_risk qp_risk_basic

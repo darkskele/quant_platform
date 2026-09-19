@@ -3,8 +3,10 @@ qp_dir(include QP_INC)
 qp_dir(src QP_SRC)
 qp_dir(tests QP_TESTS)
 
+qp_dir(benchmarks QP_BENCH)
+
 add_library(qp_binance_historical STATIC ${QP_SRC}/listing.cpp)
-target_include_directories(qp_binance_historical PUBLIC ${QP_INC})
+target_include_directories(qp_binance_historical PUBLIC ${QP_INC} ${QP_INC}/parsers)
 target_link_libraries(qp_binance_historical PUBLIC qp_source_pure PRIVATE qp_network_http)
 
 if(BUILD_TESTING)
@@ -12,6 +14,8 @@ if(BUILD_TESTING)
     add_executable(qp_binance_historical_tests
         ${QP_TESTS}/test_endpoints.cpp
         ${QP_TESTS}/test_listing.cpp
+        ${QP_TESTS}/parsers/test_csv_field.cpp
+        ${QP_TESTS}/parsers/test_klines.cpp
     )
     target_link_libraries(qp_binance_historical_tests
         PRIVATE qp_binance_historical qp_network_http GTest::gtest GTest::gtest_main
