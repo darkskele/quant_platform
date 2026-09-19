@@ -104,12 +104,13 @@ class ConnectionPool {
                 beast::get_lowest_layer(conn->stream).connect(endpoints);
                 conn->stream.handshake(ssl::stream_base::client);
                 return conn;
-            } catch (const std::exception&) {
-                if (attempt == config.max_retries) throw;
+            } catch (const std::exception& e) {
+                if (attempt == config.max_retries)
+                    throw HttpTransportError("http::get: " + url.host + ": " + e.what());
                 std::this_thread::sleep_for(config.backoff_base * (std::size_t{1} << attempt));
             }
         }
-        throw std::runtime_error("http::get: unreachable");
+        throw HttpTransportError("http::get: unreachable");
     }
 
     std::mutex                                                               mutex_;
@@ -138,10 +139,10 @@ std::vector<std::byte> get(std::string_view url_str, const HttpConfig& config) {
     parser.body_limit(std::numeric_limits<std::uint64_t>::max());
     beast::http::read(conn->stream, buffer, parser);
 
-    if (parser.get().result_int() / 100 != 2)
+    if (const int status = parser.get().result_int(); status / 100 != 2)
         // Not returned to the pool.
-        throw std::runtime_error("http::get: " + std::string(url_str) + " -> " +
-                                 std::to_string(parser.get().result_int()));
+        throw HttpStatusError(
+            status, "http::get: " + std::string(url_str) + " -> " + std::to_string(status));
 
     pool().release(url, std::move(conn), config);
     return std::move(parser.release().body());

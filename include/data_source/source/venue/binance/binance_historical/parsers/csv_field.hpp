@@ -64,10 +64,11 @@ inline bool take_decimal(std::string_view& row, double& out) noexcept {
     int          digits   = 0;
     int          scale    = 0;
 
-    for (; p != end && is_digit(*p); ++p, ++digits) mantissa = mantissa * 10 + (*p - '0');
+    for (; p != end && is_digit(*p); ++p, ++digits)
+        if (digits < kMaxMantissaDigits) mantissa = mantissa * 10 + (*p - '0');
     if (p != end && *p == '.')
         for (++p; p != end && is_digit(*p); ++p, ++digits, ++scale)
-            mantissa = mantissa * 10 + (*p - '0');
+            if (digits < kMaxMantissaDigits) mantissa = mantissa * 10 + (*p - '0');
 
     if (digits == 0 || digits > kMaxMantissaDigits || (p != end && *p != ','))
         return take_double_slow(row, out);
@@ -88,7 +89,8 @@ inline bool take_integer(std::string_view& row, std::int64_t& out) noexcept {
 
     std::int64_t value  = 0;
     int          digits = 0;
-    for (; p != end && is_digit(*p); ++p, ++digits) value = value * 10 + (*p - '0');
+    for (; p != end && is_digit(*p); ++p, ++digits)
+        if (digits < kMaxMantissaDigits) value = value * 10 + (*p - '0');
 
     if (digits == 0 || digits > kMaxMantissaDigits || (p != end && *p != ',')) return false;
 
@@ -104,7 +106,8 @@ inline bool take_stamp(std::string_view& row, Timestamp& out) noexcept {
 
     std::int64_t raw    = 0;
     int          digits = 0;
-    for (; p != end && is_digit(*p); ++p, ++digits) raw = raw * 10 + (*p - '0');
+    for (; p != end && is_digit(*p); ++p, ++digits)
+        if (digits < kMaxMantissaDigits) raw = raw * 10 + (*p - '0');
 
     if (digits == 0 || digits > kMaxMantissaDigits || (p != end && *p != ',')) return false;
     if (raw <= 0 || raw >= kStampCeiling) return false;

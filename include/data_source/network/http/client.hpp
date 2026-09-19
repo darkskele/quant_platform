@@ -1,10 +1,24 @@
 #pragma once
 #include <chrono>
 #include <cstddef>
+#include <stdexcept>
+#include <string>
 #include <string_view>
 #include <vector>
 
 namespace qp::data_source::network::http {
+
+/// A request that reached the server and came back non 2xx. status is the code.
+struct HttpStatusError : std::runtime_error {
+    HttpStatusError(int code, const std::string& what) : std::runtime_error(what), status(code) {}
+
+    int status;
+};
+
+/// A request that never produced a response. Resolve, connect, TLS or read.
+struct HttpTransportError : std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
 
 struct HttpConfig {
     std::size_t               max_retries              = 5;

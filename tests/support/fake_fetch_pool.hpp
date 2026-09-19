@@ -1,6 +1,8 @@
 #pragma once
+#include <cstddef>
 #include <deque>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -12,7 +14,9 @@ namespace qp::testing {
 /// through a whole fetch cycle on one thread.
 class FakeFetchPool {
    public:
-    using FileQueue = data_source::source::venue::binance::FileQueue;
+    using FileQueue   = data_source::source::venue::binance::FileQueue;
+    using FetchedFile = data_source::source::venue::binance::FetchedFile;
+    using FetchStatus = data_source::source::venue::binance::FetchStatus;
 
     bool submit(std::string url, FileQueue* destination) {
         if (saturated_) return false;
@@ -23,12 +27,14 @@ class FakeFetchPool {
 
     /// Completes the oldest submission with body. False when none is waiting or
     /// when the destination ring was full, which is a dropped file.
-    bool deliver(std::string body) {
-        if (pending_.empty()) return false;
-        auto request = std::move(pending_.front());
-        pending_.pop_front();
-        return request.destination->push(std::move(body));
+    bool deliver(std::string_view body) {
+        const auto* bytes = reinterpret_cast<const std::byte*>(body.data());
+        return complete(
+            FetchedFile{std::vector<std::byte>(bytes, bytes + body.size()), FetchStatus::Ok});
     }
+
+    /// Completes the oldest submission as a failure, body empty.
+    bool deliver_failure(FetchStatus status) { return complete(FetchedFile{{}, status}); }
 
     void saturate(bool on) noexcept { saturated_ = on; }
 
@@ -41,6 +47,13 @@ class FakeFetchPool {
         std::string url;
         FileQueue*  destination;
     };
+
+    bool complete(FetchedFile file) {
+        if (pending_.empty()) return false;
+        auto request = std::move(pending_.front());
+        pending_.pop_front();
+        return request.destination->push(std::move(file));
+    }
 
     std::deque<Request>      pending_;
     std::vector<std::string> submitted_;

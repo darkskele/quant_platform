@@ -20,6 +20,7 @@ namespace qp::data_source::source::venue::binance {
 struct GapStats {
     std::size_t  files_planned{};
     std::size_t  files_read{};
+    std::size_t  files_failed{};
     std::size_t  header_rows{};
     std::size_t  blank_rows{};
     std::int64_t rows_expected{};
@@ -67,7 +68,10 @@ class BinanceHistoricalStream {
     /// Tops the queue up and pops one event. False means nothing is buffered
     /// right now, which is not the same as finished.
     bool next(MarketEvent& out) {
-        pump();
+        // Starved always pumps, otherwise a stream would sit idle until the
+        // tick came round. While rows are flowing it amortises, so the per
+        // event cost is a local increment rather than the queue's atomics.
+        if (rows_.empty() || (++pump_tick_ & kPumpMask) == 0) pump();
         for (;;) {
             if (rows_.empty() && !load_next_file()) return false;
 
@@ -144,17 +148,30 @@ class BinanceHistoricalStream {
         return url;
     }
 
+    /// Pops until a readable file turns up. A failed fetch still counts its
+    /// expected rows, so the shortfall shows against rows_parsed rather than
+    /// vanishing.
     bool load_next_file() {
-        auto file = queue_.pop();
-        if (!file) return false;
+        for (;;) {
+            auto file = queue_.pop();
+            if (!file) return false;
 
-        current_ = std::move(*file);
-        rows_    = current_;
-        ++popped_;
-        ++stats_.files_read;
-        if (read_cursor_ < paths_.size())
-            stats_.rows_expected += expected_rows(stamp_of(paths_[read_cursor_++]));
-        return true;
+            ++popped_;
+            if (read_cursor_ < paths_.size())
+                stats_.rows_expected += expected_rows(stamp_of(paths_[read_cursor_++]));
+            pump();
+
+            if (is_failure(file->status)) {
+                ++stats_.files_failed;
+                continue;
+            }
+
+            current_ = std::move(file->body);
+            rows_ =
+                std::string_view(reinterpret_cast<const char*>(current_.data()), current_.size());
+            ++stats_.files_read;
+            return true;
+        }
     }
 
     std::string_view take_row() noexcept {
@@ -274,11 +291,14 @@ class BinanceHistoricalStream {
     std::size_t              scheduled_{};
     std::size_t              popped_{};
 
-    FileQueue        queue_;
-    std::string      current_;
-    std::string_view rows_;
-    Timestamp        last_ts_{};
-    GapStats         stats_;
+    static constexpr std::size_t kPumpMask = 0xFF;
+
+    FileQueue              queue_;
+    std::size_t            pump_tick_{};
+    std::vector<std::byte> current_;
+    std::string_view       rows_;
+    Timestamp              last_ts_{};
+    GapStats               stats_;
 };
 
 }  // namespace qp::data_source::source::venue::binance

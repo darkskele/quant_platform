@@ -285,6 +285,57 @@ TEST(BinanceStream, ExpectedRowsIsZeroWithoutAnInterval) {
     EXPECT_EQ(stream.stats().rows_parsed, 1u);
 }
 
+// A failed fetch must still pop, or the stream waits on it forever.
+TEST(BinanceStream, FailedFetchUnblocksTheStream) {
+    FakeFetchPool pool;
+    auto          stream = make_kline_stream(pool);
+    stream->plan(daily_keys(), kJan, kFeb);
+
+    MarketEvent event;
+    EXPECT_FALSE(stream->next(event));
+    ASSERT_TRUE(
+        pool.deliver_failure(qp::data_source::source::venue::binance::FetchStatus::NotFound));
+
+    EXPECT_FALSE(stream->next(event));
+    EXPECT_EQ(stream->stats().files_failed, 1u);
+    EXPECT_EQ(stream->stats().files_read, 0u);
+    // The next file was asked for, so the stream moved on.
+    EXPECT_EQ(pool.in_flight(), 1u);
+}
+
+// The rows that file should have held still count, so the loss is visible.
+TEST(BinanceStream, FailedFetchStillCountsExpectedRows) {
+    FakeFetchPool pool;
+    auto          stream = make_kline_stream(pool);
+    stream->plan(daily_keys(), kJan, kFeb);
+
+    MarketEvent event;
+    (void)stream->next(event);
+    ASSERT_TRUE(
+        pool.deliver_failure(qp::data_source::source::venue::binance::FetchStatus::ZipError));
+    (void)stream->next(event);
+
+    EXPECT_EQ(stream->stats().rows_expected, 24);
+    EXPECT_EQ(stream->stats().rows_parsed, 0u);
+}
+
+TEST(BinanceStream, FailedFetchSkipsToTheNextReadableFile) {
+    FakeFetchPool pool;
+    auto          stream = make_kline_stream(pool);
+    stream->plan(daily_keys(), kJan, kFeb);
+
+    MarketEvent event;
+    (void)stream->next(event);
+    ASSERT_TRUE(
+        pool.deliver_failure(qp::data_source::source::venue::binance::FetchStatus::Cancelled));
+    (void)stream->next(event);
+    ASSERT_TRUE(pool.deliver(kTwoRowFile));
+
+    EXPECT_EQ(drain(*stream), 2);
+    EXPECT_EQ(stream->stats().files_failed, 1u);
+    EXPECT_EQ(stream->stats().files_read, 1u);
+}
+
 // The trailing newline must not read as a blank line, or every file scores one.
 TEST(BinanceStream, TrailingNewlineIsNotABlankRow) {
     FakeFetchPool pool;
@@ -329,7 +380,9 @@ TEST(BinanceStream, QueueNeverOverflows) {
     MarketEvent event;
     for (int step = 0; step < 20; ++step) {
         (void)stream->next(event);
-        if (pool.in_flight() > 0) EXPECT_TRUE(pool.deliver(kTwoRowFile)) << "dropped at " << step;
+        if (pool.in_flight() > 0) {
+            EXPECT_TRUE(pool.deliver(kTwoRowFile)) << "dropped at " << step;
+        }
     }
 }
 
