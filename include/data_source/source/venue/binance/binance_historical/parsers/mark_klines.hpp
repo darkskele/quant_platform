@@ -1,6 +1,7 @@
 #pragma once
 #include <string_view>
 
+#include "endpoints.hpp"
 #include "kline_row.hpp"
 #include "types.hpp"
 
@@ -22,5 +23,17 @@ inline bool parse_mark_klines_row(std::string_view row, Timestamp& ts,
                               .close      = fields.close};
     return true;
 }
+
+struct MarkPriceKlineParser {
+    using Event = MarkPriceKlineEvent;
+
+    static constexpr EventKind    event_kind    = EventKind::MarkPriceKline;
+    static constexpr EndpointKind endpoint_kind = EndpointKind::MarkPriceKlines;
+    static constexpr bool         intervalled   = true;
+
+    static bool parse(std::string_view row, Timestamp& ts, Event& out) noexcept {
+        return parse_mark_klines_row(row, ts, out);
+    }
+};
 
 }  // namespace qp::data_source::source::venue::binance::parsers

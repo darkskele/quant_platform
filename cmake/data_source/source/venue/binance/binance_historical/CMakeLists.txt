@@ -14,13 +14,15 @@ if(BUILD_TESTING)
     add_executable(qp_binance_historical_tests
         ${QP_TESTS}/test_endpoints.cpp
         ${QP_TESTS}/test_listing.cpp
+        ${QP_TESTS}/test_stream.cpp
         ${QP_TESTS}/parsers/test_csv_field.cpp
         ${QP_TESTS}/parsers/test_funding.cpp
         ${QP_TESTS}/parsers/test_klines.cpp
         ${QP_TESTS}/parsers/test_price_klines.cpp
     )
     target_link_libraries(qp_binance_historical_tests
-        PRIVATE qp_binance_historical qp_network_http GTest::gtest GTest::gtest_main
+        PRIVATE qp_binance_historical qp_network_http qp_core_test_support
+                GTest::gtest GTest::gtest_main
     )
     qp_register_test(qp_binance_historical_tests)
 endif()

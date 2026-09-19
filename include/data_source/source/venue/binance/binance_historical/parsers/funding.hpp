@@ -2,6 +2,7 @@
 #include <string_view>
 
 #include "csv_field.hpp"
+#include "endpoints.hpp"
 #include "types.hpp"
 
 namespace qp::data_source::source::venue::binance::parsers {
@@ -23,5 +24,17 @@ inline bool parse_funding_row(std::string_view row, Timestamp& ts, FundingEvent&
                        .interval_hours = static_cast<std::int32_t>(interval_hours)};
     return true;
 }
+
+struct FundingParser {
+    using Event = FundingEvent;
+
+    static constexpr EventKind    event_kind    = EventKind::Funding;
+    static constexpr EndpointKind endpoint_kind = EndpointKind::FundingRate;
+    static constexpr bool         intervalled   = false;
+
+    static bool parse(std::string_view row, Timestamp& ts, Event& out) noexcept {
+        return parse_funding_row(row, ts, out);
+    }
+};
 
 }  // namespace qp::data_source::source::venue::binance::parsers
