@@ -15,7 +15,9 @@ if(BUILD_TESTING)
         ${QP_TESTS}/test_endpoints.cpp
         ${QP_TESTS}/test_listing.cpp
         ${QP_TESTS}/parsers/test_csv_field.cpp
+        ${QP_TESTS}/parsers/test_funding.cpp
         ${QP_TESTS}/parsers/test_klines.cpp
+        ${QP_TESTS}/parsers/test_price_klines.cpp
     )
     target_link_libraries(qp_binance_historical_tests
         PRIVATE qp_binance_historical qp_network_http GTest::gtest GTest::gtest_main

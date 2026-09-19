@@ -48,7 +48,8 @@ struct TradeEvent {
 };
 
 struct FundingEvent {
-    double funding_rate{};
+    double       funding_rate{};
+    std::int32_t interval_hours{8};
 };
 
 struct KlineEvent {

@@ -78,6 +78,25 @@ inline bool take_decimal(std::string_view& row, double& out) noexcept {
     return true;
 }
 
+inline bool take_integer(std::string_view& row, std::int64_t& out) noexcept {
+    const char* const begin = row.data();
+    const char* const end   = begin + row.size();
+    const char*       p     = begin;
+
+    bool negative = false;
+    if (p != end && (*p == '-' || *p == '+')) negative = (*p++ == '-');
+
+    std::int64_t value  = 0;
+    int          digits = 0;
+    for (; p != end && is_digit(*p); ++p, ++digits) value = value * 10 + (*p - '0');
+
+    if (digits == 0 || digits > kMaxMantissaDigits || (p != end && *p != ',')) return false;
+
+    out = negative ? -value : value;
+    row.remove_prefix(p == end ? row.size() : static_cast<std::size_t>(p - begin) + 1);
+    return true;
+}
+
 inline bool take_stamp(std::string_view& row, Timestamp& out) noexcept {
     const char* const begin = row.data();
     const char* const end   = begin + row.size();
