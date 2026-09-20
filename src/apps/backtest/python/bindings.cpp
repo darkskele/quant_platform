@@ -6,8 +6,9 @@
 #include <string>
 #include <vector>
 
+#include "endpoints.hpp"
 #include "matcher/last_trade/last_trade_matcher.hpp"
-#include "python/python_backtest.hpp"
+#include "python/python_binance_historical_backtest.hpp"
 #include "types.hpp"
 
 namespace py = pybind11;
@@ -15,7 +16,8 @@ namespace py = pybind11;
 namespace {
 
 using Matcher        = qp::execution::sim::matcher::last_trade::LastTradeMatcher;
-using PythonBacktest = qp::backtest::python::PythonBacktest<Matcher>;
+using PythonBacktest = qp::backtest::python::PythonBinanceHistoricalBacktest<Matcher>;
+namespace binance    = qp::data_source::source::venue::binance;
 using Results        = PythonBacktest::Results;
 using EquityPoint    = qp::engine::EquityPoint;
 
@@ -159,14 +161,84 @@ PYBIND11_MODULE(qp_python_backtest, m) {
             return std::vector<EquityPoint>(r.equity_series.begin(), r.equity_series.end());
         });
 
+    py::enum_<binance::EndpointKind>(m, "EndpointKind")
+        .value("Klines", binance::EndpointKind::Klines)
+        .value("MarkPriceKlines", binance::EndpointKind::MarkPriceKlines)
+        .value("PremiumIndexKlines", binance::EndpointKind::PremiumIndexKlines)
+        .value("FundingRate", binance::EndpointKind::FundingRate);
+
+    py::enum_<binance::Cadence>(m, "Cadence")
+        .value("Daily", binance::Cadence::Daily)
+        .value("Monthly", binance::Cadence::Monthly);
+
+    py::enum_<binance::BinanceMarket>(m, "BinanceMarket")
+        .value("Spot", binance::BinanceMarket::Spot)
+        .value("UsdM", binance::BinanceMarket::UsdM)
+        .value("CoinM", binance::BinanceMarket::CoinM);
+
+    py::class_<binance::StreamSpec>(m, "StreamSpec")
+        .def(py::init([](binance::EndpointKind kind, std::string interval) {
+                 return binance::StreamSpec{kind, std::move(interval)};
+             }),
+             py::arg("kind"), py::arg("interval") = std::string{})
+        .def_readwrite("kind", &binance::StreamSpec::kind)
+        .def_readwrite("interval", &binance::StreamSpec::interval);
+
+    py::class_<binance::GapStats>(m, "GapStats")
+        .def_readonly("files_planned", &binance::GapStats::files_planned)
+        .def_readonly("files_read", &binance::GapStats::files_read)
+        .def_readonly("files_failed", &binance::GapStats::files_failed)
+        .def_readonly("header_rows", &binance::GapStats::header_rows)
+        .def_readonly("blank_rows", &binance::GapStats::blank_rows)
+        .def_readonly("rows_expected", &binance::GapStats::rows_expected)
+        .def_readonly("rows_parsed", &binance::GapStats::rows_parsed)
+        .def_readonly("rows_rejected", &binance::GapStats::rows_rejected)
+        .def_readonly("backwards_stamps", &binance::GapStats::backwards_stamps);
+
+    py::class_<binance::StreamReport>(m, "StreamReport")
+        .def_readonly("market", &binance::StreamReport::market)
+        .def_readonly("symbol", &binance::StreamReport::symbol)
+        .def_readonly("kind", &binance::StreamReport::kind)
+        .def_readonly("interval", &binance::StreamReport::interval)
+        .def_readonly("stats", &binance::StreamReport::stats);
+
+    py::class_<binance::FetchPoolStats>(m, "FetchPoolStats")
+        .def_readonly("submitted", &binance::FetchPoolStats::submitted)
+        .def_readonly("completed_ok", &binance::FetchPoolStats::completed_ok)
+        .def_readonly("completed_failed", &binance::FetchPoolStats::completed_failed)
+        .def_readonly("not_found", &binance::FetchPoolStats::not_found)
+        .def_readonly("retries", &binance::FetchPoolStats::retries)
+        .def_readonly("bytes_fetched", &binance::FetchPoolStats::bytes_fetched)
+        .def_readonly("bytes_inflated", &binance::FetchPoolStats::bytes_inflated);
+
+    py::class_<binance::HttpFetchPoolConfig>(m, "FetchPoolConfig")
+        .def(py::init<>())
+        .def_readwrite("workers", &binance::HttpFetchPoolConfig::workers)
+        .def_readwrite("max_retries", &binance::HttpFetchPoolConfig::max_retries);
+
+    py::class_<PythonBacktest::Config>(m, "BinanceHistoricalConfig")
+        .def(py::init([](std::vector<binance::StreamSpec> streams, binance::Cadence cadence,
+                         qp::Timestamp from, qp::Timestamp to, binance::HttpFetchPoolConfig pool) {
+                 return PythonBacktest::Config{std::move(streams), pool, cadence, from, to};
+             }),
+             py::arg("streams"), py::arg("cadence") = binance::Cadence::Monthly,
+             py::arg("from_ns") = 0, py::arg("to_ns") = 0,
+             py::arg("pool") = binance::HttpFetchPoolConfig{});
+
     py::class_<PythonBacktest>(m, "PythonBacktest")
-        .def(py::init([](qp::Subscription subscription) {
-                 return PythonBacktest(
-                     std::move(subscription),
+        .def(py::init([](qp::Subscription subscription, PythonBacktest::Config config) {
+                 return std::make_unique<PythonBacktest>(
+                     std::move(subscription), std::move(config),
                      [](qp::Portfolio& book, const qp::Subscription&) { return Matcher{book}; });
              }),
-             py::arg("subscription"))
-        .def("run", &PythonBacktest::run)
+             py::arg("subscription"), py::arg("config"))
+        .def("plan", &PythonBacktest::plan, py::call_guard<py::gil_scoped_release>())
+        .def("stream_count", &PythonBacktest::stream_count)
+        .def("reports", &PythonBacktest::reports)
+        .def("fetch_stats", &PythonBacktest::fetch_stats)
+        // The engine and source threads call back into Python and take
+        // the GIL themselves, so holding it here would deadlock them.
+        .def("run", &PythonBacktest::run, py::call_guard<py::gil_scoped_release>())
         .def("set_on_event", &PythonBacktest::set_on_event, py::arg("cb"))
         .def("set_on_timer", &PythonBacktest::set_on_timer, py::arg("cb"))
         .def("set_check", &PythonBacktest::set_check, py::arg("cb"))

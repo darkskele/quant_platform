@@ -6,6 +6,7 @@
 #include <string>
 #include <string_view>
 #include <thread>
+#include <vector>
 
 #include "endpoints.hpp"
 #include "http_fetch_pool.hpp"
@@ -241,6 +242,39 @@ TEST(HttpFetchPool, ConnectionCapKeepsUpWithWorkers) {
     binance::FetchedFile file;
     ASSERT_TRUE(await(queue, file));
     EXPECT_EQ(file.status, FetchStatus::Ok);
+}
+
+// Every worker pops the shared task queue, whose pop is single consumer only.
+// Two workers claiming the same slot moved out of it twice and destroyed it
+// twice, which only a sanitizer sees. A bad url fails without touching the
+// network, so this stays fast while still hammering the claim path.
+TEST(HttpFetchPool, ConcurrentWorkersEachClaimATaskExactlyOnce) {
+    constexpr std::size_t kTasks = 256;
+
+    std::vector<std::unique_ptr<FileQueue>> queues;
+    queues.reserve(kTasks);
+    for (std::size_t i = 0; i < kTasks; ++i) queues.push_back(std::make_unique<FileQueue>());
+
+    HttpFetchPoolConfig config;
+    config.workers     = 16;
+    config.max_retries = 0;
+
+    HttpFetchPool pool(config);
+    for (std::size_t i = 0; i < kTasks; ++i)
+        ASSERT_TRUE(pool.submit("not-a-url-" + std::to_string(i), queues[i].get()));
+
+    // One delivery per destination, never two and never none.
+    for (auto& queue : queues) {
+        binance::FetchedFile file;
+        ASSERT_TRUE(await(*queue, file, std::chrono::seconds{30}));
+        EXPECT_EQ(file.status, FetchStatus::TransportError);
+        EXPECT_FALSE(queue->pop().has_value());
+    }
+
+    const auto stats = pool.stats();
+    EXPECT_EQ(stats.submitted, kTasks);
+    EXPECT_EQ(stats.completed_ok + stats.completed_failed, kTasks);
+    EXPECT_EQ(stats.queued, 0u);
 }
 
 // A window of failures raises the alarm once, not per failure.

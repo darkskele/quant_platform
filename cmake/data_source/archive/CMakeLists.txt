@@ -14,6 +14,8 @@ else()
 endif()
 
 add_library(qp_archive_zip STATIC ${QP_SRC}/zip.cpp)
+# Linked into the python module, which is a shared object.
+set_target_properties(qp_archive_zip PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(qp_archive_zip PUBLIC ${QP_INC})
 target_link_libraries(qp_archive_zip PRIVATE libzip::zip)
 

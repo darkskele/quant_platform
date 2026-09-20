@@ -12,7 +12,6 @@
 #include "backtest_base.hpp"
 #include "backtest_in_process_transport.hpp"
 #include "engine.hpp"
-#include "eof_source.hpp"
 #include "fanout_sink.hpp"
 #include "python_risk_gate.hpp"
 #include "python_strategy.hpp"
@@ -24,26 +23,23 @@
 namespace qp::backtest::python {
 
 inline constexpr std::size_t kRingCapacity = 1024;
-inline constexpr std::size_t kNumLegs      = 2;
 
-// @todo sources() is an EofSource stub until binary+zstd BinanceHistoricalSource lands.
-template <class Matcher>
-class PythonBacktest : public BacktestBase<PythonBacktest<Matcher>> {
+/// Everything a python backtest needs except where its events come from. A
+/// variant derives from this and supplies sources().
+///
+/// @tparam Derived the concrete variant, which owns its sources.
+/// @tparam Matcher the fill model.
+template <class Derived, class Matcher>
+class PythonBacktestBase : public BacktestBase<Derived> {
    public:
     using Recorder    = engine::EquitySeriesRecorder;
     using Risk        = risk::python::PythonRiskGate<>;
     using Strategy    = strategy::python::PythonStrategy<>;
     using Exec        = execution::sim::SimExecution<Matcher>;
     using Sink        = data_source::sink::fanout::FanoutSink<kRingCapacity, 1>;
-    using Tx          = engine::transport::BacktestInProcessTransport<kRingCapacity, kNumLegs>;
+    using Tx          = engine::transport::BacktestInProcessTransport<kRingCapacity, 1>;
     using EngineT     = engine::Engine<Tx, Exec, Risk, Strategy, Recorder>;
     using MakeMatcher = std::function<Matcher(Portfolio&, const Subscription&)>;
-
-    PythonBacktest(Subscription subscription, MakeMatcher make_matcher)
-        : subscription_(std::move(subscription)),
-          instruments_(all_instruments(subscription_)),
-          portfolio_(subscription_),
-          make_matcher_(std::move(make_matcher)) {}
 
     void set_on_event(pybind11::object cb) { on_event_ = std::move(cb); }
 
@@ -77,16 +73,15 @@ class PythonBacktest : public BacktestBase<PythonBacktest<Matcher>> {
         return portfolio_.mark(exchange, market, symbol);
     }
 
-    auto sources() {
-        return std::tuple<data_source::source::EofSource, data_source::source::EofSource>{};
-    }
-
-    std::tuple<Sink, Sink>& sinks() { return sinks_; }
+    std::tuple<Sink>& sinks() { return sinks_; }
 
     EngineT make_engine() {
+        // run() releases the GIL for the threaded section, but building the
+        // engine copies python objects into the strategy and the risk gate,
+        // which is a refcount touch and needs it held.
+        pybind11::gil_scoped_acquire gil;
         equity_collector_.start();
-        Tx   transport({&std::get<0>(sinks_).queue(), &std::get<1>(sinks_).queue()}, {0, 0},
-                       timer_period_ns_);
+        Tx   transport({&std::get<0>(sinks_).queue()}, {0}, timer_period_ns_);
         Exec exec{portfolio_, make_matcher_(portfolio_, subscription_)};
         return EngineT{
             std::move(transport),
@@ -133,6 +128,15 @@ class PythonBacktest : public BacktestBase<PythonBacktest<Matcher>> {
 
     const Subscription& subscription() const { return subscription_; }
 
+   protected:
+    /// Protected, so the base cannot be built on its own. A variant has to
+    /// exist to supply sources().
+    PythonBacktestBase(Subscription subscription, MakeMatcher make_matcher)
+        : subscription_(std::move(subscription)),
+          instruments_(all_instruments(subscription_)),
+          portfolio_(subscription_),
+          make_matcher_(std::move(make_matcher)) {}
+
    private:
     static std::vector<Subscription::Instrument> all_instruments(const Subscription& sub) {
         std::vector<Subscription::Instrument> out;
@@ -147,7 +151,7 @@ class PythonBacktest : public BacktestBase<PythonBacktest<Matcher>> {
 
     Subscription                          subscription_;
     std::vector<Subscription::Instrument> instruments_;
-    std::tuple<Sink, Sink>                sinks_;
+    std::tuple<Sink>                      sinks_;
     Portfolio                             portfolio_;
     pybind11::object                      on_event_{pybind11::none()};
     pybind11::object                      on_timer_{pybind11::none()};

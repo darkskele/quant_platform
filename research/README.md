@@ -1,6 +1,8 @@
 # Research log
 
-What we are testing, what we ran, what we found. One entry per hypothesis, newest first. Notebooks are the scratch; this is the memory. A result here is load-bearing only once its costs are honest (see the open caveat under Funding carry).
+What we are testing, what we ran, what we found. One entry per hypothesis, newest first. Notebooks are the scratch, this is the memory.
+
+`GATE.md` is the bar. A result is load-bearing only once it passes, and nothing goes live until it passes in full. Every entry from here on carries its gate status, and a number with no stamp is a probe, not a finding.
 
 ## How to run
 - Env: `conda env create -f environment.yml` then select the `qp-research` kernel.
@@ -39,8 +41,8 @@ Lanes are git worktrees, one per chat. Main is carry. `alpha-research` is trend.
 
 Delta-neutral: spot long + futures short, harvest funding while it is persistently positive.
 
-### Open caveat (gates every result below)
-Sharpe numbers here are cost-blind: no fees, no funding paid on the short leg, no slippage in `SimExecution`. Treat every figure as an upper bound until execution costs are honest. This is the next build.
+### Open caveat, gate fail L4 (gates every result below)
+Sharpe numbers here are cost-blind. No fees, no funding paid on the short leg, no slippage in `SimExecution`. Treat every figure as an upper bound until execution costs are honest. This is the next build.
 
 ### Pooled vs per-symbol, funding_signal 1-row purge (2026-09-07) - pooling wins decisively, signal-notebook read stands
 

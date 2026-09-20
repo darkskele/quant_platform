@@ -12,7 +12,7 @@
 
 #include "client.hpp"
 #include "fetch_pool.hpp"
-#include "mpsc_queue.hpp"
+#include "work_queue.hpp"
 
 namespace qp::data_source::source::venue::binance {
 
@@ -123,8 +123,8 @@ class HttpFetchPool {
     HttpFetchPoolConfig   config_;
     std::function<void()> on_critical_;
 
-    MpscQueue<Task, kTaskCapacity> tasks_;
-    std::vector<std::thread>       workers_;
+    WorkQueue<Task, kTaskCapacity, /*UseHeap=*/true> tasks_;
+    std::vector<std::thread>                         workers_;
 
     mutable std::mutex      wake_mutex_;
     std::condition_variable wake_;

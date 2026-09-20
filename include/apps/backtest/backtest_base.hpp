@@ -40,11 +40,15 @@ class BacktestBase {
                 control.request_stop();
             }
         });
+        // Stop on an engine error too. Without it the source keeps pushing
+        // into a sink nobody drains, blocks on a full queue, and the join
+        // below never returns, so the error is never seen.
         std::thread engine_thread([&] {
             try {
                 engine.run(control, engine_consumer, std::chrono::microseconds::zero());
             } catch (...) {
                 engine_error = std::current_exception();
+                control.request_stop();
             }
         });
 
@@ -57,6 +61,11 @@ class BacktestBase {
         if (engine_error) std::rethrow_exception(engine_error);
         return self.results();
     }
+
+   protected:
+    /// Only a variant can build one. On its own it has no sources, no sinks and
+    /// no engine to run.
+    BacktestBase() = default;
 };
 
 }  // namespace qp::backtest
