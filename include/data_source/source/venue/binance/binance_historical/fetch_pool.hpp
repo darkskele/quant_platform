@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include "spsc_queue.hpp"
+#include "slot_ring.hpp"
 
 namespace qp::data_source::source::venue::binance {
 
@@ -28,18 +28,16 @@ struct FetchedFile {
     FetchStatus            status{FetchStatus::Ok};
 };
 
-/// Files in flight per stream. One fetch is ever outstanding, so this only
-/// needs headroom for what the reader has not drained yet.
-inline constexpr std::size_t kFileQueueCapacity = 4;
+/// Files in flight per stream.
+inline constexpr std::size_t kFileSlotCount = 8;
 
-using FileQueue = SpscQueue<FetchedFile, kFileQueueCapacity>;
+using FileSlots = SlotRing<FetchedFile, kFileSlotCount>;
 
-/// Runs GETs off the calling thread and drops each decompressed file into the
-/// queue the caller names. False from submit means saturated, try again later.
-/// quiesce stops the workers, so whoever owns the queues can outlive them.
+/// Runs GETs off the calling thread and places each decompressed file at the
+/// position the caller names.
 template <class T>
-concept FetchPool = requires(T& pool, std::string url, FileQueue* destination) {
-    { pool.submit(std::move(url), destination) } -> std::same_as<bool>;
+concept FetchPool = requires(T& pool, std::string url, FileSlots* destination, std::size_t at) {
+    { pool.submit(std::move(url), destination, at) } -> std::same_as<bool>;
     { pool.quiesce() };
 };
 

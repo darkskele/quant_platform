@@ -37,7 +37,7 @@ HttpFetchPool::HttpFetchPool(HttpFetchPoolConfig config, std::function<void()> o
 
 HttpFetchPool::~HttpFetchPool() { quiesce(); }
 
-bool HttpFetchPool::submit(std::string url, FileQueue* destination) {
+bool HttpFetchPool::submit(std::string url, FileSlots* destination, std::size_t at) {
     // Marks this submit in progress before testing the flag, so quiesce cannot
     // drain between the test and the push.
     submits_active_.fetch_add(1, std::memory_order_acquire);
@@ -50,7 +50,7 @@ bool HttpFetchPool::submit(std::string url, FileQueue* destination) {
 
     if (stopping_.load(std::memory_order_acquire)) return false;
 
-    if (!tasks_.push(Task{std::move(url), destination})) {
+    if (!tasks_.push(Task{std::move(url), destination, at})) {
         refused_.fetch_add(1, std::memory_order_relaxed);
         return false;
     }
@@ -85,26 +85,17 @@ void HttpFetchPool::quiesce() {
     // Let any submit that read stopping_ as false finish its push first.
     while (submits_active_.load(std::memory_order_acquire) > 0) std::this_thread::yield();
 
-    // Anything the workers never reached still has a stream waiting on it.
-    // deliver() gives up as soon as stopping_ is set, so the cancellation is
-    // pushed here instead, bounded. A stream nobody drains must not hang the
-    // shutdown, so a ring that stays full is counted rather than waited on.
+    // Anything the workers never reached still has a stream waiting on it, so
+    // the cancellation is placed here instead. The slot was reserved when the
+    // task was submitted, so this cannot block and cannot be refused.
     while (auto task = tasks_.try_pop()) {
         queued_.fetch_sub(1, std::memory_order_release);
         cancelled_.fetch_add(1, std::memory_order_relaxed);
         completed_failed_.fetch_add(1, std::memory_order_relaxed);
         if (task->destination == nullptr) continue;
 
-        FetchedFile file{{}, FetchStatus::Cancelled};
-        bool        pushed = false;
-        for (std::size_t attempt = 0; attempt < kCancelPushAttempts; ++attempt) {
-            if (task->destination->push(std::move(file))) {
-                pushed = true;
-                break;
-            }
-            std::this_thread::sleep_for(std::chrono::milliseconds{1});
-        }
-        if (!pushed) cancellations_dropped_.fetch_add(1, std::memory_order_relaxed);
+        if (!task->destination->place(task->at, FetchedFile{{}, FetchStatus::Cancelled}))
+            cancellations_dropped_.fetch_add(1, std::memory_order_relaxed);
     }
 
     quiesced_ = true;
@@ -210,17 +201,15 @@ void HttpFetchPool::run_task(Task& task, std::size_t index) {
     started_at_[index].store(0, std::memory_order_release);
     in_flight_.fetch_sub(1, std::memory_order_release);
 
-    deliver(task.destination, std::move(result));
+    deliver(task, std::move(result));
 }
 
-void HttpFetchPool::deliver(FileQueue* destination, FetchedFile file) {
-    if (destination == nullptr) return;
-    // The stream leaves a slot free for the fetch it asked for, so this only
-    // spins if that invariant broke.
-    while (!destination->push(std::move(file))) {
-        if (stopping_.load(std::memory_order_acquire)) return;
-        std::this_thread::sleep_for(std::chrono::milliseconds{1});
-    }
+void HttpFetchPool::deliver(const Task& task, FetchedFile file) {
+    if (task.destination == nullptr) return;
+    // The slot belongs to this task alone and was reserved before the fetch
+    // started, so a refusal means the caller reused a position.
+    if (!task.destination->place(task.at, std::move(file)))
+        cancellations_dropped_.fetch_add(1, std::memory_order_relaxed);
 }
 
 void HttpFetchPool::note_completion(bool failed) {

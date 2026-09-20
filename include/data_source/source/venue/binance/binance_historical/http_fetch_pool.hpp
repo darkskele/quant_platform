@@ -19,7 +19,7 @@ namespace qp::data_source::source::venue::binance {
 struct HttpFetchPoolConfig {
     /// Concurrency ceiling. Blocking calls, so this is how many fetches can be
     /// in flight at once.
-    std::size_t workers = 8;
+    std::size_t workers = 32;
 
     std::size_t               max_retries = 3;
     std::chrono::milliseconds backoff_base{200};
@@ -49,8 +49,8 @@ struct FetchPoolStats {
     std::size_t zip_error{};
     std::size_t cancelled{};
 
-    /// Cancellations that could not be pushed because the stream's ring stayed
-    /// full. Nonzero means a stream was abandoned mid run.
+    /// Cancellations that found their slot still occupied. A stream reserves a
+    /// slot before it submits, so nonzero means that invariant broke.
     std::size_t cancellations_dropped{};
 
     std::size_t queued{};
@@ -90,7 +90,7 @@ class HttpFetchPool {
     ~HttpFetchPool();
 
     /// False when stopping or when the task queue is full.
-    bool submit(std::string url, FileQueue* destination);
+    bool submit(std::string url, FileSlots* destination, std::size_t at);
 
     /// Stops accepting, fails every task still queued or in flight so no stream
     /// is left waiting, joins the workers and drops the connections. The object
@@ -104,18 +104,16 @@ class HttpFetchPool {
     static constexpr std::size_t kTaskCapacity    = 2048;
     static constexpr std::size_t kFailureRingSize = 32;
 
-    /// Bounded, so a stream nobody drains cannot hang the shutdown.
-    static constexpr std::size_t kCancelPushAttempts = 200;
-
     struct Task {
         std::string url;
-        FileQueue*  destination{};
+        FileSlots*  destination{};
+        std::size_t at{};
     };
 
     void worker_loop(std::size_t index);
     bool take_task(Task& out);
     void run_task(Task& task, std::size_t index);
-    void deliver(FileQueue* destination, FetchedFile file);
+    void deliver(const Task& task, FetchedFile file);
     void record_failure(const Task& task, FetchStatus status, const std::string& detail,
                         std::size_t attempts);
     void note_completion(bool failed);

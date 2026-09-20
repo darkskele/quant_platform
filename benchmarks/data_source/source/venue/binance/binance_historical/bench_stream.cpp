@@ -32,10 +32,10 @@ class InstantPool {
    public:
     explicit InstantPool(const std::string& body) : body_(&body) {}
 
-    bool submit(std::string, FileQueue* destination) {
+    bool submit(std::string, FileSlots* destination, std::size_t at) {
         const auto* bytes = reinterpret_cast<const std::byte*>(body_->data());
-        return destination->push(
-            FetchedFile{std::vector<std::byte>(bytes, bytes + body_->size()), FetchStatus::Ok});
+        return destination->place(
+            at, FetchedFile{std::vector<std::byte>(bytes, bytes + body_->size()), FetchStatus::Ok});
     }
 
     void quiesce() noexcept {}
@@ -47,7 +47,7 @@ class InstantPool {
 /// Always saturated, so the stream keeps asking and never gets anything.
 class RefusingPool {
    public:
-    bool submit(std::string, FileQueue*) { return false; }
+    bool submit(std::string, FileSlots*, std::size_t) { return false; }
 
     void quiesce() noexcept {}
 };
@@ -56,7 +56,7 @@ class RefusingPool {
 /// This is what most of a sweep looks like once the pool is busy.
 class SilentPool {
    public:
-    bool submit(std::string, FileQueue*) { return true; }
+    bool submit(std::string, FileSlots*, std::size_t) { return true; }
 
     void quiesce() noexcept {}
 };

@@ -15,7 +15,7 @@ namespace qp::testing {
 /// through a whole fetch cycle on one thread.
 class FakeFetchPool {
    public:
-    using FileQueue   = data_source::source::venue::binance::FileQueue;
+    using FileSlots   = data_source::source::venue::binance::FileSlots;
     using FetchedFile = data_source::source::venue::binance::FetchedFile;
     using FetchStatus = data_source::source::venue::binance::FetchStatus;
 
@@ -24,15 +24,14 @@ class FakeFetchPool {
     /// Takes the real pool's config so a source can own either one.
     explicit FakeFetchPool(const data_source::source::venue::binance::HttpFetchPoolConfig&) {}
 
-    bool submit(std::string url, FileQueue* destination) {
+    bool submit(std::string url, FileSlots* destination, std::size_t at) {
         if (saturated_) return false;
         submitted_.push_back(url);
-        pending_.push_back({std::move(url), destination});
+        pending_.push_back({std::move(url), destination, at});
         return true;
     }
 
-    /// Completes the oldest submission with body. False when none is waiting or
-    /// when the destination ring was full, which is a dropped file.
+    /// Completes the oldest submission with body. False when none is waiting.
     bool deliver(std::string_view body) {
         const auto* bytes = reinterpret_cast<const std::byte*>(body.data());
         return complete(
@@ -41,6 +40,18 @@ class FakeFetchPool {
 
     /// Completes the oldest submission as a failure, body empty.
     bool deliver_failure(FetchStatus status) { return complete(FetchedFile{{}, status}); }
+
+    /// Completes the newest submission instead, so a stream can be shown
+    /// reading in plan order while fetches finish out of it.
+    bool deliver_newest(std::string_view body) {
+        if (pending_.empty()) return false;
+        auto request = std::move(pending_.back());
+        pending_.pop_back();
+        const auto* bytes = reinterpret_cast<const std::byte*>(body.data());
+        return request.destination->place(
+            request.at,
+            FetchedFile{std::vector<std::byte>(bytes, bytes + body.size()), FetchStatus::Ok});
+    }
 
     /// Part of the pool seam. Nothing runs off thread here.
     void quiesce() noexcept { saturated_ = true; }
@@ -54,14 +65,15 @@ class FakeFetchPool {
    private:
     struct Request {
         std::string url;
-        FileQueue*  destination;
+        FileSlots*  destination;
+        std::size_t at;
     };
 
     bool complete(FetchedFile file) {
         if (pending_.empty()) return false;
         auto request = std::move(pending_.front());
         pending_.pop_front();
-        return request.destination->push(std::move(file));
+        return request.destination->place(request.at, std::move(file));
     }
 
     std::deque<Request>      pending_;

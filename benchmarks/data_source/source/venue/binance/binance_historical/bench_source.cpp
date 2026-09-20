@@ -30,10 +30,10 @@ class InstantPool {
 
     explicit InstantPool(const HttpFetchPoolConfig&) {}
 
-    bool submit(std::string, FileQueue* destination) {
+    bool submit(std::string, FileSlots* destination, std::size_t at) {
         const auto* bytes = reinterpret_cast<const std::byte*>(body_.data());
-        return destination->push(
-            FetchedFile{std::vector<std::byte>(bytes, bytes + body_.size()), FetchStatus::Ok});
+        return destination->place(
+            at, FetchedFile{std::vector<std::byte>(bytes, bytes + body_.size()), FetchStatus::Ok});
     }
 
     void quiesce() noexcept {}

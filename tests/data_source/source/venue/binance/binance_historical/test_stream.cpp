@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <cstdio>
 #include <memory>
 #include <string>
 #include <vector>
@@ -41,6 +42,36 @@ std::vector<std::string> daily_keys() {
         "data/futures/um/daily/klines/BTCUSDT/1h/BTCUSDT-1h-2024-01-15.zip",
         "data/futures/um/daily/klines/BTCUSDT/1h/BTCUSDT-1h-2024-03-01.zip",
     };
+}
+
+/// `count` consecutive daily keys from 2024-01-01, so a plan can be longer
+/// than the fetch window.
+std::vector<std::string> long_daily_keys(int count) {
+    std::vector<std::string> keys;
+    for (int day = 1; day <= count; ++day) {
+        char stamp[11];
+        std::snprintf(stamp, sizeof(stamp), "2024-01-%02d", day);
+        keys.push_back(std::string("data/futures/um/daily/klines/BTCUSDT/1h/BTCUSDT-1h-") + stamp +
+                       ".zip");
+    }
+    return keys;
+}
+
+/// A two row file whose first bar opens at `open_ms`, so files delivered in any
+/// order still carry ascending stamps when read in plan order.
+std::string two_rows_from(long long open_ms) {
+    std::string out =
+        "open_time,open,high,low,close,volume,close_time,quote_volume,count,taker_buy_volume,"
+        "taker_buy_quote_volume,ignore\n";
+    for (int bar = 0; bar < 2; ++bar) {
+        const long long open = open_ms + bar * 3'600'000LL;
+        out += std::to_string(open);
+        out += ",42000.10,42100.00,41900.00,42050.00,10.5,";
+        // A zero stamp is refused, so the close time has to be a real one.
+        out += std::to_string(open + 3'599'999LL);
+        out += ",0,0,0,0,0\n";
+    }
+    return out;
 }
 
 std::unique_ptr<KlineStream> make_kline_stream(FakeFetchPool& pool) {
@@ -91,38 +122,70 @@ TEST(BinanceStream, NextSchedulesAFetch) {
 
     MarketEvent event;
     EXPECT_FALSE(stream->next(event));
-    EXPECT_EQ(pool.in_flight(), 1u);
+    EXPECT_EQ(pool.in_flight(), 2u) << "both planned files fit the window";
     EXPECT_EQ(pool.submitted().front(),
               "https://data.binance.vision/data/futures/um/daily/klines/BTCUSDT/1h/"
               "BTCUSDT-1h-2024-01-01.zip");
 }
 
-// More than one in flight would let files land out of plan order.
-TEST(BinanceStream, OnlyOneFetchInFlightAtATime) {
+// The window is what bounds concurrency, and one slot is held from the request
+// until the file is read.
+TEST(BinanceStream, FetchWindowFillsAndIsBounded) {
     FakeFetchPool pool;
     auto          stream = make_kline_stream(pool);
-    stream->plan(daily_keys(), kJan, kFeb);
+    stream->plan(long_daily_keys(20), kJan, kFeb);
 
     MarketEvent event;
     EXPECT_FALSE(stream->next(event));
+    EXPECT_EQ(pool.in_flight(), binance::kFileSlotCount);
+
     EXPECT_FALSE(stream->next(event));
     EXPECT_FALSE(stream->next(event));
-    EXPECT_EQ(pool.in_flight(), 1u);
+    EXPECT_EQ(pool.in_flight(), binance::kFileSlotCount) << "the window did not hold";
+    EXPECT_EQ(pool.submitted().size(), binance::kFileSlotCount);
 }
 
-// The next fetch goes out as soon as the file lands, not when it is drained.
-TEST(BinanceStream, DeliveryReleasesTheNextFetch) {
+// A slot frees on the read, not on the delivery, so that is when the next
+// request goes out.
+TEST(BinanceStream, ReadingAFileReleasesTheNextFetch) {
     FakeFetchPool pool;
     auto          stream = make_kline_stream(pool);
-    stream->plan(daily_keys(), kJan, kFeb);
+    stream->plan(long_daily_keys(20), kJan, kFeb);
 
     MarketEvent event;
     EXPECT_FALSE(stream->next(event));
-    ASSERT_TRUE(pool.deliver(kTwoRowFile));
+    ASSERT_TRUE(pool.deliver(two_rows_from(1704067200000LL)));
+    EXPECT_EQ(pool.submitted().size(), binance::kFileSlotCount) << "delivery is not a read";
 
     ASSERT_TRUE(stream->next(event));
-    EXPECT_EQ(pool.in_flight(), 1u);
-    EXPECT_EQ(pool.submitted().size(), 2u);
+    EXPECT_EQ(pool.submitted().size(), binance::kFileSlotCount + 1);
+}
+
+// The whole point of addressing slots by position. Fetches finish backwards and
+// the reader still sees plan order.
+TEST(BinanceStream, OutOfOrderCompletionsAreReadInPlanOrder) {
+    FakeFetchPool pool;
+    auto          stream = make_kline_stream(pool);
+    stream->plan(long_daily_keys(3), kJan, kFeb);
+
+    MarketEvent event;
+    EXPECT_FALSE(stream->next(event));
+    ASSERT_EQ(pool.in_flight(), 3u);
+
+    // Newest first, so position 2 lands, then 1, then 0.
+    ASSERT_TRUE(pool.deliver_newest(two_rows_from(1704240000000LL)));
+    ASSERT_TRUE(pool.deliver_newest(two_rows_from(1704153600000LL)));
+    EXPECT_FALSE(stream->next(event)) << "position 0 is still missing";
+
+    ASSERT_TRUE(pool.deliver(two_rows_from(1704067200000LL)));
+
+    std::vector<qp::Timestamp> seen;
+    while (stream->next(event)) seen.push_back(event.base.ts);
+
+    ASSERT_EQ(seen.size(), 6u);
+    for (std::size_t i = 1; i < seen.size(); ++i) EXPECT_LT(seen[i - 1], seen[i]);
+    EXPECT_EQ(stream->stats().backwards_stamps, 0u);
+    EXPECT_EQ(stream->stats().files_read, 3u);
 }
 
 // A saturated pool is a retry, not a lost file.
@@ -138,7 +201,7 @@ TEST(BinanceStream, SaturatedPoolIsRetried) {
 
     pool.saturate(false);
     EXPECT_FALSE(stream->next(event));
-    EXPECT_EQ(pool.in_flight(), 1u);
+    EXPECT_EQ(pool.in_flight(), 2u);
 }
 
 TEST(BinanceStream, ParsesDeliveredFileIntoEvents) {
@@ -370,18 +433,20 @@ TEST(BinanceStream, BlankLinesAreCounted) {
     EXPECT_EQ(stream->stats().rows_rejected, 0u);
 }
 
-// Driving next() without draining lets files pile up, so the gate has to leave
-// a slot free or a delivery lands on a full ring and the file is lost.
-TEST(BinanceStream, QueueNeverOverflows) {
+// Driving next() without draining lets files pile up, so the window has to stop
+// asking or a delivery lands on a slot still holding an unread file.
+TEST(BinanceStream, SlotsNeverOverflow) {
     FakeFetchPool pool;
     auto          stream = make_kline_stream(pool);
-    stream->plan(daily_keys(), kJan, kFeb);
+    stream->plan(long_daily_keys(20), kJan, kFeb);
 
     MarketEvent event;
-    for (int step = 0; step < 20; ++step) {
+    long long   open_ms = 1704067200000LL;
+    for (int step = 0; step < 40; ++step) {
         (void)stream->next(event);
-        if (pool.in_flight() > 0) {
-            EXPECT_TRUE(pool.deliver(kTwoRowFile)) << "dropped at " << step;
+        while (pool.in_flight() > 0) {
+            EXPECT_TRUE(pool.deliver(two_rows_from(open_ms))) << "dropped at " << step;
+            open_ms += 86'400'000LL;
         }
     }
 }

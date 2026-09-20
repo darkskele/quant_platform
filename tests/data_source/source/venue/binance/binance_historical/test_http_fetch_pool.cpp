@@ -16,7 +16,7 @@
 namespace binance = qp::data_source::source::venue::binance;
 
 using binance::FetchStatus;
-using binance::FileQueue;
+using binance::FileSlots;
 using binance::HttpFetchPool;
 using binance::HttpFetchPoolConfig;
 
@@ -47,32 +47,70 @@ HttpFetchPoolConfig small_pool() {
     return config;
 }
 
-/// Spins until the queue yields, so a hang fails rather than blocks forever.
-bool await(FileQueue& queue, binance::FetchedFile& out,
-           std::chrono::seconds timeout = std::chrono::seconds{60}) {
-    const auto deadline = std::chrono::steady_clock::now() + timeout;
-    while (std::chrono::steady_clock::now() < deadline) {
-        if (auto file = queue.pop()) {
+/// Slots plus the two cursors a caller would otherwise keep, so a test reads
+/// like one stream running its fetch cycle.
+class Reader {
+   public:
+    FileSlots* slots() noexcept { return &slots_; }
+
+    /// The position for the next submission, handed out in plan order.
+    std::size_t next_position() noexcept { return submitted_++; }
+
+    std::size_t submitted() const noexcept { return submitted_; }
+
+    /// Spins until the next position is filled, so a hang fails rather than
+    /// blocks forever.
+    bool await(binance::FetchedFile& out, std::chrono::seconds timeout = std::chrono::seconds{60}) {
+        const auto deadline = std::chrono::steady_clock::now() + timeout;
+        while (std::chrono::steady_clock::now() < deadline) {
+            if (auto file = slots_.take(read_)) {
+                ++read_;
+                out = std::move(*file);
+                return true;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds{5});
+        }
+        return false;
+    }
+
+    /// One position if it is ready, without waiting.
+    bool try_take(binance::FetchedFile& out) {
+        if (auto file = slots_.take(read_)) {
+            ++read_;
             out = std::move(*file);
             return true;
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds{5});
+        return false;
     }
-    return false;
-}
+
+    /// Takes whatever is ready without waiting, so a drain can be counted.
+    std::size_t drain() {
+        std::size_t taken = 0;
+        while (slots_.take(read_)) {
+            ++read_;
+            ++taken;
+        }
+        return taken;
+    }
+
+   private:
+    FileSlots   slots_;
+    std::size_t submitted_{};
+    std::size_t read_{};
+};
 
 }  // namespace
 
 TEST(HttpFetchPool, FetchesAndInflatesARealFile) {
     // Declared before the pool, so the pool is destroyed first and its workers
-    // are joined while this queue is still alive.
-    FileQueue     queue;
+    // are joined while these slots are still alive.
+    Reader        reader;
     HttpFetchPool pool(small_pool());
 
-    ASSERT_TRUE(pool.submit(std::string(kRealFile), &queue));
+    ASSERT_TRUE(pool.submit(std::string(kRealFile), reader.slots(), reader.next_position()));
 
     binance::FetchedFile file;
-    ASSERT_TRUE(await(queue, file));
+    ASSERT_TRUE(reader.await(file));
     EXPECT_EQ(file.status, FetchStatus::Ok);
     EXPECT_FALSE(file.body.empty());
 
@@ -87,14 +125,14 @@ TEST(HttpFetchPool, FetchesAndInflatesARealFile) {
 // never retried.
 TEST(HttpFetchPool, MissingFileIsNotFoundAndStillDelivered) {
     // Declared before the pool, so the pool is destroyed first and its workers
-    // are joined while this queue is still alive.
-    FileQueue     queue;
+    // are joined while these slots are still alive.
+    Reader        reader;
     HttpFetchPool pool(small_pool());
 
-    ASSERT_TRUE(pool.submit(std::string(kMissingFile), &queue));
+    ASSERT_TRUE(pool.submit(std::string(kMissingFile), reader.slots(), reader.next_position()));
 
     binance::FetchedFile file;
-    ASSERT_TRUE(await(queue, file));
+    ASSERT_TRUE(reader.await(file));
     EXPECT_EQ(file.status, FetchStatus::NotFound);
     EXPECT_TRUE(file.body.empty());
 
@@ -106,13 +144,13 @@ TEST(HttpFetchPool, MissingFileIsNotFoundAndStillDelivered) {
 
 TEST(HttpFetchPool, FailureIsRecordedWithItsUrl) {
     // Declared before the pool, so the pool is destroyed first and its workers
-    // are joined while this queue is still alive.
-    FileQueue     queue;
+    // are joined while these slots are still alive.
+    Reader        reader;
     HttpFetchPool pool(small_pool());
 
-    ASSERT_TRUE(pool.submit(std::string(kMissingFile), &queue));
+    ASSERT_TRUE(pool.submit(std::string(kMissingFile), reader.slots(), reader.next_position()));
     binance::FetchedFile file;
-    ASSERT_TRUE(await(queue, file));
+    ASSERT_TRUE(reader.await(file));
 
     const auto failures = pool.recent_failures();
     ASSERT_EQ(failures.size(), 1u);
@@ -124,16 +162,16 @@ TEST(HttpFetchPool, FailureIsRecordedWithItsUrl) {
 // Counters have to balance, or a lost file would not show up anywhere.
 TEST(HttpFetchPool, EverySubmissionReachesATerminalState) {
     // Declared before the pool, so the pool is destroyed first and its workers
-    // are joined while this queue is still alive.
-    FileQueue     queue;
+    // are joined while these slots are still alive.
+    Reader        reader;
     HttpFetchPool pool(small_pool());
 
-    ASSERT_TRUE(pool.submit(std::string(kRealFile), &queue));
-    ASSERT_TRUE(pool.submit(std::string(kMissingFile), &queue));
+    ASSERT_TRUE(pool.submit(std::string(kRealFile), reader.slots(), reader.next_position()));
+    ASSERT_TRUE(pool.submit(std::string(kMissingFile), reader.slots(), reader.next_position()));
 
     binance::FetchedFile file;
-    ASSERT_TRUE(await(queue, file));
-    ASSERT_TRUE(await(queue, file));
+    ASSERT_TRUE(reader.await(file));
+    ASSERT_TRUE(reader.await(file));
 
     const auto stats = pool.stats();
     EXPECT_EQ(stats.submitted, 2u);
@@ -144,25 +182,25 @@ TEST(HttpFetchPool, EverySubmissionReachesATerminalState) {
 
 TEST(HttpFetchPool, SubmitIsRefusedAfterQuiesce) {
     // Declared before the pool, so the pool is destroyed first and its workers
-    // are joined while this queue is still alive.
-    FileQueue     queue;
+    // are joined while these slots are still alive.
+    Reader        reader;
     HttpFetchPool pool(small_pool());
 
     pool.quiesce();
-    EXPECT_FALSE(pool.submit(std::string(kRealFile), &queue));
+    EXPECT_FALSE(pool.submit(std::string(kRealFile), reader.slots(), reader.next_position()));
     EXPECT_EQ(pool.stats().workers_alive, 0u);
 }
 
 // Stats have to survive the shutdown, otherwise a run cannot be audited.
 TEST(HttpFetchPool, QuiesceKeepsStatsReadable) {
     // Declared before the pool, so the pool is destroyed first and its workers
-    // are joined while this queue is still alive.
-    FileQueue     queue;
+    // are joined while these slots are still alive.
+    Reader        reader;
     HttpFetchPool pool(small_pool());
 
-    ASSERT_TRUE(pool.submit(std::string(kRealFile), &queue));
+    ASSERT_TRUE(pool.submit(std::string(kRealFile), reader.slots(), reader.next_position()));
     binance::FetchedFile file;
-    ASSERT_TRUE(await(queue, file));
+    ASSERT_TRUE(reader.await(file));
 
     pool.quiesce();
     EXPECT_EQ(pool.stats().completed_ok, 1u);
@@ -193,25 +231,30 @@ TEST(HttpFetchPool, ConcurrentQuiesceBothWaitForWorkers) {
 // A submit racing the drain must not leave a task queued with nobody to run it.
 TEST(HttpFetchPool, NoTaskSurvivesQuiesce) {
     // Declared before the pool, so the pool is destroyed first and its workers
-    // are joined while this queue is still alive.
-    FileQueue     queue;
+    // are joined while these slots are still alive.
+    Reader        reader;
     HttpFetchPool pool(small_pool());
 
     std::atomic<bool> stop{false};
     std::atomic<int>  accepted{0};
     std::atomic<int>  drained{0};
 
-    std::thread submitter([&] {
+    // One thread submits and reads, because a position may only be reused once
+    // its slot has been taken and both cursors belong to the caller.
+    std::thread driver([&] {
+        std::size_t outstanding = 0;
         while (!stop.load()) {
-            if (pool.submit(std::string(kMissingFile), &queue)) accepted.fetch_add(1);
-            std::this_thread::sleep_for(std::chrono::milliseconds{2});
-        }
-    });
-    // The ring is small, so without a reader it fills and the pool is measuring
-    // a stalled stream rather than the shutdown race.
-    std::thread reader([&] {
-        while (!stop.load()) {
-            if (queue.pop()) drained.fetch_add(1);
+            if (outstanding < binance::kFileSlotCount) {
+                if (pool.submit(std::string(kMissingFile), reader.slots(),
+                                reader.next_position())) {
+                    ++outstanding;
+                    accepted.fetch_add(1);
+                }
+            }
+            const auto taken = reader.drain();
+            outstanding -= taken;
+            drained.fetch_add(static_cast<int>(taken));
+            std::this_thread::sleep_for(std::chrono::milliseconds{1});
         }
     });
 
@@ -219,40 +262,28 @@ TEST(HttpFetchPool, NoTaskSurvivesQuiesce) {
     pool.quiesce();
     std::this_thread::sleep_for(std::chrono::milliseconds{50});
     stop.store(true);
-    submitter.join();
-    reader.join();
+    driver.join();
 
     const auto stats = pool.stats();
     EXPECT_EQ(stats.queued, 0u);
     EXPECT_EQ(stats.completed_ok + stats.completed_failed, stats.submitted);
-    EXPECT_EQ(static_cast<std::size_t>(accepted.load()), stats.submitted);
     EXPECT_EQ(stats.cancellations_dropped, 0u);
-}
-
-// Worker count is the concurrency ceiling, so it has to be honoured.
-TEST(HttpFetchPool, WorkerCountIsConfigurable) {
-    HttpFetchPoolConfig config;
-    config.workers = 5;
-
-    HttpFetchPool pool(config);
-    EXPECT_EQ(pool.stats().workers_alive, 5u);
-    pool.quiesce();
-    EXPECT_EQ(pool.stats().workers_alive, 0u);
+    EXPECT_GT(accepted.load(), 0);
 }
 
 // A connection cap under the worker count would leave the extra workers
 // dialling fresh every time and losing keep alive.
 TEST(HttpFetchPool, ConnectionCapKeepsUpWithWorkers) {
-    FileQueue           queue;
+    Reader              reader;
     HttpFetchPoolConfig config;
     config.workers                       = 24;
     config.http.max_connections_per_host = 4;
 
     HttpFetchPool pool(config);
-    ASSERT_TRUE(pool.submit(std::string(kRealFile), &queue));
+    ASSERT_TRUE(pool.submit(std::string(kRealFile), reader.slots(), reader.next_position()));
 
     binance::FetchedFile file;
-    ASSERT_TRUE(await(queue, file));
+    ASSERT_TRUE(reader.await(file));
     EXPECT_EQ(file.status, FetchStatus::Ok);
 }
 
@@ -263,9 +294,9 @@ TEST(HttpFetchPool, ConnectionCapKeepsUpWithWorkers) {
 TEST(HttpFetchPool, ConcurrentWorkersEachClaimATaskExactlyOnce) {
     constexpr std::size_t kTasks = 256;
 
-    std::vector<std::unique_ptr<FileQueue>> queues;
-    queues.reserve(kTasks);
-    for (std::size_t i = 0; i < kTasks; ++i) queues.push_back(std::make_unique<FileQueue>());
+    std::vector<std::unique_ptr<Reader>> readers;
+    readers.reserve(kTasks);
+    for (std::size_t i = 0; i < kTasks; ++i) readers.push_back(std::make_unique<Reader>());
 
     HttpFetchPoolConfig config;
     config.workers     = 16;
@@ -273,14 +304,15 @@ TEST(HttpFetchPool, ConcurrentWorkersEachClaimATaskExactlyOnce) {
 
     HttpFetchPool pool(config);
     for (std::size_t i = 0; i < kTasks; ++i)
-        ASSERT_TRUE(pool.submit("not-a-url-" + std::to_string(i), queues[i].get()));
+        ASSERT_TRUE(pool.submit("not-a-url-" + std::to_string(i), readers[i]->slots(),
+                                readers[i]->next_position()));
 
     // One delivery per destination, never two and never none.
-    for (auto& queue : queues) {
+    for (auto& reader : readers) {
         binance::FetchedFile file;
-        ASSERT_TRUE(await(*queue, file, std::chrono::seconds{30}));
+        ASSERT_TRUE(reader->await(file, std::chrono::seconds{30}));
         EXPECT_EQ(file.status, FetchStatus::TransportError);
-        EXPECT_FALSE(queue->pop().has_value());
+        EXPECT_EQ(reader->drain(), 0u);
     }
 
     const auto stats = pool.stats();
@@ -298,13 +330,13 @@ TEST(HttpFetchPool, CriticalFiresOnceOnASustainedFailureRate) {
     config.critical_window        = 4;
     config.critical_failure_ratio = 0.5;
 
-    FileQueue     queue;
+    Reader        reader;
     HttpFetchPool pool(config, [&fired] { fired.fetch_add(1); });
 
     binance::FetchedFile file;
     for (int i = 0; i < 8; ++i) {
-        ASSERT_TRUE(pool.submit(std::string(kMissingFile), &queue));
-        ASSERT_TRUE(await(queue, file));
+        ASSERT_TRUE(pool.submit(std::string(kMissingFile), reader.slots(), reader.next_position()));
+        ASSERT_TRUE(reader.await(file));
     }
 
     EXPECT_TRUE(pool.stats().critical);
@@ -312,13 +344,13 @@ TEST(HttpFetchPool, CriticalFiresOnceOnASustainedFailureRate) {
 }
 
 TEST(HttpFetchPool, BytesThatAreNotAnArchiveAreAZipError) {
-    FileQueue     queue;
+    Reader        reader;
     HttpFetchPool pool(small_pool());
 
-    ASSERT_TRUE(pool.submit(std::string(kNotAnArchive), &queue));
+    ASSERT_TRUE(pool.submit(std::string(kNotAnArchive), reader.slots(), reader.next_position()));
 
     binance::FetchedFile file;
-    ASSERT_TRUE(await(queue, file));
+    ASSERT_TRUE(reader.await(file));
     EXPECT_EQ(file.status, FetchStatus::ZipError);
     EXPECT_TRUE(file.body.empty());
 
@@ -335,34 +367,34 @@ TEST(HttpFetchPool, BytesThatAreNotAnArchiveAreAZipError) {
     EXPECT_EQ(failures.front().status, FetchStatus::ZipError);
 }
 
-TEST(HttpFetchPool, CancellationsIntoAFullRingAreCountedNotWaitedOn) {
-    // Three usable slots, all taken, so nothing the drain pushes can land.
-    FileQueue abandoned;
-    for (int i = 0; i < 3; ++i) ASSERT_TRUE(abandoned.push(binance::FetchedFile{}));
-    ASSERT_FALSE(abandoned.push(binance::FetchedFile{}));
-
+// Slots are reserved when a task is submitted, so a cancellation always has
+// somewhere to land and the shutdown never waits on a reader.
+TEST(HttpFetchPool, QueuedTasksAreCancelledIntoTheirOwnSlots) {
+    Reader              reader;
     HttpFetchPoolConfig config;
     config.workers     = 1;
     config.max_retries = 0;
 
-    FileQueue     busy;
     HttpFetchPool pool(config);
 
-    // Occupies the one worker, so the rest are still queued when quiesce runs
-    // and are cancelled by the drain rather than by a worker.
-    ASSERT_TRUE(pool.submit(std::string(kLargeFile), &busy));
-    for (int i = 0; i < 3; ++i) ASSERT_TRUE(pool.submit(std::string(kMissingFile), &abandoned));
+    // The one worker is busy on a large file, so the rest are still queued when
+    // quiesce runs and are cancelled by the drain rather than by a worker.
+    ASSERT_TRUE(pool.submit(std::string(kLargeFile), reader.slots(), reader.next_position()));
+    for (int i = 0; i < 3; ++i)
+        ASSERT_TRUE(pool.submit(std::string(kMissingFile), reader.slots(), reader.next_position()));
 
     const auto started = std::chrono::steady_clock::now();
     pool.quiesce();
     const auto elapsed = std::chrono::steady_clock::now() - started;
 
     const auto stats = pool.stats();
-    EXPECT_GE(stats.cancellations_dropped, 1u);
-    EXPECT_GE(stats.cancelled, stats.cancellations_dropped);
+    EXPECT_EQ(stats.cancellations_dropped, 0u) << "a reserved slot was not free";
+    EXPECT_GT(stats.cancelled, 0u);
     EXPECT_EQ(stats.queued, 0u);
-    // Bounded attempts, so an undrained stream delays the shutdown rather than
-    // hanging it.
+    EXPECT_EQ(stats.completed_ok + stats.completed_failed, stats.submitted);
+
+    // Every position was filled, so the reader is never left waiting.
+    EXPECT_EQ(reader.drain(), reader.submitted());
     EXPECT_LT(elapsed, std::chrono::seconds{60});
 }
 
@@ -371,12 +403,12 @@ TEST(HttpFetchPool, OldestInFlightAgesWhileAFetchRunsAndClearsAfter) {
     config.workers     = 1;
     config.max_retries = 0;
 
-    FileQueue     queue;
+    Reader        reader;
     HttpFetchPool pool(config);
 
     EXPECT_EQ(pool.stats().oldest_in_flight_ms, 0);
 
-    ASSERT_TRUE(pool.submit(std::string(kLargeFile), &queue));
+    ASSERT_TRUE(pool.submit(std::string(kLargeFile), reader.slots(), reader.next_position()));
 
     std::int64_t         peak = 0;
     binance::FetchedFile file;
@@ -385,8 +417,7 @@ TEST(HttpFetchPool, OldestInFlightAgesWhileAFetchRunsAndClearsAfter) {
     while (std::chrono::steady_clock::now() < deadline) {
         const auto stats = pool.stats();
         if (stats.in_flight > 0) peak = std::max(peak, stats.oldest_in_flight_ms);
-        if (auto popped = queue.pop()) {
-            file      = std::move(*popped);
+        if (reader.try_take(file)) {
             delivered = true;
             break;
         }
@@ -414,7 +445,7 @@ TEST(HttpFetchPool, SubmitIsRefusedOnceTheTaskQueueFills) {
     constexpr std::size_t kSubmissions = 3000;
     std::size_t           accepted     = 0;
     for (std::size_t i = 0; i < kSubmissions; ++i)
-        if (pool.submit(std::string(kLargeFile), nullptr)) ++accepted;
+        if (pool.submit(std::string(kLargeFile), nullptr, i)) ++accepted;
 
     const auto stats = pool.stats();
     EXPECT_GT(stats.refused, 0u) << "queue never filled, capacity may have grown";

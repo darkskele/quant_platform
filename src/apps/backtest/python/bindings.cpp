@@ -204,17 +204,49 @@ PYBIND11_MODULE(qp_python_backtest, m) {
 
     py::class_<binance::FetchPoolStats>(m, "FetchPoolStats")
         .def_readonly("submitted", &binance::FetchPoolStats::submitted)
+        .def_readonly("refused", &binance::FetchPoolStats::refused)
         .def_readonly("completed_ok", &binance::FetchPoolStats::completed_ok)
         .def_readonly("completed_failed", &binance::FetchPoolStats::completed_failed)
-        .def_readonly("not_found", &binance::FetchPoolStats::not_found)
         .def_readonly("retries", &binance::FetchPoolStats::retries)
+        .def_readonly("not_found", &binance::FetchPoolStats::not_found)
+        .def_readonly("server_error", &binance::FetchPoolStats::server_error)
+        .def_readonly("transport_error", &binance::FetchPoolStats::transport_error)
+        .def_readonly("zip_error", &binance::FetchPoolStats::zip_error)
+        .def_readonly("cancelled", &binance::FetchPoolStats::cancelled)
+        .def_readonly("cancellations_dropped", &binance::FetchPoolStats::cancellations_dropped)
+        .def_readonly("queued", &binance::FetchPoolStats::queued)
+        .def_readonly("in_flight", &binance::FetchPoolStats::in_flight)
+        .def_readonly("workers_alive", &binance::FetchPoolStats::workers_alive)
+        .def_readonly("oldest_in_flight_ms", &binance::FetchPoolStats::oldest_in_flight_ms)
+        .def_readonly("critical", &binance::FetchPoolStats::critical)
         .def_readonly("bytes_fetched", &binance::FetchPoolStats::bytes_fetched)
         .def_readonly("bytes_inflated", &binance::FetchPoolStats::bytes_inflated);
+
+    py::class_<binance::FetchFailure>(m, "FetchFailure")
+        .def_readonly("url", &binance::FetchFailure::url)
+        .def_readonly("detail", &binance::FetchFailure::detail)
+        .def_readonly("status", &binance::FetchFailure::status)
+        .def_readonly("attempts", &binance::FetchFailure::attempts);
+
+    // How many fetches one stream may have outstanding, so a caller can work
+    // out the concurrency its universe can actually ask for.
+    m.attr("FILE_SLOTS") = binance::kFileSlotCount;
+
+    py::enum_<binance::FetchStatus>(m, "FetchStatus")
+        .value("Ok", binance::FetchStatus::Ok)
+        .value("NotFound", binance::FetchStatus::NotFound)
+        .value("ServerError", binance::FetchStatus::ServerError)
+        .value("TransportError", binance::FetchStatus::TransportError)
+        .value("ZipError", binance::FetchStatus::ZipError)
+        .value("Cancelled", binance::FetchStatus::Cancelled);
 
     py::class_<binance::HttpFetchPoolConfig>(m, "FetchPoolConfig")
         .def(py::init<>())
         .def_readwrite("workers", &binance::HttpFetchPoolConfig::workers)
-        .def_readwrite("max_retries", &binance::HttpFetchPoolConfig::max_retries);
+        .def_readwrite("max_retries", &binance::HttpFetchPoolConfig::max_retries)
+        .def_readwrite("critical_failure_ratio",
+                       &binance::HttpFetchPoolConfig::critical_failure_ratio)
+        .def_readwrite("critical_window", &binance::HttpFetchPoolConfig::critical_window);
 
     py::class_<PythonBacktest::Config>(m, "BinanceHistoricalConfig")
         .def(py::init([](std::vector<binance::StreamSpec> streams, binance::Cadence cadence,
@@ -236,6 +268,7 @@ PYBIND11_MODULE(qp_python_backtest, m) {
         .def("stream_count", &PythonBacktest::stream_count)
         .def("reports", &PythonBacktest::reports)
         .def("fetch_stats", &PythonBacktest::fetch_stats)
+        .def("fetch_failures", &PythonBacktest::fetch_failures)
         // The engine and source threads call back into Python and take
         // the GIL themselves, so holding it here would deadlock them.
         .def("run", &PythonBacktest::run, py::call_guard<py::gil_scoped_release>())

@@ -110,8 +110,7 @@ class BinanceHistoricalStream {
 
     /// Every planned file fetched, read and drained.
     bool finished() const noexcept {
-        return fetch_cursor_ >= paths_.size() && outstanding() == 0 && queue_.size() == 0 &&
-               rows_.empty();
+        return fetch_cursor_ >= paths_.size() && read_cursor_ >= fetch_cursor_ && rows_.empty();
     }
 
     std::size_t planned_files() const noexcept { return paths_.size(); }
@@ -123,23 +122,16 @@ class BinanceHistoricalStream {
     std::string_view interval() const noexcept { return interval_; }
 
    private:
-    /// Files asked for that have not landed in the queue yet. Both terms are
-    /// consumer owned, so no shared counter is needed.
-    std::size_t outstanding() const noexcept { return scheduled_ - popped_ - queue_.size(); }
+    /// Files asked for that have not been read yet, whether in flight or
+    /// already landed.
+    std::size_t outstanding() const noexcept { return fetch_cursor_ - read_cursor_; }
 
-    /// One ring slot always stays empty, so this is what it can really hold.
-    static constexpr std::size_t kMaxBufferedFiles = FileQueue::capacity() - 1;
-
-    /// At most one fetch in flight, which keeps the queue single producer and
-    /// keeps files landing in plan order. The second gate leaves a slot for the
-    /// file being asked for, so a delivery can never find the ring full.
+    /// Fills the window rather than asking for one file at a time.
     void pump() {
-        if (fetch_cursor_ >= paths_.size()) return;
-        if (outstanding() > 0) return;
-        if (queue_.size() + outstanding() >= kMaxBufferedFiles) return;
-        if (!pool_->submit(file_url(fetch_cursor_), &queue_)) return;
-        ++fetch_cursor_;
-        ++scheduled_;
+        while (fetch_cursor_ < paths_.size() && outstanding() < FileSlots::capacity()) {
+            if (!pool_->submit(file_url(fetch_cursor_), &slots_, fetch_cursor_)) return;
+            ++fetch_cursor_;
+        }
     }
 
     std::string file_url(std::size_t index) const {
@@ -156,12 +148,11 @@ class BinanceHistoricalStream {
     /// vanishing.
     bool load_next_file() {
         for (;;) {
-            auto file = queue_.pop();
+            auto file = slots_.take(read_cursor_);
             if (!file) return false;
 
-            ++popped_;
-            if (read_cursor_ < paths_.size())
-                stats_.rows_expected += expected_rows(stamp_of(paths_[read_cursor_++]));
+            stats_.rows_expected += expected_rows(stamp_of(paths_[read_cursor_]));
+            ++read_cursor_;
             pump();
 
             if (is_failure(file->status)) {
@@ -289,14 +280,15 @@ class BinanceHistoricalStream {
     Subscription::Instrument instrument_;
 
     std::vector<std::string> paths_;
-    std::size_t              fetch_cursor_{};
-    std::size_t              read_cursor_{};
-    std::size_t              scheduled_{};
-    std::size_t              popped_{};
+
+    /// Next plan position to ask for, and the next to read. Both index paths_
+    /// and both address the slot ring directly.
+    std::size_t fetch_cursor_{};
+    std::size_t read_cursor_{};
 
     static constexpr std::size_t kPumpMask = 0xFF;
 
-    FileQueue              queue_;
+    FileSlots              slots_;
     std::size_t            pump_tick_{};
     std::vector<std::byte> current_;
     std::string_view       rows_;

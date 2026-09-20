@@ -385,3 +385,88 @@ TEST(BinanceHistoricalIntegration, TieOrderIsReproducible) {
         if (first[i].ts == first[i - 1].ts) ++tied;
     EXPECT_GT(tied, 1000u);
 }
+
+// The plan's smallest end to end case. One symbol, one market, two datasets,
+// two monthly files each, counted against the calendar rather than against the
+// source's own bookkeeping.
+TEST(BinanceHistoricalIntegration, OneSymbolTwoMonthsCountsEveryRow) {
+    // 2025-01-01, 2025-02-01 and 2025-03-01. `to` selects files by their start
+    // stamp rather than bars, so asking up to the first of February plans the
+    // February file as well and the run covers both months.
+    constexpr Timestamp kJan = 1735689600000000000LL;
+    constexpr Timestamp kFeb = 1738368000000000000LL;
+    constexpr Timestamp kMar = 1740787200000000000LL;
+
+    // 31 and 28 days of hourly bars, and three funding settlements a day over
+    // the same 59 days.
+    constexpr std::size_t kKlines  = (31 + 28) * 24;
+    constexpr std::size_t kFunding = (31 + 28) * 3;
+
+    SubscriptionBuilder builder;
+    builder.add(qp::ExchangeId::Binance, kUsdM, "BTCUSDT");
+    const auto universe = std::move(builder).build();
+
+    CollectingSink sink;
+    {
+        BinanceHistoricalSource<HttpFetchPool> source(
+            BinanceHistoricalConfig{
+                .streams = {StreamSpec{EndpointKind::Klines, "1h"},
+                            StreamSpec{EndpointKind::FundingRate, ""}},
+                .pool    = pool_config(),
+                .cadence = Cadence::Monthly,
+                .from    = kJan,
+                .to      = kFeb,
+            },
+            universe);
+
+        ASSERT_EQ(source.stream_count(), 2u);
+        source.plan();
+        for (const auto& report : source.reports())
+            ASSERT_EQ(report.stats.files_planned, 2u) << report.symbol;
+
+        ControlChannel<1> control;
+        const auto        consumer = control.attach();
+
+        auto sources = std::forward_as_tuple(source);
+        auto sinks   = std::forward_as_tuple(sink);
+        qp::data_source::run_data_source(sources, sinks, control, consumer,
+                                         std::chrono::milliseconds{1});
+
+        EXPECT_EQ(source.pool().stats().completed_failed, 0u);
+        for (const auto& report : source.reports()) {
+            EXPECT_EQ(report.stats.files_read, 2u) << report.symbol;
+            EXPECT_EQ(report.stats.files_failed, 0u) << report.symbol;
+            EXPECT_EQ(report.stats.rows_rejected, 0u) << report.symbol;
+            EXPECT_EQ(report.stats.backwards_stamps, 0u) << report.symbol;
+        }
+    }
+
+    EXPECT_EQ(sink.events.size(), kKlines + kFunding);
+
+    std::size_t klines = 0, funding = 0;
+    Timestamp   previous = 0;
+    for (const auto& event : sink.events) {
+        EXPECT_EQ(event.base.market, kUsdM);
+        EXPECT_EQ(event.base.symbol, 0u) << "only one symbol was subscribed";
+        EXPECT_GE(event.base.ts, previous) << "the merge went backwards";
+        previous = event.base.ts;
+
+        if (event.base.kind == EventKind::Kline)
+            ++klines;
+        else if (event.base.kind == EventKind::Funding)
+            ++funding;
+        else
+            ADD_FAILURE() << "unsubscribed kind " << static_cast<int>(event.base.kind);
+    }
+
+    EXPECT_EQ(klines, kKlines);
+    EXPECT_EQ(funding, kFunding);
+
+    // Anchors the epoch. Both sides of the pipeline scale the same raw integer,
+    // so a count alone would not catch a unit or offset error.
+    constexpr Timestamp kHour = 3600LL * 1'000'000'000LL;
+    ASSERT_FALSE(sink.events.empty());
+    EXPECT_EQ(sink.events.front().base.ts, kJan);
+    EXPECT_EQ(sink.events.back().base.ts, kMar - kHour)
+        << "the last bar should be the final hour of february";
+}
