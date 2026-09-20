@@ -72,6 +72,23 @@ std::string two_rows_from(long long open_ms) {
     return out;
 }
 
+/// Every bar twice, the shape the 2020 and early 2021 metrics files ship in.
+std::string duplicated_rows_from(long long open_ms) {
+    std::string out =
+        "open_time,open,high,low,close,volume,close_time,quote_volume,count,taker_buy_volume,"
+        "taker_buy_quote_volume,ignore\n";
+    for (int bar = 0; bar < 2; ++bar) {
+        const long long open = open_ms + bar * 3'600'000LL;
+        for (int copy = 0; copy < 2; ++copy) {
+            out += std::to_string(open);
+            out += ",42000.10,42100.00,41900.00,42050.00,10.5,";
+            out += std::to_string(open + 3'599'999LL);
+            out += ",0,0,0,0,0\n";
+        }
+    }
+    return out;
+}
+
 std::unique_ptr<KlineStream> make_kline_stream(FakeFetchPool& pool) {
     return std::make_unique<KlineStream>(pool, BinanceMarket::UsdM, Cadence::Daily, "BTCUSDT", "1h",
                                          kInstrument);
@@ -481,4 +498,42 @@ TEST(BinanceStream, EmptyPlanIsFinishedAndAsksForNothing) {
     EXPECT_EQ(stream->planned_files(), 0u);
     EXPECT_EQ(pool.in_flight(), 0u);
     EXPECT_TRUE(stream->finished());
+}
+
+// The early USD-M metrics files carry every row twice, byte identical. That is
+// real published data, so it is counted and still emitted, not dropped. A
+// dataset like aggTrades shares a stamp across genuinely distinct events, so
+// dropping on a repeat could never be a stream wide rule.
+TEST(BinanceStream, RepeatedStampsAreCountedNotDropped) {
+    FakeFetchPool pool;
+    auto          stream = make_kline_stream(pool);
+    stream->plan(daily_keys(), kJan, kFeb);
+
+    MarketEvent event{};
+    EXPECT_FALSE(stream->next(event));
+    ASSERT_TRUE(pool.deliver(duplicated_rows_from(1704067200000LL)));
+
+    std::vector<qp::Timestamp> seen;
+    while (stream->next(event)) seen.push_back(event.base.ts);
+
+    ASSERT_EQ(seen.size(), 4u);
+    EXPECT_EQ(seen[0], seen[1]);
+    EXPECT_EQ(seen[2], seen[3]);
+    EXPECT_EQ(stream->stats().repeated_stamps, 2u);
+    EXPECT_EQ(stream->stats().backwards_stamps, 0u);
+    EXPECT_EQ(stream->stats().rows_parsed, 4u);
+}
+
+TEST(BinanceStream, DistinctStampsCountNoRepeats) {
+    FakeFetchPool pool;
+    auto          stream = make_kline_stream(pool);
+    stream->plan(daily_keys(), kJan, kFeb);
+
+    MarketEvent event{};
+    EXPECT_FALSE(stream->next(event));
+    ASSERT_TRUE(pool.deliver(two_rows_from(1704067200000LL)));
+    while (stream->next(event)) {
+    }
+
+    EXPECT_EQ(stream->stats().repeated_stamps, 0u);
 }

@@ -2,6 +2,7 @@
 #include <array>
 #include <charconv>
 #include <cstdint>
+#include <limits>
 #include <string_view>
 
 #include "types.hpp"
@@ -77,6 +78,18 @@ inline bool take_decimal(std::string_view& row, double& out) noexcept {
     if (negative) out = -out;
     row.remove_prefix(p == end ? row.size() : static_cast<std::size_t>(p - begin) + 1);
     return true;
+}
+
+/// A blank field is a figure the venue did not publish.
+/// Coin-M metrics leaves its three long short ratios empty 
+/// on every row. NaN insteadX.
+inline bool take_optional_decimal(std::string_view& row, double& out) noexcept {
+    if (row.empty() || row.front() == ',') {
+        if (!row.empty()) row.remove_prefix(1);
+        out = std::numeric_limits<double>::quiet_NaN();
+        return true;
+    }
+    return take_decimal(row, out);
 }
 
 inline bool take_integer(std::string_view& row, std::int64_t& out) noexcept {

@@ -26,11 +26,20 @@ inline constexpr const BinanceMarket* market_of_slot(std::uint16_t slot) noexcep
     return slot < std::size(kMarkets) ? &kMarkets[slot] : nullptr;
 }
 
-enum class EndpointKind : std::uint8_t { Klines, MarkPriceKlines, PremiumIndexKlines, FundingRate };
+enum class EndpointKind : std::uint8_t {
+    Klines,
+    MarkPriceKlines,
+    PremiumIndexKlines,
+    FundingRate,
+    Metrics
+};
 
 enum class Cadence : std::uint8_t { Daily, Monthly };
 
 enum class CadenceSupport : std::uint8_t { DailyOnly, MonthlyOnly, Both };
+
+/// volume_column for a dataset that carries no volume column at all.
+inline constexpr std::uint8_t kNoColumn = 0xFF;
 
 /// One historical dataset, enough to build any of its prefixes and file names.
 struct Endpoint {
@@ -60,6 +69,9 @@ inline constexpr std::array kEndpoints = {
     Endpoint{"futures/cm", "markPriceKlines", CadenceSupport::Both, true, 12, 5},
     Endpoint{"futures/cm", "premiumIndexKlines", CadenceSupport::Both, true, 12, 5},
     Endpoint{"futures/cm", "fundingRate", CadenceSupport::MonthlyOnly, false, 3, 0},
+    // metrics is daily only on both markets. Monthly 404s.
+    Endpoint{"futures/um", "metrics", CadenceSupport::DailyOnly, false, 8, kNoColumn},
+    Endpoint{"futures/cm", "metrics", CadenceSupport::DailyOnly, false, 8, kNoColumn},
 };
 
 /// Null when the market does not publish that dataset, such as spot funding.
@@ -85,6 +97,8 @@ inline constexpr const Endpoint* find_endpoint(BinanceMarket market, EndpointKin
                 return "premiumIndexKlines";
             case EndpointKind::FundingRate:
                 return "fundingRate";
+            case EndpointKind::Metrics:
+                return "metrics";
         }
         return "";
     }();
@@ -175,6 +189,18 @@ inline constexpr std::uint8_t kClose     = 4;
 inline constexpr std::uint8_t kVolume    = 5;
 inline constexpr std::uint8_t kCloseTime = 6;
 }  // namespace kline_col
+
+/// metrics column indices. Coin-M leaves 4, 5 and 6 empty.
+namespace metrics_col {
+inline constexpr std::uint8_t kCreateTime             = 0;
+inline constexpr std::uint8_t kSymbol                 = 1;
+inline constexpr std::uint8_t kOpenInterest           = 2;
+inline constexpr std::uint8_t kOpenInterestValue      = 3;
+inline constexpr std::uint8_t kToptraderAccountRatio  = 4;
+inline constexpr std::uint8_t kToptraderPositionRatio = 5;
+inline constexpr std::uint8_t kAccountLongShortRatio  = 6;
+inline constexpr std::uint8_t kTakerLongShortVolRatio = 7;
+}  // namespace metrics_col
 
 namespace funding_col {
 inline constexpr std::uint8_t kCalcTime        = 0;

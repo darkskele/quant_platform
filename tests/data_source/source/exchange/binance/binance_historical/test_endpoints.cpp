@@ -120,6 +120,23 @@ TEST(BinanceEndpoints, SpotHasNoMarkPriceKlines) {
                  std::out_of_range);
 }
 
+TEST(BinanceEndpoints, MetricsPathsAndCadence) {
+    const auto& e = endpoint(BinanceMarket::UsdM, EndpointKind::Metrics);
+    EXPECT_EQ(prefix(e, "BTCUSDT", "", Cadence::Daily), "data/futures/um/daily/metrics/BTCUSDT/");
+    EXPECT_EQ(file_name(e, "BTCUSDT", "", "2025-06-02"), "BTCUSDT-metrics-2025-06-02.zip");
+    EXPECT_TRUE(supports(e, Cadence::Daily));
+    EXPECT_FALSE(supports(e, Cadence::Monthly));
+    EXPECT_EQ(fallback_cadence(e), Cadence::Daily);
+
+    const auto& cm = endpoint(BinanceMarket::CoinM, EndpointKind::Metrics);
+    EXPECT_EQ(prefix(cm, "BTCUSD_PERP", "", Cadence::Daily),
+              "data/futures/cm/daily/metrics/BTCUSD_PERP/");
+}
+
+TEST(BinanceEndpoints, SpotHasNoMetrics) {
+    EXPECT_THROW((void)endpoint(BinanceMarket::Spot, EndpointKind::Metrics), std::out_of_range);
+}
+
 // DailyOnly exists for metrics and bookDepth, which 404 on monthly. Before it
 // there was no way to say that, and supports() answered true for monthly on
 // every dataset.
@@ -177,6 +194,7 @@ TEST(BinanceEndpointsLive, EveryEntryResolvesToARealFile) {
         {BinanceMarket::UsdM, EndpointKind::MarkPriceKlines, Cadence::Daily, "2025-06-02"},
         {BinanceMarket::UsdM, EndpointKind::PremiumIndexKlines, Cadence::Daily, "2025-06-02"},
         {BinanceMarket::UsdM, EndpointKind::FundingRate, Cadence::Monthly, "2025-06"},
+        {BinanceMarket::UsdM, EndpointKind::Metrics, Cadence::Daily, "2025-06-02"},
     };
 
     const Case coin_m[] = {
@@ -184,6 +202,7 @@ TEST(BinanceEndpointsLive, EveryEntryResolvesToARealFile) {
         {BinanceMarket::CoinM, EndpointKind::MarkPriceKlines, Cadence::Daily, "2025-06-02"},
         {BinanceMarket::CoinM, EndpointKind::PremiumIndexKlines, Cadence::Daily, "2025-06-02"},
         {BinanceMarket::CoinM, EndpointKind::FundingRate, Cadence::Monthly, "2025-06"},
+        {BinanceMarket::CoinM, EndpointKind::Metrics, Cadence::Daily, "2025-06-02"},
     };
 
     for (const auto& c : coin_m) {

@@ -28,6 +28,10 @@ struct GapStats {
     std::size_t  rows_parsed{};
     std::size_t  rows_rejected{};
     std::size_t  backwards_stamps{};
+
+    /// Rows repeating the stamp before them. The early metrics files carry
+    /// every row twice, so this is real data and not a parser fault. 
+    std::size_t repeated_stamps{};
 };
 
 /// One (market, symbol, kind, interval) and the events read out of it. Plans its
@@ -100,6 +104,7 @@ class BinanceHistoricalStream {
                     continue;
                 }
                 if (ts < last_ts_) ++stats_.backwards_stamps;
+                if (ts == last_ts_ && stats_.rows_parsed > 0) ++stats_.repeated_stamps;
                 last_ts_ = ts;
                 ++stats_.rows_parsed;
 

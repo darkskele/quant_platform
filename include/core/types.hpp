@@ -10,6 +10,7 @@ namespace qp {
 using Timestamp = std::int64_t;
 using Price     = double;
 using Qty       = double;
+using Notional  = double;
 
 enum class Side : std::uint8_t { Buy, Sell };
 
@@ -28,7 +29,8 @@ enum class EventKind : std::uint8_t {
     BookSnapshot,
     Kline,
     MarkPriceKline,
-    PremiumIndexKline
+    PremiumIndexKline,
+    OpenInterest
 };
 
 struct EventBase {
@@ -77,6 +79,20 @@ struct PremiumIndexKlineEvent {
     Price     close{};
 };
 
+/// Binance's metrics dataset, sampled every five minutes. Coin-M publishes the
+/// open interest columns but leaves the three long short ratios empty, so any
+/// ratio here can be NaN and every reader has to check before using one.
+struct OpenInterestEvent {
+    Qty      open_interest{};        ///< Contracts on Coin-M, base asset on USD-M.
+    Notional open_interest_value{};  ///< Same figure in quote terms.
+    double   toptrader_account_ratio{};
+    double   toptrader_position_ratio{};
+    double   account_long_short_ratio{};
+    double   taker_long_short_volume_ratio{};
+};
+
+static_assert(std::is_trivially_copyable_v<OpenInterestEvent>);
+
 struct BookLevels {
     std::vector<PriceLevel> bids;
     std::vector<PriceLevel> asks;
@@ -93,16 +109,16 @@ struct BookSnapshotEvent {
     std::shared_ptr<const BookLevels> levels;
 };
 
-using MarketEventPayload = std::variant<TradeEvent, FundingEvent, KlineEvent, MarkPriceKlineEvent,
-                                        PremiumIndexKlineEvent, BookDiffEvent, BookSnapshotEvent>;
+using MarketEventPayload =
+    std::variant<TradeEvent, FundingEvent, KlineEvent, MarkPriceKlineEvent, PremiumIndexKlineEvent,
+                 OpenInterestEvent, BookDiffEvent, BookSnapshotEvent>;
 
 struct MarketEvent {
     EventBase          base{};
     MarketEventPayload payload{};
 };
 
-using OrderId  = std::uint64_t;
-using Notional = double;
+using OrderId = std::uint64_t;
 
 struct Intent {
     std::uint16_t exchange{};

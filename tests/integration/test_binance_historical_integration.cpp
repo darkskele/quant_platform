@@ -2,9 +2,13 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstddef>
+#include <cstdio>
+#include <ctime>
 #include <string>
 #include <tuple>
+#include <variant>
 #include <vector>
 
 #include "binance_historical_source.hpp"
@@ -469,4 +473,191 @@ TEST(BinanceHistoricalIntegration, OneSymbolTwoMonthsCountsEveryRow) {
     EXPECT_EQ(sink.events.front().base.ts, kJan);
     EXPECT_EQ(sink.events.back().base.ts, kMar - kHour)
         << "the last bar should be the final hour of february";
+}
+
+// ---------------------------------------------------------------------------
+// metrics. Daily only, so it gets its own span and its own oracle rather than
+// widening the monthly one above.
+// ---------------------------------------------------------------------------
+
+namespace {
+
+// 2025-06-02 00:00:00 and 23:59:59 UTC. One day, so the run stays seconds.
+constexpr Timestamp kMetricsFrom = 1748822400LL * 1'000'000'000LL;
+constexpr Timestamp kMetricsTo   = 1748908799LL * 1'000'000'000LL;
+
+/// USD-M populates all four ratios, Coin-M leaves three empty. One symbol of
+/// each covers both shapes the dataset ships in.
+struct MetricsStream {
+    std::uint16_t market{};
+    std::string   market_path;
+    std::string   symbol;
+    bool          ratios_published{};
+};
+
+std::vector<MetricsStream> metrics_streams() {
+    return {{kUsdM, "futures/um", "BTCUSDT", true}, {kCoinM, "futures/cm", "BTCUSD_PERP", false}};
+}
+
+Subscription build_metrics_universe() {
+    SubscriptionBuilder builder;
+    for (const auto& stream : metrics_streams())
+        builder.add(qp::ExchangeId::Binance, stream.market, stream.symbol);
+    return std::move(builder).build();
+}
+
+/// One open interest sample, flattened. Ratios stay out of the key so the
+/// comparison is the same on both markets.
+struct MetricsRow {
+    Timestamp   ts{};
+    std::string symbol;
+    double      open_interest{};
+    double      open_interest_value{};
+    double      taker_ratio{};
+
+    auto key() const { return std::tie(ts, symbol, open_interest, open_interest_value); }
+
+    bool operator<(const MetricsRow& other) const { return key() < other.key(); }
+};
+
+/// A second implementation of the datetime rule, so a bug in the fast one does
+/// not cancel out.
+Timestamp datetime_to_nanos(const std::string& field) {
+    std::tm    tm{};
+    const auto parsed = std::sscanf(field.c_str(), "%4d-%2d-%2d %2d:%2d:%2d", &tm.tm_year,
+                                    &tm.tm_mon, &tm.tm_mday, &tm.tm_hour, &tm.tm_min, &tm.tm_sec);
+    EXPECT_EQ(parsed, 6) << field;
+    tm.tm_year -= 1900;
+    tm.tm_mon -= 1;
+    return static_cast<Timestamp>(timegm(&tm)) * 1'000'000'000LL;
+}
+
+std::vector<MetricsRow> fetch_expected_metrics() {
+    std::vector<MetricsRow> rows;
+    for (const auto& stream : metrics_streams()) {
+        std::string url = "https://data.binance.vision/data/";
+        url += stream.market_path;
+        url += "/daily/metrics/";
+        url += stream.symbol;
+        url += '/';
+        url += stream.symbol;
+        url += "-metrics-2025-06-02.zip";
+
+        const auto             zip   = qp::data_source::network::http::get(url);
+        const auto             bytes = qp::data_source::archive::zip::unzip_single_entry(zip);
+        const std::string_view csv(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+
+        std::size_t start = 0;
+        while (start < csv.size()) {
+            auto end = csv.find('\n', start);
+            if (end == std::string_view::npos) end = csv.size();
+            auto line = csv.substr(start, end - start);
+            start     = end + 1;
+            if (!line.empty() && line.back() == '\r') line.remove_suffix(1);
+            if (line.empty()) continue;
+            if (line.front() < '0' || line.front() > '9') continue;
+
+            const auto fields = split(line);
+            EXPECT_EQ(fields.size(), 8u) << line;
+            if (fields.size() != 8) continue;
+            rows.push_back(MetricsRow{.ts                  = datetime_to_nanos(fields[0]),
+                                      .symbol              = stream.symbol,
+                                      .open_interest       = std::stod(fields[2]),
+                                      .open_interest_value = std::stod(fields[3]),
+                                      .taker_ratio         = std::stod(fields[7])});
+        }
+    }
+    return rows;
+}
+
+}  // namespace
+
+TEST(BinanceHistoricalIntegration, MetricsMatchesTheRawCsvs) {
+    const auto universe = build_metrics_universe();
+
+    CollectingSink sink;
+    std::size_t    coin_m_seen = 0;
+    {
+        BinanceHistoricalConfig config{.streams = {StreamSpec{EndpointKind::Metrics, ""}},
+                                       .pool    = pool_config(),
+                                       // Monthly 404s for metrics, so this also
+                                       // proves the daily fallback on a live path.
+                                       .cadence = Cadence::Monthly,
+                                       .from    = kMetricsFrom,
+                                       .to      = kMetricsTo};
+
+        BinanceHistoricalSource<HttpFetchPool> source(config, universe);
+        ASSERT_EQ(source.stream_count(), 2u);
+        source.plan();
+
+        for (const auto& report : source.reports())
+            EXPECT_EQ(report.stats.files_planned, 1u) << report.symbol;
+
+        ControlChannel<1> control;
+        const auto        consumer = control.attach();
+
+        auto sources = std::forward_as_tuple(source);
+        auto sinks   = std::forward_as_tuple(sink);
+        qp::data_source::run_data_source(sources, sinks, control, consumer,
+                                         std::chrono::milliseconds{1});
+
+        EXPECT_EQ(source.pool().stats().completed_failed, 0u);
+        for (const auto& report : source.reports()) {
+            EXPECT_EQ(report.stats.files_read, 1u) << report.symbol;
+            EXPECT_EQ(report.stats.rows_rejected, 0u)
+                << report.symbol << " rejected rows, blank ratios must not reject";
+            EXPECT_EQ(report.stats.backwards_stamps, 0u) << report.symbol;
+            EXPECT_EQ(report.stats.repeated_stamps, 0u) << report.symbol;
+        }
+    }
+
+    std::vector<MetricsRow> actual;
+    actual.reserve(sink.events.size());
+    for (const auto& event : sink.events) {
+        ASSERT_EQ(event.base.kind, EventKind::OpenInterest);
+        const auto* payload = std::get_if<qp::OpenInterestEvent>(&event.payload);
+        ASSERT_NE(payload, nullptr);
+
+        const auto symbol = symbol_name(universe, event);
+        if (symbol == "BTCUSD_PERP") {
+            ++coin_m_seen;
+            EXPECT_TRUE(std::isnan(payload->toptrader_account_ratio)) << "coin-m leaves 4 empty";
+            EXPECT_TRUE(std::isnan(payload->toptrader_position_ratio)) << "coin-m leaves 5 empty";
+            EXPECT_TRUE(std::isnan(payload->account_long_short_ratio)) << "coin-m leaves 6 empty";
+            EXPECT_FALSE(std::isnan(payload->taker_long_short_volume_ratio))
+                << "coin-m does publish 7";
+        } else {
+            EXPECT_FALSE(std::isnan(payload->toptrader_account_ratio)) << "usd-m publishes 4";
+        }
+
+        actual.push_back(MetricsRow{.ts                  = event.base.ts,
+                                    .symbol              = symbol,
+                                    .open_interest       = payload->open_interest,
+                                    .open_interest_value = payload->open_interest_value,
+                                    .taker_ratio         = payload->taker_long_short_volume_ratio});
+    }
+
+    EXPECT_GT(coin_m_seen, 0u) << "the blank ratio path was never exercised";
+
+    auto expected = fetch_expected_metrics();
+    ASSERT_FALSE(expected.empty());
+    std::sort(expected.begin(), expected.end());
+    std::sort(actual.begin(), actual.end());
+
+    ASSERT_EQ(actual.size(), expected.size());
+    for (std::size_t i = 0; i < actual.size(); ++i) {
+        EXPECT_EQ(actual[i].ts, expected[i].ts) << "row " << i;
+        EXPECT_EQ(actual[i].symbol, expected[i].symbol) << "row " << i;
+        EXPECT_DOUBLE_EQ(actual[i].open_interest, expected[i].open_interest) << "row " << i;
+        EXPECT_DOUBLE_EQ(actual[i].open_interest_value, expected[i].open_interest_value)
+            << "row " << i;
+        EXPECT_DOUBLE_EQ(actual[i].taker_ratio, expected[i].taker_ratio) << "row " << i;
+    }
+
+    // The merge is still ascending with two markets interleaved.
+    Timestamp previous = 0;
+    for (const auto& event : sink.events) {
+        EXPECT_GE(event.base.ts, previous);
+        previous = event.base.ts;
+    }
 }

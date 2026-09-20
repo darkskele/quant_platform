@@ -11,3 +11,6 @@
 9. Kline events are stamped with open time, funding events with calc time.
 10. Datetime stamps are read as a fixed width field rather than through `strptime`. A field longer than the format is a different format, not this one with a tail, so it is rejected instead of truncated.
 11. The civil calendar helpers live with the field readers, since the stamp parser and the stream's file window both need them and neither owns the other.
+12. A blank optional column parses as NaN rather than rejecting the row. Coin-M metrics leaves three of its four long short ratios empty on every row, so rejecting on blank would drop the dataset entirely.
+13. Open interest is mandatory in a metrics row and the four ratios are not, since open interest is the reason the dataset is read.
+14. The metrics symbol column is consumed and dropped. The stream already knows the symbol it planned and the parser is not handed it.

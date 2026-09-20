@@ -14,6 +14,7 @@
 #include "parsers/funding.hpp"
 #include "parsers/klines.hpp"
 #include "parsers/mark_klines.hpp"
+#include "parsers/metrics.hpp"
 #include "parsers/premium_klines.hpp"
 #include "source.hpp"
 #include "stream.hpp"
@@ -96,6 +97,7 @@ class BinanceHistoricalSource {
         plan_range(mark_, lister);
         plan_range(premium_, lister);
         plan_range(funding_, lister);
+        plan_range(metrics_, lister);
     }
 
     /// Earliest buffered event across every stream. NoData while any unfinished
@@ -138,6 +140,7 @@ class BinanceHistoricalSource {
         collect(mark_, out);
         collect(premium_, out);
         collect(funding_, out);
+        collect(metrics_, out);
         return out;
     }
 
@@ -209,6 +212,9 @@ class BinanceHistoricalSource {
             case EndpointKind::FundingRate:
                 add(funding_, path, spec, symbol, instrument);
                 break;
+            case EndpointKind::Metrics:
+                add(metrics_, path, spec, symbol, instrument);
+                break;
         }
     }
 
@@ -253,6 +259,8 @@ class BinanceHistoricalSource {
                 return load(premium_[cursor.slot]);
             case EndpointKind::FundingRate:
                 return load(funding_[cursor.slot]);
+            case EndpointKind::Metrics:
+                return load(metrics_[cursor.slot]);
         }
         return false;
     }
@@ -268,6 +276,8 @@ class BinanceHistoricalSource {
                 return premium_[cursor.slot].stream->finished();
             case EndpointKind::FundingRate:
                 return funding_[cursor.slot].stream->finished();
+            case EndpointKind::Metrics:
+                return metrics_[cursor.slot].stream->finished();
         }
         return true;
     }
@@ -291,6 +301,7 @@ class BinanceHistoricalSource {
         add(mark_, EndpointKind::MarkPriceKlines);
         add(premium_, EndpointKind::PremiumIndexKlines);
         add(funding_, EndpointKind::FundingRate);
+        add(metrics_, EndpointKind::Metrics);
 
         // Every stream is in exactly one of pending_ or heap_, or dropped once
         // finished, so neither grows past this and neither reallocates again.
@@ -316,6 +327,7 @@ class BinanceHistoricalSource {
     Streams<parsers::MarkPriceKlineParser>    mark_;
     Streams<parsers::PremiumIndexKlineParser> premium_;
     Streams<parsers::FundingParser>           funding_;
+    Streams<parsers::MetricsParser>           metrics_;
 
     std::vector<Cursor> cursors_;
     std::vector<Slot*>  slots_;

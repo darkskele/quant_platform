@@ -42,7 +42,8 @@ PYBIND11_MODULE(qp_python_backtest, m) {
         .value("BookSnapshot", qp::EventKind::BookSnapshot)
         .value("Kline", qp::EventKind::Kline)
         .value("MarkPriceKline", qp::EventKind::MarkPriceKline)
-        .value("PremiumIndexKline", qp::EventKind::PremiumIndexKline);
+        .value("PremiumIndexKline", qp::EventKind::PremiumIndexKline)
+        .value("OpenInterest", qp::EventKind::OpenInterest);
 
     py::class_<qp::PriceLevel>(m, "PriceLevel")
         .def_readonly("price", &qp::PriceLevel::price)
@@ -82,6 +83,17 @@ PYBIND11_MODULE(qp_python_backtest, m) {
         .def_readonly("high", &qp::PremiumIndexKlineEvent::high)
         .def_readonly("low", &qp::PremiumIndexKlineEvent::low)
         .def_readonly("close", &qp::PremiumIndexKlineEvent::close);
+
+    // Coin-M leaves the three long short ratios empty, so those arrive as NaN
+    // rather than raising.
+    py::class_<qp::OpenInterestEvent>(m, "OpenInterestEvent")
+        .def_readonly("open_interest", &qp::OpenInterestEvent::open_interest)
+        .def_readonly("open_interest_value", &qp::OpenInterestEvent::open_interest_value)
+        .def_readonly("toptrader_account_ratio", &qp::OpenInterestEvent::toptrader_account_ratio)
+        .def_readonly("toptrader_position_ratio", &qp::OpenInterestEvent::toptrader_position_ratio)
+        .def_readonly("account_long_short_ratio", &qp::OpenInterestEvent::account_long_short_ratio)
+        .def_readonly("taker_long_short_volume_ratio",
+                      &qp::OpenInterestEvent::taker_long_short_volume_ratio);
 
     py::class_<qp::BookDiffEvent>(m, "BookDiffEvent")
         .def_readonly("first_seq", &qp::BookDiffEvent::first_seq)

@@ -30,6 +30,7 @@ if(BUILD_TESTING)
         ${QP_TESTS}/parsers/test_csv_field.cpp
         ${QP_TESTS}/parsers/test_funding.cpp
         ${QP_TESTS}/parsers/test_klines.cpp
+        ${QP_TESTS}/parsers/test_metrics.cpp
         ${QP_TESTS}/parsers/test_price_klines.cpp
     )
     target_link_libraries(qp_binance_historical_tests

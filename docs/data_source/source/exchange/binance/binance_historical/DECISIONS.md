@@ -17,3 +17,4 @@
 15. The source owns its pool and quiesces it in the destructor, so workers are joined while the queues they write into are still alive.
 16. Streams pump on starvation and on a tick mask otherwise, so a busy stream pays a local increment per event rather than the ring's atomics.
 17. Per-stream gap stats are reported rather than thrown on, since a historical sweep is judged by what it read, not by whether every file existed.
+18. Rows repeating the stamp before them are counted, not dropped. The 2020 and early 2021 metrics files publish every row twice, and a dataset like aggTrades shares a stamp across genuinely distinct events, so dropping on a repeat could not be a stream wide rule.
