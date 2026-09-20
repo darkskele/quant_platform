@@ -1,7 +1,9 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -27,6 +29,16 @@ constexpr std::string_view kRealFile =
 constexpr std::string_view kMissingFile =
     "https://data.binance.vision/data/futures/um/daily/klines/BTCUSDT/1h/"
     "BTCUSDT-1h-1999-01-01.zip";
+
+/// Answers 200 with html rather than an archive, which is what the zip path
+/// has to reject.
+constexpr std::string_view kNotAnArchive = "https://data.binance.vision/";
+
+/// A monthly minute file, megabytes rather than kilobytes, so a fetch stays in
+/// flight long enough to be observed.
+constexpr std::string_view kLargeFile =
+    "https://data.binance.vision/data/futures/um/monthly/klines/BTCUSDT/1m/"
+    "BTCUSDT-1m-2025-01.zip";
 
 HttpFetchPoolConfig small_pool() {
     HttpFetchPoolConfig config;
@@ -297,4 +309,118 @@ TEST(HttpFetchPool, CriticalFiresOnceOnASustainedFailureRate) {
 
     EXPECT_TRUE(pool.stats().critical);
     EXPECT_EQ(fired.load(), 1);
+}
+
+TEST(HttpFetchPool, BytesThatAreNotAnArchiveAreAZipError) {
+    FileQueue     queue;
+    HttpFetchPool pool(small_pool());
+
+    ASSERT_TRUE(pool.submit(std::string(kNotAnArchive), &queue));
+
+    binance::FetchedFile file;
+    ASSERT_TRUE(await(queue, file));
+    EXPECT_EQ(file.status, FetchStatus::ZipError);
+    EXPECT_TRUE(file.body.empty());
+
+    const auto stats = pool.stats();
+    EXPECT_EQ(stats.zip_error, 1u);
+    EXPECT_EQ(stats.completed_failed, 1u);
+    // The transfer itself worked, so the fetched bytes are counted and none of
+    // them reach the inflated total.
+    EXPECT_GT(stats.bytes_fetched, 0u);
+    EXPECT_EQ(stats.bytes_inflated, 0u);
+
+    const auto failures = pool.recent_failures();
+    ASSERT_EQ(failures.size(), 1u);
+    EXPECT_EQ(failures.front().status, FetchStatus::ZipError);
+}
+
+TEST(HttpFetchPool, CancellationsIntoAFullRingAreCountedNotWaitedOn) {
+    // Three usable slots, all taken, so nothing the drain pushes can land.
+    FileQueue abandoned;
+    for (int i = 0; i < 3; ++i) ASSERT_TRUE(abandoned.push(binance::FetchedFile{}));
+    ASSERT_FALSE(abandoned.push(binance::FetchedFile{}));
+
+    HttpFetchPoolConfig config;
+    config.workers     = 1;
+    config.max_retries = 0;
+
+    FileQueue     busy;
+    HttpFetchPool pool(config);
+
+    // Occupies the one worker, so the rest are still queued when quiesce runs
+    // and are cancelled by the drain rather than by a worker.
+    ASSERT_TRUE(pool.submit(std::string(kLargeFile), &busy));
+    for (int i = 0; i < 3; ++i) ASSERT_TRUE(pool.submit(std::string(kMissingFile), &abandoned));
+
+    const auto started = std::chrono::steady_clock::now();
+    pool.quiesce();
+    const auto elapsed = std::chrono::steady_clock::now() - started;
+
+    const auto stats = pool.stats();
+    EXPECT_GE(stats.cancellations_dropped, 1u);
+    EXPECT_GE(stats.cancelled, stats.cancellations_dropped);
+    EXPECT_EQ(stats.queued, 0u);
+    // Bounded attempts, so an undrained stream delays the shutdown rather than
+    // hanging it.
+    EXPECT_LT(elapsed, std::chrono::seconds{60});
+}
+
+TEST(HttpFetchPool, OldestInFlightAgesWhileAFetchRunsAndClearsAfter) {
+    HttpFetchPoolConfig config;
+    config.workers     = 1;
+    config.max_retries = 0;
+
+    FileQueue     queue;
+    HttpFetchPool pool(config);
+
+    EXPECT_EQ(pool.stats().oldest_in_flight_ms, 0);
+
+    ASSERT_TRUE(pool.submit(std::string(kLargeFile), &queue));
+
+    std::int64_t         peak = 0;
+    binance::FetchedFile file;
+    bool                 delivered = false;
+    const auto           deadline  = std::chrono::steady_clock::now() + std::chrono::seconds{60};
+    while (std::chrono::steady_clock::now() < deadline) {
+        const auto stats = pool.stats();
+        if (stats.in_flight > 0) peak = std::max(peak, stats.oldest_in_flight_ms);
+        if (auto popped = queue.pop()) {
+            file      = std::move(*popped);
+            delivered = true;
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds{1});
+    }
+
+    ASSERT_TRUE(delivered);
+    EXPECT_EQ(file.status, FetchStatus::Ok);
+    EXPECT_GT(peak, 0) << "never observed an in flight fetch aging";
+    // Cleared before the file is handed over, so a settled pool reports no
+    // stalled worker.
+    EXPECT_EQ(pool.stats().oldest_in_flight_ms, 0);
+    EXPECT_EQ(pool.stats().in_flight, 0u);
+}
+
+TEST(HttpFetchPool, SubmitIsRefusedOnceTheTaskQueueFills) {
+    HttpFetchPoolConfig config;
+    config.workers     = 1;
+    config.max_retries = 0;
+
+    HttpFetchPool pool(config);
+
+    // No destination, so the drain discards these without touching a ring, and
+    // the one worker stays busy on a file big enough that it drains nothing.
+    constexpr std::size_t kSubmissions = 3000;
+    std::size_t           accepted     = 0;
+    for (std::size_t i = 0; i < kSubmissions; ++i)
+        if (pool.submit(std::string(kLargeFile), nullptr)) ++accepted;
+
+    const auto stats = pool.stats();
+    EXPECT_GT(stats.refused, 0u) << "queue never filled, capacity may have grown";
+    EXPECT_EQ(stats.submitted, accepted);
+    EXPECT_EQ(stats.submitted + stats.refused, kSubmissions);
+
+    pool.quiesce();
+    EXPECT_EQ(pool.stats().queued, 0u);
 }

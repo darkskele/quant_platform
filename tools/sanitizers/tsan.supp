@@ -1,0 +1,20 @@
+# glibc serialises tzset_internal behind tzset_lock, which is a futex taken
+# through __libc_lock_lock rather than a pthread mutex, so ThreadSanitizer
+# cannot see it and reports the old_tz free and strdup as a race. libzip
+# reaches it converting an entry's DOS timestamp, once per file, on every
+# fetch worker. This stops being a suppression and starts being a real race if
+# anything ever calls setenv("TZ", ...) while workers run.
+race:tzset_internal
+race:__tz_convert
+
+# CPython is not instrumented, so its own synchronisation is invisible the same
+# way and its interpreter internals surface as findings that say nothing about
+# this codebase. Pair with ignore_noninstrumented_modules=1, which drops
+# accesses made inside uninstrumented libraries while keeping the ones made
+# here.
+called_from_lib:libpython*
+race:*_PyEval_*
+race:*PyThreadState*
+race:*PyGILState*
+race:*_PyObject_*
+race:*pymalloc*

@@ -1,12 +1,14 @@
 qp_dir(include QP_INC)
 get_filename_component(QP_BACKTEST_INC "${QP_INC}" DIRECTORY)
 
-qp_dir(tests QP_TESTS)
-
 if(BUILD_TESTING)
     find_package(GTest CONFIG REQUIRED)
     find_package(Threads REQUIRED)
-    add_executable(qp_python_backtest_tests ${QP_TESTS}/test_python_backtest.cpp)
+    # tests/python/ holds everything that exercises the python surface, so it
+    # sits outside the tests/<module> mirror and is named in full.
+    add_executable(qp_python_backtest_tests
+        ${CMAKE_SOURCE_DIR}/tests/python/test_python_backtest.cpp
+    )
     target_include_directories(qp_python_backtest_tests PRIVATE ${QP_BACKTEST_INC})
     target_link_libraries(qp_python_backtest_tests PRIVATE
         qp_engine qp_transport qp_transport_backtest_in_process qp_execution_sim
