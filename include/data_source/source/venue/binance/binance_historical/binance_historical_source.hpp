@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <cstddef>
 #include <memory>
 #include <string>
@@ -8,6 +9,7 @@
 #include "endpoints.hpp"
 #include "exchange.hpp"
 #include "fetch_pool.hpp"
+#include "http_fetch_pool.hpp"
 #include "listing.hpp"
 #include "parsers/funding.hpp"
 #include "parsers/klines.hpp"
@@ -32,6 +34,10 @@ struct BinanceHistoricalConfig {
     /// market does not publish, such as spot funding, is skipped.
     std::vector<StreamSpec> streams;
 
+    /// The source owns its pool, so this is where worker count and retry
+    /// policy are set.
+    HttpFetchPoolConfig pool{};
+
     /// Monthly is fewer requests for the same rows. Daily is for spans running
     /// up to now, since the current month is not published until it ends.
     Cadence cadence{Cadence::Monthly};
@@ -53,20 +59,25 @@ struct StreamReport {
 /// timestamp order.
 ///
 /// @tparam Pool the fetch pool the streams schedule against.
-template <FetchPool Pool>
+template <FetchPool Pool = HttpFetchPool>
 class BinanceHistoricalSource {
    public:
-    BinanceHistoricalSource(BinanceHistoricalConfig config, const Subscription& universe,
-                            Pool& pool)
-        : config_(std::move(config)), pool_(&pool) {
+    BinanceHistoricalSource(BinanceHistoricalConfig config, const Subscription& universe)
+        : config_(std::move(config)), pool_(config_.pool) {
         build_streams(universe);
     }
 
     BinanceHistoricalSource(const BinanceHistoricalSource&)            = delete;
     BinanceHistoricalSource& operator=(const BinanceHistoricalSource&) = delete;
 
-    /// Stops the workers before the stream queues they write into go away.
-    ~BinanceHistoricalSource() { pool_->quiesce(); }
+    /// Runs before any member is destroyed, so the workers are joined while the
+    /// stream queues they write into are still alive.
+    ~BinanceHistoricalSource() { pool_.quiesce(); }
+
+    /// Exposed so a run can read fetch stats or stop early.
+    Pool& pool() noexcept { return pool_; }
+
+    const Pool& pool() const noexcept { return pool_; }
 
     /// Discovers each stream's files off the bucket.
     void plan() {
@@ -85,26 +96,35 @@ class BinanceHistoricalSource {
     /// Earliest buffered event across every stream. NoData while any unfinished
     /// stream has nothing to compare, since it could still hold an earlier one.
     PullResult next() {
-        Slot* earliest = nullptr;
-        bool  waiting  = false;
-
-        // Every stream is visited even once one is known to be waiting, so they
-        // all keep their fetches moving.
-        scan(klines_, earliest, waiting);
-        scan(mark_, earliest, waiting);
-        scan(premium_, earliest, waiting);
-        scan(funding_, earliest, waiting);
+        // Only streams without a front are touched, so steady state is one
+        // refill plus a heap pop rather than a walk over every stream.
+        std::size_t keep    = 0;
+        bool        waiting = false;
+        for (const auto index : pending_) {
+            if (refill(index)) {
+                heap_.push_back({slots_[index]->event.base.ts, index});
+                std::push_heap(heap_.begin(), heap_.end(), later_first);
+                continue;
+            }
+            if (finished(index)) continue;
+            pending_[keep++] = index;
+            waiting          = true;
+        }
+        pending_.resize(keep);
 
         if (waiting) return std::unexpected(SourceStatus::NoData);
-        if (earliest == nullptr) return std::unexpected(SourceStatus::Eof);
+        if (heap_.empty()) return std::unexpected(SourceStatus::Eof);
 
-        earliest->loaded = false;
-        return std::move(earliest->event);
+        std::pop_heap(heap_.begin(), heap_.end(), later_first);
+        const auto index = heap_.back().second;
+        heap_.pop_back();
+
+        pending_.push_back(index);
+        slots_[index]->loaded = false;
+        return std::move(slots_[index]->event);
     }
 
-    std::size_t stream_count() const noexcept {
-        return klines_.size() + mark_.size() + premium_.size() + funding_.size();
-    }
+    std::size_t stream_count() const noexcept { return cursors_.size(); }
 
     std::vector<StreamReport> reports() const {
         std::vector<StreamReport> out;
@@ -125,6 +145,15 @@ class BinanceHistoricalSource {
         MarketEvent event;
         bool        loaded{false};
     };
+
+    /// Which stream a flat index refers to.
+    struct Cursor {
+        EndpointKind  kind{};
+        std::uint32_t slot{};
+    };
+
+    /// Timestamp first, so the heap orders on it and breaks ties on the index.
+    using Entry = std::pair<Timestamp, std::uint32_t>;
 
     /// The market slot and the lookahead travel with the stream, so nothing has
     /// to keep a parallel array in step with it.
@@ -156,6 +185,8 @@ class BinanceHistoricalSource {
                     add_stream(*path, spec, symbol, *instrument);
             }
         }
+
+        index_streams();
     }
 
     void add_stream(BinanceMarket path, const StreamSpec& spec, const std::string& symbol,
@@ -187,10 +218,11 @@ class BinanceHistoricalSource {
         // Falls back rather than building a path the dataset does not publish.
         const auto cadence = supports(*entry, config_.cadence) ? config_.cadence : Cadence::Monthly;
 
-        streams.push_back(
-            Held<P>{std::make_unique<Stream<P>>(*pool_, path, cadence, symbol,
-                                                P::intervalled ? spec.interval : "", instrument),
-                    instrument.market});
+        streams.push_back(Held<P>{
+            .stream = std::make_unique<Stream<P>>(pool_, path, cadence, symbol,
+                                                  P::intervalled ? spec.interval : "", instrument),
+            .market = instrument.market,
+            .slot   = {}});
     }
 
     template <parsers::RowParser P, class Lister>
@@ -199,22 +231,65 @@ class BinanceHistoricalSource {
             held.stream->plan(lister(held.stream->prefix()), config_.from, config_.to);
     }
 
-    /// Tops each stream's slot up and keeps the earliest of them. A stream with
-    /// nothing buffered that is not finished blocks the merge, since it could
-    /// still hold an earlier timestamp.
-    template <parsers::RowParser P>
-    void scan(Streams<P>& streams, Slot*& earliest, bool& waiting) {
-        for (auto& held : streams) {
-            auto& slot = held.slot;
-            if (!slot.loaded) slot.loaded = held.stream->next(slot.event);
+    /// Min-heap order. Ties fall to the lower stream index, which is the order
+    /// a linear scan would have given, so output stays reproducible.
+    static bool later_first(const Entry& a, const Entry& b) noexcept { return a > b; }
 
-            if (!slot.loaded) {
-                if (!held.stream->finished()) waiting = true;
-                continue;
-            }
-            if (earliest == nullptr || slot.event.base.ts < earliest->event.base.ts)
-                earliest = &slot;
+    bool refill(std::uint32_t index) {
+        const auto cursor = cursors_[index];
+        switch (cursor.kind) {
+            case EndpointKind::Klines:
+                return load(klines_[cursor.slot]);
+            case EndpointKind::MarkPriceKlines:
+                return load(mark_[cursor.slot]);
+            case EndpointKind::PremiumIndexKlines:
+                return load(premium_[cursor.slot]);
+            case EndpointKind::FundingRate:
+                return load(funding_[cursor.slot]);
         }
+        return false;
+    }
+
+    bool finished(std::uint32_t index) const {
+        const auto cursor = cursors_[index];
+        switch (cursor.kind) {
+            case EndpointKind::Klines:
+                return klines_[cursor.slot].stream->finished();
+            case EndpointKind::MarkPriceKlines:
+                return mark_[cursor.slot].stream->finished();
+            case EndpointKind::PremiumIndexKlines:
+                return premium_[cursor.slot].stream->finished();
+            case EndpointKind::FundingRate:
+                return funding_[cursor.slot].stream->finished();
+        }
+        return true;
+    }
+
+    template <parsers::RowParser P>
+    static bool load(Held<P>& held) {
+        if (!held.slot.loaded) held.slot.loaded = held.stream->next(held.slot.event);
+        return held.slot.loaded;
+    }
+
+    /// Flat index over every stream, built once so the merge never walks the
+    /// per kind vectors.
+    void index_streams() {
+        const auto add = [this](auto& streams, EndpointKind kind) {
+            for (std::size_t i = 0; i < streams.size(); ++i) {
+                cursors_.push_back({kind, static_cast<std::uint32_t>(i)});
+                slots_.push_back(&streams[i].slot);
+            }
+        };
+        add(klines_, EndpointKind::Klines);
+        add(mark_, EndpointKind::MarkPriceKlines);
+        add(premium_, EndpointKind::PremiumIndexKlines);
+        add(funding_, EndpointKind::FundingRate);
+
+        // Every stream is in exactly one of pending_ or heap_, or dropped once
+        // finished, so neither grows past this and neither reallocates again.
+        pending_.resize(cursors_.size());
+        for (std::uint32_t i = 0; i < pending_.size(); ++i) pending_[i] = i;
+        heap_.reserve(cursors_.size());
     }
 
     template <parsers::RowParser P>
@@ -228,12 +303,19 @@ class BinanceHistoricalSource {
     }
 
     BinanceHistoricalConfig config_;
-    Pool*                   pool_;
+    Pool                    pool_;
 
     Streams<parsers::KlineParser>             klines_;
     Streams<parsers::MarkPriceKlineParser>    mark_;
     Streams<parsers::PremiumIndexKlineParser> premium_;
     Streams<parsers::FundingParser>           funding_;
+
+    std::vector<Cursor> cursors_;
+    std::vector<Slot*>  slots_;
+
+    /// Streams with no front event. Everything else is in the heap.
+    std::vector<std::uint32_t> pending_;
+    std::vector<Entry>         heap_;
 };
 
 }  // namespace qp::data_source::source::venue::binance

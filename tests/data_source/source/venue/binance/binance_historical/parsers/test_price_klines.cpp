@@ -2,6 +2,7 @@
 
 #include <string_view>
 
+#include "endpoints.hpp"
 #include "mark_klines.hpp"
 #include "premium_klines.hpp"
 #include "types.hpp"
@@ -13,6 +14,11 @@ using qp::data_source::source::venue::binance::parsers::parse_mark_klines_row;
 using qp::data_source::source::venue::binance::parsers::parse_premium_klines_row;
 
 namespace {
+
+// Spot and USD-M read volume from column 5, so this is the ordinary layout.
+const auto& kUsdM = qp::data_source::source::venue::binance::endpoint(
+    qp::data_source::source::venue::binance::BinanceMarket::UsdM,
+    qp::data_source::source::venue::binance::EndpointKind::Klines);
 
 // Rows captured from live files.
 constexpr std::string_view kMarkRow =
@@ -27,7 +33,7 @@ constexpr std::string_view kPremiumRow =
 TEST(BinanceMarkKlineParser, ParsesRow) {
     Timestamp           ts{};
     MarkPriceKlineEvent mark{};
-    ASSERT_TRUE(parse_mark_klines_row(kMarkRow, ts, mark));
+    ASSERT_TRUE(parse_mark_klines_row(kUsdM, kMarkRow, ts, mark));
 
     EXPECT_EQ(ts, 1748822400000LL * 1'000'000);
     EXPECT_EQ(mark.close_time, 1748825999999LL * 1'000'000);
@@ -40,14 +46,14 @@ TEST(BinanceMarkKlineParser, ParsesRow) {
 TEST(BinanceMarkKlineParser, RejectsTruncatedRow) {
     Timestamp           ts{};
     MarkPriceKlineEvent mark{};
-    EXPECT_FALSE(parse_mark_klines_row("1748822400000,105589.61297464", ts, mark));
+    EXPECT_FALSE(parse_mark_klines_row(kUsdM, "1748822400000,105589.61297464", ts, mark));
 }
 
 // Premium index values are rates, so negatives are the normal case.
 TEST(BinancePremiumKlineParser, ParsesNegativeRates) {
     Timestamp              ts{};
     PremiumIndexKlineEvent premium{};
-    ASSERT_TRUE(parse_premium_klines_row(kPremiumRow, ts, premium));
+    ASSERT_TRUE(parse_premium_klines_row(kUsdM, kPremiumRow, ts, premium));
 
     EXPECT_EQ(ts, 1748822400000LL * 1'000'000);
     EXPECT_EQ(premium.close_time, 1748825999999LL * 1'000'000);
@@ -60,7 +66,7 @@ TEST(BinancePremiumKlineParser, ParsesNegativeRates) {
 TEST(BinancePremiumKlineParser, FailureLeavesOutputUntouched) {
     Timestamp              ts{42};
     PremiumIndexKlineEvent premium{.close_time = 7, .open = 1.0};
-    EXPECT_FALSE(parse_premium_klines_row("1748822400000,-0.00057025,nope", ts, premium));
+    EXPECT_FALSE(parse_premium_klines_row(kUsdM, "1748822400000,-0.00057025,nope", ts, premium));
 
     EXPECT_EQ(ts, 42);
     EXPECT_EQ(premium.close_time, 7);

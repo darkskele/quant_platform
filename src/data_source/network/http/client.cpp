@@ -68,17 +68,21 @@ struct Connection {
 
 class ConnectionPool {
    public:
-    /// Dials, TLS handshake, SNI. Retries with exponential backoff.
-    std::unique_ptr<Connection> acquire(const Url& url, const HttpConfig& config) {
+    /// Dials, TLS handshake, SNI. Retries with exponential backoff. reused says
+    /// whether this came off the pool, which decides if a failed request is
+    /// worth retrying on a fresh socket.
+    std::unique_ptr<Connection> acquire(const Url& url, const HttpConfig& config, bool& reused) {
         {
             std::lock_guard lock(mutex_);
             auto&           slot = pool_[url.host];
             if (!slot.empty()) {
                 auto conn = std::move(slot.back());
                 slot.pop_back();
+                reused = true;
                 return conn;
             }
         }
+        reused = false;
         return dial(url, config);
     }
 
@@ -125,27 +129,40 @@ ConnectionPool& pool() {
 }  // namespace
 
 std::vector<std::byte> get(std::string_view url_str, const HttpConfig& config) {
-    const Url url  = parse_url(url_str);
-    auto      conn = pool().acquire(url, config);
+    const Url url = parse_url(url_str);
 
-    beast::http::request<beast::http::empty_body> req{beast::http::verb::get, url.target, 11};
-    req.set(beast::http::field::host, url.host);
-    req.set(beast::http::field::user_agent, "qp-platform");
-    beast::get_lowest_layer(conn->stream).expires_after(std::chrono::seconds(60));
-    beast::http::write(conn->stream, req);
+    for (std::size_t attempt = 0;; ++attempt) {
+        bool reused = false;
+        auto conn   = pool().acquire(url, config, reused);
 
-    beast::flat_buffer                                                buffer;
-    beast::http::response_parser<beast::http::vector_body<std::byte>> parser;
-    parser.body_limit(std::numeric_limits<std::uint64_t>::max());
-    beast::http::read(conn->stream, buffer, parser);
+        beast::http::request<beast::http::empty_body> req{beast::http::verb::get, url.target, 11};
+        req.set(beast::http::field::host, url.host);
+        req.set(beast::http::field::user_agent, "qp-platform");
 
-    if (const int status = parser.get().result_int(); status / 100 != 2)
-        // Not returned to the pool.
-        throw HttpStatusError(
-            status, "http::get: " + std::string(url_str) + " -> " + std::to_string(status));
+        beast::flat_buffer                                                buffer;
+        beast::http::response_parser<beast::http::vector_body<std::byte>> parser;
+        parser.body_limit(std::numeric_limits<std::uint64_t>::max());
 
-    pool().release(url, std::move(conn), config);
-    return std::move(parser.release().body());
+        try {
+            beast::get_lowest_layer(conn->stream).expires_after(std::chrono::seconds(60));
+            beast::http::write(conn->stream, req);
+            beast::http::read(conn->stream, buffer, parser);
+        } catch (const std::exception& e) {
+            // A pooled socket the server already closed surfaces here, as a
+            // write error or an end of stream. Redialing is the fix, and it is
+            // not a failed request, so it does not count as one.
+            if (reused && attempt < config.max_retries) continue;
+            throw HttpTransportError("http::get: " + std::string(url_str) + ": " + e.what());
+        }
+
+        if (const int status = parser.get().result_int(); status / 100 != 2)
+            // Not returned to the pool.
+            throw HttpStatusError(
+                status, "http::get: " + std::string(url_str) + " -> " + std::to_string(status));
+
+        pool().release(url, std::move(conn), config);
+        return std::move(parser.release().body());
+    }
 }
 
 }  // namespace qp::data_source::network::http

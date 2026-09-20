@@ -60,7 +60,11 @@ def render_summary(report: dict) -> str:
     order: list[object] = []
     labels: dict[object, str] = {}
     for case in cases:
-        key = case.get("family_index", case.get("run_name", case.get("name", "")))
+        # family_index alone collapses every Arg() of one BENCHMARK into a
+        # single row, keeping whichever landed last. run_name carries the
+        # arguments, so the pair separates args while still keeping two
+        # unrelated benchmarks that share a display name apart.
+        key = (case.get("family_index"), case.get("run_name", case.get("name", "")))
         if key not in groups:
             groups[key] = {}
             order.append(key)

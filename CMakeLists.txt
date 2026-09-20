@@ -76,6 +76,9 @@ add_subdirectory(cmake/data_source)
 add_subdirectory(cmake/engine)     
 add_subdirectory(cmake/apps/backtest) 
 
+# After data_source, whose targets it links.
+add_subdirectory(cmake/integration)
+
 if(BUILD_TESTING)
     find_package(GTest CONFIG REQUIRED)
     find_package(Threads REQUIRED)
@@ -85,6 +88,9 @@ if(BUILD_TESTING)
     # tests/*/python/ needs pybind11 and its own embed-linking target, so
     # it stays out of this aggregate.
     list(FILTER QP_TEST_SRCS EXCLUDE REGEX "/python/")
+    # tests/integration/ hits the network and runs for minutes, so it is its
+    # own binary rather than part of the fast suite.
+    list(FILTER QP_TEST_SRCS EXCLUDE REGEX "/integration/")
     add_executable(qp_tests ${QP_TEST_SRCS})
     target_link_libraries(qp_tests PRIVATE
         qp_core qp_core_test_support qp_clock qp_execution qp_execution_sim

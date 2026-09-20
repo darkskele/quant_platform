@@ -39,22 +39,27 @@ struct Endpoint {
     CadenceSupport   cadence;
     bool             intervalled;
     std::uint8_t     column_count;
+
+    /// Column holding volume in base asset units. Coin-M is inverse, so its
+    /// column 5 counts contracts and column 7 is the base asset.
+    std::uint8_t volume_column;
 };
 
 /// Verified against live files. Header row and timestamp unit are absent here
 /// because both vary by file date within a single dataset. Sniff them per file.
 inline constexpr std::array kEndpoints = {
-    Endpoint{"spot", "klines", CadenceSupport::Both, true, 12},
-    Endpoint{"futures/um", "klines", CadenceSupport::Both, true, 12},
-    Endpoint{"futures/um", "markPriceKlines", CadenceSupport::Both, true, 12},
-    Endpoint{"futures/um", "premiumIndexKlines", CadenceSupport::Both, true, 12},
-    Endpoint{"futures/um", "fundingRate", CadenceSupport::MonthlyOnly, false, 3},
-    // Coin-M carries the same layouts. Its kline volume columns count contracts
-    // and its quote volume is the base asset, the inverse of USD-M.
-    Endpoint{"futures/cm", "klines", CadenceSupport::Both, true, 12},
-    Endpoint{"futures/cm", "markPriceKlines", CadenceSupport::Both, true, 12},
-    Endpoint{"futures/cm", "premiumIndexKlines", CadenceSupport::Both, true, 12},
-    Endpoint{"futures/cm", "fundingRate", CadenceSupport::MonthlyOnly, false, 3},
+    Endpoint{"spot", "klines", CadenceSupport::Both, true, 12, 5},
+    Endpoint{"futures/um", "klines", CadenceSupport::Both, true, 12, 5},
+    Endpoint{"futures/um", "markPriceKlines", CadenceSupport::Both, true, 12, 5},
+    Endpoint{"futures/um", "premiumIndexKlines", CadenceSupport::Both, true, 12, 5},
+    Endpoint{"futures/um", "fundingRate", CadenceSupport::MonthlyOnly, false, 3, 0},
+    // Coin-M is inverse, so its klines count contracts in column 5 and carry
+    // the base asset in column 7. Reading 7 keeps volume one unit everywhere
+    // and avoids needing per symbol contract sizes.
+    Endpoint{"futures/cm", "klines", CadenceSupport::Both, true, 12, 7},
+    Endpoint{"futures/cm", "markPriceKlines", CadenceSupport::Both, true, 12, 5},
+    Endpoint{"futures/cm", "premiumIndexKlines", CadenceSupport::Both, true, 12, 5},
+    Endpoint{"futures/cm", "fundingRate", CadenceSupport::MonthlyOnly, false, 3, 0},
 };
 
 /// Null when the market does not publish that dataset, such as spot funding.

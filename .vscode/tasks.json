@@ -47,6 +47,24 @@
             ]
         },
         {
+            "label": "Build: qp_integration_tests (debug)",
+            "type": "shell",
+            "command": "cmake --preset debug && cmake --build build/debug --target qp_integration_tests -j",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "Build: qp_integration_tests (release)",
+            "type": "shell",
+            "command": "cmake --preset release && cmake --build build/release --target qp_integration_tests -j",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
             "label": "Build: qp_bench (release)",
             "type": "shell",
             "command": "cmake --preset release && cmake --build build/release --target qp_bench -j",
@@ -102,6 +120,22 @@
             "type": "shell",
             "command": "./build/release/qp_bench",
             "dependsOn": "Build: qp_bench (release)",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "Run: integration tests (release)",
+            "type": "shell",
+            "command": "./build/release/cmake/integration/qp_integration_tests",
+            "dependsOn": "Build: qp_integration_tests (release)",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "Run: integration tests (debug)",
+            "type": "shell",
+            "command": "LD_PRELOAD=$(gcc -print-file-name=libasan.so) ./build/debug/cmake/integration/qp_integration_tests",
+            "dependsOn": "Build: qp_integration_tests (debug)",
             "group": "test",
             "problemMatcher": []
         }

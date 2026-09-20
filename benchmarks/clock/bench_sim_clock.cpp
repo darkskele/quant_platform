@@ -40,6 +40,7 @@ void BM_SimClock_Advance(benchmark::State& state) {
     qp::Timestamp ts = 0;
     for (auto _ : state) {
         clock.advance(ts);
+        benchmark::DoNotOptimize(clock);
         ++ts;
     }
 }

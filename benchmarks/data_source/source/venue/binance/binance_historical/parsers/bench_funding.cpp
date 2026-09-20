@@ -13,7 +13,7 @@ namespace {
 
 constexpr std::string_view kFundingRow = "1748736000001,8,-0.00000582";
 
-void BM_ParseFundingRow(benchmark::State& state) {
+void BM_BinanceParser_FundingRow(benchmark::State& state) {
     Timestamp    ts{};
     FundingEvent funding{};
     for (auto _ : state) {
@@ -23,6 +23,6 @@ void BM_ParseFundingRow(benchmark::State& state) {
     state.SetItemsProcessed(state.iterations());
 }
 
-BENCHMARK(BM_ParseFundingRow);
+BENCHMARK(BM_BinanceParser_FundingRow);
 
 }  // namespace

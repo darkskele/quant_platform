@@ -9,10 +9,10 @@ namespace qp::data_source::source::venue::binance::parsers {
 
 /// Parses one premiumIndexKlines CSV row into ts and out. The values are rates
 /// and go negative. False leaves both untouched from the caller's view.
-inline bool parse_premium_klines_row(std::string_view row, Timestamp& ts,
+inline bool parse_premium_klines_row(const Endpoint& entry, std::string_view row, Timestamp& ts,
                                      PremiumIndexKlineEvent& out) noexcept {
     KlineRow fields{};
-    if (!read_kline_row(row, fields)) return false;
+    if (!read_kline_row(entry, row, fields)) return false;
 
     ts  = fields.open_time;
     out = PremiumIndexKlineEvent{.close_time = fields.close_time,
@@ -30,8 +30,9 @@ struct PremiumIndexKlineParser {
     static constexpr EndpointKind endpoint_kind = EndpointKind::PremiumIndexKlines;
     static constexpr bool         intervalled   = true;
 
-    static bool parse(std::string_view row, Timestamp& ts, Event& out) noexcept {
-        return parse_premium_klines_row(row, ts, out);
+    static bool parse(const Endpoint& entry, std::string_view row, Timestamp& ts,
+                      Event& out) noexcept {
+        return parse_premium_klines_row(entry, row, ts, out);
     }
 };
 

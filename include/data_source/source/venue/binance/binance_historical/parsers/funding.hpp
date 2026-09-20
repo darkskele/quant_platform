@@ -32,7 +32,7 @@ struct FundingParser {
     static constexpr EndpointKind endpoint_kind = EndpointKind::FundingRate;
     static constexpr bool         intervalled   = false;
 
-    static bool parse(std::string_view row, Timestamp& ts, Event& out) noexcept {
+    static bool parse(const Endpoint&, std::string_view row, Timestamp& ts, Event& out) noexcept {
         return parse_funding_row(row, ts, out);
     }
 };

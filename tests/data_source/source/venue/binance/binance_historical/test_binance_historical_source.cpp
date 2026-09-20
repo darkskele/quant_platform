@@ -86,18 +86,15 @@ void deliver_all(FakeFetchPool& pool, const std::vector<std::string>& bodies) {
 }  // namespace
 
 TEST(BinanceSource, BuildsOneStreamPerSymbolAndSpec) {
-    FakeFetchPool pool;
-    const auto    subs = universe({"BTCUSDT", "ETHUSDT"});
-    Source source(config({{EndpointKind::Klines, "1h"}, {EndpointKind::FundingRate, ""}}), subs,
-                  pool);
+    const auto subs = universe({"BTCUSDT", "ETHUSDT"});
+    Source source(config({{EndpointKind::Klines, "1h"}, {EndpointKind::FundingRate, ""}}), subs);
 
     EXPECT_EQ(source.stream_count(), 4u);
 }
 
 TEST(BinanceSource, ResolvesSymbolsThroughItsOwnSubscription) {
-    FakeFetchPool pool;
-    const auto    subs = universe({"BTCUSDT", "ETHUSDT"});
-    Source        source(config({{EndpointKind::Klines, "1h"}}), subs, pool);
+    const auto subs = universe({"BTCUSDT", "ETHUSDT"});
+    Source     source(config({{EndpointKind::Klines, "1h"}}), subs);
 
     EXPECT_EQ(source.stream_count(), 2u);
     const auto reports = source.reports();
@@ -108,9 +105,9 @@ TEST(BinanceSource, ResolvesSymbolsThroughItsOwnSubscription) {
 
 // Nothing can be ordered until every stream has something to compare.
 TEST(BinanceSource, NoDataUntilEveryStreamHasAnEvent) {
-    FakeFetchPool pool;
-    const auto    subs = universe({"BTCUSDT", "ETHUSDT"});
-    Source        source(config({{EndpointKind::Klines, "1h"}}), subs, pool);
+    const auto subs = universe({"BTCUSDT", "ETHUSDT"});
+    Source     source(config({{EndpointKind::Klines, "1h"}}), subs);
+    auto&      pool = source.pool();
     source.plan_with(single_file_lister());
 
     auto first = source.next();
@@ -125,9 +122,9 @@ TEST(BinanceSource, NoDataUntilEveryStreamHasAnEvent) {
 }
 
 TEST(BinanceSource, MergesTwoSymbolsInTimestampOrder) {
-    FakeFetchPool pool;
-    const auto    subs = universe({"BTCUSDT", "ETHUSDT"});
-    Source        source(config({{EndpointKind::Klines, "1h"}}), subs, pool);
+    const auto subs = universe({"BTCUSDT", "ETHUSDT"});
+    Source     source(config({{EndpointKind::Klines, "1h"}}), subs);
+    auto&      pool = source.pool();
     source.plan_with(single_file_lister());
 
     ASSERT_FALSE(source.next().has_value());
@@ -151,10 +148,9 @@ TEST(BinanceSource, MergesTwoSymbolsInTimestampOrder) {
 }
 
 TEST(BinanceSource, MergesAcrossKinds) {
-    FakeFetchPool pool;
-    const auto    subs = universe({"BTCUSDT"});
-    Source source(config({{EndpointKind::Klines, "1h"}, {EndpointKind::FundingRate, ""}}), subs,
-                  pool);
+    const auto subs = universe({"BTCUSDT"});
+    Source source(config({{EndpointKind::Klines, "1h"}, {EndpointKind::FundingRate, ""}}), subs);
+    auto&  pool = source.pool();
     source.plan_with(single_file_lister());
 
     ASSERT_FALSE(source.next().has_value());
@@ -178,9 +174,9 @@ TEST(BinanceSource, MergesAcrossKinds) {
 
 // A stream that finishes early must not hold the merge back.
 TEST(BinanceSource, FinishedStreamStopsBlockingTheMerge) {
-    FakeFetchPool pool;
-    const auto    subs = universe({"BTCUSDT", "ETHUSDT"});
-    Source        source(config({{EndpointKind::Klines, "1h"}}), subs, pool);
+    const auto subs = universe({"BTCUSDT", "ETHUSDT"});
+    Source     source(config({{EndpointKind::Klines, "1h"}}), subs);
+    auto&      pool = source.pool();
     source.plan_with(single_file_lister());
 
     ASSERT_FALSE(source.next().has_value());
@@ -193,9 +189,9 @@ TEST(BinanceSource, FinishedStreamStopsBlockingTheMerge) {
 }
 
 TEST(BinanceSource, ReportsCarrySymbolAndStats) {
-    FakeFetchPool pool;
-    const auto    subs = universe({"BTCUSDT"});
-    Source        source(config({{EndpointKind::Klines, "1h"}}), subs, pool);
+    const auto subs = universe({"BTCUSDT"});
+    Source     source(config({{EndpointKind::Klines, "1h"}}), subs);
+    auto&      pool = source.pool();
     source.plan_with(single_file_lister());
 
     ASSERT_FALSE(source.next().has_value());
@@ -212,9 +208,8 @@ TEST(BinanceSource, ReportsCarrySymbolAndStats) {
 }
 
 TEST(BinanceSource, EmptyPlanIsImmediateEof) {
-    FakeFetchPool pool;
-    const auto    subs = universe({"BTCUSDT"});
-    Source        source(config({{EndpointKind::Klines, "1h"}}), subs, pool);
+    const auto subs = universe({"BTCUSDT"});
+    Source     source(config({{EndpointKind::Klines, "1h"}}), subs);
     source.plan_with([](std::string_view) { return std::vector<std::string>{}; });
 
     auto pulled = source.next();
@@ -224,13 +219,12 @@ TEST(BinanceSource, EmptyPlanIsImmediateEof) {
 
 // A slot outside Binance's market numbering is not one of its markets.
 TEST(BinanceSource, UnknownMarketSlotIsSkipped) {
-    FakeFetchPool       pool;
     SubscriptionBuilder builder;
     builder.add(qp::ExchangeId::Binance, kUsdM, "BTCUSDT");
     builder.add(qp::ExchangeId::Binance, 99, "ETHUSDT");
     const auto subs = std::move(builder).build();
 
-    Source source(config({{EndpointKind::Klines, "1h"}}), subs, pool);
+    Source source(config({{EndpointKind::Klines, "1h"}}), subs);
 
     EXPECT_EQ(source.stream_count(), 1u);
     ASSERT_EQ(source.reports().size(), 1u);
@@ -239,14 +233,12 @@ TEST(BinanceSource, UnknownMarketSlotIsSkipped) {
 
 // Spot publishes no funding, so the same config yields fewer streams there.
 TEST(BinanceSource, DatasetsAMarketDoesNotPublishAreSkipped) {
-    FakeFetchPool       pool;
     SubscriptionBuilder builder;
     builder.add(qp::ExchangeId::Binance, kSpot, "BTCUSDT");
     builder.add(qp::ExchangeId::Binance, kUsdM, "BTCUSDT");
     const auto subs = std::move(builder).build();
 
-    Source source(config({{EndpointKind::Klines, "1h"}, {EndpointKind::FundingRate, ""}}), subs,
-                  pool);
+    Source source(config({{EndpointKind::Klines, "1h"}, {EndpointKind::FundingRate, ""}}), subs);
 
     // Spot gets klines only, USD-M gets both.
     EXPECT_EQ(source.stream_count(), 3u);
@@ -254,13 +246,12 @@ TEST(BinanceSource, DatasetsAMarketDoesNotPublishAreSkipped) {
 
 // Both markets in one source, so one pool serves the whole run.
 TEST(BinanceSource, SpansSpotAndFuturesFromOneSubscription) {
-    FakeFetchPool       pool;
     SubscriptionBuilder builder;
     builder.add(qp::ExchangeId::Binance, kSpot, "BTCUSDT");
     builder.add(qp::ExchangeId::Binance, kUsdM, "BTCUSDT");
     const auto subs = std::move(builder).build();
 
-    Source source(config({{EndpointKind::Klines, "1h"}}), subs, pool);
+    Source source(config({{EndpointKind::Klines, "1h"}}), subs);
 
     std::vector<std::string> prefixes;
     source.plan_with([&prefixes](std::string_view prefix) {
@@ -278,9 +269,8 @@ TEST(BinanceSource, SpansSpotAndFuturesFromOneSubscription) {
 
 // Funding is monthly only, so a daily config must not produce a daily path.
 TEST(BinanceSource, FundingStaysMonthlyUnderADailyConfig) {
-    FakeFetchPool pool;
-    const auto    subs = universe({"BTCUSDT"});
-    Source        source(config({{EndpointKind::FundingRate, ""}}, Cadence::Daily), subs, pool);
+    const auto subs = universe({"BTCUSDT"});
+    Source     source(config({{EndpointKind::FundingRate, ""}}, Cadence::Daily), subs);
 
     std::vector<std::string> seen;
     source.plan_with([&seen](std::string_view prefix) {

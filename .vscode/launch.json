@@ -82,6 +82,32 @@
                 }
             ],
             "preLaunchTask": "Build: qp_bench (release)"
+        },
+        {
+            "name": "Integration tests (release)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/release/cmake/integration/qp_integration_tests",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "environment": [
+                {
+                    "name": "DEBUGINFOD_URLS",
+                    "value": ""
+                }
+            ],
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "Build: qp_integration_tests (release)"
         }
     ]
 }

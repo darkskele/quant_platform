@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "fetch_pool.hpp"
+#include "http_fetch_pool.hpp"
 
 namespace qp::testing {
 
@@ -17,6 +18,11 @@ class FakeFetchPool {
     using FileQueue   = data_source::source::venue::binance::FileQueue;
     using FetchedFile = data_source::source::venue::binance::FetchedFile;
     using FetchStatus = data_source::source::venue::binance::FetchStatus;
+
+    FakeFetchPool() = default;
+
+    /// Takes the real pool's config so a source can own either one.
+    explicit FakeFetchPool(const data_source::source::venue::binance::HttpFetchPoolConfig&) {}
 
     bool submit(std::string url, FileQueue* destination) {
         if (saturated_) return false;

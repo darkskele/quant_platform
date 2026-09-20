@@ -89,7 +89,7 @@ class BinanceHistoricalStream {
 
                 Timestamp         ts{};
                 typename P::Event payload{};
-                if (!P::parse(row, ts, payload)) {
+                if (!P::parse(endpoint_, row, ts, payload)) {
                     ++stats_.rows_rejected;
                     continue;
                 }
