@@ -98,6 +98,9 @@ void HttpFetchPool::quiesce() {
             cancellations_dropped_.fetch_add(1, std::memory_order_relaxed);
     }
 
+    // The workers are joined, so nothing holds a connection any more.
+    http::close_idle_connections();
+
     quiesced_ = true;
 }
 

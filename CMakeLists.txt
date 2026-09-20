@@ -22,6 +22,11 @@ endif()
 
 add_compile_options(-Wall -Wextra)
 
+# An active conda env puts its prefix on find_package's search path.
+if(DEFINED ENV{CONDA_PREFIX} AND CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
+    list(APPEND CMAKE_IGNORE_PREFIX_PATH "$ENV{CONDA_PREFIX}")
+endif()
+
 # Transparent compiler-output caching for fast incremental rebuilds.
 find_program(CCACHE_PROGRAM ccache)
 if(CCACHE_PROGRAM)
@@ -57,7 +62,16 @@ if(QP_BUILD_PYTHON)
     # Use the modern FindPython instead of pybind11's deprecated
     # FindPythonLibs path, which trips CMP0148.
     set(PYBIND11_FINDPYTHON ON)
+
+    # FindPython reads Python_EXECUTABLE. Without this forward, a
+    # -DPYTHON_EXECUTABLE is accepted and then ignored, and the module silently
+    # builds against whichever interpreter is first on PATH.
+    if(DEFINED PYTHON_EXECUTABLE AND NOT DEFINED Python_EXECUTABLE)
+        set(Python_EXECUTABLE "${PYTHON_EXECUTABLE}" CACHE FILEPATH "" FORCE)
+    endif()
+
     find_package(pybind11 CONFIG REQUIRED)
+    message(STATUS "Python bindings target ${Python_EXECUTABLE} (${Python_VERSION})")
 endif()
 
 add_subdirectory(cmake/core)

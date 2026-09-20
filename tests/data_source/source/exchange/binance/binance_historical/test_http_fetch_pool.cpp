@@ -10,6 +10,7 @@
 #include <thread>
 #include <vector>
 
+#include "client.hpp"
 #include "endpoints.hpp"
 #include "http_fetch_pool.hpp"
 
@@ -19,6 +20,8 @@ using binance::FetchStatus;
 using binance::FileSlots;
 using binance::HttpFetchPool;
 using binance::HttpFetchPoolConfig;
+using qp::data_source::network::http::close_idle_connections;
+using qp::data_source::network::http::idle_connection_count;
 
 namespace {
 
@@ -442,16 +445,68 @@ TEST(HttpFetchPool, SubmitIsRefusedOnceTheTaskQueueFills) {
 
     // No destination, so the drain discards these without touching a ring, and
     // the one worker stays busy on a file big enough that it drains nothing.
-    constexpr std::size_t kSubmissions = 3000;
+    // Sized off the capacity so raising it does not quietly stop testing this.
+    constexpr std::size_t kSubmissions = HttpFetchPool::kTaskCapacity + 64;
     std::size_t           accepted     = 0;
     for (std::size_t i = 0; i < kSubmissions; ++i)
         if (pool.submit(std::string(kLargeFile), nullptr, i)) ++accepted;
 
     const auto stats = pool.stats();
-    EXPECT_GT(stats.refused, 0u) << "queue never filled, capacity may have grown";
+    EXPECT_GT(stats.refused, 0u) << "queue never filled";
     EXPECT_EQ(stats.submitted, accepted);
     EXPECT_EQ(stats.submitted + stats.refused, kSubmissions);
 
     pool.quiesce();
     EXPECT_EQ(pool.stats().queued, 0u);
+}
+
+// A blocking read cannot be aborted, so quiesce waits the running fetch out
+// instead of abandoning it. The file still lands with its real status.
+TEST(HttpFetchPool, QuiesceWaitsOutAFetchAlreadyRunning) {
+    // Declared before the pool, so the pool is destroyed first and its workers
+    // are joined while these slots are still alive.
+    Reader              reader;
+    HttpFetchPoolConfig config;
+    config.workers     = 1;
+    config.max_retries = 0;
+
+    HttpFetchPool pool(config);
+    ASSERT_TRUE(pool.submit(std::string(kLargeFile), reader.slots(), reader.next_position()));
+
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds{30};
+    while (pool.stats().in_flight == 0 && std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds{1});
+    ASSERT_GT(pool.stats().in_flight, 0u) << "never caught the fetch running";
+
+    pool.quiesce();
+
+    const auto stats = pool.stats();
+    EXPECT_EQ(stats.workers_alive, 0u);
+    EXPECT_EQ(stats.in_flight, 0u);
+    EXPECT_EQ(stats.queued, 0u);
+    EXPECT_EQ(stats.cancelled, 0u) << "the running fetch was cancelled rather than waited out";
+    EXPECT_EQ(stats.completed_ok + stats.completed_failed, stats.submitted);
+
+    binance::FetchedFile file;
+    ASSERT_TRUE(reader.try_take(file)) << "the running fetch never reached its slot";
+    EXPECT_NE(file.status, FetchStatus::Cancelled);
+}
+
+// Workers are joined first, so nothing is left holding a socket.
+TEST(HttpFetchPool, QuiesceClosesPooledConnections) {
+    // Declared before the pool, so the pool is destroyed first and its workers
+    // are joined while these slots are still alive.
+    Reader        reader;
+    HttpFetchPool pool(small_pool());
+
+    close_idle_connections();
+    ASSERT_TRUE(pool.submit(std::string(kRealFile), reader.slots(), reader.next_position()));
+
+    binance::FetchedFile file;
+    ASSERT_TRUE(reader.await(file));
+    ASSERT_EQ(file.status, FetchStatus::Ok);
+    ASSERT_GT(idle_connection_count(), 0u);
+
+    pool.quiesce();
+    EXPECT_EQ(idle_connection_count(), 0u);
 }

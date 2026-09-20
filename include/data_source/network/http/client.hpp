@@ -29,4 +29,10 @@ struct HttpConfig {
 /// Fetches url over https, returns the body. Throws on failure.
 std::vector<std::byte> get(std::string_view url, const HttpConfig& config = {});
 
+/// Closes every pooled connection.
+void close_idle_connections();
+
+/// Pooled connections held across every host.
+std::size_t idle_connection_count();
+
 }  // namespace qp::data_source::network::http

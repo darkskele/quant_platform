@@ -30,12 +30,26 @@ def import_module():
         return importlib.import_module("qp_python_backtest")
     except ImportError:
         pass
-    for so in REPO.glob("**/qp_python_backtest*.so"):
+
+    found = sorted(REPO.glob("**/qp_python_backtest*.so"))
+    for so in found:
         sys.path.insert(0, str(so.parent))
         try:
             return importlib.import_module("qp_python_backtest")
         except ImportError:
             sys.path.pop(0)
+
+    # A build for another interpreter is the common case with two pythons on
+    # the box, and it looks identical to no build at all without this.
+    if found:
+        built = "\n".join(f"  {so.name}" for so in found)
+        raise SystemExit(
+            f"qp_python_backtest was built, but not for {sys.executable}\n"
+            f"(python {sys.version_info.major}.{sys.version_info.minor})\n"
+            f"{built}\n"
+            "Rebuild with -DPYTHON_EXECUTABLE pointed at this interpreter, or run"
+            " the one it was built for."
+        )
     raise SystemExit(
         "qp_python_backtest not found. Build it first:\n"
         "  cmake --preset release -DQP_BUILD_PYTHON=ON\n"

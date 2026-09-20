@@ -92,19 +92,17 @@ class HttpFetchPool {
     /// False when stopping or when the task queue is full.
     bool submit(std::string url, FileSlots* destination, std::size_t at);
 
-    /// Stops accepting, fails every task still queued or in flight so no stream
-    /// is left waiting, joins the workers and drops the connections. The object
-    /// stays alive and its stats stay readable.
+    /// Stops accepting, joins the workers and closes the pooled connections.
     void quiesce();
 
     FetchPoolStats            stats() const;
     std::vector<FetchFailure> recent_failures() const;
 
-   private:
     /// Streams times their prefetch depth is what a full universe asks for at
-    /// once. Past this a submit is refused and asked for again on the next
-    /// pump, which costs a round of latency rather than a file.
-    static constexpr std::size_t kTaskCapacity    = 16384;
+    /// once.
+    static constexpr std::size_t kTaskCapacity = 16384;
+
+   private:
     static constexpr std::size_t kFailureRingSize = 32;
 
     struct Task {

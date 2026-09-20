@@ -93,6 +93,19 @@ class ConnectionPool {
         if (slot.size() < config.max_connections_per_host) slot.push_back(std::move(conn));
     }
 
+    /// Destroying a Connection closes its socket, so clearing is the close.
+    void close_idle() {
+        std::lock_guard lock(mutex_);
+        pool_.clear();
+    }
+
+    std::size_t idle_count() const {
+        std::lock_guard lock(mutex_);
+        std::size_t     total = 0;
+        for (const auto& [host, conns] : pool_) total += conns.size();
+        return total;
+    }
+
    private:
     std::unique_ptr<Connection> dial(const Url& url, const HttpConfig& config) {
         for (std::size_t attempt = 0; attempt <= config.max_retries; ++attempt) {
@@ -117,7 +130,7 @@ class ConnectionPool {
         throw HttpTransportError("http::get: unreachable");
     }
 
-    std::mutex                                                               mutex_;
+    mutable std::mutex                                                       mutex_;
     std::unordered_map<std::string, std::deque<std::unique_ptr<Connection>>> pool_;
 };
 
@@ -164,5 +177,9 @@ std::vector<std::byte> get(std::string_view url_str, const HttpConfig& config) {
         return std::move(parser.release().body());
     }
 }
+
+void close_idle_connections() { pool().close_idle(); }
+
+std::size_t idle_connection_count() { return pool().idle_count(); }
 
 }  // namespace qp::data_source::network::http

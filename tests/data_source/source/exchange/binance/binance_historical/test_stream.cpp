@@ -1,6 +1,5 @@
 #include <gtest/gtest.h>
 
-#include <cstdio>
 #include <memory>
 #include <string>
 #include <vector>
@@ -49,9 +48,8 @@ std::vector<std::string> daily_keys() {
 std::vector<std::string> long_daily_keys(int count) {
     std::vector<std::string> keys;
     for (int day = 1; day <= count; ++day) {
-        char stamp[11];
-        std::snprintf(stamp, sizeof(stamp), "2024-01-%02d", day);
-        keys.push_back(std::string("data/futures/um/daily/klines/BTCUSDT/1h/BTCUSDT-1h-") + stamp +
+        const std::string stamp = (day < 10 ? "0" : "") + std::to_string(day);
+        keys.push_back("data/futures/um/daily/klines/BTCUSDT/1h/BTCUSDT-1h-2024-01-" + stamp +
                        ".zip");
     }
     return keys;
