@@ -15,14 +15,14 @@ namespace qp::testing {
 /// through a whole fetch cycle on one thread.
 class FakeFetchPool {
    public:
-    using FileSlots   = data_source::source::venue::binance::FileSlots;
-    using FetchedFile = data_source::source::venue::binance::FetchedFile;
-    using FetchStatus = data_source::source::venue::binance::FetchStatus;
+    using FileSlots   = data_source::source::exchange::binance::FileSlots;
+    using FetchedFile = data_source::source::exchange::binance::FetchedFile;
+    using FetchStatus = data_source::source::exchange::binance::FetchStatus;
 
     FakeFetchPool() = default;
 
     /// Takes the real pool's config so a source can own either one.
-    explicit FakeFetchPool(const data_source::source::venue::binance::HttpFetchPoolConfig&) {}
+    explicit FakeFetchPool(const data_source::source::exchange::binance::HttpFetchPoolConfig&) {}
 
     bool submit(std::string url, FileSlots* destination, std::size_t at) {
         if (saturated_) return false;

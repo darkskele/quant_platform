@@ -64,7 +64,7 @@ TEST(Portfolio, SymbolsAreIndependent) {
     EXPECT_EQ(portfolio.position(kExchange, kUsdm, 2), -1.0);
 }
 
-TEST(Portfolio, SameSymbolOnDifferentVenuesIsIndependent) {
+TEST(Portfolio, SameSymbolOnDifferentMarketsIsIndependent) {
     Portfolio portfolio{make_subscription()};
     portfolio.apply_fill(make_fill(1, qp::Side::Buy, 2.0, 100.0, 1, 0, 0.0, kUsdm));
     portfolio.apply_fill(make_fill(1, qp::Side::Sell, 1.0, 100.0, 2, 0, 0.0, kCoinm));

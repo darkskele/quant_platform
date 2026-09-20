@@ -52,7 +52,7 @@ TEST(FundingCarryStrategy, IgnoresNonFundingEvents) {
     EXPECT_TRUE(intents.empty());
 }
 
-TEST(FundingCarryStrategy, IgnoresFundingEventsForAnotherSymbolOrVenue) {
+TEST(FundingCarryStrategy, IgnoresFundingEventsForAnotherSymbolOrMarket) {
     Portfolio            portfolio{make_subscription()};
     FundingCarryStrategy strategy{make_config(), portfolio};
 

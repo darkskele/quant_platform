@@ -22,7 +22,7 @@ TEST(RiskGate, ApprovedDecisionCarriesAnOrderSizedFromIntent) {
     EXPECT_EQ(decision.order->qty, 2.0);
 }
 
-TEST(RiskGate, ApprovedOrderCarriesTheIntentsVenue) {
+TEST(RiskGate, ApprovedOrderCarriesTheIntentsMarket) {
     AlwaysApproveRiskGate gate;
 
     auto decision =

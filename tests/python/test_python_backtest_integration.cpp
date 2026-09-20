@@ -16,7 +16,7 @@
 #include "types.hpp"
 
 namespace py      = pybind11;
-namespace binance = qp::data_source::source::venue::binance;
+namespace binance = qp::data_source::source::exchange::binance;
 
 using qp::Subscription;
 using qp::SubscriptionBuilder;

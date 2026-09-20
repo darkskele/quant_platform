@@ -139,7 +139,7 @@ TEST(CostRowReader, ThrowsOnNonNumericFee) {
     EXPECT_THROW(read_cost_rows_csv(f.path, sub, ExchangeId::Binance), std::runtime_error);
 }
 
-TEST(CostRowReader, ThrowsOnBadVenueInteger) {
+TEST(CostRowReader, ThrowsOnBadMarketInteger) {
     constexpr std::string_view kCsv =
         "symbol,market,week_start,half_spread_bps,impact_bps_per_unit,taker_fee_bps\n"
         "AAA,abc,2023-05-15,0.25,0.001,4.0\n";

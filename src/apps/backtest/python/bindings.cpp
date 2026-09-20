@@ -17,7 +17,7 @@ namespace {
 
 using Matcher        = qp::execution::sim::matcher::last_trade::LastTradeMatcher;
 using PythonBacktest = qp::backtest::python::PythonBinanceHistoricalBacktest<Matcher>;
-namespace binance    = qp::data_source::source::venue::binance;
+namespace binance    = qp::data_source::source::exchange::binance;
 using Results        = PythonBacktest::Results;
 using EquityPoint    = qp::engine::EquityPoint;
 
@@ -41,7 +41,8 @@ PYBIND11_MODULE(qp_python_backtest, m) {
         .value("Funding", qp::EventKind::Funding)
         .value("BookSnapshot", qp::EventKind::BookSnapshot)
         .value("Kline", qp::EventKind::Kline)
-        .value("MarkPriceKline", qp::EventKind::MarkPriceKline);
+        .value("MarkPriceKline", qp::EventKind::MarkPriceKline)
+        .value("PremiumIndexKline", qp::EventKind::PremiumIndexKline);
 
     py::class_<qp::PriceLevel>(m, "PriceLevel")
         .def_readonly("price", &qp::PriceLevel::price)
@@ -57,7 +58,8 @@ PYBIND11_MODULE(qp_python_backtest, m) {
         .def_readonly("qty", &qp::TradeEvent::qty);
 
     py::class_<qp::FundingEvent>(m, "FundingEvent")
-        .def_readonly("funding_rate", &qp::FundingEvent::funding_rate);
+        .def_readonly("funding_rate", &qp::FundingEvent::funding_rate)
+        .def_readonly("interval_hours", &qp::FundingEvent::interval_hours);
 
     py::class_<qp::KlineEvent>(m, "KlineEvent")
         .def_readonly("close_time", &qp::KlineEvent::close_time)
@@ -73,6 +75,13 @@ PYBIND11_MODULE(qp_python_backtest, m) {
         .def_readonly("high", &qp::MarkPriceKlineEvent::high)
         .def_readonly("low", &qp::MarkPriceKlineEvent::low)
         .def_readonly("close", &qp::MarkPriceKlineEvent::close);
+
+    py::class_<qp::PremiumIndexKlineEvent>(m, "PremiumIndexKlineEvent")
+        .def_readonly("close_time", &qp::PremiumIndexKlineEvent::close_time)
+        .def_readonly("open", &qp::PremiumIndexKlineEvent::open)
+        .def_readonly("high", &qp::PremiumIndexKlineEvent::high)
+        .def_readonly("low", &qp::PremiumIndexKlineEvent::low)
+        .def_readonly("close", &qp::PremiumIndexKlineEvent::close);
 
     py::class_<qp::BookDiffEvent>(m, "BookDiffEvent")
         .def_readonly("first_seq", &qp::BookDiffEvent::first_seq)
@@ -228,10 +237,6 @@ PYBIND11_MODULE(qp_python_backtest, m) {
         .def_readonly("status", &binance::FetchFailure::status)
         .def_readonly("attempts", &binance::FetchFailure::attempts);
 
-    // How many fetches one stream may have outstanding, so a caller can work
-    // out the concurrency its universe can actually ask for.
-    m.attr("FILE_SLOTS") = binance::kFileSlotCount;
-
     py::enum_<binance::FetchStatus>(m, "FetchStatus")
         .value("Ok", binance::FetchStatus::Ok)
         .value("NotFound", binance::FetchStatus::NotFound)
@@ -255,7 +260,11 @@ PYBIND11_MODULE(qp_python_backtest, m) {
              }),
              py::arg("streams"), py::arg("cadence") = binance::Cadence::Monthly,
              py::arg("from_ns") = 0, py::arg("to_ns") = 0,
-             py::arg("pool") = binance::HttpFetchPoolConfig{});
+             py::arg("pool") = binance::HttpFetchPoolConfig{})
+        .def_readwrite("prefetch_depth", &PythonBacktest::Config::prefetch_depth);
+
+    // The ceiling a prefetch depth is clamped to.
+    m.attr("FILE_SLOTS") = binance::kFileSlotCount;
 
     py::class_<PythonBacktest>(m, "PythonBacktest")
         .def(py::init([](qp::Subscription subscription, PythonBacktest::Config config) {

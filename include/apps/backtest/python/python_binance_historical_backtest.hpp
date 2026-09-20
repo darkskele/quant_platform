@@ -16,11 +16,11 @@ template <class Matcher>
 class PythonBinanceHistoricalBacktest
     : public PythonBacktestBase<PythonBinanceHistoricalBacktest<Matcher>, Matcher> {
     using Base   = PythonBacktestBase<PythonBinanceHistoricalBacktest<Matcher>, Matcher>;
-    using Source = data_source::source::venue::binance::BinanceHistoricalSource<
-        data_source::source::venue::binance::HttpFetchPool>;
+    using Source = data_source::source::exchange::binance::BinanceHistoricalSource<
+        data_source::source::exchange::binance::HttpFetchPool>;
 
    public:
-    using Config = data_source::source::venue::binance::BinanceHistoricalConfig;
+    using Config = data_source::source::exchange::binance::BinanceHistoricalConfig;
 
     PythonBinanceHistoricalBacktest(Subscription subscription, Config config,
                                     typename Base::MakeMatcher make_matcher)

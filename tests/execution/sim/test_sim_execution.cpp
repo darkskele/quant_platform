@@ -145,7 +145,7 @@ TEST(SimExecution, DifferentSymbolsTrackIndependentPrices) {
     EXPECT_EQ(gateway.rejects().size(), 1u);
 }
 
-TEST(SimExecution, DifferentVenuesTrackIndependentPricesForTheSameSymbol) {
+TEST(SimExecution, DifferentMarketsTrackIndependentPricesForTheSameSymbol) {
     Gateway harness;
     auto&   gateway = harness.exec;
 

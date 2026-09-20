@@ -33,7 +33,7 @@ struct Results {
     std::span<const engine::EquityPoint> equity_series{};
 };
 
-// @todo sources() is an EofSource stub until binary+zstd BinanceHistoricalSource lands.
+// @todo sources() is a stub, wire this onto a real source.
 template <class Matcher, class Risk, class RiskConfig>
 class FundingCarryBacktest : public BacktestBase<FundingCarryBacktest<Matcher, Risk, RiskConfig>> {
    public:

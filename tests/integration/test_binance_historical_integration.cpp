@@ -17,7 +17,7 @@
 #include "types.hpp"
 #include "zip.hpp"
 
-namespace binance = qp::data_source::source::venue::binance;
+namespace binance = qp::data_source::source::exchange::binance;
 
 using binance::BinanceHistoricalConfig;
 using binance::BinanceHistoricalSource;

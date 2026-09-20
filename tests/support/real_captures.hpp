@@ -1,7 +1,7 @@
 #pragma once
 
 // Real observed Binance USD-M futures payloads (same captures used in
-// libs/data_source/source/venue/tests/test_binance_parser.cpp) — genuine price levels,
+// libs/data_source/source/exchange/tests/test_binance_parser.cpp) — genuine price levels,
 // quantities, and level counts, not synthetic placeholder data. Sequence
 // numbers (U/u/pu/lastUpdateId) are parameters here rather than the
 // originally-captured values: the snapshot and the depth diff were captured
