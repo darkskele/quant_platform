@@ -86,6 +86,16 @@ h1 {
   margin: 10px 0 0;
 }
 
+.note {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+  border-left: 2px solid var(--accent);
+  padding: 2px 0 2px 12px;
+  margin: 18px 0 0;
+}
+
 .lede {
   font-family: 'Fraunces', Georgia, serif;
   font-weight: 400;
@@ -124,6 +134,22 @@ p { margin: 0 0 14px; }
 .tag-long  { color: var(--long); }
 .tag-short { color: var(--short); }
 .tag-hold  { color: var(--accent); font-weight: 500; }
+
+.stamp {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 2px;
+  border: 1px solid var(--rule);
+  color: var(--muted);
+  white-space: nowrap;
+  vertical-align: 2px;
+}
+.stamp.held  { color: var(--long);   border-color: var(--long); }
+.stamp.open  { color: var(--short);  border-color: var(--short); }
+.stamp.block { color: var(--accent); border-color: var(--accent); }
 
 .facts {
   border-top: 1px solid var(--rule);
@@ -178,6 +204,7 @@ p { margin: 0 0 14px; }
   color: var(--ink);
   text-align: right;
 }
+.value.gone { color: var(--short); }
 
 .callout {
   margin-top: 20px;
@@ -221,6 +248,38 @@ p { margin: 0 0 14px; }
   margin-top: 16px;
   border-top: 1px solid var(--rule);
 }
+
+.queue {
+  margin-top: 16px;
+  border-top: 1px solid var(--rule);
+}
+.q {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.q:last-child { border-bottom: none; }
+.q-n {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--muted);
+  padding-top: 3px;
+}
+.q-run {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0 0 4px;
+}
+.q-meta {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0 0 6px;
+}
+.q-ask { font-size: 14px; color: var(--ink); margin: 0; }
 
 .grid-current {
   margin: 18px 0 6px;
@@ -306,8 +365,10 @@ p { margin: 0 0 14px; }
   <h1>trend</h1>
   <p class="subhead">Time-series momentum on Binance USD-M perpetuals.</p>
 
+  <p class="note">Rewritten 2026-09-20. The ten-symbol sample every number on the old page rested on has been replaced by a streamed wide-universe source, so each prior read is restated here as held or unverified rather than carried forward as fact.</p>
+
   <p class="lede">
-    Look back <span class="tag-hold">L</span> weeks. If a name is above where it was, go <span class="tag-long">long</span>. If below, go <span class="tag-short">short</span>. Ten perps each carry their own signal and the book is the equal-weight average. Trend earns its place in the years long-only loses.
+    Look back <span class="tag-hold">L</span> weeks. If a name is above where it was, go <span class="tag-long">long</span>. If below, go <span class="tag-short">short</span>. Every perp carries its own signal and the book is the equal-weight average. Trend earns its place in the years long-only loses.
   </p>
 
   <div class="facts">
@@ -317,49 +378,75 @@ p { margin: 0 0 14px; }
     </div>
     <div class="fact">
       <p class="fact-label">Universe</p>
-      <p class="fact-value">10 perps now, hundreds later</p>
+      <p class="fact-value">Every perp, delisted included</p>
+    </div>
+    <div class="fact">
+      <p class="fact-label">Return source</p>
+      <p class="fact-value">Alternative beta, not alpha</p>
     </div>
     <div class="fact">
       <p class="fact-label">Cadence</p>
       <p class="fact-value">Weekly, dead band tested null</p>
     </div>
     <div class="fact">
-      <p class="fact-label">Cost</p>
-      <p class="fact-value">14.9 bps round trip</p>
-    </div>
-    <div class="fact">
-      <p class="fact-label">Direction</p>
-      <p class="fact-value">Long or short, per name</p>
+      <p class="fact-label">Binding constraint</p>
+      <p class="fact-value">Cost, not signal</p>
     </div>
     <div class="fact">
       <p class="fact-label">Status</p>
-      <p class="fact-value status-live">L=1 wins out of sample</p>
+      <p class="fact-value status-live">Re-proving on wide data</p>
     </div>
   </div>
 
+  <h2>What we are harvesting</h2>
+
+  <p>Time-series momentum is a documented style premium, not a private edge. It has been found across sixty instruments and eight decades, and it pays in equities, bonds, commodities and currencies. We are harvesting alternative beta and we should say so, because the framing sets what counts as a believable result. A Sharpe of 3 on a premium this well known would mean a bug, not a discovery. The 0.5 to 0.8 band is what a real trend premium looks like after cost, and that is the band to expect.</p>
+
+  <p>The premium is compensation for holding a payoff most participants do not want. Trend loses small and often in chop and wins large and rarely in extended directional moves. That shape is unpleasant to carry and hard to sit through, which is why it is not competed away despite being published.</p>
+
+  <p>Its place in the book is the regime map, not the headline Sharpe. Carry is short volatility and pays in calm. Trend is long volatility and pays in dislocation. On the prior sample long-only crypto lost about 1.3 Sharpe through the 2022 bear while trend earned about 0.9, because the trailing return was negative and the sign flipped short. Owning both is the whole argument for this lane.</p>
+
+  <p>What we are not claiming is a mispricing nobody else sees. This is crowded and public. Crowding costs capacity rather than edge, and capacity is not the binding constraint at our size. Cost is.</p>
+
+  <h2>Why it should be larger in crypto</h2>
+
+  <p>Two amplifiers are specific to perpetuals and both are mechanical rather than behavioural, which makes them testable instead of assumed.</p>
+
+  <h3>Forced deleveraging</h3>
+  <p>Perp positions carry leverage and liquidate mechanically. A move against a crowded side triggers liquidations that push price the same way, which triggers more. That is a reflexive extension of the original move and it is exactly the shape trend monetizes. If this is the source, trend should be strongest when open interest is high going into the move.</p>
+
+  <h3>Slow information diffusion</h3>
+  <p>There is no earnings calendar and no centralized disclosure, so information arrives unevenly and gets priced over days rather than seconds. Under-reaction of that kind is the textbook trend mechanism and the weekly cadence is sized to it.</p>
+
+  <p>Neither claim is tested yet. The test is conditioning book returns on open interest and on liquidation volume, and it is blocked, because the source carries klines, mark price, premium index and funding only. Open interest needs the metrics dataset and a new endpoint built for it.</p>
+
   <h2>The book</h2>
-  <p>At each weekly close, look at the trailing L-week return on every perp in the universe. Take the sign, positive means go long, negative means go short. Size every position for equal risk contribution. Hold for a week, then re-decide. That is the whole strategy for one name. The book is the equal-weight mean of the ten per-symbol PnLs.</p>
-  <p>What makes this a distinct source of return is the regime map. Long-only crypto lost about 1.3 Sharpe in the 2022 bear. Trend earned about 0.9 there, because the trailing return was negative and the sign flipped short. A book that owns both harvests both regimes.</p>
+  <p>At each weekly close, look at the trailing L-week return on every perp in the universe. Take the sign, positive means go long, negative means go short. Size every position for equal risk contribution. Hold for a week, then re-decide. That is the whole strategy for one name, and the book is the equal-weight mean of the per-symbol PnLs.</p>
 
-  <h2>The four decisions</h2>
+  <h2>Design decisions</h2>
 
-  <h3>Direction</h3>
-  <p>The whole signal. Sign of the trailing return over a chosen lookback. Sweep L across 1, 2, 4, 8, 12 weeks to find which windows the market actually rewards. Both L=1 and L=4 clear the cost bar on the current sample.</p>
+  <h3>Direction <span class="stamp open">unverified</span></h3>
+  <p>The whole signal. Sign of the trailing return over a chosen lookback, swept across 1, 2, 4, 8 and 12 weeks. On the prior sample L=1 and L=4 cleared the cost bar and everything between them did not. Neighbours disagreeing with both winners is the signature of a lucky cell, not a rewarded window, so the grid is re-run before anything is built on it.</p>
 
-  <h3>Size</h3>
-  <p>Target weekly vol per symbol, capped. Sizing does not change the profit hurdle because fees and funding both scale with notional. It sets dollar PnL, drawdown, and impact. The book uses equal-weight for now with realized-vol scaling deferred until the surviving signal is picked.</p>
+  <h3>Size <span class="stamp held">held</span></h3>
+  <p>Target weekly vol per symbol, capped. Sizing does not move the profit hurdle because fees and funding both scale with notional. It sets dollar PnL, drawdown and impact. Equal-weight for now, with realized-vol scaling deferred until a surviving signal is picked.</p>
 
-  <h3>Cadence</h3>
-  <p>Weekly rebalance is the default and the right one on this sample. A dead band that only flips the sign when the trailing return magnitude exceeds a threshold cuts turnover as designed but does not lift Sharpe. Daily cadence loses across the whole grid, the signal has no useful sub-weekly information at these lookbacks.</p>
+  <h3>Cadence <span class="stamp held">held</span></h3>
+  <p>Weekly rebalance. A dead band that only flips the sign when the trailing return magnitude clears a threshold cuts turnover as designed but does not lift Sharpe. Daily cadence lost across the whole grid. Held rather than re-opened, though the wide run gets one cheap daily re-test because the prior sample resampled one-minute bars where the new source serves hourly natively.</p>
 
-  <h3>Funding-aware sign</h3>
-  <p>A long in a hot-funding regime pays more than a small trailing price move earns. Subtracting the trailing funding from the trailing return before taking the sign flips the marginal weeks that were only nominally trending up. Lifts book Sharpe by about 0.06 at L=1 and 0.04 at L=4 on the current sample.</p>
+  <h3>Funding-aware sign <span class="stamp open">unverified</span></h3>
+  <p>A long in a hot-funding regime pays more than a small trailing price move earns. Subtracting trailing funding from the trailing return before taking the sign flips the marginal weeks that were only nominally trending up. Worth more than the prior 0.06 lift suggests, because it is the thing that separates the directional premium from simply paying carry to be long crypto beta. On four folds that lift sat inside the noise, so it is re-tested rather than assumed.</p>
 
-  <h3>Combining lookbacks</h3>
-  <p>Naive winner-average, sawtooth-fitted, and adaptive rolling-Sharpe combiners tested against plain L=1 on a five-fold walk-forward. None lift the book out of sample. The sawtooth pattern is not a stable feature, its lookback signs move fold to fold. A combiner that reads the sawtooth as signal chases luck.</p>
+  <h3>Signal shape <span class="stamp held">held</span></h3>
+  <p>Continuous conviction, fast-slow MA crossover, EWMA crossover and the Baz-scored vol-normalized EWMA all tested against the plain sign at L=1 on the same walk-forward. Every crossover shape hovered at or below zero. Conviction weighting showed a 0.22 in-sample lift that vanished out of fold. Plain sign won.</p>
+
+  <h3>Combining lookbacks <span class="stamp held">held</span></h3>
+  <p>Naive winner-average, sawtooth-fitted and adaptive rolling-Sharpe combiners all failed to lift the book out of sample. The sawtooth is not a stable feature and its lookback signs move fold to fold, so a combiner that reads it as signal chases luck.</p>
+
+  <p>The last two are held on a thin sample, which is weak evidence for a null. They are held anyway because the premium literature says the same thing and because they only become worth re-opening if the plain lookback itself survives the wide run.</p>
 
   <h2>The bar</h2>
-  <p>Written before runs so a result cannot be steered. Profitable means all of the following hold, out of sample, per year:</p>
+  <p>Unchanged from the original page on purpose. A bar rewritten after seeing results is not a bar. Profitable means all of the following hold, out of sample, per year:</p>
 
   <div class="ledger">
     <div class="row">
@@ -388,40 +475,147 @@ p { margin: 0 0 14px; }
 
   <div class="steps">
     <div class="step">
+      <div class="step-n">00</div>
+      <div class="step-text">Reproduce before extending. The old window through the new source must return the old number, or the pipeline is wrong and every wide result after it inherits the fault.</div>
+    </div>
+    <div class="step">
       <div class="step-n">01</div>
-      <div class="step-text">Five purged walk-forward folds. Parameters chosen on folds 1 to 3, headlines reported on folds 4 and 5, per year.</div>
+      <div class="step-text">Five purged walk-forward folds. Parameters chosen on the early folds, headlines reported on the held-out ones, per year.</div>
     </div>
     <div class="step">
       <div class="step-n">02</div>
-      <div class="step-text">Every headline at three cost levels, zero, one times, two times the table. A sign that flips between 1x and 2x is not robust and gets dropped.</div>
+      <div class="step-text">Every headline at three cost levels, zero, one times and two times the table. A sign that flips between 1x and 2x is not robust and gets dropped.</div>
     </div>
     <div class="step">
       <div class="step-n">03</div>
-      <div class="step-text">Deflated Sharpe accounts for the trial count. The lookback grid stays small, five cells is the first pass, and the whole grid's spread is what is reported, not the winner cell.</div>
+      <div class="step-text">Deflated Sharpe accounts for the trial count. The lookback grid stays small and the whole grid's spread is what is reported, never the winner cell alone.</div>
     </div>
     <div class="step">
       <div class="step-n">04</div>
-      <div class="step-text">Per-year splits on every headline. 2024 does not carry a verdict and 2022 does not condemn one, both years count.</div>
+      <div class="step-text">Per-year splits on every headline. 2024 does not carry a verdict and 2022 does not condemn one, every year counts.</div>
     </div>
     <div class="step">
       <div class="step-n">05</div>
       <div class="step-text">Reference lines on every plot. Long-only unlevered, long-only vol-scaled, and one-week persistence. Trend has to beat these on the regime map, not on pooled Sharpe alone.</div>
     </div>
+    <div class="step">
+      <div class="step-n">06</div>
+      <div class="step-text">Universe membership is point in time. Listing dates and liquidity filters are as of the bar, never as of today, or the book knows which names survived.</div>
+    </div>
   </div>
 
   <h2>Data</h2>
-  <p>The current sample is ten symbols from 2022 to 2024, one-minute klines resampled to daily, 8-hour funding prints, and per-week half-spread and taker fee from the cost table. Every USD-M perp at one-hour bars from 2020, funding rates over the same span, and open interest are next, with the universe preserving listing dates so delisted names stay in.</p>
 
-  <div class="callout">
-    <p class="callout-label">What is not modelled offline</p>
-    <p style="margin: 0;">Slippage at book size on thin names, needs depth and aggTrades. Liquidation risk on the short leg in a squeeze, live-only. Regime coverage limited to the last three years of crypto, one bear and two bulls, so the sample does not include a 2018-style disinflationary crash.</p>
+  <p>The old sample was ten symbols from 2022 to 2024, one-minute klines resampled to daily, and a cost table built from those same ten names. The backtest now streams the Binance Vision archive directly, which changes what is answerable and what is not.</p>
+
+  <div class="ledger">
+    <div class="row">
+      <span class="label">Universe</span>
+      <span class="value">every USD-M perp, delisted in</span>
+    </div>
+    <div class="row">
+      <span class="label">Span</span>
+      <span class="value">2020 to now</span>
+    </div>
+    <div class="row">
+      <span class="label">Bars</span>
+      <span class="value">1h native</span>
+    </div>
+    <div class="row">
+      <span class="label">Funding</span>
+      <span class="value">8h, full span</span>
+    </div>
+    <div class="row">
+      <span class="label">Also carried</span>
+      <span class="value">mark price, premium index</span>
+    </div>
+    <div class="row">
+      <span class="label">Depth and aggTrades</span>
+      <span class="value gone">not in this source</span>
+    </div>
+    <div class="row">
+      <span class="label">Open interest</span>
+      <span class="value gone">endpoint not built</span>
+    </div>
+  </div>
+
+  <p>What we gained is span and cross-section, roughly five times the history and forty times the names. Four test folds of thirty weeks becomes a sample that can tell a rewarded lookback from a lucky one, which is the entire reason the direction result is being re-run rather than trusted.</p>
+
+  <p>What we did not gain is cost, and that is now the weak link rather than the bars. Half spread needs depth or aggTrades and neither is in this source, so per-symbol cost stays unmeasurable until tier 2. The ten-name measurement of 14.9 bps round trip was taken on mega-caps and does not extend to a universe holding thin alts. Applying it flat across the book is the single most likely way this lane invents edge it does not have, so the wide run uses a spread ladder bucketed by trailing dollar volume, calibrated on the names that were measured and extrapolated by liquidity, declared as an assumption and stress-tested rather than believed.</p>
+
+  <h2>What we run next</h2>
+
+  <div class="queue">
+    <div class="q">
+      <div class="q-n">01</div>
+      <div>
+        <p class="q-run">Reproduce the old window</p>
+        <p class="q-meta">ten symbols, 2022 to 2024, through the new source</p>
+        <p class="q-ask">Does the streamed pipeline return the number the CSV pipeline returned. Nothing wide is trusted until it does.</p>
+      </div>
+    </div>
+    <div class="q">
+      <div class="q-n">02</div>
+      <div>
+        <p class="q-run">Build the point-in-time universe</p>
+        <p class="q-meta">bucket listing, listing dates, trailing dollar volume</p>
+        <p class="q-ask">Which names were tradeable on which date, with delisted perps present for the window they traded. Shared with the cross-sectional lane.</p>
+      </div>
+    </div>
+    <div class="q">
+      <div class="q-n">03</div>
+      <div>
+        <p class="q-run">Calibrate the cost ladder</p>
+        <p class="q-meta">measured spread on the ten names, bucketed by dollar volume</p>
+        <p class="q-ask">What a wide book actually pays, and how wrong the flat 14.9 bps was. Sets the bar every later result is judged against.</p>
+      </div>
+    </div>
+    <div class="q">
+      <div class="q-n">04</div>
+      <div>
+        <p class="q-run">Wide lookback sweep</p>
+        <p class="q-meta">full universe, 2020 to now, L across 1, 2, 4, 8, 12</p>
+        <p class="q-ask">Is the sawtooth real or was it fold luck. The single highest-value run available, and the one that decides whether this lane continues.</p>
+      </div>
+    </div>
+    <div class="q">
+      <div class="q-n">05</div>
+      <div>
+        <p class="q-run">Regime and per-year splits</p>
+        <p class="q-meta">same run, six calendar years, bull and bear tagged</p>
+        <p class="q-ask">Does the 2022 bear result hold on a sample with more than one bear in it. This is the claim the book is owned for.</p>
+      </div>
+    </div>
+    <div class="q">
+      <div class="q-n">06</div>
+      <div>
+        <p class="q-run">Funding-aware sign re-test</p>
+        <p class="q-meta">same run, funding subtracted from trailing return</p>
+        <p class="q-ask">How much of the raw trend result was carry paid to hold crypto beta, and does removing it leave a directional premium behind.</p>
+      </div>
+    </div>
+    <div class="q">
+      <div class="q-n">07</div>
+      <div>
+        <p class="q-run">Mechanism conditioning <span class="stamp block">blocked</span></p>
+        <p class="q-meta">needs the metrics endpoint for open interest</p>
+        <p class="q-ask">Is the premium concentrated where forced deleveraging is, which would turn a statistical result into a mechanical one.</p>
+      </div>
+    </div>
   </div>
 
   <h2>Where this stands</h2>
-  <p>L=1 book Sharpe 0.78 net of cost and funding on the full sample, lifts to 0.85 with the funding-aware sign. On a five-fold walk-forward with a four-week purge, plain L=1 lands at 0.53 out of sample and no tested combiner improves it. L=4 lands at 0.61 in sample, 0.65 with the funding-aware sign. Both are positive in every calendar year, both keep their sign at 2x cost, and both beat long-only on the 2022 regime. Dead band and daily cadence tested null, weekly is the right cadence. The soft part is a small out-of-sample sample, four test folds of about 30 weeks each, and a lookback grid that stays a sawtooth on every axis tested.</p>
+
+  <p>Nothing on this page is currently verified on the new data. Two reads are held because the mechanism survives a change of sample even if the number does not, and four are open because they were measured on ten names over three years and that is not enough to separate a real effect from a fortunate fold.</p>
+
+  <p>Held. Simple beats complex, on every shape and every combiner tested. Weekly beats daily.</p>
+
+  <p>Open. The lookback grid and the 0.85 winner at L=1. The 14.9 bps cost. Positive in every calendar year, which was three observations. The funding-aware lift of 0.06, which sat inside four-fold noise.</p>
+
+  <p>The prior grid is kept below as the thing the wide run is measured against, not as a finding.</p>
 
   <div class="grid-current">
-    <p class="caption">Current pooled Sharpe by lookback, funding-aware sign, net of cost and funding</p>
+    <p class="caption">Prior sample, ten symbols 2022 to 2024, funding-aware sign, net of cost and funding</p>
     <div class="gr">
       <span class="gr-L">L = 1</span>
       <span class="gr-val pos">+0.85</span>
@@ -429,7 +623,7 @@ p { margin: 0 0 14px; }
         <span class="bar-zero" style="left: 30%"></span>
         <span class="bar-fill pos" style="left: 30%; width: 60.7%"></span>
       </span>
-      <span class="gr-note">winner</span>
+      <span class="gr-note">to re-prove</span>
     </div>
     <div class="gr">
       <span class="gr-L">L = 2</span>
@@ -447,7 +641,7 @@ p { margin: 0 0 14px; }
         <span class="bar-zero" style="left: 30%"></span>
         <span class="bar-fill pos" style="left: 30%; width: 46.4%"></span>
       </span>
-      <span class="gr-note">winner</span>
+      <span class="gr-note">to re-prove</span>
     </div>
     <div class="gr">
       <span class="gr-L">L = 8</span>
@@ -467,6 +661,11 @@ p { margin: 0 0 14px; }
       </span>
       <span class="gr-note">noise</span>
     </div>
+  </div>
+
+  <div class="callout">
+    <p class="callout-label">What is not modelled offline</p>
+    <p style="margin: 0;">Slippage at book size on thin names, which needs depth and aggTrades and is the reason the cost ladder is an assumption rather than a measurement. Liquidation risk on the short leg in a squeeze, which is live-only. Regime coverage now reaches back to 2020, so it holds one deep bear and two bulls, but still no 2018-style disinflationary crash.</p>
   </div>
 
 </div>
