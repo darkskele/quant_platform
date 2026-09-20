@@ -10,10 +10,10 @@
 using qp::MarkPriceKlineEvent;
 using qp::PremiumIndexKlineEvent;
 using qp::Timestamp;
-using qp::data_source::source::venue::binance::parsers::parse_mark_klines_row;
-using qp::data_source::source::venue::binance::parsers::parse_premium_klines_row;
+using qp::data_source::source::exchange::binance::parsers::parse_mark_klines_row;
+using qp::data_source::source::exchange::binance::parsers::parse_premium_klines_row;
 
-using namespace qp::data_source::source::venue::binance;
+using namespace qp::data_source::source::exchange::binance;
 
 namespace {
 

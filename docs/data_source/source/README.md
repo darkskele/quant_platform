@@ -13,16 +13,14 @@ Source::next()      (source.hpp: the concept)
 
 ## Components
 
-- `venue/`: the `SymbolTable` and `Parser` concepts a source uses to turn raw venue bytes into `MarketEvent`s.
+- `exchange/`. The sources that speak a specific exchange's protocol, one per exchange and endpoint.
 
 ## Variations
 
-- **`CsvSource`** (`csv_source.hpp`): replays historical CSV, parsing each line through a venue `Parser` and merging N streams in ascending `ts` order.
-- **[`remote_store`](remote_store/README.md)** (`remote_store/`): replays partitioned parquet from an object store or its local cache, decoding row groups off the pull thread and merging N streams in ascending `ts` order. Planned.
+- **`EofSource`** (`eof_source.hpp`). Reports `Eof` immediately. Stands in where a composition has no source wired yet.
 
 ## Milestones
 
 - [x] ~~`Source` concept~~
-- [x] ~~`CsvSource` historical replay~~
-- [ ] `RemoteStoreSource` over the store cache
-- [ ] `RemoteStoreSource` streaming range reads
+- [x] ~~First remote source~~
+- [ ] A live source

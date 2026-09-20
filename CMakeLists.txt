@@ -61,7 +61,6 @@ if(QP_BUILD_PYTHON)
 endif()
 
 add_subdirectory(cmake/core)
-add_subdirectory(cmake/clock)
 add_subdirectory(cmake/execution)
 add_subdirectory(cmake/strategy)
 add_subdirectory(cmake/risk)
@@ -69,7 +68,7 @@ add_subdirectory(cmake/data_source/sink)
 add_subdirectory(cmake/data_source/source)
 add_subdirectory(cmake/data_source/network/http)
 add_subdirectory(cmake/data_source/archive)
-add_subdirectory(cmake/data_source/source/venue/binance/binance_historical)
+add_subdirectory(cmake/data_source/source/exchange/binance/binance_historical)
 
 
 add_subdirectory(cmake/data_source)
@@ -93,7 +92,7 @@ if(BUILD_TESTING)
     list(FILTER QP_TEST_SRCS EXCLUDE REGEX "/integration/")
     add_executable(qp_tests ${QP_TEST_SRCS})
     target_link_libraries(qp_tests PRIVATE
-        qp_core qp_core_test_support qp_clock qp_execution qp_execution_sim
+        qp_core qp_core_test_support qp_execution qp_execution_sim
         qp_execution_sim_matcher_last_trade
         qp_execution_sim_matcher_cost_aware_cost_model_half_spread_linear
         qp_source_pure qp_sink qp_sink_fanout qp_data_source
@@ -116,7 +115,7 @@ if(QP_BUILD_BENCHMARKS)
     list(FILTER QP_BENCH_SRCS EXCLUDE REGEX "/apps/")
     add_executable(qp_bench ${QP_BENCH_SRCS})
     target_link_libraries(qp_bench PRIVATE
-        qp_core qp_core_test_support qp_clock qp_execution qp_execution_sim
+        qp_core qp_core_test_support qp_execution qp_execution_sim
         qp_execution_sim_matcher_last_trade
         qp_execution_sim_matcher_cost_aware_cost_model_half_spread_linear
         qp_source_pure qp_binance_historical

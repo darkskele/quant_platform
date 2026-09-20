@@ -7,7 +7,7 @@
 
 using qp::FundingEvent;
 using qp::Timestamp;
-using qp::data_source::source::venue::binance::parsers::parse_funding_row;
+using qp::data_source::source::exchange::binance::parsers::parse_funding_row;
 
 namespace {
 

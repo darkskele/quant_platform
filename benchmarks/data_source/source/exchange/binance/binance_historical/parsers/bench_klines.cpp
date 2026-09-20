@@ -10,9 +10,9 @@
 
 using qp::KlineEvent;
 using qp::Timestamp;
-using qp::data_source::source::venue::binance::parsers::parse_klines_row;
+using qp::data_source::source::exchange::binance::parsers::parse_klines_row;
 
-using namespace qp::data_source::source::venue::binance;
+using namespace qp::data_source::source::exchange::binance;
 
 namespace {
 

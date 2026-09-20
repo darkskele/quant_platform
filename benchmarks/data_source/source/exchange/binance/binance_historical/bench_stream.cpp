@@ -13,7 +13,7 @@
 #include "types.hpp"
 
 using namespace qp;
-using namespace qp::data_source::source::venue::binance;
+using namespace qp::data_source::source::exchange::binance;
 
 namespace {
 

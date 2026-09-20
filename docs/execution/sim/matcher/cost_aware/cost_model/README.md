@@ -16,12 +16,12 @@ optional<FillPricing>
 
 ## Variations
 
-- **`HalfSpreadLinearImpact`** (`half_spread_linear/`). Fill price crosses a half-spread plus a per-unit linear impact term. Fee is a bps rate on filled notional. Parameters come from a per-`(symbol, venue, week)` `CostRow` table. Ships with a cost-row reader for the artifact `research/build_cost_table.ipynb` produces.
+- **`HalfSpreadLinearImpact`** (`half_spread_linear/`). Fill price crosses a half-spread plus a per-unit linear impact term. Fee is a bps rate on filled notional. Parameters come from a per-`(instrument, week)` `CostRow` table. Ships with a cost-row reader for the artifact `research/build_cost_table.ipynb` produces.
 
 ## Milestones
 
 - [x] ~~`CostModel` concept~~
-- [x] ~~`HalfSpreadLinearImpact` with per-`(symbol, venue, week)` table~~
+- [x] ~~`HalfSpreadLinearImpact` with per-`(instrument, week)` table~~
 - [x] ~~Cost-row reader for the finalize step's CSV~~
 - [ ] Fitted-from-trades variation
     - slippage regressed against public trade tapes
