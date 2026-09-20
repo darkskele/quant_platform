@@ -9,3 +9,5 @@
 7. A row that fails to parse is rejected and counted, never thrown on. One bad row must not end a sweep.
 8. The three kline datasets share one row reader and differ only in which fields reach the event.
 9. Kline events are stamped with open time, funding events with calc time.
+10. Datetime stamps are read as a fixed width field rather than through `strptime`. A field longer than the format is a different format, not this one with a tail, so it is rejected instead of truncated.
+11. The civil calendar helpers live with the field readers, since the stamp parser and the stream's file window both need them and neither owns the other.

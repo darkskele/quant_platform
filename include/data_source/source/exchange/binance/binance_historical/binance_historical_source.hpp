@@ -221,7 +221,8 @@ class BinanceHistoricalSource {
         if (entry == nullptr) return;
 
         // Falls back rather than building a path the dataset does not publish.
-        const auto cadence = supports(*entry, config_.cadence) ? config_.cadence : Cadence::Monthly;
+        const auto cadence =
+            supports(*entry, config_.cadence) ? config_.cadence : fallback_cadence(*entry);
 
         streams.push_back(
             Held<P>{.stream = std::make_unique<Stream<P>>(pool_, path, cadence, symbol,

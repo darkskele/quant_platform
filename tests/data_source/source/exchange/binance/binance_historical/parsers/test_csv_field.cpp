@@ -7,6 +7,8 @@
 #include "csv_field.hpp"
 
 using qp::Timestamp;
+using qp::data_source::source::exchange::binance::parsers::days_from_civil;
+using qp::data_source::source::exchange::binance::parsers::take_datetime;
 using qp::data_source::source::exchange::binance::parsers::take_decimal;
 using qp::data_source::source::exchange::binance::parsers::take_stamp;
 using qp::data_source::source::exchange::binance::parsers::to_nanos;
@@ -113,4 +115,85 @@ TEST(CsvField, StampRejectsDecimal) {
     std::string_view row = "1748822400000.5";
     Timestamp        out{};
     EXPECT_FALSE(take_stamp(row, out));
+}
+
+// 2025-06-02 00:00:08 UTC, the shape metrics and bookDepth stamp with.
+TEST(CsvField, DatetimeParsesKnownInstant) {
+    std::string_view row = "2025-06-02 00:00:08";
+    Timestamp        out{};
+    ASSERT_TRUE(take_datetime(row, out));
+    EXPECT_EQ(out, 1748822408LL * 1'000'000'000LL);
+    EXPECT_TRUE(row.empty());
+}
+
+TEST(CsvField, DatetimeAdvancesPastComma) {
+    std::string_view row = "2025-06-02 00:00:10,-5,7708.55000000";
+    Timestamp        out{};
+    ASSERT_TRUE(take_datetime(row, out));
+    EXPECT_EQ(out, 1748822410LL * 1'000'000'000LL);
+    EXPECT_EQ(row, "-5,7708.55000000");
+}
+
+TEST(CsvField, DatetimeRejectsDateOnly) {
+    std::string_view row = "2025-06-02";
+    Timestamp        out{};
+    EXPECT_FALSE(take_datetime(row, out));
+    EXPECT_EQ(row, "2025-06-02");
+}
+
+TEST(CsvField, DatetimeRejectsOutOfRangeFields) {
+    Timestamp out{};
+    for (std::string_view text :
+         {"2025-13-02 00:00:00", "2025-00-02 00:00:00", "2025-06-31 00:00:00",
+          "2025-06-00 00:00:00", "2025-06-02 24:00:00", "2025-06-02 00:60:00",
+          "2025-06-02 00:00:60"}) {
+        std::string_view row = text;
+        EXPECT_FALSE(take_datetime(row, out)) << text;
+    }
+}
+
+TEST(CsvField, DatetimeRejectsWrongSeparators) {
+    Timestamp out{};
+    for (std::string_view text : {"2025/06/02 00:00:00", "2025-06-02T00:00:00",
+                                  "2025-06-02 00-00-00", "20250602 00:00:00"}) {
+        std::string_view row = text;
+        EXPECT_FALSE(take_datetime(row, out)) << text;
+    }
+}
+
+// An epoch stamp is a different format, not this one with a tail, so it must
+// not parse as a truncated datetime.
+TEST(CsvField, DatetimeRejectsEpochStamp) {
+    std::string_view row = "1748822400000";
+    Timestamp        out{};
+    EXPECT_FALSE(take_datetime(row, out));
+}
+
+TEST(CsvField, DatetimeRejectsLongerFieldWithoutComma) {
+    std::string_view row = "2025-06-02 00:00:08.500";
+    Timestamp        out{};
+    EXPECT_FALSE(take_datetime(row, out));
+}
+
+// days_from_civil is now load bearing for take_datetime and for the stream's
+// file stamp window, so the boundaries get their own case.
+TEST(CsvField, CivilDaysCoverEpochAndLeapBoundaries) {
+    EXPECT_EQ(days_from_civil(1970, 1, 1), 0);
+    EXPECT_EQ(days_from_civil(2000, 3, 1), 11017);
+    EXPECT_EQ(days_from_civil(2024, 2, 29), 19782);
+    EXPECT_EQ(days_from_civil(2100, 3, 1), 47541);
+}
+
+TEST(CsvField, DatetimeAcceptsLeapDayAndRejectsNonLeap) {
+    std::string_view leap = "2024-02-29 12:00:00";
+    Timestamp        out{};
+    ASSERT_TRUE(take_datetime(leap, out));
+    EXPECT_EQ(out, (19782LL * 86'400LL + 12LL * 3'600LL) * 1'000'000'000LL);
+
+    std::string_view not_leap = "2025-02-29 12:00:00";
+    EXPECT_FALSE(take_datetime(not_leap, out));
+
+    // 1900 is divisible by 4 but not a leap year.
+    std::string_view century = "1900-02-29 12:00:00";
+    EXPECT_FALSE(take_datetime(century, out));
 }

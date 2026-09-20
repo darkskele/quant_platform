@@ -30,7 +30,7 @@ enum class EndpointKind : std::uint8_t { Klines, MarkPriceKlines, PremiumIndexKl
 
 enum class Cadence : std::uint8_t { Daily, Monthly };
 
-enum class CadenceSupport : std::uint8_t { MonthlyOnly, Both };
+enum class CadenceSupport : std::uint8_t { DailyOnly, MonthlyOnly, Both };
 
 /// One historical dataset, enough to build any of its prefixes and file names.
 struct Endpoint {
@@ -102,7 +102,21 @@ inline constexpr const Endpoint& endpoint(BinanceMarket market, EndpointKind kin
 }
 
 inline constexpr bool supports(const Endpoint& e, Cadence cadence) {
-    return cadence == Cadence::Monthly || e.cadence == CadenceSupport::Both;
+    switch (e.cadence) {
+        case CadenceSupport::DailyOnly:
+            return cadence == Cadence::Daily;
+        case CadenceSupport::MonthlyOnly:
+            return cadence == Cadence::Monthly;
+        case CadenceSupport::Both:
+            return true;
+    }
+    return false;
+}
+
+/// The cadence to fall back to when the asked for one is not published. Both
+/// prefers monthly, since it is fewer requests for the same rows.
+inline constexpr Cadence fallback_cadence(const Endpoint& e) noexcept {
+    return e.cadence == CadenceSupport::DailyOnly ? Cadence::Daily : Cadence::Monthly;
 }
 
 /// Key prefix holding every file for one stream. Interval is ignored when the

@@ -10,10 +10,14 @@ namespace binance = qp::data_source::source::exchange::binance;
 
 using binance::BinanceMarket;
 using binance::Cadence;
+using binance::CadenceSupport;
+using binance::Endpoint;
 using binance::endpoint;
 using binance::EndpointKind;
+using binance::fallback_cadence;
 using binance::file_name;
 using binance::file_url;
+using binance::kEndpoints;
 using binance::market_of_slot;
 using binance::prefix;
 using binance::supports;
@@ -114,6 +118,46 @@ TEST(BinanceEndpoints, SpotHasNoFundingRate) {
 TEST(BinanceEndpoints, SpotHasNoMarkPriceKlines) {
     EXPECT_THROW((void)endpoint(BinanceMarket::Spot, EndpointKind::MarkPriceKlines),
                  std::out_of_range);
+}
+
+// DailyOnly exists for metrics and bookDepth, which 404 on monthly. Before it
+// there was no way to say that, and supports() answered true for monthly on
+// every dataset.
+TEST(BinanceEndpoints, CadenceSupportIsTwoWay) {
+    constexpr Endpoint daily{"futures/um", "metrics", CadenceSupport::DailyOnly, false, 8, 0};
+    EXPECT_TRUE(supports(daily, Cadence::Daily));
+    EXPECT_FALSE(supports(daily, Cadence::Monthly));
+
+    constexpr Endpoint monthly{
+        "futures/um", "fundingRate", CadenceSupport::MonthlyOnly, false, 3, 0};
+    EXPECT_FALSE(supports(monthly, Cadence::Daily));
+    EXPECT_TRUE(supports(monthly, Cadence::Monthly));
+
+    constexpr Endpoint both{"futures/um", "klines", CadenceSupport::Both, true, 12, 5};
+    EXPECT_TRUE(supports(both, Cadence::Daily));
+    EXPECT_TRUE(supports(both, Cadence::Monthly));
+}
+
+TEST(BinanceEndpoints, FallbackCadencePrefersMonthlyUnlessDailyOnly) {
+    constexpr Endpoint daily{"futures/um", "metrics", CadenceSupport::DailyOnly, false, 8, 0};
+    EXPECT_EQ(fallback_cadence(daily), Cadence::Daily);
+
+    constexpr Endpoint monthly{
+        "futures/um", "fundingRate", CadenceSupport::MonthlyOnly, false, 3, 0};
+    EXPECT_EQ(fallback_cadence(monthly), Cadence::Monthly);
+
+    constexpr Endpoint both{"futures/um", "klines", CadenceSupport::Both, true, 12, 5};
+    EXPECT_EQ(fallback_cadence(both), Cadence::Monthly);
+}
+
+// The invariant the source's add() leans on. A row whose fallback is not
+// published would plan a prefix of files that do not exist.
+TEST(BinanceEndpoints, EveryEntryFallsBackToACadenceItPublishes) {
+    for (const auto& e : kEndpoints) {
+        SCOPED_TRACE(std::string(e.market_path) + "/" + std::string(e.kind_path));
+        EXPECT_TRUE(supports(e, fallback_cadence(e)));
+        EXPECT_TRUE(supports(e, Cadence::Daily) || supports(e, Cadence::Monthly));
+    }
 }
 
 // Every table entry against the live bucket. A path this builds wrong is a path

@@ -220,7 +220,7 @@ class BinanceHistoricalStream {
                          (stamp[3] - '0');
         const int month = (stamp[5] - '0') * 10 + (stamp[6] - '0');
         const int day   = stamp.size() >= 10 ? (stamp[8] - '0') * 10 + (stamp[9] - '0') : 1;
-        return days_from_civil(year, month, day) * 86'400LL * 1'000'000'000LL;
+        return parsers::days_from_civil(year, month, day) * 86'400LL * 1'000'000'000LL;
     }
 
     /// Bar width of a Binance interval token. Zero when the token is unknown or
@@ -244,13 +244,6 @@ class BinanceHistoricalStream {
         return 0;
     }
 
-    static constexpr int days_in_month(int year, int month) noexcept {
-        constexpr int kDays[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-        if (month < 1 || month > 12) return 0;
-        const bool leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
-        return month == 2 && leap ? 29 : kDays[month - 1];
-    }
-
     /// Bars a file of this stamp should hold. Zero when it cannot be known,
     /// which is every dataset whose interval is not in the path.
     std::int64_t expected_rows(std::string_view stamp) const noexcept {
@@ -263,19 +256,9 @@ class BinanceHistoricalStream {
             const int year = (stamp[0] - '0') * 1000 + (stamp[1] - '0') * 100 +
                              (stamp[2] - '0') * 10 + (stamp[3] - '0');
             const int month = (stamp[5] - '0') * 10 + (stamp[6] - '0');
-            span            = days_in_month(year, month) * kDay;
+            span            = parsers::days_in_month(year, month) * kDay;
         }
         return span / width;
-    }
-
-    /// Days since the unix epoch, Howard Hinnant's civil calendar algorithm.
-    static constexpr std::int64_t days_from_civil(int y, int m, int d) noexcept {
-        y -= m <= 2;
-        const std::int64_t era = (y >= 0 ? y : y - 399) / 400;
-        const auto         yoe = static_cast<unsigned>(y - era * 400);
-        const auto doy = static_cast<unsigned>((153 * (m + (m > 2 ? -3 : 9)) + 2) / 5 + d - 1);
-        const auto doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-        return era * 146'097 + static_cast<std::int64_t>(doe) - 719'468;
     }
 
     Pool*                    pool_;
