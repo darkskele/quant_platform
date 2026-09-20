@@ -1,6 +1,6 @@
 # backtest
 
-The backtest app. Composes source, sink, engine, execution, risk, and strategy into a runnable backtest on the same code path as live. `config/` selects the concrete component types at compile time; `BacktestBase` runs the source pump and the engine on their own threads.
+The backtest app. Composes source, sink, engine, execution, risk and strategy into a runnable backtest on the same code path as live. `BacktestBase` owns the lifecycle, runs the source pump and the engine on their own threads, and joins once the sources run dry. A variant supplies its sources, its sinks and its engine.
 
 ## Diagram
 
@@ -18,10 +18,12 @@ BacktestBase::run()  (two threads, joined)
 
 ## Variations
 
-- **`FundingCarryBacktest`** (`funding_carry/`): futures + spot CSV legs merged in `ts` order. Runtime-swept `Config` (carry + risk knobs), reports `Results`.
-- **`PythonBacktest`** (`python/`): same source pipeline, but Strategy and RiskGate are the python adapters. Callbacks are set from the notebook via `set_on_event`/`set_on_timer`/`set_check`/`set_on_tick` and driven by `run()`.
+- **`FundingCarryBacktest`** (`funding_carry/`): the carry strategy over a futures and a spot leg. Runtime `Config` for the carry and risk knobs, reports `Results`.
+- **`PythonBinanceHistoricalBacktest`** (`python/`): Strategy and RiskGate are the python adapters, events come from the Binance historical source. Callbacks are set from the notebook via `set_on_event`/`set_on_timer`/`set_check`/`set_on_tick`, and `plan()` then `run()` drive it. Reports per-instrument fees, funding and basis alongside the equity series.
 
 ## Milestones
 
 - [x] ~~Wire a strategy through a real `Engine` composition end to end~~
-- [ ] A real backtest run against accumulated recorded data
+- [x] ~~Composition is runtime, driven by a `Subscription`~~
+- [x] ~~A real backtest run against real exchange data~~
+- [ ] Wire `FundingCarryBacktest` onto a live source

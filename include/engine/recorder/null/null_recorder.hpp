@@ -11,6 +11,6 @@ struct NullRecorder {
     void sample(Timestamp, const Book&) noexcept {}
 };
 
-static_assert(Recorder<NullRecorder, qp::Portfolio<qp::detail::kTrivialCounts>>);
+static_assert(Recorder<NullRecorder, qp::Portfolio>);
 
 }  // namespace qp::engine

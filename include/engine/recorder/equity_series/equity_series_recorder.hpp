@@ -17,12 +17,9 @@ struct EquityPoint {
     Notional  equity{};
 };
 
-/// Owns the off-hot-path side of equity recording: a drain thread empties a
-/// lock-free queue into a growing series. The record thread only ever does a
-/// bounded, allocation-free push; the vector grows here instead.
+/// Owns the off-hot-path side of equity recording.
 class EquitySeriesCollector {
-    // Burst buffer between the record thread and the drain. Only needs to
-    // absorb a scheduling hiccup, not the whole series.
+    // Burst buffer between the record thread and the drain. 
     static constexpr std::size_t kQueueCapacity = 1u << 16;
 
    public:
@@ -41,14 +38,12 @@ class EquitySeriesCollector {
         drain_ = std::thread([this] { drain_loop(); });
     }
 
-    /// Record-thread side. Spins only if the burst buffer is momentarily
-    /// full, never allocates.
+    /// Record-thread side.
     void push(EquityPoint point) {
         while (!queue_.push(point)) std::this_thread::yield();
     }
 
-    /// Stops draining and flushes the queue into the series. Idempotent, and
-    /// safe only once the record thread has stopped pushing.
+    /// Stops draining and flushes the queue into the series.
     void finish() {
         if (!drain_.joinable()) return;
         stop_.store(true, std::memory_order_release);
@@ -75,10 +70,7 @@ class EquitySeriesCollector {
     std::atomic<bool>                                        stop_{false};
 };
 
-/// The record-thread handle Engine drives. sample() hands one point to the
-/// collector, which owns the allocation and the drain.
-///
-/// @tparam min_interval_ns Minimum replay time between kept samples. 
+/// The record-thread handle Engine drives.
 class EquitySeriesRecorder {
    public:
     explicit EquitySeriesRecorder(EquitySeriesCollector* sink,
@@ -100,6 +92,6 @@ class EquitySeriesRecorder {
     bool                   primed_{false};
 };
 
-static_assert(Recorder<EquitySeriesRecorder, qp::Portfolio<qp::detail::kTrivialCounts>>);
+static_assert(Recorder<EquitySeriesRecorder, qp::Portfolio>);
 
 }  // namespace qp::engine

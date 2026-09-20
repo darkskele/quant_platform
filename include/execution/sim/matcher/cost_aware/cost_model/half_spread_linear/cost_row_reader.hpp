@@ -1,5 +1,4 @@
 #pragma once
-#include <array>
 #include <charconv>
 #include <chrono>
 #include <cmath>
@@ -14,16 +13,11 @@
 #include <vector>
 
 #include "cost_row.hpp"
+#include "exchange.hpp"
+#include "subscription.hpp"
 #include "types.hpp"
 
 namespace qp::execution::sim::matcher::cost_aware::cost_model::half_spread_linear {
-
-/// Loads a cost table CSV into `vector<CostRow>`. The CSV is expected to
-/// carry a header row naming at least these columns (extras are ignored):
-///   symbol, venue, week_start, half_spread_bps, impact_bps_per_unit,
-///   taker_fee_bps
-template <class SymbolTable>
-std::vector<CostRow> read_cost_rows_csv(const std::filesystem::path& path);
 
 namespace detail {
 
@@ -44,7 +38,6 @@ inline std::optional<Timestamp> parse_iso_date_to_ns(std::string_view s) noexcep
     std::chrono::year_month_day ymd{std::chrono::year{*y}, std::chrono::month{unsigned(*m)},
                                     std::chrono::day{unsigned(*d)}};
     if (!ymd.ok()) return std::nullopt;
-    // Cast to nanoseconds since epoch.
     return std::chrono::time_point_cast<std::chrono::nanoseconds>(std::chrono::sys_days{ymd})
         .time_since_epoch()
         .count();
@@ -76,7 +69,7 @@ inline std::vector<std::string_view> split_csv(std::string_view line) {
 }
 
 struct HeaderIndex {
-    int symbol{-1}, venue{-1}, week_start{-1};
+    int symbol{-1}, market{-1}, week_start{-1};
     int half_spread_bps{-1}, impact_bps_per_unit{-1}, taker_fee_bps{-1};
 };
 
@@ -87,8 +80,8 @@ inline HeaderIndex parse_header(std::string_view header_line) {
         auto f = fields[i];
         if (f == "symbol")
             h.symbol = i;
-        else if (f == "venue")
-            h.venue = i;
+        else if (f == "market")
+            h.market = i;
         else if (f == "week_start")
             h.week_start = i;
         else if (f == "half_spread_bps")
@@ -102,14 +95,14 @@ inline HeaderIndex parse_header(std::string_view header_line) {
 }
 
 inline bool header_complete(const HeaderIndex& h) noexcept {
-    return h.symbol >= 0 && h.venue >= 0 && h.week_start >= 0 && h.half_spread_bps >= 0 &&
+    return h.symbol >= 0 && h.market >= 0 && h.week_start >= 0 && h.half_spread_bps >= 0 &&
            h.impact_bps_per_unit >= 0 && h.taker_fee_bps >= 0;
 }
 
 }  // namespace detail
 
-template <class SymbolTable>
-std::vector<CostRow> read_cost_rows_csv(const std::filesystem::path& path) {
+inline std::vector<CostRow> read_cost_rows_csv(const std::filesystem::path& path,
+                                               const Subscription& sub, ExchangeId exchange) {
     std::ifstream in{path};
     if (!in) throw std::runtime_error("cost_table csv not readable: " + path.string());
 
@@ -117,7 +110,6 @@ std::vector<CostRow> read_cost_rows_csv(const std::filesystem::path& path) {
     if (!std::getline(in, header)) {
         throw std::runtime_error("cost_table csv empty: " + path.string());
     }
-    // Strip trailing CR from CRLF endings.
     if (!header.empty() && header.back() == '\r') header.pop_back();
 
     auto hdr = detail::parse_header(header);
@@ -136,7 +128,7 @@ std::vector<CostRow> read_cost_rows_csv(const std::filesystem::path& path) {
         auto fields = detail::split_csv(line);
 
         auto need       = [&](int idx) -> std::string_view { return fields[idx]; };
-        auto max_needed = std::max({hdr.symbol, hdr.venue, hdr.week_start, hdr.half_spread_bps,
+        auto max_needed = std::max({hdr.symbol, hdr.market, hdr.week_start, hdr.half_spread_bps,
                                     hdr.impact_bps_per_unit, hdr.taker_fee_bps});
         if (static_cast<int>(fields.size()) <= max_needed) {
             std::ostringstream oss;
@@ -144,17 +136,17 @@ std::vector<CostRow> read_cost_rows_csv(const std::filesystem::path& path) {
             throw std::runtime_error(oss.str());
         }
 
-        auto sym_id = SymbolTable::id_of(need(hdr.symbol));
-        if (!sym_id) continue;  // symbol not in this build's universe, skip cleanly
-
-        auto ven_str = need(hdr.venue);
-        int  ven_i{};
-        if (std::from_chars(ven_str.data(), ven_str.data() + ven_str.size(), ven_i).ec !=
-            std::errc{}) {
-            std::ostringstream oss;
-            oss << "cost_table csv line " << line_no << " has bad venue '" << ven_str << "'";
-            throw std::runtime_error(oss.str());
+        int market_i{};
+        {
+            auto m = need(hdr.market);
+            if (std::from_chars(m.data(), m.data() + m.size(), market_i).ec != std::errc{}) {
+                std::ostringstream oss;
+                oss << "cost_table csv line " << line_no << " has bad market '" << m << "'";
+                throw std::runtime_error(oss.str());
+            }
         }
+        auto instr = sub.resolve(exchange, static_cast<std::uint16_t>(market_i), need(hdr.symbol));
+        if (!instr) continue;
 
         auto ws_ns = detail::parse_iso_date_to_ns(need(hdr.week_start));
         if (!ws_ns) {
@@ -173,8 +165,6 @@ std::vector<CostRow> read_cost_rows_csv(const std::filesystem::path& path) {
             throw std::runtime_error(oss.str());
         }
 
-        // Empty impact is treated as 0 (for weeks with no aggTrades summary).
-        // Non-empty but non-numeric is a genuine bad value and throws.
         auto   im_field = need(hdr.impact_bps_per_unit);
         double im_val   = 0.0;
         if (!im_field.empty()) {
@@ -189,8 +179,9 @@ std::vector<CostRow> read_cost_rows_csv(const std::filesystem::path& path) {
         }
 
         rows.push_back(CostRow{
-            .symbol              = *sym_id,
-            .venue               = static_cast<VenueId>(ven_i),
+            .exchange            = instr->exchange,
+            .market              = instr->market,
+            .symbol              = instr->symbol,
             .week_start_ns       = *ws_ns,
             .half_spread_bps     = *hs,
             .impact_bps_per_unit = im_val,

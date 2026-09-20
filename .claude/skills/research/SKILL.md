@@ -33,6 +33,8 @@ Prose follows the `writing` skill, terse, no em dashes, no colons or semicolons,
 
 ## Analytical discipline
 
+`research/GATE.md` is the bar every result clears before it is quoted as a finding, and every item of it before anything goes live. Report the gate status with the number. The rest of this section is how to get there.
+
 - Judge by net PnL and Sharpe, not IC. IC does not translate to money here, that is a settled finding.
 - Coarse first. Answer the binary question, does it move at all. Stop if flat, flat is itself the answer. Go finer only on the axis that moved, never two grids at once.
 - A best cell whose neighbours and siblings do not agree with it is noise. Report the spread across the grid, not just the winner.

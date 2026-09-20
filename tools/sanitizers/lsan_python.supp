@@ -1,0 +1,6 @@
+# CPython never frees a good deal of what it allocates at startup, so these are
+# reported on every exit and mean nothing about this codebase.
+leak:libpython*
+leak:_PyObject_*
+leak:PyMem_*
+leak:PyType_Ready

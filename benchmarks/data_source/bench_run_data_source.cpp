@@ -22,7 +22,9 @@ struct CountingSource {
     PullResult next() {
         if (remaining <= 0) return std::unexpected(SourceStatus::Eof);
         --remaining;
-        return MarketEvent{TradeEvent{}};
+        MarketEvent ev;
+        ev.payload = TradeEvent{};
+        return ev;
     }
 };
 
@@ -43,7 +45,7 @@ void BM_RunDataSource_OnePair(benchmark::State& state) {
 
     for (auto _ : state) {
         int rounds = kRounds;
-        benchmark::DoNotOptimize(rounds);  // keep the trip count opaque, see CountingSink above
+        benchmark::DoNotOptimize(rounds);
         std::get<0>(sources).remaining = rounds;
         run_data_source(sources, sinks, control, idx);
         benchmark::DoNotOptimize(std::get<0>(sinks).count);
@@ -53,7 +55,6 @@ void BM_RunDataSource_OnePair(benchmark::State& state) {
 
 BENCHMARK(BM_RunDataSource_OnePair);
 
-// Four source/sink pairs.
 void BM_RunDataSource_FourPairs(benchmark::State& state) {
     std::tuple<CountingSource, CountingSource, CountingSource, CountingSource> sources{
         CountingSource{kRounds}, CountingSource{kRounds}, CountingSource{kRounds},
@@ -64,7 +65,7 @@ void BM_RunDataSource_FourPairs(benchmark::State& state) {
 
     for (auto _ : state) {
         int rounds = kRounds;
-        benchmark::DoNotOptimize(rounds);  // keep the trip count opaque, see CountingSink above
+        benchmark::DoNotOptimize(rounds);
         std::get<0>(sources).remaining = rounds;
         std::get<1>(sources).remaining = rounds;
         std::get<2>(sources).remaining = rounds;

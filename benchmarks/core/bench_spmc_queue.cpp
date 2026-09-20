@@ -70,7 +70,7 @@ void BM_Spmc_PushTryPopMarketEvent(benchmark::State& state) {
     });
 
     for (auto _ : state) {
-        queue.push(qp::MarketEvent{seed});
+        queue.push(qp::MarketEvent{.base = {.kind = qp::EventKind::BookDiff}, .payload = seed});
         auto v = queue.try_pop(0);
         benchmark::DoNotOptimize(v);
     }

@@ -118,7 +118,7 @@ void BM_Spsc_PushPopMarketEvent(benchmark::State& state) {
     });
 
     for (auto _ : state) {
-        qp::MarketEvent fresh  = seed;
+        qp::MarketEvent fresh{.base = {.kind = qp::EventKind::BookDiff}, .payload = seed};
         bool            pushed = q.push(std::move(fresh));
         benchmark::DoNotOptimize(pushed);
         auto v = q.pop();

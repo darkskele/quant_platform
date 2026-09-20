@@ -1,22 +1,32 @@
 #include <gtest/gtest.h>
 
-#include <array>
-#include <cstddef>
-
+#include "exchange.hpp"
 #include "portfolio.hpp"
 #include "recorder/equity_series/equity_series_recorder.hpp"
 #include "recorder/null/null_recorder.hpp"
 #include "recorder/recorder.hpp"
+#include "subscription.hpp"
 #include "types.hpp"
 
+using qp::ExchangeId;
+using qp::Subscription;
+using qp::SubscriptionBuilder;
 using qp::engine::EquitySeriesCollector;
 using qp::engine::EquitySeriesRecorder;
 using qp::engine::NullRecorder;
 using qp::engine::Recorder;
 
 namespace {
-constexpr std::array<std::size_t, 1> kCounts{1};
-using Book = qp::Portfolio<kCounts>;
+constexpr std::uint16_t kExchange = static_cast<std::uint16_t>(ExchangeId::Binance);
+constexpr std::uint16_t kMarket   = 0;
+
+Subscription make_subscription() {
+    SubscriptionBuilder sub;
+    sub.add(ExchangeId::Binance, kMarket, "A");
+    return std::move(sub).build();
+}
+
+using Book = qp::Portfolio;
 }  // namespace
 
 static_assert(Recorder<NullRecorder, Book>);
@@ -24,7 +34,7 @@ static_assert(Recorder<EquitySeriesRecorder, Book>);
 
 TEST(NullRecorder, SampleIsNoOp) {
     NullRecorder rec;
-    Book         book;
+    Book         book{make_subscription()};
     rec.sample(1, book);
     SUCCEED();
 }
@@ -33,7 +43,7 @@ TEST(EquitySeriesRecorder, CollectsSamplesInOrder) {
     EquitySeriesCollector collector;
     collector.start();
     EquitySeriesRecorder rec{&collector};
-    Book                 book;
+    Book                 book{make_subscription()};
 
     rec.sample(10, book);
     rec.sample(20, book);
@@ -49,13 +59,22 @@ TEST(EquitySeriesRecorder, CapturesEquityAtSampleTime) {
     EquitySeriesCollector collector;
     collector.start();
     EquitySeriesRecorder rec{&collector};
-    Book                 book;
+    Book                 book{make_subscription()};
 
-    rec.sample(1, book);  // flat: equity 0
-    book.apply_fill(
-        qp::Fill{.symbol = 0, .side = qp::Side::Buy, .price = 100.0, .qty = 1.0, .fee = 0.5});
-    book.apply_mark_price(qp::MarketEvent{qp::TradeEvent{.symbol = 0, .price = 100.0}});
-    rec.sample(2, book);  // cash -100.5, position 1 @ 100 -> equity -0.5
+    rec.sample(1, book);
+    book.apply_fill(qp::Fill{.exchange = kExchange,
+                             .market   = kMarket,
+                             .symbol   = 0,
+                             .side     = qp::Side::Buy,
+                             .price    = 100.0,
+                             .qty      = 1.0,
+                             .fee      = 0.5});
+    book.apply_mark_price(qp::MarketEvent{.base    = {.kind     = qp::EventKind::Trade,
+                                                      .exchange = kExchange,
+                                                      .market   = kMarket,
+                                                      .symbol   = 0},
+                                          .payload = qp::TradeEvent{.price = 100.0}});
+    rec.sample(2, book);
     collector.finish();
 
     auto series = collector.series();
@@ -68,9 +87,9 @@ TEST(EquitySeriesRecorder, DrainsMoreSamplesThanTheQueueHoldsWithoutLoss) {
     EquitySeriesCollector collector;
     collector.start();
     EquitySeriesRecorder rec{&collector};
-    Book                 book;
+    Book                 book{make_subscription()};
 
-    constexpr int N = 200'000;  // exceeds the internal queue, exercises backpressure
+    constexpr int N = 200'000;
     for (int i = 0; i < N; ++i) rec.sample(i, book);
     collector.finish();
 

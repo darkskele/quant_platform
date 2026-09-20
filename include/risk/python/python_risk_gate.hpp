@@ -24,6 +24,19 @@ class PythonRiskGate {
     PythonRiskGate(pybind11::object check_cb, pybind11::object on_tick_cb)
         : check_cb_{std::move(check_cb)}, on_tick_cb_{std::move(on_tick_cb)} {}
 
+    PythonRiskGate(const PythonRiskGate&)            = delete;
+    PythonRiskGate& operator=(const PythonRiskGate&) = delete;
+    PythonRiskGate(PythonRiskGate&&) noexcept        = default;
+    PythonRiskGate& operator=(PythonRiskGate&&)      = delete;
+
+    /// Dropping a py::object is a refcount touch, and this is destroyed on
+    /// whatever thread owns the engine, which may not hold the GIL.
+    ~PythonRiskGate() {
+        pybind11::gil_scoped_acquire gil;
+        check_cb_   = pybind11::object();
+        on_tick_cb_ = pybind11::object();
+    }
+
     RiskDecision check(Intent intent) {
         pybind11::gil_scoped_acquire gil;
         // Missing check callable and None result both mean "reject",

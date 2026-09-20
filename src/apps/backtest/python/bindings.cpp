@@ -1,59 +1,32 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include <chrono>
-#include <cstddef>
-#include <filesystem>
 #include <memory>
 #include <optional>
-#include <stdexcept>
 #include <string>
 #include <vector>
 
-#include "config/compose.hpp"
-#include "python/python_backtest.hpp"
+#include "endpoints.hpp"
+#include "matcher/last_trade/last_trade_matcher.hpp"
+#include "python/python_binance_historical_backtest.hpp"
 #include "types.hpp"
 
-namespace py     = pybind11;
-namespace config = qp::backtest::config;
+namespace py = pybind11;
 
 namespace {
 
-using PythonBacktest = qp::backtest::python::PythonBacktest;
+using Matcher        = qp::execution::sim::matcher::last_trade::LastTradeMatcher;
+using PythonBacktest = qp::backtest::python::PythonBinanceHistoricalBacktest<Matcher>;
+namespace binance    = qp::data_source::source::exchange::binance;
 using Results        = PythonBacktest::Results;
 using EquityPoint    = qp::engine::EquityPoint;
-
-// Runtime dataset selection, same shape as the funding-carry module's
-// Dataset. Dates are "YYYY-MM-DD"; a bad one fails construction.
-struct Dataset {
-    std::filesystem::path       data_dir;
-    std::vector<std::string>    symbols;
-    std::chrono::year_month_day first_day;
-    std::chrono::year_month_day last_day;
-    std::filesystem::path       cost_table_path;
-
-    Dataset(std::string dir, std::vector<std::string> syms, const std::string& first,
-            const std::string& last, std::string cost_table = {})
-        : data_dir(std::move(dir)),
-          symbols(std::move(syms)),
-          cost_table_path(std::move(cost_table)) {
-        auto f = config::parse_day(first);
-        auto l = config::parse_day(last);
-        if (!f) throw std::invalid_argument("bad first_day: " + first);
-        if (!l) throw std::invalid_argument("bad last_day: " + last);
-        first_day = *f, last_day = *l;
-    }
-
-    Dataset(std::string dir, const std::string& sym, const std::string& first,
-            const std::string& last, std::string cost_table = {})
-        : Dataset(std::move(dir), std::vector<std::string>{sym}, first, last,
-                  std::move(cost_table)) {}
-};
 
 }  // namespace
 
 PYBIND11_MODULE(qp_python_backtest, m) {
     m.doc() = "Backtest with strategy and risk gate driven by python callbacks.";
+
+    py::enum_<qp::ExchangeId>(m, "ExchangeId").value("Binance", qp::ExchangeId::Binance);
 
     py::enum_<qp::Side>(m, "Side").value("Buy", qp::Side::Buy).value("Sell", qp::Side::Sell);
 
@@ -68,7 +41,8 @@ PYBIND11_MODULE(qp_python_backtest, m) {
         .value("Funding", qp::EventKind::Funding)
         .value("BookSnapshot", qp::EventKind::BookSnapshot)
         .value("Kline", qp::EventKind::Kline)
-        .value("MarkPriceKline", qp::EventKind::MarkPriceKline);
+        .value("MarkPriceKline", qp::EventKind::MarkPriceKline)
+        .value("PremiumIndexKline", qp::EventKind::PremiumIndexKline);
 
     py::class_<qp::PriceLevel>(m, "PriceLevel")
         .def_readonly("price", &qp::PriceLevel::price)
@@ -79,26 +53,15 @@ PYBIND11_MODULE(qp_python_backtest, m) {
         .def_readonly("asks", &qp::BookLevels::asks);
 
     py::class_<qp::TradeEvent>(m, "TradeEvent")
-        .def_readonly("kind", &qp::TradeEvent::kind)
-        .def_readonly("venue", &qp::TradeEvent::venue)
-        .def_readonly("symbol", &qp::TradeEvent::symbol)
-        .def_readonly("ts", &qp::TradeEvent::ts)
         .def_readonly("side", &qp::TradeEvent::side)
         .def_readonly("price", &qp::TradeEvent::price)
         .def_readonly("qty", &qp::TradeEvent::qty);
 
     py::class_<qp::FundingEvent>(m, "FundingEvent")
-        .def_readonly("kind", &qp::FundingEvent::kind)
-        .def_readonly("venue", &qp::FundingEvent::venue)
-        .def_readonly("symbol", &qp::FundingEvent::symbol)
-        .def_readonly("ts", &qp::FundingEvent::ts)
-        .def_readonly("funding_rate", &qp::FundingEvent::funding_rate);
+        .def_readonly("funding_rate", &qp::FundingEvent::funding_rate)
+        .def_readonly("interval_hours", &qp::FundingEvent::interval_hours);
 
     py::class_<qp::KlineEvent>(m, "KlineEvent")
-        .def_readonly("kind", &qp::KlineEvent::kind)
-        .def_readonly("venue", &qp::KlineEvent::venue)
-        .def_readonly("symbol", &qp::KlineEvent::symbol)
-        .def_readonly("ts", &qp::KlineEvent::ts)
         .def_readonly("close_time", &qp::KlineEvent::close_time)
         .def_readonly("open", &qp::KlineEvent::open)
         .def_readonly("high", &qp::KlineEvent::high)
@@ -107,51 +70,65 @@ PYBIND11_MODULE(qp_python_backtest, m) {
         .def_readonly("volume", &qp::KlineEvent::volume);
 
     py::class_<qp::MarkPriceKlineEvent>(m, "MarkPriceKlineEvent")
-        .def_readonly("kind", &qp::MarkPriceKlineEvent::kind)
-        .def_readonly("venue", &qp::MarkPriceKlineEvent::venue)
-        .def_readonly("symbol", &qp::MarkPriceKlineEvent::symbol)
-        .def_readonly("ts", &qp::MarkPriceKlineEvent::ts)
         .def_readonly("close_time", &qp::MarkPriceKlineEvent::close_time)
         .def_readonly("open", &qp::MarkPriceKlineEvent::open)
         .def_readonly("high", &qp::MarkPriceKlineEvent::high)
         .def_readonly("low", &qp::MarkPriceKlineEvent::low)
         .def_readonly("close", &qp::MarkPriceKlineEvent::close);
 
+    py::class_<qp::PremiumIndexKlineEvent>(m, "PremiumIndexKlineEvent")
+        .def_readonly("close_time", &qp::PremiumIndexKlineEvent::close_time)
+        .def_readonly("open", &qp::PremiumIndexKlineEvent::open)
+        .def_readonly("high", &qp::PremiumIndexKlineEvent::high)
+        .def_readonly("low", &qp::PremiumIndexKlineEvent::low)
+        .def_readonly("close", &qp::PremiumIndexKlineEvent::close);
+
     py::class_<qp::BookDiffEvent>(m, "BookDiffEvent")
-        .def_readonly("kind", &qp::BookDiffEvent::kind)
-        .def_readonly("venue", &qp::BookDiffEvent::venue)
-        .def_readonly("symbol", &qp::BookDiffEvent::symbol)
-        .def_readonly("ts", &qp::BookDiffEvent::ts)
         .def_readonly("first_seq", &qp::BookDiffEvent::first_seq)
         .def_readonly("seq", &qp::BookDiffEvent::seq)
         .def_readonly("prev_seq", &qp::BookDiffEvent::prev_seq)
         .def_readonly("levels", &qp::BookDiffEvent::levels);
 
     py::class_<qp::BookSnapshotEvent>(m, "BookSnapshotEvent")
-        .def_readonly("kind", &qp::BookSnapshotEvent::kind)
-        .def_readonly("venue", &qp::BookSnapshotEvent::venue)
-        .def_readonly("symbol", &qp::BookSnapshotEvent::symbol)
-        .def_readonly("ts", &qp::BookSnapshotEvent::ts)
         .def_readonly("levels", &qp::BookSnapshotEvent::levels);
 
+    py::class_<qp::EventBase>(m, "EventBase")
+        .def_readonly("kind", &qp::EventBase::kind)
+        .def_readonly("exchange", &qp::EventBase::exchange)
+        .def_readonly("market", &qp::EventBase::market)
+        .def_readonly("symbol", &qp::EventBase::symbol)
+        .def_readonly("ts", &qp::EventBase::ts);
+
+    py::class_<qp::MarketEvent>(m, "MarketEvent")
+        .def_readonly("base", &qp::MarketEvent::base)
+        .def_property_readonly("payload", [](const qp::MarketEvent& e) -> py::object {
+            return std::visit([](const auto& p) { return py::cast(p); }, e.payload);
+        });
+
     py::class_<qp::Intent>(m, "Intent")
-        .def(py::init([](qp::SymbolId s, qp::VenueId v, qp::Qty q) {
-                 return qp::Intent{.symbol = s, .venue = v, .target_position = q};
+        .def(py::init([](std::uint16_t ex, std::uint16_t mk, std::uint16_t sy, qp::Qty q) {
+                 return qp::Intent{
+                     .exchange = ex, .market = mk, .symbol = sy, .target_position = q};
              }),
-             py::arg("symbol"), py::arg("venue"), py::arg("target_position"))
+             py::arg("exchange"), py::arg("market"), py::arg("symbol"), py::arg("target_position"))
+        .def_readwrite("exchange", &qp::Intent::exchange)
+        .def_readwrite("market", &qp::Intent::market)
         .def_readwrite("symbol", &qp::Intent::symbol)
-        .def_readwrite("venue", &qp::Intent::venue)
         .def_readwrite("target_position", &qp::Intent::target_position);
 
     py::class_<qp::Order>(m, "Order")
-        .def(py::init([](qp::OrderId id, qp::SymbolId s, qp::Side side, qp::VenueId v, qp::Qty q) {
-                 return qp::Order{.id = id, .symbol = s, .side = side, .venue = v, .qty = q};
+        .def(py::init([](qp::OrderId id, std::uint16_t ex, std::uint16_t mk, std::uint16_t sy,
+                         qp::Side side, qp::Qty q) {
+                 return qp::Order{
+                     .id = id, .exchange = ex, .market = mk, .symbol = sy, .side = side, .qty = q};
              }),
-             py::arg("id"), py::arg("symbol"), py::arg("side"), py::arg("venue"), py::arg("qty"))
+             py::arg("id"), py::arg("exchange"), py::arg("market"), py::arg("symbol"),
+             py::arg("side"), py::arg("qty"))
         .def_readwrite("id", &qp::Order::id)
+        .def_readwrite("exchange", &qp::Order::exchange)
+        .def_readwrite("market", &qp::Order::market)
         .def_readwrite("symbol", &qp::Order::symbol)
         .def_readwrite("side", &qp::Order::side)
-        .def_readwrite("venue", &qp::Order::venue)
         .def_readwrite("qty", &qp::Order::qty);
 
     py::class_<qp::risk::RiskDecision>(m, "RiskDecision")
@@ -166,10 +143,25 @@ PYBIND11_MODULE(qp_python_backtest, m) {
         .def_readonly("ts", &EquityPoint::ts)
         .def_readonly("equity", &EquityPoint::equity);
 
+    py::class_<qp::Subscription::Instrument>(m, "Instrument")
+        .def_readonly("exchange", &qp::Subscription::Instrument::exchange)
+        .def_readonly("market", &qp::Subscription::Instrument::market)
+        .def_readonly("symbol", &qp::Subscription::Instrument::symbol);
+
+    py::class_<qp::Subscription>(m, "Subscription")
+        .def("resolve", &qp::Subscription::resolve, py::arg("exchange"), py::arg("market"),
+             py::arg("symbol"));
+
+    py::class_<qp::SubscriptionBuilder>(m, "SubscriptionBuilder")
+        .def(py::init<>())
+        .def("add", &qp::SubscriptionBuilder::add, py::arg("exchange"), py::arg("market"),
+             py::arg("symbol"))
+        .def("build", [](qp::SubscriptionBuilder& self) { return std::move(self).build(); });
+
     py::class_<Results>(m, "Results")
         .def_readonly("final_cash", &Results::final_cash)
         .def_readonly("final_equity", &Results::final_equity)
-        .def_readonly("symbol_ids", &Results::symbol_ids)
+        .def_readonly("instruments", &Results::instruments)
         .def_readonly("fees", &Results::fees)
         .def_readonly("funding_received", &Results::funding_received)
         .def_readonly("funding_paid", &Results::funding_paid)
@@ -178,32 +170,128 @@ PYBIND11_MODULE(qp_python_backtest, m) {
             return std::vector<EquityPoint>(r.equity_series.begin(), r.equity_series.end());
         });
 
-    py::class_<Dataset>(m, "Dataset")
-        .def(py::init<std::string, std::string, std::string, std::string, std::string>(),
-             py::arg("data_dir"), py::arg("symbol"), py::arg("first_day"), py::arg("last_day"),
-             py::arg("cost_table") = std::string{})
-        .def(py::init<std::string, std::vector<std::string>, std::string, std::string,
-                      std::string>(),
-             py::arg("data_dir"), py::arg("symbols"), py::arg("first_day"), py::arg("last_day"),
-             py::arg("cost_table") = std::string{});
+    py::enum_<binance::EndpointKind>(m, "EndpointKind")
+        .value("Klines", binance::EndpointKind::Klines)
+        .value("MarkPriceKlines", binance::EndpointKind::MarkPriceKlines)
+        .value("PremiumIndexKlines", binance::EndpointKind::PremiumIndexKlines)
+        .value("FundingRate", binance::EndpointKind::FundingRate);
+
+    py::enum_<binance::Cadence>(m, "Cadence")
+        .value("Daily", binance::Cadence::Daily)
+        .value("Monthly", binance::Cadence::Monthly);
+
+    py::enum_<binance::BinanceMarket>(m, "BinanceMarket")
+        .value("Spot", binance::BinanceMarket::Spot)
+        .value("UsdM", binance::BinanceMarket::UsdM)
+        .value("CoinM", binance::BinanceMarket::CoinM);
+
+    py::class_<binance::StreamSpec>(m, "StreamSpec")
+        .def(py::init([](binance::EndpointKind kind, std::string interval) {
+                 return binance::StreamSpec{kind, std::move(interval)};
+             }),
+             py::arg("kind"), py::arg("interval") = std::string{})
+        .def_readwrite("kind", &binance::StreamSpec::kind)
+        .def_readwrite("interval", &binance::StreamSpec::interval);
+
+    py::class_<binance::GapStats>(m, "GapStats")
+        .def_readonly("files_planned", &binance::GapStats::files_planned)
+        .def_readonly("files_read", &binance::GapStats::files_read)
+        .def_readonly("files_failed", &binance::GapStats::files_failed)
+        .def_readonly("header_rows", &binance::GapStats::header_rows)
+        .def_readonly("blank_rows", &binance::GapStats::blank_rows)
+        .def_readonly("rows_expected", &binance::GapStats::rows_expected)
+        .def_readonly("rows_parsed", &binance::GapStats::rows_parsed)
+        .def_readonly("rows_rejected", &binance::GapStats::rows_rejected)
+        .def_readonly("backwards_stamps", &binance::GapStats::backwards_stamps);
+
+    py::class_<binance::StreamReport>(m, "StreamReport")
+        .def_readonly("market", &binance::StreamReport::market)
+        .def_readonly("symbol", &binance::StreamReport::symbol)
+        .def_readonly("kind", &binance::StreamReport::kind)
+        .def_readonly("interval", &binance::StreamReport::interval)
+        .def_readonly("stats", &binance::StreamReport::stats);
+
+    py::class_<binance::FetchPoolStats>(m, "FetchPoolStats")
+        .def_readonly("submitted", &binance::FetchPoolStats::submitted)
+        .def_readonly("refused", &binance::FetchPoolStats::refused)
+        .def_readonly("completed_ok", &binance::FetchPoolStats::completed_ok)
+        .def_readonly("completed_failed", &binance::FetchPoolStats::completed_failed)
+        .def_readonly("retries", &binance::FetchPoolStats::retries)
+        .def_readonly("not_found", &binance::FetchPoolStats::not_found)
+        .def_readonly("server_error", &binance::FetchPoolStats::server_error)
+        .def_readonly("transport_error", &binance::FetchPoolStats::transport_error)
+        .def_readonly("zip_error", &binance::FetchPoolStats::zip_error)
+        .def_readonly("cancelled", &binance::FetchPoolStats::cancelled)
+        .def_readonly("cancellations_dropped", &binance::FetchPoolStats::cancellations_dropped)
+        .def_readonly("queued", &binance::FetchPoolStats::queued)
+        .def_readonly("in_flight", &binance::FetchPoolStats::in_flight)
+        .def_readonly("workers_alive", &binance::FetchPoolStats::workers_alive)
+        .def_readonly("oldest_in_flight_ms", &binance::FetchPoolStats::oldest_in_flight_ms)
+        .def_readonly("critical", &binance::FetchPoolStats::critical)
+        .def_readonly("bytes_fetched", &binance::FetchPoolStats::bytes_fetched)
+        .def_readonly("bytes_inflated", &binance::FetchPoolStats::bytes_inflated);
+
+    py::class_<binance::FetchFailure>(m, "FetchFailure")
+        .def_readonly("url", &binance::FetchFailure::url)
+        .def_readonly("detail", &binance::FetchFailure::detail)
+        .def_readonly("status", &binance::FetchFailure::status)
+        .def_readonly("attempts", &binance::FetchFailure::attempts);
+
+    py::enum_<binance::FetchStatus>(m, "FetchStatus")
+        .value("Ok", binance::FetchStatus::Ok)
+        .value("NotFound", binance::FetchStatus::NotFound)
+        .value("ServerError", binance::FetchStatus::ServerError)
+        .value("TransportError", binance::FetchStatus::TransportError)
+        .value("ZipError", binance::FetchStatus::ZipError)
+        .value("Cancelled", binance::FetchStatus::Cancelled);
+
+    py::class_<binance::HttpFetchPoolConfig>(m, "FetchPoolConfig")
+        .def(py::init<>())
+        .def_readwrite("workers", &binance::HttpFetchPoolConfig::workers)
+        .def_readwrite("max_retries", &binance::HttpFetchPoolConfig::max_retries)
+        .def_readwrite("critical_failure_ratio",
+                       &binance::HttpFetchPoolConfig::critical_failure_ratio)
+        .def_readwrite("critical_window", &binance::HttpFetchPoolConfig::critical_window);
+
+    py::class_<PythonBacktest::Config>(m, "BinanceHistoricalConfig")
+        .def(py::init([](std::vector<binance::StreamSpec> streams, binance::Cadence cadence,
+                         qp::Timestamp from, qp::Timestamp to, binance::HttpFetchPoolConfig pool) {
+                 return PythonBacktest::Config{std::move(streams), pool, cadence, from, to};
+             }),
+             py::arg("streams"), py::arg("cadence") = binance::Cadence::Monthly,
+             py::arg("from_ns") = 0, py::arg("to_ns") = 0,
+             py::arg("pool") = binance::HttpFetchPoolConfig{})
+        .def_readwrite("prefetch_depth", &PythonBacktest::Config::prefetch_depth);
+
+    // The ceiling a prefetch depth is clamped to.
+    m.attr("FILE_SLOTS") = binance::kFileSlotCount;
 
     py::class_<PythonBacktest>(m, "PythonBacktest")
-        .def(py::init([](const Dataset& d) {
-            return std::make_unique<PythonBacktest>(d.data_dir, d.symbols, d.first_day, d.last_day,
-                                                    d.cost_table_path);
-        }))
+        .def(py::init([](qp::Subscription subscription, PythonBacktest::Config config) {
+                 return std::make_unique<PythonBacktest>(
+                     std::move(subscription), std::move(config),
+                     [](qp::Portfolio& book, const qp::Subscription&) { return Matcher{book}; });
+             }),
+             py::arg("subscription"), py::arg("config"))
+        .def("plan", &PythonBacktest::plan, py::call_guard<py::gil_scoped_release>())
+        .def("stream_count", &PythonBacktest::stream_count)
+        .def("reports", &PythonBacktest::reports)
+        .def("fetch_stats", &PythonBacktest::fetch_stats)
+        .def("fetch_failures", &PythonBacktest::fetch_failures)
+        // The engine and source threads call back into Python and take
+        // the GIL themselves, so holding it here would deadlock them.
+        .def("run", &PythonBacktest::run, py::call_guard<py::gil_scoped_release>())
         .def("set_on_event", &PythonBacktest::set_on_event, py::arg("cb"))
         .def("set_on_timer", &PythonBacktest::set_on_timer, py::arg("cb"))
         .def("set_check", &PythonBacktest::set_check, py::arg("cb"))
         .def("set_on_tick", &PythonBacktest::set_on_tick, py::arg("cb"))
         .def("set_timer_period", &PythonBacktest::set_timer_period, py::arg("period_ns"))
         .def("set_event_kinds", &PythonBacktest::set_event_kinds, py::arg("kinds"))
-        // Read-only book state, callable from inside the python callbacks.
         .def("equity", &PythonBacktest::equity)
         .def("cash", &PythonBacktest::cash)
-        .def("position", &PythonBacktest::position, py::arg("symbol"), py::arg("venue"))
-        .def("mark", &PythonBacktest::mark, py::arg("symbol"), py::arg("venue"))
-        // Engine runs on a worker thread that calls the python callbacks;
-        // release the GIL here so those callbacks can acquire it.
-        .def("run", &PythonBacktest::run, py::call_guard<py::gil_scoped_release>());
+        .def("position", &PythonBacktest::position, py::arg("exchange"), py::arg("market"),
+             py::arg("symbol"))
+        .def("mark", &PythonBacktest::mark, py::arg("exchange"), py::arg("market"),
+             py::arg("symbol"))
+        .def("results", &PythonBacktest::results);
 }

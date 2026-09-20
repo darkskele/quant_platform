@@ -14,7 +14,7 @@ namespace {
 MarketEvent trade(qp::Price price) {
     qp::TradeEvent ev;
     ev.price = price;
-    return ev;
+    return MarketEvent{.base = {.kind = qp::EventKind::Trade}, .payload = ev};
 }
 
 }  // namespace
@@ -27,7 +27,7 @@ TEST(FanoutSink, RecordPushesOntoTheQueue) {
 
     auto event = sink.queue().try_pop(0);
     ASSERT_TRUE(event.has_value());
-    EXPECT_DOUBLE_EQ(std::get<qp::TradeEvent>(*event).price, 100.0);
+    EXPECT_DOUBLE_EQ(std::get<qp::TradeEvent>(event->payload).price, 100.0);
 }
 
 TEST(FanoutSink, RecordSucceedsThenFailsWithoutBlockingWhenFull) {
@@ -36,10 +36,10 @@ TEST(FanoutSink, RecordSucceedsThenFailsWithoutBlockingWhenFull) {
     EXPECT_TRUE(sink.record(trade(2.0)));
     EXPECT_FALSE(sink.record(trade(3.0)));  // both slots still unread
 
-    EXPECT_DOUBLE_EQ(std::get<qp::TradeEvent>(*sink.queue().try_pop(0)).price, 1.0);
+    EXPECT_DOUBLE_EQ(std::get<qp::TradeEvent>(sink.queue().try_pop(0)->payload).price, 1.0);
     EXPECT_TRUE(sink.record(trade(3.0)));  // freed a slot
-    EXPECT_DOUBLE_EQ(std::get<qp::TradeEvent>(*sink.queue().try_pop(0)).price, 2.0);
-    EXPECT_DOUBLE_EQ(std::get<qp::TradeEvent>(*sink.queue().try_pop(0)).price, 3.0);
+    EXPECT_DOUBLE_EQ(std::get<qp::TradeEvent>(sink.queue().try_pop(0)->payload).price, 2.0);
+    EXPECT_DOUBLE_EQ(std::get<qp::TradeEvent>(sink.queue().try_pop(0)->payload).price, 3.0);
 }
 
 TEST(FanoutSink, OneRecordFansOutToEveryConsumer) {
@@ -49,7 +49,7 @@ TEST(FanoutSink, OneRecordFansOutToEveryConsumer) {
     for (std::size_t consumer = 0; consumer < 3; ++consumer) {
         auto event = sink.queue().try_pop(consumer);
         ASSERT_TRUE(event.has_value());
-        EXPECT_DOUBLE_EQ(std::get<qp::TradeEvent>(*event).price, 100.0);
+        EXPECT_DOUBLE_EQ(std::get<qp::TradeEvent>(event->payload).price, 100.0);
     }
 }
 
@@ -60,7 +60,7 @@ TEST(FanoutSink, BookDiffLevelsAreSharedNotDeepCopiedAcrossConsumers) {
 
     qp::BookDiffEvent ev;
     ev.levels = levels;
-    sink.record(ev);
+    sink.record(MarketEvent{.base = {.kind = qp::EventKind::BookDiff}, .payload = ev});
 
     auto first  = sink.queue().try_pop(0);
     auto second = sink.queue().try_pop(1);
@@ -69,6 +69,6 @@ TEST(FanoutSink, BookDiffLevelsAreSharedNotDeepCopiedAcrossConsumers) {
 
     // Each consumer's popped copy shares the same underlying BookLevels —
     // a refcount bump, not a deep copy of the price levels.
-    EXPECT_EQ(std::get<qp::BookDiffEvent>(*first).levels.get(), levels.get());
-    EXPECT_EQ(std::get<qp::BookDiffEvent>(*second).levels.get(), levels.get());
+    EXPECT_EQ(std::get<qp::BookDiffEvent>(first->payload).levels.get(), levels.get());
+    EXPECT_EQ(std::get<qp::BookDiffEvent>(second->payload).levels.get(), levels.get());
 }

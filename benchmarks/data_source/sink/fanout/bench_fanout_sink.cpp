@@ -11,9 +11,9 @@ using qp::data_source::sink::fanout::FanoutSink;
 namespace {
 
 qp::MarketEvent make_trade() {
-    qp::TradeEvent ev;
-    ev.price = 100.0;
-    ev.qty   = 1.0;
+    qp::MarketEvent ev;
+    ev.base.kind = qp::EventKind::Trade;
+    ev.payload   = qp::TradeEvent{.price = 100.0, .qty = 1.0};
     return ev;
 }
 

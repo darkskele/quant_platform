@@ -14,11 +14,12 @@ struct AlwaysApproveRiskGate {
     risk::RiskDecision check(Intent intent) {
         Side side = intent.target_position >= 0 ? Side::Buy : Side::Sell;
         return {.outcome = risk::RiskOutcome::Approved,
-                .order   = Order{.id     = next_id++,
-                                 .symbol = intent.symbol,
-                                 .side   = side,
-                                 .venue  = intent.venue,
-                                 .qty    = std::abs(intent.target_position)}};
+                .order   = Order{.id       = next_id++,
+                                 .exchange = intent.exchange,
+                                 .market   = intent.market,
+                                 .symbol   = intent.symbol,
+                                 .side     = side,
+                                 .qty      = std::abs(intent.target_position)}};
     }
 
     std::span<const Order> on_tick() { return {}; }
@@ -32,9 +33,6 @@ struct AlwaysRejectRiskGate {
     std::span<const Order> on_tick() { return {}; }
 };
 
-/// on_tick() fires `order` once, then goes quiet — for proving Engine
-/// forwards a RiskGate's autonomous orders (no Intent involved) through
-/// submit(), independent of the Intent -> check() path.
 struct AlwaysFlattenRiskGate {
     Order order;
     bool  fired = false;

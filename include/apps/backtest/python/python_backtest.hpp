@@ -1,41 +1,45 @@
 #pragma once
 #include <pybind11/pybind11.h>
 
-#include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <filesystem>
+#include <functional>
 #include <span>
-#include <stdexcept>
-#include <string>
-#include <string_view>
 #include <tuple>
 #include <utility>
 #include <vector>
 
 #include "backtest_base.hpp"
-#include "config/compose.hpp"
+#include "backtest_in_process_transport.hpp"
+#include "engine.hpp"
+#include "fanout_sink.hpp"
 #include "python_risk_gate.hpp"
 #include "python_strategy.hpp"
 #include "recorder/equity_series/equity_series_recorder.hpp"
+#include "sim_execution.hpp"
+#include "subscription.hpp"
 #include "types.hpp"
 
 namespace qp::backtest::python {
 
-/// Backtest variant whose Strategy and RiskGate forward to python callbacks
-/// set from the notebook. Each run reconstructs the adapters around the
-/// current callback slots.
-class PythonBacktest : public BacktestBase<PythonBacktest> {
-   public:
-    using Recorder = engine::EquitySeriesRecorder;
+inline constexpr std::size_t kRingCapacity = 1024;
 
-    PythonBacktest(const std::filesystem::path& data_dir, const std::vector<std::string>& symbols,
-                   std::chrono::year_month_day first_day, std::chrono::year_month_day last_day,
-                   std::filesystem::path cost_table_path = {})
-        : symbol_ids_(resolve_symbols(symbols)),
-          futures_source_(config::make_futures_source(data_dir, symbols, first_day, last_day)),
-          spot_source_(config::make_spot_source(data_dir, symbols, first_day, last_day)),
-          cost_table_path_(std::move(cost_table_path)) {}
+/// Everything a python backtest needs except where its events come from. A
+/// variant derives from this and supplies sources().
+///
+/// @tparam Derived the concrete variant, which owns its sources.
+/// @tparam Matcher the fill model.
+template <class Derived, class Matcher>
+class PythonBacktestBase : public BacktestBase<Derived> {
+   public:
+    using Recorder    = engine::EquitySeriesRecorder;
+    using Risk        = risk::python::PythonRiskGate<>;
+    using Strategy    = strategy::python::PythonStrategy<>;
+    using Exec        = execution::sim::SimExecution<Matcher>;
+    using Sink        = data_source::sink::fanout::FanoutSink<kRingCapacity, 1>;
+    using Tx          = engine::transport::BacktestInProcessTransport<kRingCapacity, 1>;
+    using EngineT     = engine::Engine<Tx, Exec, Risk, Strategy, Recorder>;
+    using MakeMatcher = std::function<Matcher(Portfolio&, const Subscription&)>;
 
     void set_on_event(pybind11::object cb) { on_event_ = std::move(cb); }
 
@@ -47,8 +51,6 @@ class PythonBacktest : public BacktestBase<PythonBacktest> {
 
     void set_timer_period(Timestamp period_ns) { timer_period_ns_ = period_ns; }
 
-    // Restricts which event kinds reach the python on_event, empty means all.
-    // A funding-only strategy skips the per-kline python call this way.
     void set_event_kinds(const std::vector<EventKind>& kinds) {
         if (kinds.empty()) {
             event_kind_mask_ = 0xFF;
@@ -59,54 +61,47 @@ class PythonBacktest : public BacktestBase<PythonBacktest> {
         event_kind_mask_ = mask;
     }
 
-    // Read-only book state for the python strategy and risk to size by
-    // equity and to turn a target position into the right order delta.
     Notional equity() const { return portfolio_.equity(); }
 
     Notional cash() const { return portfolio_.cash(); }
 
-    Qty position(SymbolId symbol, VenueId venue) const {
-        return portfolio_.position(symbol, venue);
+    Qty position(std::uint16_t exchange, std::uint16_t market, std::uint16_t symbol) const {
+        return portfolio_.position(exchange, market, symbol);
     }
 
-    // Latest mark for the leg, so the python strategy can size a target
-    // notional into a quantity.
-    Price mark(SymbolId symbol, VenueId venue) const { return portfolio_.mark(symbol, venue); }
-
-    auto sources() {
-        return std::tuple<config::FuturesSource&, config::SpotSource&>{futures_source_,
-                                                                       spot_source_};
+    Price mark(std::uint16_t exchange, std::uint16_t market, std::uint16_t symbol) const {
+        return portfolio_.mark(exchange, market, symbol);
     }
 
-    std::tuple<config::Sink, config::Sink>& sinks() { return sinks_; }
+    std::tuple<Sink>& sinks() { return sinks_; }
 
-    config::EngineType<Recorder> make_engine() {
+    EngineT make_engine() {
+        // run() releases the GIL for the threaded section, but building the
+        // engine copies python objects into the strategy and the risk gate,
+        // which is a refcount touch and needs it held.
+        pybind11::gil_scoped_acquire gil;
         equity_collector_.start();
-        config::Tx transport({&std::get<0>(sinks_).queue(), &std::get<1>(sinks_).queue()}, {0, 0},
-                             timer_period_ns_);
-        // make_matcher is variation-specific: LastTrade ignores the path,
-        // cost-aware reads the honest fee/spread/impact table from it.
-        config::Exec exec{config::make_matcher<config::Book>(cost_table_path_)};
-        return config::EngineType<Recorder>{
+        Tx   transport({&std::get<0>(sinks_).queue()}, {0}, timer_period_ns_);
+        Exec exec{portfolio_, make_matcher_(portfolio_, subscription_)};
+        return EngineT{
             std::move(transport),
             std::move(exec),
-            risk::python::PythonRiskGate<>{check_, on_tick_},
-            strategy::python::PythonStrategy<>{on_event_, on_timer_, event_kind_mask_},
+            Risk{check_, on_tick_},
+            Strategy{on_event_, on_timer_, event_kind_mask_},
             portfolio_,
-            Recorder{&equity_collector_, kEquitySampleIntervalNs}};
+            Recorder{&equity_collector_, kEquitySampleIntervalNs},
+        };
     }
 
-    // Per-symbol attribution aligned to symbol_ids. basis_pnl is the open
-    // position's mark value summed over its legs, the spot-vs-perp basis.
     struct Results {
-        Notional                             final_cash{};
-        Notional                             final_equity{};
-        std::vector<SymbolId>                symbol_ids{};
-        std::vector<Notional>                fees{};
-        std::vector<Notional>                funding_received{};
-        std::vector<Notional>                funding_paid{};
-        std::vector<Notional>                basis_pnl{};
-        std::span<const engine::EquityPoint> equity_series{};
+        Notional                              final_cash{};
+        Notional                              final_equity{};
+        std::vector<Subscription::Instrument> instruments{};
+        std::vector<Notional>                 fees{};
+        std::vector<Notional>                 funding_received{};
+        std::vector<Notional>                 funding_paid{};
+        std::vector<Notional>                 basis_pnl{};
+        std::span<const engine::EquityPoint>  equity_series{};
     };
 
     Results results() {
@@ -114,55 +109,59 @@ class PythonBacktest : public BacktestBase<PythonBacktest> {
         Results r{
             .final_cash    = portfolio_.cash(),
             .final_equity  = portfolio_.equity(),
-            .symbol_ids    = symbol_ids_,
+            .instruments   = instruments_,
             .equity_series = equity_collector_.series(),
         };
-        for (SymbolId s : symbol_ids_) {
-            Notional fee = 0.0, recv = 0.0, paid = 0.0, basis = 0.0;
-            for (VenueId v = 0; v < config::Book::kNumVenues; ++v) {
-                fee += portfolio_.fees(s, v);
-                recv += portfolio_.funding_received(s, v);
-                paid += portfolio_.funding_paid(s, v);
-                basis += portfolio_.position(s, v) * portfolio_.mark(s, v);
-            }
-            r.fees.push_back(fee);
-            r.funding_received.push_back(recv);
-            r.funding_paid.push_back(paid);
-            r.basis_pnl.push_back(basis);
+        for (const auto& inst : instruments_) {
+            r.fees.push_back(portfolio_.fees(inst.exchange, inst.market, inst.symbol));
+            r.funding_received.push_back(
+                portfolio_.funding_received(inst.exchange, inst.market, inst.symbol));
+            r.funding_paid.push_back(
+                portfolio_.funding_paid(inst.exchange, inst.market, inst.symbol));
+            r.basis_pnl.push_back(portfolio_.position(inst.exchange, inst.market, inst.symbol) *
+                                  portfolio_.mark(inst.exchange, inst.market, inst.symbol));
         }
         return r;
     }
 
-    const config::Book& portfolio() const { return portfolio_; }
+    const Portfolio& portfolio() const { return portfolio_; }
+
+    const Subscription& subscription() const { return subscription_; }
+
+   protected:
+    /// Protected, so the base cannot be built on its own. A variant has to
+    /// exist to supply sources().
+    PythonBacktestBase(Subscription subscription, MakeMatcher make_matcher)
+        : subscription_(std::move(subscription)),
+          instruments_(all_instruments(subscription_)),
+          portfolio_(subscription_),
+          make_matcher_(std::move(make_matcher)) {}
 
    private:
-    static std::vector<SymbolId> resolve_symbols(const std::vector<std::string>& symbols) {
-        std::vector<SymbolId> ids;
-        ids.reserve(symbols.size());
-        for (const auto& symbol : symbols) {
-            auto id = config::FuturesTable::id_of(symbol);
-            if (!id) throw std::invalid_argument("unknown symbol: " + symbol);
-            ids.push_back(*id);
-        }
-        return ids;
+    static std::vector<Subscription::Instrument> all_instruments(const Subscription& sub) {
+        std::vector<Subscription::Instrument> out;
+        for (const auto& ex : sub.exchanges())
+            for (const auto& mkt : ex.markets)
+                for (std::size_t i = 0; i < mkt.symbols.size(); ++i)
+                    out.push_back({.exchange = ex.exchange,
+                                   .market   = mkt.market,
+                                   .symbol   = static_cast<std::uint16_t>(i)});
+        return out;
     }
 
-    std::vector<SymbolId>                  symbol_ids_;
-    config::FuturesSource                  futures_source_;
-    config::SpotSource                     spot_source_;
-    std::filesystem::path                  cost_table_path_;
-    std::tuple<config::Sink, config::Sink> sinks_;
-    config::Book                           portfolio_;
-    pybind11::object                       on_event_{pybind11::none()};
-    pybind11::object                       on_timer_{pybind11::none()};
-    pybind11::object                       check_{pybind11::none()};
-    pybind11::object                       on_tick_{pybind11::none()};
-    Timestamp                              timer_period_ns_{0};
-    std::uint8_t                           event_kind_mask_{0xFF};
-    engine::EquitySeriesCollector          equity_collector_{};
+    Subscription                          subscription_;
+    std::vector<Subscription::Instrument> instruments_;
+    std::tuple<Sink>                      sinks_;
+    Portfolio                             portfolio_;
+    pybind11::object                      on_event_{pybind11::none()};
+    pybind11::object                      on_timer_{pybind11::none()};
+    pybind11::object                      check_{pybind11::none()};
+    pybind11::object                      on_tick_{pybind11::none()};
+    Timestamp                             timer_period_ns_{0};
+    std::uint8_t                          event_kind_mask_{0xFF};
+    engine::EquitySeriesCollector         equity_collector_{};
+    MakeMatcher                           make_matcher_;
 
-    // One equity point per replay day. A per-event series over 10 symbols and
-    // three years is tens of millions of points, too large to hand to python.
     static constexpr Timestamp kEquitySampleIntervalNs = 24LL * 60 * 60 * 1'000'000'000;
 };
 

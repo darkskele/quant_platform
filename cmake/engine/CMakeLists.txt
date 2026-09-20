@@ -1,4 +1,4 @@
-# engine — the Engine<Tx,Clk,Exec,Risk,Strategy,Book> composition root.
+# engine — the Engine<Tx,Exec,Risk,Strategy,Recorder> composition root.
 qp_dir(include QP_INC)
 qp_dir(tests QP_TESTS)
 qp_dir(benchmarks QP_BENCH)
@@ -7,7 +7,7 @@ add_subdirectory(transport)
 
 add_library(qp_engine INTERFACE)
 target_include_directories(qp_engine INTERFACE ${QP_INC})
-target_link_libraries(qp_engine INTERFACE qp_core qp_clock qp_execution qp_strategy qp_risk qp_transport)
+target_link_libraries(qp_engine INTERFACE qp_core qp_execution qp_strategy qp_risk qp_transport)
 
 add_library(qp_engine_test_support INTERFACE)
 target_include_directories(qp_engine_test_support INTERFACE ${CMAKE_SOURCE_DIR}/tests)

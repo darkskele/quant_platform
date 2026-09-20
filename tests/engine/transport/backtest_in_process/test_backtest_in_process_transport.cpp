@@ -6,6 +6,7 @@
 
 #include "backtest_in_process_transport.hpp"
 #include "spmc_queue.hpp"
+#include "support/market_event_builders.hpp"
 
 using qp::MarketEvent;
 using qp::SpmcQueue;
@@ -19,14 +20,11 @@ using Queue                     = Transport::Queue;
 
 constexpr qp::Timestamp kSentinel = 999999;
 
-MarketEvent trade(qp::Timestamp ts, qp::SymbolId symbol) {
-    qp::TradeEvent ev;
-    ev.ts     = ts;
-    ev.symbol = symbol;
-    return ev;
+MarketEvent trade(qp::Timestamp ts, std::uint16_t symbol) {
+    return qp::test::make_trade(symbol, ts, 0.0);
 }
 
-void push(Queue& q, qp::Timestamp ts, qp::SymbolId symbol) { q.push(trade(ts, symbol)); }
+void push(Queue& q, qp::Timestamp ts, std::uint16_t symbol) { q.push(trade(ts, symbol)); }
 
 }  // namespace
 
@@ -82,7 +80,7 @@ TEST(BacktestInProcessTransport, TiesBreakToTheLowestQueueIndex) {
 
     auto out = t.next();
     ASSERT_TRUE(out.has_value());
-    EXPECT_EQ(header_of(*out->event).symbol, 1u);
+    EXPECT_EQ(out->event->base.symbol, 1u);
 }
 
 TEST(BacktestInProcessTransport, InterleavesThreeLegsInTimestampOrder) {
@@ -144,11 +142,6 @@ TEST(BacktestInProcessTransport, FlushEmittedInTimestampOrderAcrossLegs) {
     EXPECT_FALSE(t.next().has_value());
 }
 
-// A producer thread per leg pushing concurrently with the consumer's next()
-// calls, for TSan to watch. Each leg pushes strictly increasing timestamps,
-// so a correct merge is non-decreasing overall. flush() runs on the consumer
-// thread once a coordinator signals every producer is done — otherwise next()
-// would stall forever on a drained-but-still-live leg at the tail.
 TEST(BacktestInProcessTransport, ConcurrentProducersMergeCorrectlyUnderRealThreads) {
     constexpr std::size_t N             = 2;
     constexpr int         kEventsPerLeg = 500;
@@ -164,7 +157,7 @@ TEST(BacktestInProcessTransport, ConcurrentProducersMergeCorrectlyUnderRealThrea
     for (std::size_t leg = 0; leg < N; ++leg) {
         producers[leg] = std::thread([&queues, leg] {
             for (int i = 0; i < kEventsPerLeg; ++i) {
-                while (!queues[leg].push(trade(i, static_cast<qp::SymbolId>(leg)))) {
+                while (!queues[leg].push(trade(i, static_cast<std::uint16_t>(leg)))) {
                 }
             }
         });
@@ -202,14 +195,14 @@ TEST(BacktestInProcessTransport, InjectsTimerTicksOnPeriodBetweenEvents) {
     push(a, kSentinel, 1);
     push(b, kSentinel, 2);
 
-    Transport t({&a, &b}, {0, 0}, /*timer_period=*/100);
+    Transport t({&a, &b}, {0, 0}, 100);
 
-    auto first = t.next();  // event at 100, arms the timer one period on
+    auto first = t.next();
     ASSERT_TRUE(first.has_value());
     ASSERT_TRUE(first->event.has_value());
     EXPECT_EQ(first->ts, 100);
 
-    for (qp::Timestamp tick : {200, 300, 400}) {  // ticks before the next event
+    for (qp::Timestamp tick : {200, 300, 400}) {
         auto out = t.next();
         ASSERT_TRUE(out.has_value());
         EXPECT_FALSE(out->event.has_value());

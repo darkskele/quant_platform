@@ -1,74 +1,84 @@
 #include <gtest/gtest.h>
 
-#include <array>
-#include <cstddef>
-
+#include "exchange.hpp"
 #include "funding_carry_strategy.hpp"
 #include "portfolio.hpp"
+#include "subscription.hpp"
 #include "support/market_event_builders.hpp"
 #include "types.hpp"
 
+using qp::ExchangeId;
+using qp::Subscription;
+using qp::SubscriptionBuilder;
 using qp::strategy::carry::Config;
 using qp::strategy::carry::FundingCarryStrategy;
+using qp::strategy::carry::Leg;
 
 namespace {
 
-constexpr std::array<std::size_t, 2> kCounts{2, 2};
-using Portfolio = qp::Portfolio<kCounts>;
+constexpr std::uint16_t kExchange      = static_cast<std::uint16_t>(ExchangeId::Binance);
+constexpr std::uint16_t kFuturesMarket = 0;
+constexpr std::uint16_t kSpotMarket    = 1;
+constexpr std::uint16_t kSymbol        = 1;
 
-constexpr qp::SymbolId kSymbol       = 1;
-constexpr qp::VenueId  kSpotVenue    = 0;
-constexpr qp::VenueId  kFuturesVenue = 1;
+Subscription make_subscription() {
+    SubscriptionBuilder sub;
+    sub.add(ExchangeId::Binance, kFuturesMarket, "A");
+    sub.add(ExchangeId::Binance, kFuturesMarket, "B");
+    sub.add(ExchangeId::Binance, kSpotMarket, "A");
+    sub.add(ExchangeId::Binance, kSpotMarket, "B");
+    return std::move(sub).build();
+}
 
 Config make_config() {
-    return Config{.symbol             = kSymbol,
-                  .spot_venue         = kSpotVenue,
-                  .futures_venue      = kFuturesVenue,
+    return Config{.futures            = Leg{kExchange, kFuturesMarket, kSymbol},
+                  .spot               = Leg{kExchange, kSpotMarket, kSymbol},
                   .target_qty         = 2.0,
                   .entry_funding_rate = 0.0001,
                   .exit_funding_rate  = 0.0};
 }
 
+using Portfolio = qp::Portfolio;
+
 }  // namespace
 
 TEST(FundingCarryStrategy, IgnoresNonFundingEvents) {
-    Portfolio                       portfolio;
-    FundingCarryStrategy<Portfolio> strategy{make_config(), portfolio};
+    Portfolio            portfolio{make_subscription()};
+    FundingCarryStrategy strategy{make_config(), portfolio};
 
-    auto intents = strategy.on_event(qp::test::make_trade(kSymbol, 0, 100.0));
+    auto intents = strategy.on_event(
+        qp::test::make_trade(kSymbol, 0, 100.0, 1.0, qp::Side::Buy, kFuturesMarket));
 
     EXPECT_TRUE(intents.empty());
 }
 
-TEST(FundingCarryStrategy, IgnoresFundingEventsForAnotherSymbolOrVenue) {
-    Portfolio                       portfolio;
-    FundingCarryStrategy<Portfolio> strategy{make_config(), portfolio};
+TEST(FundingCarryStrategy, IgnoresFundingEventsForAnotherSymbolOrMarket) {
+    Portfolio            portfolio{make_subscription()};
+    FundingCarryStrategy strategy{make_config(), portfolio};
 
     EXPECT_TRUE(
-        strategy.on_event(qp::test::make_funding(kSymbol + 1, 0, 0.001, kFuturesVenue)).empty());
-    EXPECT_TRUE(strategy.on_event(qp::test::make_funding(kSymbol, 0, 0.001, kSpotVenue)).empty());
+        strategy.on_event(qp::test::make_funding(kSymbol + 1, 0, 0.001, kFuturesMarket)).empty());
+    EXPECT_TRUE(strategy.on_event(qp::test::make_funding(kSymbol, 0, 0.001, kSpotMarket)).empty());
 }
 
 TEST(FundingCarryStrategy, EntersLongSpotShortFuturesWhenFundingRateClearsTheEntryThreshold) {
-    Portfolio                       portfolio;
-    FundingCarryStrategy<Portfolio> strategy{make_config(), portfolio};
+    Portfolio            portfolio{make_subscription()};
+    FundingCarryStrategy strategy{make_config(), portfolio};
 
-    auto intents =
-        strategy.on_event(qp::test::make_funding(kSymbol, 0, /*rate=*/0.0002, kFuturesVenue));
+    auto intents = strategy.on_event(qp::test::make_funding(kSymbol, 0, 0.0002, kFuturesMarket));
 
     ASSERT_EQ(intents.size(), 2u);
-    EXPECT_EQ(intents[0].venue, kSpotVenue);
+    EXPECT_EQ(intents[0].market, kSpotMarket);
     EXPECT_DOUBLE_EQ(intents[0].target_position, 2.0);
-    EXPECT_EQ(intents[1].venue, kFuturesVenue);
+    EXPECT_EQ(intents[1].market, kFuturesMarket);
     EXPECT_DOUBLE_EQ(intents[1].target_position, -2.0);
 }
 
 TEST(FundingCarryStrategy, EntersAtExactlyTheEntryThreshold) {
-    Portfolio                       portfolio;
-    FundingCarryStrategy<Portfolio> strategy{make_config(), portfolio};
+    Portfolio            portfolio{make_subscription()};
+    FundingCarryStrategy strategy{make_config(), portfolio};
 
-    auto intents =
-        strategy.on_event(qp::test::make_funding(kSymbol, 0, /*rate=*/0.0001, kFuturesVenue));
+    auto intents = strategy.on_event(qp::test::make_funding(kSymbol, 0, 0.0001, kFuturesMarket));
 
     ASSERT_EQ(intents.size(), 2u);
     EXPECT_DOUBLE_EQ(intents[0].target_position, 2.0);
@@ -76,15 +86,20 @@ TEST(FundingCarryStrategy, EntersAtExactlyTheEntryThreshold) {
 }
 
 TEST(FundingCarryStrategy, FlattensBothLegsWhenFundingRateDropsToTheExitThreshold) {
-    Portfolio                       portfolio;
-    FundingCarryStrategy<Portfolio> strategy{make_config(), portfolio};
-    portfolio.apply_fill(
-        qp::Fill{.symbol = kSymbol, .side = qp::Side::Buy, .venue = kSpotVenue, .qty = 2.0});
-    portfolio.apply_fill(
-        qp::Fill{.symbol = kSymbol, .side = qp::Side::Sell, .venue = kFuturesVenue, .qty = 2.0});
+    Portfolio            portfolio{make_subscription()};
+    FundingCarryStrategy strategy{make_config(), portfolio};
+    portfolio.apply_fill(qp::Fill{.exchange = kExchange,
+                                  .market   = kSpotMarket,
+                                  .symbol   = kSymbol,
+                                  .side     = qp::Side::Buy,
+                                  .qty      = 2.0});
+    portfolio.apply_fill(qp::Fill{.exchange = kExchange,
+                                  .market   = kFuturesMarket,
+                                  .symbol   = kSymbol,
+                                  .side     = qp::Side::Sell,
+                                  .qty      = 2.0});
 
-    auto intents =
-        strategy.on_event(qp::test::make_funding(kSymbol, 0, /*rate=*/-0.0001, kFuturesVenue));
+    auto intents = strategy.on_event(qp::test::make_funding(kSymbol, 0, -0.0001, kFuturesMarket));
 
     ASSERT_EQ(intents.size(), 2u);
     EXPECT_DOUBLE_EQ(intents[0].target_position, 0.0);
@@ -92,15 +107,20 @@ TEST(FundingCarryStrategy, FlattensBothLegsWhenFundingRateDropsToTheExitThreshol
 }
 
 TEST(FundingCarryStrategy, FlattensAtExactlyTheExitThreshold) {
-    Portfolio                       portfolio;
-    FundingCarryStrategy<Portfolio> strategy{make_config(), portfolio};
-    portfolio.apply_fill(
-        qp::Fill{.symbol = kSymbol, .side = qp::Side::Buy, .venue = kSpotVenue, .qty = 2.0});
-    portfolio.apply_fill(
-        qp::Fill{.symbol = kSymbol, .side = qp::Side::Sell, .venue = kFuturesVenue, .qty = 2.0});
+    Portfolio            portfolio{make_subscription()};
+    FundingCarryStrategy strategy{make_config(), portfolio};
+    portfolio.apply_fill(qp::Fill{.exchange = kExchange,
+                                  .market   = kSpotMarket,
+                                  .symbol   = kSymbol,
+                                  .side     = qp::Side::Buy,
+                                  .qty      = 2.0});
+    portfolio.apply_fill(qp::Fill{.exchange = kExchange,
+                                  .market   = kFuturesMarket,
+                                  .symbol   = kSymbol,
+                                  .side     = qp::Side::Sell,
+                                  .qty      = 2.0});
 
-    auto intents =
-        strategy.on_event(qp::test::make_funding(kSymbol, 0, /*rate=*/0.0, kFuturesVenue));
+    auto intents = strategy.on_event(qp::test::make_funding(kSymbol, 0, 0.0, kFuturesMarket));
 
     ASSERT_EQ(intents.size(), 2u);
     EXPECT_DOUBLE_EQ(intents[0].target_position, 0.0);
@@ -108,15 +128,20 @@ TEST(FundingCarryStrategy, FlattensAtExactlyTheExitThreshold) {
 }
 
 TEST(FundingCarryStrategy, HoldsTheCurrentPositionWhenFundingRateIsBetweenTheThresholds) {
-    Portfolio                       portfolio;
-    FundingCarryStrategy<Portfolio> strategy{make_config(), portfolio};
-    portfolio.apply_fill(
-        qp::Fill{.symbol = kSymbol, .side = qp::Side::Buy, .venue = kSpotVenue, .qty = 2.0});
-    portfolio.apply_fill(
-        qp::Fill{.symbol = kSymbol, .side = qp::Side::Sell, .venue = kFuturesVenue, .qty = 2.0});
+    Portfolio            portfolio{make_subscription()};
+    FundingCarryStrategy strategy{make_config(), portfolio};
+    portfolio.apply_fill(qp::Fill{.exchange = kExchange,
+                                  .market   = kSpotMarket,
+                                  .symbol   = kSymbol,
+                                  .side     = qp::Side::Buy,
+                                  .qty      = 2.0});
+    portfolio.apply_fill(qp::Fill{.exchange = kExchange,
+                                  .market   = kFuturesMarket,
+                                  .symbol   = kSymbol,
+                                  .side     = qp::Side::Sell,
+                                  .qty      = 2.0});
 
-    auto intents =
-        strategy.on_event(qp::test::make_funding(kSymbol, 0, /*rate=*/0.00005, kFuturesVenue));
+    auto intents = strategy.on_event(qp::test::make_funding(kSymbol, 0, 0.00005, kFuturesMarket));
 
     ASSERT_EQ(intents.size(), 2u);
     EXPECT_DOUBLE_EQ(intents[0].target_position, 2.0);
@@ -124,8 +149,8 @@ TEST(FundingCarryStrategy, HoldsTheCurrentPositionWhenFundingRateIsBetweenTheThr
 }
 
 TEST(FundingCarryStrategy, OnTimerEmitsNoIntents) {
-    Portfolio                       portfolio;
-    FundingCarryStrategy<Portfolio> strategy{make_config(), portfolio};
+    Portfolio            portfolio{make_subscription()};
+    FundingCarryStrategy strategy{make_config(), portfolio};
 
     EXPECT_TRUE(strategy.on_timer(0).empty());
 }

@@ -7,68 +7,52 @@
 
 namespace qp {
 
-using Timestamp = std::int64_t;   ///< Nanoseconds since epoch.
-using Price     = double;         ///< @todo: fixed-point ticks for exactness.
-using Qty       = double;         ///< Same open exactness gap as Price: step size, not tick size.
-using SymbolId  = std::uint32_t;  ///< Index into venue symbol table.
-using VenueId   = std::uint8_t;   ///< Which leg/venue produced this event. (SymbolId, VenueId)
-                                  ///< together identify an instrument, SymbolId alone doesn't.
+using Timestamp = std::int64_t;
+using Price     = double;
+using Qty       = double;
 
 enum class Side : std::uint8_t { Buy, Sell };
 
 struct PriceLevel {
     Price price{};
-    Qty   qty{};  ///< 0 qty in a diff means the level was removed.
+    Qty   qty{};
 };
 
-static_assert(
-    std::is_trivially_copyable_v<PriceLevel>);  // safe to memcpy, wire format relies on this
+static_assert(std::is_trivially_copyable_v<PriceLevel>);
 static_assert(sizeof(PriceLevel) == 16, "unexpected padding/size regression");
 
-/// A full-book-replace anchor. Means "clear the book, then
-/// apply these" rather than "apply on top of what's there."
-///
-/// Kline: an OHLCV bar with a genuine live analog, so it's its own kind
-/// rather than squeezed into Trade at close price.
 enum class EventKind : std::uint8_t {
     BookDiff,
     Trade,
     Funding,
     BookSnapshot,
     Kline,
-    MarkPriceKline
+    MarkPriceKline,
+    PremiumIndexKline
 };
 
-/// One flat struct per event kind, not one struct with every kind's
-/// fields. First four members are always kind/venue/symbol/ts, in that
-/// order, so header_of() below reads the same way regardless of kind.
+struct EventBase {
+    EventKind     kind{};
+    std::uint16_t exchange{};
+    std::uint16_t market{};
+    std::uint16_t symbol{};
+    Timestamp     ts{};
+};
+
+static_assert(std::is_trivially_copyable_v<EventBase>);
+
 struct TradeEvent {
-    EventKind kind = EventKind::Trade;
-    VenueId   venue{};
-    SymbolId  symbol{};
-    Timestamp ts{};
-    Side      side{};
-    Price     price{};
-    Qty       qty{};
+    Side  side{};
+    Price price{};
+    Qty   qty{};
 };
-
-static_assert(std::is_trivially_copyable_v<TradeEvent>);
 
 struct FundingEvent {
-    EventKind kind = EventKind::Funding;
-    VenueId   venue{};
-    SymbolId  symbol{};
-    Timestamp ts{};
-    double    funding_rate{};
+    double       funding_rate{};
+    std::int32_t interval_hours{8};
 };
 
-static_assert(std::is_trivially_copyable_v<FundingEvent>);
-
 struct KlineEvent {
-    EventKind kind = EventKind::Kline;
-    VenueId   venue{};
-    SymbolId  symbol{};
-    Timestamp ts{};  ///< Bar open time.
     Timestamp close_time{};
     Price     open{};
     Price     high{};
@@ -77,15 +61,7 @@ struct KlineEvent {
     Qty       volume{};
 };
 
-static_assert(std::is_trivially_copyable_v<KlineEvent>);
-
-/// Binance's own fair-value price for the contract, published independently
-/// so funding settlement can't be gamed by spoofing the last trade price.
 struct MarkPriceKlineEvent {
-    EventKind kind = EventKind::MarkPriceKline;
-    VenueId   venue{};
-    SymbolId  symbol{};
-    Timestamp ts{};  ///< Bar open time.
     Timestamp close_time{};
     Price     open{};
     Price     high{};
@@ -93,109 +69,86 @@ struct MarkPriceKlineEvent {
     Price     close{};
 };
 
-static_assert(std::is_trivially_copyable_v<MarkPriceKlineEvent>);
+struct PremiumIndexKlineEvent {
+    Timestamp close_time{};
+    Price     open{};
+    Price     high{};
+    Price     low{};
+    Price     close{};
+};
 
-/// BookDiff/BookSnapshot's actual levels. Behind a shared_ptr in both
-/// event structs so N ring consumers can share one already-parsed
-/// BookLevels instead of deep-copying it on every pop.
 struct BookLevels {
     std::vector<PriceLevel> bids;
     std::vector<PriceLevel> asks;
 };
 
 struct BookDiffEvent {
-    EventKind                         kind = EventKind::BookDiff;
-    VenueId                           venue{};
-    SymbolId                          symbol{};
-    Timestamp                         ts{};
-    std::uint64_t                     first_seq{};  ///< First seq in event (Binance's U).
-    std::uint64_t                     seq{};        ///< Final update id (Binance's u).
-    std::uint64_t                     prev_seq{};   ///< Continues-from seq (pu); 0 if n/a.
+    std::uint64_t                     first_seq{};
+    std::uint64_t                     seq{};
+    std::uint64_t                     prev_seq{};
     std::shared_ptr<const BookLevels> levels;
 };
 
 struct BookSnapshotEvent {
-    EventKind                         kind = EventKind::BookSnapshot;
-    VenueId                           venue{};
-    SymbolId                          symbol{};
-    Timestamp                         ts{};
     std::shared_ptr<const BookLevels> levels;
 };
 
-/// The lingua franca: every event this system moves around, one of six
-/// kinds.
-using MarketEvent = std::variant<TradeEvent, FundingEvent, KlineEvent, MarkPriceKlineEvent,
-                                 BookDiffEvent, BookSnapshotEvent>;
+using MarketEventPayload = std::variant<TradeEvent, FundingEvent, KlineEvent, MarkPriceKlineEvent,
+                                        PremiumIndexKlineEvent, BookDiffEvent, BookSnapshotEvent>;
 
-/// Just the fields every kind shares, read via std::visit since
-/// std::variant gives no safe way to peek a common prefix. What a
-/// multi-ring merge (ordering by ts) needs without caring which kind it's
-/// looking at.
-struct EventHeader {
-    EventKind kind{};
-    VenueId   venue{};
-    SymbolId  symbol{};
-    Timestamp ts{};
+struct MarketEvent {
+    EventBase          base{};
+    MarketEventPayload payload{};
 };
 
-constexpr EventHeader header_of(const MarketEvent& event) {
-    return std::visit(
-        [](const auto& e) -> EventHeader { return {e.kind, e.venue, e.symbol, e.ts}; }, event);
-}
+using OrderId  = std::uint64_t;
+using Notional = double;
 
-using OrderId  = std::uint64_t;  ///< Caller-assigned; unique per submitted Order.
-using Notional = double;         ///< Quote-currency amount (fees, PnL).
-
-/// A strategy's desired end-state for one symbol: a target position, not
-/// a delta or a venue order ("be +2 BTC", not "buy 2 BTC"). RiskGate turns
-/// this into concrete Order(s), computing the delta itself.
 struct Intent {
-    SymbolId symbol{};
-    VenueId  venue{};            ///< Which leg. (symbol, venue) together identify an instrument.
-    Qty      target_position{};  ///< Signed: positive = net long, negative = net short.
+    std::uint16_t exchange{};
+    std::uint16_t market{};
+    std::uint16_t symbol{};
+    Qty           target_position{};
 };
 
-static_assert(sizeof(Intent) == 16, "unexpected padding/size regression");
+static_assert(std::is_trivially_copyable_v<Intent>);
 
-/// A request to trade. Market order only, no price/type field yet.
 struct Order {
-    OrderId  id{};
-    SymbolId symbol{};
-    Side     side{};
-    VenueId  venue{};  ///< Which leg; see Intent::venue.
-    Qty      qty{};
+    OrderId       id{};
+    std::uint16_t exchange{};
+    std::uint16_t market{};
+    std::uint16_t symbol{};
+    Side          side{};
+    Qty           qty{};
 };
 
-static_assert(sizeof(Order) == 24, "unexpected padding/size regression");
+static_assert(std::is_trivially_copyable_v<Order>);
 
-/// What happened to a submitted Order: filled. symbol/side/venue sit right
-/// after order_id, saving 8 bytes of padding versus declaration order.
 struct Fill {
-    OrderId   order_id{};
-    SymbolId  symbol{};
-    Side      side{};
-    VenueId   venue{};  ///< Which leg; see Intent::venue.
-    Timestamp ts{};
-    Price     price{};
-    Qty       qty{};  ///< == Order::qty always for now, no partials.
-    Notional  fee{};
+    OrderId       order_id{};
+    std::uint16_t exchange{};
+    std::uint16_t market{};
+    std::uint16_t symbol{};
+    Side          side{};
+    Timestamp     ts{};
+    Price         price{};
+    Qty           qty{};
+    Notional      fee{};
 };
 
-static_assert(sizeof(Fill) == 48, "unexpected padding/size regression");
+static_assert(std::is_trivially_copyable_v<Fill>);
 
-/// Reasons grow as real ones appear.
 enum class RejectReason : std::uint8_t { NoPriceAvailable, NoCostAvailable };
 
-/// What happened to a submitted Order: didn't. symbol/reason/venue sit
-/// right after order_id, saving 8 bytes of padding versus declaration order.
 struct Reject {
-    OrderId      order_id{};
-    SymbolId     symbol{};
-    RejectReason reason{};
-    VenueId      venue{};  ///< Which leg; see Intent::venue.
-    Timestamp    ts{};
+    OrderId       order_id{};
+    std::uint16_t exchange{};
+    std::uint16_t market{};
+    std::uint16_t symbol{};
+    RejectReason  reason{};
+    Timestamp     ts{};
 };
 
-static_assert(sizeof(Reject) == 24, "unexpected padding/size regression");
+static_assert(std::is_trivially_copyable_v<Reject>);
 
 }  // namespace qp

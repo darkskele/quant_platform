@@ -8,50 +8,54 @@
 
 namespace qp::strategy::carry {
 
-/// Parameters for FundingCarryStrategy.
-struct Config {
-    SymbolId symbol{};
-    VenueId  spot_venue{};
-    VenueId  futures_venue{};
-    Qty      target_qty{1.0};
-    double   entry_funding_rate{0.0001};  ///< Enter or hold once funding_rate reaches this.
-    double   exit_funding_rate{0.0};      ///< Flatten once funding_rate drops to this or below.
+struct Leg {
+    std::uint16_t exchange{};
+    std::uint16_t market{};
+    std::uint16_t symbol{};
 };
 
-/// Delta-neutral carry strategy. Holds spot long and perpetual futures
-/// short on the same symbol to collect the funding payment while funding
-/// is running high enough to be worth capturing.
-template <PortfolioLike Book>
+struct Config {
+    Leg    futures{};
+    Leg    spot{};
+    Qty    target_qty{1.0};
+    double entry_funding_rate{0.0001};
+    double exit_funding_rate{0.0};
+};
+
 class FundingCarryStrategy {
    public:
     static constexpr std::size_t kMaxIntents = 2;
 
-    FundingCarryStrategy(Config config, const Book& portfolio)
-        : config_{config}, portfolio_{portfolio} {}
+    FundingCarryStrategy(Config config, const Portfolio& portfolio)
+        : config_{config}, portfolio_{&portfolio} {}
 
-    /// Reacts to funding events for the configured symbol and futures
-    /// venue, ignores everything else. Sizes both legs to the target
-    /// quantity once funding clears the entry threshold, flattens both
-    /// legs at or below the exit threshold, otherwise holds the current
-    /// position.
     std::span<const Intent> on_event(const MarketEvent& event) {
-        const auto* funding = std::get_if<FundingEvent>(&event);
-        if (!funding || funding->symbol != config_.symbol ||
-            funding->venue != config_.futures_venue) {
+        const auto* funding = std::get_if<FundingEvent>(&event.payload);
+        if (!funding || event.base.exchange != config_.futures.exchange ||
+            event.base.market != config_.futures.market ||
+            event.base.symbol != config_.futures.symbol) {
             return {};
         }
 
-        // Entry checked first, since the entry threshold is never below the exit threshold.
         Qty target = funding->funding_rate >= config_.entry_funding_rate ? config_.target_qty
                      : funding->funding_rate <= config_.exit_funding_rate
                          ? 0.0
-                         : portfolio_.position(config_.symbol, config_.spot_venue);
+                         : portfolio_->position(config_.spot.exchange, config_.spot.market,
+                                                config_.spot.symbol);
 
         buffer_.reset();
         buffer_.push(Intent{
-            .symbol = config_.symbol, .venue = config_.spot_venue, .target_position = target});
+            .exchange        = config_.spot.exchange,
+            .market          = config_.spot.market,
+            .symbol          = config_.spot.symbol,
+            .target_position = target,
+        });
         buffer_.push(Intent{
-            .symbol = config_.symbol, .venue = config_.futures_venue, .target_position = -target});
+            .exchange        = config_.futures.exchange,
+            .market          = config_.futures.market,
+            .symbol          = config_.futures.symbol,
+            .target_position = -target,
+        });
         return buffer_.view();
     }
 
@@ -59,10 +63,10 @@ class FundingCarryStrategy {
 
    private:
     Config                    config_;
-    const Book&               portfolio_;  ///< Read-only. Engine owns writes.
+    const Portfolio*          portfolio_;
     IntentBuffer<kMaxIntents> buffer_{};
 };
 
-static_assert(Strategy<FundingCarryStrategy<Portfolio<qp::detail::kTrivialCounts>>>);
+static_assert(Strategy<FundingCarryStrategy>);
 
 }  // namespace qp::strategy::carry

@@ -6,7 +6,6 @@
 #include <thread>
 #include <tuple>
 #include <utility>
-#include <variant>
 
 #include "control_channel.hpp"
 #include "sink.hpp"
@@ -17,10 +16,7 @@ namespace qp::data_source {
 
 namespace detail {
 
-// Fold-expansion over Is...: for each not-yet-done source i, delivers its
-// pending event via sinks[i].record().
-// A source's Eof marks that leg done; NoData just means nothing this round.
-template <class SourceTup, class SinkTup, std::size_t N, std::size_t... Is>
+template <std::size_t N, class SourceTup, class SinkTup, std::size_t... Is>
 bool poll_round(SourceTup& sources, SinkTup& sinks,
                 std::array<std::optional<MarketEvent>, N>& pending, std::array<bool, N>& done,
                 std::index_sequence<Is...>) {
@@ -38,13 +34,12 @@ bool poll_round(SourceTup& sources, SinkTup& sinks,
          source::PullResult pulled = std::get<Is>(sources).next();
          if (!pulled) {
              if (pulled.error() == source::SourceStatus::Eof) done[Is] = true;
-             return;  // NoData or Eof -> nothing to deliver this round
+             return;
          }
-         std::visit([](auto& e) { e.venue = static_cast<VenueId>(Is); }, *pulled);
          if (std::get<Is>(sinks).record(std::move(*pulled)))
              any = true;
          else
-             slot = std::move(*pulled);  // sink full -> stage the untouched event for retry
+             slot = std::move(*pulled);
      }()),
      ...);
     return any;
@@ -57,9 +52,6 @@ bool all_done(const std::array<bool, N>& done, std::index_sequence<Is...>) {
 
 }  // namespace detail
 
-/// Drives N sources into N sinks, paired positionally, one poll round per
-/// loop iteration, idle-sleeping only once a round delivers nothing and
-/// pulls nothing new.
 template <std::size_t NumControlConsumers, source::Source... Sources, sink::Sink... Sinks>
 void run_data_source(std::tuple<Sources...>& sources, std::tuple<Sinks...>& sinks,
                      ControlChannel<NumControlConsumers>& control, std::size_t control_consumer,
@@ -77,8 +69,6 @@ void run_data_source(std::tuple<Sources...>& sources, std::tuple<Sinks...>& sink
 
         if (round % stop_poll_every == 0 && control.poll(control_consumer) == ControlCommand::Stop)
             return;
-        // Yield, not sleep, when idle_sleep is zero: a backtest replay wants to
-        // blast through, not pace itself off a wall-clock delay.
         if (!any) {
             if (idle_sleep == std::chrono::milliseconds::zero())
                 std::this_thread::yield();

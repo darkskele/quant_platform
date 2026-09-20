@@ -1,10 +1,13 @@
 # Research log
 
-What we are testing, what we ran, what we found. One entry per hypothesis, newest first. Notebooks are the scratch; this is the memory. A result here is load-bearing only once its costs are honest (see the open caveat under Funding carry).
+What we are testing, what we ran, what we found. One entry per hypothesis, newest first. Notebooks are the scratch, this is the memory.
+
+`GATE.md` is the bar. A result is load-bearing only once it passes, and nothing goes live until it passes in full. Every entry from here on carries its gate status, and a number with no stamp is a probe, not a finding.
 
 ## How to run
 - Env: `conda env create -f environment.yml` then select the `qp-research` kernel.
 - Module: build `qp_backtest` (VS Code task "Build: qp_backtest python module (release)"). It is a C extension, so a rebuild needs a kernel restart to take effect.
+- Layout: shared modules and the cost table notebook at this level, one folder per strategy below it, `funding_carry/` first.
 - Data: 10 symbols, 2022-01-01 to 2024-12-31, under `data/binance_historical/`. Fetch/refresh with `tools/fetch_backtest_data.sh`.
 
 ## Roadmap
@@ -38,8 +41,8 @@ Lanes are git worktrees, one per chat. Main is carry. `alpha-research` is trend.
 
 Delta-neutral: spot long + futures short, harvest funding while it is persistently positive.
 
-### Open caveat (gates every result below)
-Sharpe numbers here are cost-blind: no fees, no funding paid on the short leg, no slippage in `SimExecution`. Treat every figure as an upper bound until execution costs are honest. This is the next build.
+### Open caveat, gate fail L4 (gates every result below)
+Sharpe numbers here are cost-blind. No fees, no funding paid on the short leg, no slippage in `SimExecution`. Treat every figure as an upper bound until execution costs are honest. This is the next build.
 
 ### Pooled vs per-symbol, funding_signal 1-row purge (2026-09-07) - pooling wins decisively, signal-notebook read stands
 
@@ -71,7 +74,7 @@ Rank IC and dir_acc are what a signal-gated carry strategy actually cares about 
 
 Read. LightGBM is a live option for the final v5 signal, not a curiosity. The scale-fit loss is small; the rank IC and dir_acc lift is real. Two open items before adoption. Rerun on `net_funding_after_costs` once the honest cost matcher lands (this is the load-bearing final check). Sort export path, `booster.dump_model()` codegens to nested if/else or we bind libLightGBM directly.
 
-Housekeeping done in the same pass. `research/models.py:94` dead `if False else` deleted. `research/features.py` gained a `_test_add_cum_target` self-check runnable via `python research/features.py` (verifies row-t label = sum of next 24 realized). See the follow-up entry above for the `funding_signal.ipynb` 1-row purge and the pooled-vs-per-symbol side-by-side.
+Housekeeping done in the same pass. `research/funding_carry/models.py:94` dead `if False else` deleted. `research/funding_carry/features.py` gained a `_test_add_cum_target` self-check runnable via `python research/funding_carry/features.py` (verifies row-t label = sum of next 24 realized). See the follow-up entry above for the `funding_signal.ipynb` 1-row purge and the pooled-vs-per-symbol side-by-side.
 
 ### External review of the signal-research pipeline (2026-09-07) - one real bug, one deferred, rest is polish
 
@@ -88,9 +91,9 @@ Worth doing before re-freezing v5.
 
 Polish.
 - Persistence-baseline framing. R2 -0.27 vs 0.47 headline overstates the win. Rank IC 0.664 vs 0.724 is the honest lift (0.06). Reprose only.
-- `research/models.py:94` has a dead `if False else` branch. Delete.
+- `research/funding_carry/models.py:94` has a dead `if False else` branch. Delete.
 - Assert `add_cum_target` row-t label equals `sum(realized_funding[t..t+23])` on a known symbol. Cheap insurance.
-- `research/features.py:41` groupby-of-a-re-sorted-parent pattern is legible, refactor is optional.
+- `research/funding_carry/features.py:41` groupby-of-a-re-sorted-parent pattern is legible, refactor is optional.
 
 Not urgent, no action.
 - Cross-symbol pooled vs per-symbol side-by-side comparison. Nice-to-have, not a bug.
@@ -98,7 +101,7 @@ Not urgent, no action.
 Read. Methodology is sound in shape. The horizon bug is the one likely to move the headline numbers. Everything else is scope or write-up. The move to honest costs before locking in v5 is exactly the right ordering.
 
 ### H4 signal research, basis leads funding (2026-09-03) - mixed, symbol dependent
-Steps 1 and 2 of the handoff plan, run in `research/funding_signal.ipynb`.
+Steps 1 and 2 of the handoff plan, run in `research/funding_carry/funding_signal.ipynb`.
 
 - Persistence check. Funding autocorrelation is strong for every symbol, far outside the noise band even a month out. Not fast regime switching, more a slow drifting mean, consistent with H1's known regime split.
 - Basis mechanism check. Applying Binance's real formula, interest rate plus clamp, to a spot close proxy for index price reproduces actual funding closely, R2 0.81 against the true formula. Confirms the mechanism, basis genuinely drives funding through the clamp.
@@ -110,7 +113,7 @@ Read. Funding's own trailing history, not basis, carries almost all the predicti
 Next. Decide whether to source Binance's real composite index price, worthwhile for SOL like symbols specifically, not a blanket need. Move toward the plan's step 3 onward for the funding only feature set, since that is carrying the real signal.
 
 ### Signal research phase begun (2026-09-03)
-Three hypotheses (H1-H3, below) exhausted what config tuning and symbol-count can do to `funding_carry_strategy.hpp` — a stateless, single-direction on/off gate on the instantaneous funding print, with no model of funding itself. Handoff plan at `funding_carry_signal_research_plan.md` (repo root) sets the next phase: pure-stats signal research (autocorrelation, basis-leads-funding) against raw data in pandas, no C++ engine, before any new strategy is built. Working notebook: `research/funding_signal.ipynb`.
+Three hypotheses (H1-H3, below) exhausted what config tuning and symbol-count can do to `funding_carry_strategy.hpp` — a stateless, single-direction on/off gate on the instantaneous funding print, with no model of funding itself. Handoff plan at `funding_carry_signal_research_plan.md` (repo root) sets the next phase: pure-stats signal research (autocorrelation, basis-leads-funding) against raw data in pandas, no C++ engine, before any new strategy is built. Working notebook: `research/funding_carry/funding_signal.ipynb`.
 
 ### H3 continued: full 10-symbol book dilutes Sharpe (2026-09-03) — CONFIRMED
 Same per-symbol carries, all 10 symbols summed into one book.

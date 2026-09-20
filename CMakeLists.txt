@@ -22,6 +22,11 @@ endif()
 
 add_compile_options(-Wall -Wextra)
 
+# An active conda env puts its prefix on find_package's search path.
+if(DEFINED ENV{CONDA_PREFIX} AND CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
+    list(APPEND CMAKE_IGNORE_PREFIX_PATH "$ENV{CONDA_PREFIX}")
+endif()
+
 # Transparent compiler-output caching for fast incremental rebuilds.
 find_program(CCACHE_PROGRAM ccache)
 if(CCACHE_PROGRAM)
@@ -57,21 +62,35 @@ if(QP_BUILD_PYTHON)
     # Use the modern FindPython instead of pybind11's deprecated
     # FindPythonLibs path, which trips CMP0148.
     set(PYBIND11_FINDPYTHON ON)
+
+    # FindPython reads Python_EXECUTABLE. Without this forward, a
+    # -DPYTHON_EXECUTABLE is accepted and then ignored, and the module silently
+    # builds against whichever interpreter is first on PATH.
+    if(DEFINED PYTHON_EXECUTABLE AND NOT DEFINED Python_EXECUTABLE)
+        set(Python_EXECUTABLE "${PYTHON_EXECUTABLE}" CACHE FILEPATH "" FORCE)
+    endif()
+
     find_package(pybind11 CONFIG REQUIRED)
+    message(STATUS "Python bindings target ${Python_EXECUTABLE} (${Python_VERSION})")
 endif()
 
 add_subdirectory(cmake/core)
-add_subdirectory(cmake/clock)
 add_subdirectory(cmake/execution)
 add_subdirectory(cmake/strategy)
 add_subdirectory(cmake/risk)
 add_subdirectory(cmake/data_source/sink)
 add_subdirectory(cmake/data_source/source)
+add_subdirectory(cmake/data_source/network/http)
+add_subdirectory(cmake/data_source/archive)
+add_subdirectory(cmake/data_source/source/exchange/binance/binance_historical)
 
 
 add_subdirectory(cmake/data_source)
 add_subdirectory(cmake/engine)     
 add_subdirectory(cmake/apps/backtest) 
+
+# After data_source, whose targets it links.
+add_subdirectory(cmake/integration)
 
 if(BUILD_TESTING)
     find_package(GTest CONFIG REQUIRED)
@@ -82,23 +101,19 @@ if(BUILD_TESTING)
     # tests/*/python/ needs pybind11 and its own embed-linking target, so
     # it stays out of this aggregate.
     list(FILTER QP_TEST_SRCS EXCLUDE REGEX "/python/")
+    # tests/integration/ hits the network and runs for minutes, so it is its
+    # own binary rather than part of the fast suite.
+    list(FILTER QP_TEST_SRCS EXCLUDE REGEX "/integration/")
     add_executable(qp_tests ${QP_TEST_SRCS})
     target_link_libraries(qp_tests PRIVATE
-        qp_core qp_core_test_support qp_clock qp_execution qp_execution_sim
+        qp_core qp_core_test_support qp_execution qp_execution_sim
         qp_execution_sim_matcher_last_trade
         qp_execution_sim_matcher_cost_aware_cost_model_half_spread_linear
-        qp_csv_source qp_sink qp_sink_fanout qp_data_source
+        qp_source_pure qp_sink qp_sink_fanout qp_data_source
         qp_engine qp_transport qp_transport_backtest_in_process qp_strategy qp_strategy_test_support
         qp_strategy_carry qp_risk
-        qp_risk_test_support qp_risk_basic qp_engine_test_support qp_source_venue_binance_historical
+        qp_risk_test_support qp_risk_basic qp_engine_test_support
         qp_backtest_compose Threads::Threads GTest::gtest GTest::gtest_main
-    )
-    target_compile_definitions(qp_tests PRIVATE
-        QP_BACKTEST_DATA_DIR="${CMAKE_SOURCE_DIR}/tests/apps/backtest/fixtures"
-        QP_BACKTEST_SYMBOL="BTCUSDT"
-        QP_BACKTEST_FIRST_DAY="2024-01-01"
-        QP_BACKTEST_LAST_DAY="2024-01-07"
-        QP_BACKTEST_COST_TABLE="${CMAKE_SOURCE_DIR}/tests/apps/backtest/fixtures/cost_table.csv"
     )
 endif()
 
@@ -114,14 +129,13 @@ if(QP_BUILD_BENCHMARKS)
     list(FILTER QP_BENCH_SRCS EXCLUDE REGEX "/apps/")
     add_executable(qp_bench ${QP_BENCH_SRCS})
     target_link_libraries(qp_bench PRIVATE
-        qp_core qp_core_test_support qp_clock qp_execution qp_execution_sim
+        qp_core qp_core_test_support qp_execution qp_execution_sim
         qp_execution_sim_matcher_last_trade
         qp_execution_sim_matcher_cost_aware_cost_model_half_spread_linear
-        qp_source_pure qp_csv_source
+        qp_source_pure qp_binance_historical
         qp_sink qp_sink_fanout qp_data_source qp_engine qp_transport qp_transport_backtest_in_process
         qp_strategy_test_support
         qp_risk_test_support qp_engine_test_support qp_strategy_carry qp_risk qp_risk_basic
-        qp_source_venue_binance_historical
         benchmark::benchmark
     )
     target_compile_definitions(qp_bench PRIVATE QP_REPO_ROOT="${CMAKE_SOURCE_DIR}")

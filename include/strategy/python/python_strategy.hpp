@@ -26,10 +26,23 @@ class PythonStrategy {
           on_timer_cb_{std::move(on_timer_cb)},
           kind_mask_{kind_mask} {}
 
+    PythonStrategy(const PythonStrategy&)            = delete;
+    PythonStrategy& operator=(const PythonStrategy&) = delete;
+    PythonStrategy(PythonStrategy&&) noexcept        = default;
+    PythonStrategy& operator=(PythonStrategy&&)      = delete;
+
+    /// Dropping a py::object is a refcount touch, and this is destroyed on
+    /// whatever thread owns the engine, which may not hold the GIL.
+    ~PythonStrategy() {
+        pybind11::gil_scoped_acquire gil;
+        on_event_cb_ = pybind11::object();
+        on_timer_cb_ = pybind11::object();
+    }
+
     std::span<const Intent> on_event(const MarketEvent& event) {
         // Skip the GIL and the Python call entirely for unsubscribed kinds.
         // A funding-only strategy pays nothing per kline this way.
-        if (!(kind_mask_ & (1u << static_cast<unsigned>(header_of(event).kind)))) return {};
+        if (!(kind_mask_ & (1u << static_cast<unsigned>(event.base.kind)))) return {};
         return invoke(on_event_cb_, event);
     }
 

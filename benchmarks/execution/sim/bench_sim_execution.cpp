@@ -1,10 +1,10 @@
 #include <benchmark/benchmark.h>
 
-#include <array>
-
+#include "exchange.hpp"
 #include "matcher/last_trade/last_trade_matcher.hpp"
 #include "portfolio.hpp"
 #include "sim_execution.hpp"
+#include "subscription.hpp"
 #include "types.hpp"
 
 using namespace qp;
@@ -13,29 +13,43 @@ using qp::execution::sim::matcher::last_trade::LastTradeMatcher;
 
 namespace {
 
-constexpr SymbolId                   kSymbol = 1;
-constexpr VenueId                    kVenue  = 0;
-constexpr std::array<std::size_t, 1> kCounts{2};
-using Book = Portfolio<kCounts>;
-using Exec = SimExecution<LastTradeMatcher<Book>, Book>;
+constexpr std::uint16_t kExchange = static_cast<std::uint16_t>(ExchangeId::Binance);
+constexpr std::uint16_t kMarket   = 0;
+constexpr std::uint16_t kSymbol   = 1;
 
-// Tandem: reset_outcomes() + submit() + fills(), single thread — no real
-// concurrency (SimExecution is Engine-thread-only, same as Portfolio).
-// reset_outcomes(), not on_market_event(), is what belongs in the loop: it's
-// the plumbing SimExecution itself adds (a ViewablePool push/reset behind
-// the matcher's fill decision, no queue, no variant on the outcome side).
-// on_market_event() is seeded once, outside the loop, so this isolates that
-// plumbing from the matcher's own on_market_event()/try_fill() cost
-// (already measured separately in bench_last_trade_matcher.cpp).
+Subscription make_subscription() {
+    SubscriptionBuilder sub;
+    sub.add(ExchangeId::Binance, kMarket, "A");
+    sub.add(ExchangeId::Binance, kMarket, "B");
+    return std::move(sub).build();
+}
+
+using Book = Portfolio;
+using Exec = SimExecution<LastTradeMatcher>;
+
+MarketEvent trade_event(Price price) {
+    MarketEvent ev;
+    ev.base = {
+        .kind = EventKind::Trade, .exchange = kExchange, .market = kMarket, .symbol = kSymbol};
+    ev.payload = TradeEvent{.price = price};
+    return ev;
+}
+
+Order sample_order() {
+    return Order{.id       = 1,
+                 .exchange = kExchange,
+                 .market   = kMarket,
+                 .symbol   = kSymbol,
+                 .side     = Side::Buy,
+                 .qty      = 1.0};
+}
+
 void BM_SimExecution_SubmitFills(benchmark::State& state) {
-    Exec       exec;
-    TradeEvent trade;
-    trade.symbol = kSymbol;
-    trade.venue  = kVenue;
-    trade.price  = 100.0;
-    exec.on_market_event(trade);
+    Book book{make_subscription()};
+    Exec exec{book, LastTradeMatcher{book}};
+    exec.on_market_event(trade_event(100.0));
 
-    Order order{.id = 1, .symbol = kSymbol, .side = Side::Buy, .venue = kVenue, .qty = 1.0};
+    Order order = sample_order();
     for (auto _ : state) {
         exec.reset_outcomes();
         exec.submit(order, 0);
@@ -46,11 +60,10 @@ void BM_SimExecution_SubmitFills(benchmark::State& state) {
 
 BENCHMARK(BM_SimExecution_SubmitFills);
 
-// Reject-path counterpart: no Trade ever seen, every submit() lands in
-// rejects() instead.
 void BM_SimExecution_SubmitRejects(benchmark::State& state) {
-    Exec  exec;
-    Order order{.id = 1, .symbol = kSymbol, .side = Side::Buy, .venue = kVenue, .qty = 1.0};
+    Book  book{make_subscription()};
+    Exec  exec{book, LastTradeMatcher{book}};
+    Order order = sample_order();
     for (auto _ : state) {
         exec.reset_outcomes();
         exec.submit(order, 0);

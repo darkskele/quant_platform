@@ -7,6 +7,7 @@
     "benchmark",
     "boost-beast",
     "openssl",
+    "libzip",
     "pybind11"
   ]
 }
