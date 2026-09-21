@@ -133,6 +133,22 @@ TEST(BinanceEndpoints, MetricsPathsAndCadence) {
               "data/futures/cm/daily/metrics/BTCUSD_PERP/");
 }
 
+TEST(BinanceEndpoints, BookDepthPathsAndCadence) {
+    const auto& e = endpoint(BinanceMarket::UsdM, EndpointKind::BookDepth);
+    EXPECT_EQ(prefix(e, "BTCUSDT", "", Cadence::Daily), "data/futures/um/daily/bookDepth/BTCUSDT/");
+    EXPECT_EQ(file_name(e, "BTCUSDT", "", "2025-06-02"), "BTCUSDT-bookDepth-2025-06-02.zip");
+    EXPECT_FALSE(supports(e, Cadence::Monthly));
+    EXPECT_EQ(fallback_cadence(e), Cadence::Daily);
+
+    const auto& cm = endpoint(BinanceMarket::CoinM, EndpointKind::BookDepth);
+    EXPECT_EQ(prefix(cm, "BTCUSD_PERP", "", Cadence::Daily),
+              "data/futures/cm/daily/bookDepth/BTCUSD_PERP/");
+}
+
+TEST(BinanceEndpoints, SpotHasNoBookDepth) {
+    EXPECT_THROW((void)endpoint(BinanceMarket::Spot, EndpointKind::BookDepth), std::out_of_range);
+}
+
 TEST(BinanceEndpoints, SpotHasNoMetrics) {
     EXPECT_THROW((void)endpoint(BinanceMarket::Spot, EndpointKind::Metrics), std::out_of_range);
 }
@@ -195,6 +211,7 @@ TEST(BinanceEndpointsLive, EveryEntryResolvesToARealFile) {
         {BinanceMarket::UsdM, EndpointKind::PremiumIndexKlines, Cadence::Daily, "2025-06-02"},
         {BinanceMarket::UsdM, EndpointKind::FundingRate, Cadence::Monthly, "2025-06"},
         {BinanceMarket::UsdM, EndpointKind::Metrics, Cadence::Daily, "2025-06-02"},
+        {BinanceMarket::UsdM, EndpointKind::BookDepth, Cadence::Daily, "2025-06-02"},
     };
 
     const Case coin_m[] = {
@@ -203,6 +220,7 @@ TEST(BinanceEndpointsLive, EveryEntryResolvesToARealFile) {
         {BinanceMarket::CoinM, EndpointKind::PremiumIndexKlines, Cadence::Daily, "2025-06-02"},
         {BinanceMarket::CoinM, EndpointKind::FundingRate, Cadence::Monthly, "2025-06"},
         {BinanceMarket::CoinM, EndpointKind::Metrics, Cadence::Daily, "2025-06-02"},
+        {BinanceMarket::CoinM, EndpointKind::BookDepth, Cadence::Daily, "2025-06-02"},
     };
 
     for (const auto& c : coin_m) {

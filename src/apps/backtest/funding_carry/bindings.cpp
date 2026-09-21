@@ -22,7 +22,7 @@ using EquityPoint = qp::engine::EquityPoint;
 
 }  // namespace
 
-PYBIND11_MODULE(qp_backtest, m) {
+PYBIND11_MODULE(qp_binance_funding_carry, m) {
     m.doc() = "Funding-carry backtest.";
 
     py::enum_<qp::ExchangeId>(m, "ExchangeId").value("Binance", qp::ExchangeId::Binance);
@@ -66,7 +66,9 @@ PYBIND11_MODULE(qp_backtest, m) {
     py::class_<Backtest>(m, "FundingCarryBacktest")
         .def(py::init([](qp::Subscription subscription, qp::Subscription::Instrument futures_leg,
                          qp::Subscription::Instrument spot_leg) {
-                 return Backtest(
+                 // Built in place, since the equity collector's drain thread
+                 // holds its address and the backtest cannot move.
+                 return std::make_unique<Backtest>(
                      std::move(subscription), futures_leg, spot_leg,
                      [](qp::Portfolio& book, const qp::Subscription&) { return Matcher{book}; });
              }),

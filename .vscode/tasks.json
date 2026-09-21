@@ -2,226 +2,67 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Configure (debug)",
+            "label": "qp_tests - debug",
             "type": "shell",
-            "command": "cmake --preset debug",
-            "problemMatcher": []
-        },
-        {
-            "label": "Configure (release)",
-            "type": "shell",
-            "command": "cmake --preset release",
-            "problemMatcher": []
-        },
-        {
-            "label": "Configure (tsan)",
-            "type": "shell",
-            "command": "cmake --preset tsan",
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: qp_tests (debug)",
-            "type": "shell",
-            "command": "cmake --preset debug && cmake --build build/debug --target qp_tests -j",
+            "command": "cmake --preset debug -DQP_BUILD_PYTHON=ON -DPYTHON_EXECUTABLE=$HOME/miniconda3/envs/qp-research/bin/python && cmake --build build/debug --target qp_tests -j",
             "group": "build",
             "problemMatcher": [
                 "$gcc"
             ]
         },
         {
-            "label": "Build: qp_tests (release)",
+            "label": "qp_tests - release",
             "type": "shell",
-            "command": "cmake --preset release && cmake --build build/release --target qp_tests -j",
+            "command": "cmake --preset release -DQP_BUILD_PYTHON=ON -DPYTHON_EXECUTABLE=$HOME/miniconda3/envs/qp-research/bin/python && cmake --build build/release --target qp_tests -j",
             "group": "build",
             "problemMatcher": [
                 "$gcc"
             ]
         },
         {
-            "label": "Build: qp_tests (tsan)",
+            "label": "qp_integration_tests - debug",
             "type": "shell",
-            "command": "cmake --preset tsan && cmake --build build/tsan --target qp_tests -j",
+            "command": "cmake --preset debug -DQP_BUILD_PYTHON=ON -DPYTHON_EXECUTABLE=$HOME/miniconda3/envs/qp-research/bin/python && cmake --build build/debug --target qp_integration_tests -j",
             "group": "build",
             "problemMatcher": [
                 "$gcc"
             ]
         },
         {
-            "label": "Build: qp_integration_tests (debug)",
+            "label": "qp_integration_tests - release",
             "type": "shell",
-            "command": "cmake --preset debug && cmake --build build/debug --target qp_integration_tests -j",
+            "command": "cmake --preset release -DQP_BUILD_PYTHON=ON -DPYTHON_EXECUTABLE=$HOME/miniconda3/envs/qp-research/bin/python && cmake --build build/release --target qp_integration_tests -j",
             "group": "build",
             "problemMatcher": [
                 "$gcc"
             ]
         },
         {
-            "label": "Build: qp_integration_tests (tsan)",
+            "label": "qp_bench",
             "type": "shell",
-            "command": "cmake --preset tsan && cmake --build build/tsan --target qp_integration_tests -j",
+            "command": "cmake --preset release -DQP_BUILD_PYTHON=ON -DPYTHON_EXECUTABLE=$HOME/miniconda3/envs/qp-research/bin/python && cmake --build build/release --target qp_bench -j",
             "group": "build",
             "problemMatcher": [
                 "$gcc"
             ]
         },
         {
-            "label": "Build: qp_bench (release)",
+            "label": "qp_binance_funding_carry",
             "type": "shell",
-            "command": "cmake --preset release && cmake --build build/release --target qp_bench -j",
+            "command": "cmake --preset release -DQP_BUILD_PYTHON=ON -DPYTHON_EXECUTABLE=$HOME/miniconda3/envs/qp-research/bin/python && cmake --build build/release --target qp_binance_funding_carry -j",
             "group": "build",
             "problemMatcher": [
                 "$gcc"
             ]
         },
         {
-            "label": "Build: qp_backtest python module (release)",
-            "type": "shell",
-            "command": "cmake --preset release -DQP_BUILD_PYTHON=ON -DPYTHON_EXECUTABLE=$HOME/miniconda3/envs/qp-research/bin/python && cmake --build build/release --target qp_backtest -j",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ]
-        },
-        {
-            "label": "Build: qp_python_backtest module (release)",
+            "label": "qp_python_backtest",
             "type": "shell",
             "command": "cmake --preset release -DQP_BUILD_PYTHON=ON -DPYTHON_EXECUTABLE=$HOME/miniconda3/envs/qp-research/bin/python && cmake --build build/release --target qp_python_backtest -j",
             "group": "build",
             "problemMatcher": [
                 "$gcc"
             ]
-        },
-        {
-            "label": "Run: all tests (debug)",
-            "type": "shell",
-            "command": "UBSAN_OPTIONS=print_stacktrace=1 ./build/debug/qp_tests",
-            "dependsOn": "Build: qp_tests (debug)",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Run: all tests (release)",
-            "type": "shell",
-            "command": "./build/release/qp_tests",
-            "dependsOn": "Build: qp_tests (release)",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Run: all tests (tsan)",
-            "type": "shell",
-            "command": "TSAN_OPTIONS=suppressions=${workspaceFolder}/tools/sanitizers/tsan.supp:second_deadlock_stack=1 setarch $(uname -m) -R ./build/tsan/qp_tests",
-            "dependsOn": "Build: qp_tests (tsan)",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Run: all benches",
-            "type": "shell",
-            "command": "./build/release/qp_bench",
-            "dependsOn": "Build: qp_bench (release)",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Run: integration tests (debug)",
-            "type": "shell",
-            "command": "LD_PRELOAD=$(gcc -print-file-name=libasan.so) UBSAN_OPTIONS=print_stacktrace=1 ./build/debug/cmake/integration/qp_integration_tests",
-            "dependsOn": "Build: qp_integration_tests (debug)",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: qp_python_backtest module (debug)",
-            "type": "shell",
-            "command": "cmake --preset debug -DQP_BUILD_PYTHON=ON -DPYTHON_EXECUTABLE=$HOME/miniconda3/envs/qp-research/bin/python && cmake --build build/debug --target qp_python_backtest -j",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ]
-        },
-        {
-            "label": "Run: python tests (release)",
-            "type": "shell",
-            "command": "$HOME/miniconda3/envs/qp-research/bin/python tests/python/run_all.py",
-            "dependsOn": "Build: qp_python_backtest module (release)",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Run: python tests (debug)",
-            "type": "shell",
-            "command": "LD_PRELOAD=$(gcc -print-file-name=libasan.so) ASAN_OPTIONS=detect_leaks=1 LSAN_OPTIONS=suppressions=${workspaceFolder}/tools/sanitizers/lsan_python.supp $HOME/miniconda3/envs/qp-research/bin/python tests/python/run_all.py",
-            "dependsOn": "Build: qp_python_backtest module (debug)",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Run: python benches",
-            "type": "shell",
-            "command": "$HOME/miniconda3/envs/qp-research/bin/python benchmarks/python/run_all.py",
-            "dependsOn": "Build: qp_python_backtest module (release)",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: qp_python_backtest_tests (debug)",
-            "type": "shell",
-            "command": "cmake --preset debug -DQP_BUILD_PYTHON=ON -DPYTHON_EXECUTABLE=$HOME/miniconda3/envs/qp-research/bin/python && cmake --build build/debug --target qp_python_backtest_tests -j",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ]
-        },
-        {
-            "label": "Build: qp_python_integration_tests (debug)",
-            "type": "shell",
-            "command": "cmake --preset debug -DQP_BUILD_PYTHON=ON -DPYTHON_EXECUTABLE=$HOME/miniconda3/envs/qp-research/bin/python && cmake --build build/debug --target qp_python_integration_tests -j",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ]
-        },
-        {
-            "label": "Build: qp_python_integration_tests (tsan)",
-            "type": "shell",
-            "command": "cmake --preset tsan -DQP_BUILD_PYTHON=ON -DPYTHON_EXECUTABLE=$HOME/miniconda3/envs/qp-research/bin/python && cmake --build build/tsan --target qp_python_integration_tests -j",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ]
-        },
-        {
-            "label": "Run: python backtest tests (debug)",
-            "type": "shell",
-            "command": "ASAN_OPTIONS=detect_leaks=1 LSAN_OPTIONS=suppressions=${workspaceFolder}/tools/sanitizers/lsan_python.supp UBSAN_OPTIONS=print_stacktrace=1 ./build/debug/cmake/apps/backtest/python/qp_python_backtest_tests",
-            "dependsOn": "Build: qp_python_backtest_tests (debug)",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Run: python integration tests (debug)",
-            "type": "shell",
-            "command": "ASAN_OPTIONS=detect_leaks=1 LSAN_OPTIONS=suppressions=${workspaceFolder}/tools/sanitizers/lsan_python.supp UBSAN_OPTIONS=print_stacktrace=1 ./build/debug/cmake/integration/qp_python_integration_tests",
-            "dependsOn": "Build: qp_python_integration_tests (debug)",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Run: python integration tests (tsan)",
-            "type": "shell",
-            "command": "TSAN_OPTIONS=ignore_noninstrumented_modules=1:suppressions=${workspaceFolder}/tools/sanitizers/tsan.supp:second_deadlock_stack=1 setarch $(uname -m) -R ./build/tsan/cmake/integration/qp_python_integration_tests",
-            "dependsOn": "Build: qp_python_integration_tests (tsan)",
-            "group": "test",
-            "problemMatcher": []
-        },
-        {
-            "label": "Run: integration tests (tsan)",
-            "type": "shell",
-            "command": "TSAN_OPTIONS=suppressions=${workspaceFolder}/tools/sanitizers/tsan.supp:second_deadlock_stack=1 setarch $(uname -m) -R ./build/tsan/cmake/integration/qp_integration_tests",
-            "dependsOn": "Build: qp_integration_tests (tsan)",
-            "group": "test",
-            "problemMatcher": []
         }
     ]
 }

@@ -36,22 +36,13 @@ PYBIND11_MODULE(qp_python_backtest, m) {
         .value("Rejected", qp::risk::RiskOutcome::Rejected);
 
     py::enum_<qp::EventKind>(m, "EventKind")
-        .value("BookDiff", qp::EventKind::BookDiff)
         .value("Trade", qp::EventKind::Trade)
         .value("Funding", qp::EventKind::Funding)
-        .value("BookSnapshot", qp::EventKind::BookSnapshot)
         .value("Kline", qp::EventKind::Kline)
         .value("MarkPriceKline", qp::EventKind::MarkPriceKline)
         .value("PremiumIndexKline", qp::EventKind::PremiumIndexKline)
-        .value("OpenInterest", qp::EventKind::OpenInterest);
-
-    py::class_<qp::PriceLevel>(m, "PriceLevel")
-        .def_readonly("price", &qp::PriceLevel::price)
-        .def_readonly("qty", &qp::PriceLevel::qty);
-
-    py::class_<qp::BookLevels, std::shared_ptr<qp::BookLevels>>(m, "BookLevels")
-        .def_readonly("bids", &qp::BookLevels::bids)
-        .def_readonly("asks", &qp::BookLevels::asks);
+        .value("OpenInterest", qp::EventKind::OpenInterest)
+        .value("BookDepth", qp::EventKind::BookDepth);
 
     py::class_<qp::TradeEvent>(m, "TradeEvent")
         .def_readonly("side", &qp::TradeEvent::side)
@@ -95,14 +86,16 @@ PYBIND11_MODULE(qp_python_backtest, m) {
         .def_readonly("taker_long_short_volume_ratio",
                       &qp::OpenInterestEvent::taker_long_short_volume_ratio);
 
-    py::class_<qp::BookDiffEvent>(m, "BookDiffEvent")
-        .def_readonly("first_seq", &qp::BookDiffEvent::first_seq)
-        .def_readonly("seq", &qp::BookDiffEvent::seq)
-        .def_readonly("prev_seq", &qp::BookDiffEvent::prev_seq)
-        .def_readonly("levels", &qp::BookDiffEvent::levels);
+    py::class_<qp::DepthBand>(m, "DepthBand")
+        .def_readonly("depth", &qp::DepthBand::depth)
+        .def_readonly("notional", &qp::DepthBand::notional);
 
-    py::class_<qp::BookSnapshotEvent>(m, "BookSnapshotEvent")
-        .def_readonly("levels", &qp::BookSnapshotEvent::levels);
+    py::class_<qp::BookDepthBands, std::shared_ptr<qp::BookDepthBands>>(m, "BookDepthBands")
+        .def_readonly("bids", &qp::BookDepthBands::bids)
+        .def_readonly("asks", &qp::BookDepthBands::asks);
+
+    py::class_<qp::BookDepthEvent>(m, "BookDepthEvent")
+        .def_readonly("bands", &qp::BookDepthEvent::bands);
 
     py::class_<qp::EventBase>(m, "EventBase")
         .def_readonly("kind", &qp::EventBase::kind)
@@ -186,7 +179,9 @@ PYBIND11_MODULE(qp_python_backtest, m) {
         .value("Klines", binance::EndpointKind::Klines)
         .value("MarkPriceKlines", binance::EndpointKind::MarkPriceKlines)
         .value("PremiumIndexKlines", binance::EndpointKind::PremiumIndexKlines)
-        .value("FundingRate", binance::EndpointKind::FundingRate);
+        .value("FundingRate", binance::EndpointKind::FundingRate)
+        .value("Metrics", binance::EndpointKind::Metrics)
+        .value("BookDepth", binance::EndpointKind::BookDepth);
 
     py::enum_<binance::Cadence>(m, "Cadence")
         .value("Daily", binance::Cadence::Daily)
@@ -214,7 +209,8 @@ PYBIND11_MODULE(qp_python_backtest, m) {
         .def_readonly("rows_expected", &binance::GapStats::rows_expected)
         .def_readonly("rows_parsed", &binance::GapStats::rows_parsed)
         .def_readonly("rows_rejected", &binance::GapStats::rows_rejected)
-        .def_readonly("backwards_stamps", &binance::GapStats::backwards_stamps);
+        .def_readonly("backwards_stamps", &binance::GapStats::backwards_stamps)
+        .def_readonly("repeated_stamps", &binance::GapStats::repeated_stamps);
 
     py::class_<binance::StreamReport>(m, "StreamReport")
         .def_readonly("market", &binance::StreamReport::market)

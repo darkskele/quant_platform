@@ -4,7 +4,6 @@
 #include <cstddef>
 #include <memory>
 #include <optional>
-#include <vector>
 
 #include "backtest_in_process_transport.hpp"
 #include "spmc_queue.hpp"
@@ -20,14 +19,11 @@ qp::MarketEvent make_trade(qp::Timestamp ts = 0) {
     return ev;
 }
 
-qp::MarketEvent make_book_diff(qp::Timestamp ts, int kLevels = 20) {
+qp::MarketEvent make_book_depth(qp::Timestamp ts) {
     qp::MarketEvent ev;
-    ev.base.kind = qp::EventKind::BookDiff;
+    ev.base.kind = qp::EventKind::BookDepth;
     ev.base.ts   = ts;
-    auto levels  = std::make_shared<qp::BookLevels>();
-    levels->bids.assign(kLevels, qp::PriceLevel{.price = 100.0, .qty = 1.0});
-    levels->asks.assign(kLevels, qp::PriceLevel{.price = 101.0, .qty = 1.0});
-    ev.payload = qp::BookDiffEvent{.levels = std::move(levels)};
+    ev.payload   = qp::BookDepthEvent{.bands = std::make_shared<const qp::BookDepthBands>()};
     return ev;
 }
 
@@ -61,8 +57,8 @@ BENCHMARK(BM_BacktestInProcessTransport_NRings<4>);
 BENCHMARK(BM_BacktestInProcessTransport_NRings<8>);
 BENCHMARK(BM_BacktestInProcessTransport_NRings<16>);
 
-// Populated depth, N=2.
-void BM_BacktestInProcessTransport_TwoRingsPopulatedBookDiff(benchmark::State& state) {
+// Shared payload events, N=2.
+void BM_BacktestInProcessTransport_TwoRingsBookDepth(benchmark::State& state) {
     constexpr std::size_t      N = 2;
     std::array<Queue, N>       queues;
     std::array<Queue*, N>      queue_ptrs;
@@ -74,7 +70,7 @@ void BM_BacktestInProcessTransport_TwoRingsPopulatedBookDiff(benchmark::State& s
 
     qp::Timestamp ts = 0;
     for (auto _ : state) {
-        for (std::size_t i = 0; i < N; ++i) queues[i].push(make_book_diff(ts++));
+        for (std::size_t i = 0; i < N; ++i) queues[i].push(make_book_depth(ts++));
         for (std::size_t i = 0; i < N; ++i) {
             auto out = transport.next();
             benchmark::DoNotOptimize(out);
@@ -82,7 +78,7 @@ void BM_BacktestInProcessTransport_TwoRingsPopulatedBookDiff(benchmark::State& s
     }
 }
 
-BENCHMARK(BM_BacktestInProcessTransport_TwoRingsPopulatedBookDiff);
+BENCHMARK(BM_BacktestInProcessTransport_TwoRingsBookDepth);
 
 //  N producer threads, each owning one leg's queue, racing
 // the consumer thread's next() calls on a shared transport.

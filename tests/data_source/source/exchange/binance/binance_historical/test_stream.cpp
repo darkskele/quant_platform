@@ -2,8 +2,10 @@
 
 #include <memory>
 #include <string>
+#include <variant>
 #include <vector>
 
+#include "parsers/book_depth.hpp"
 #include "parsers/funding.hpp"
 #include "parsers/klines.hpp"
 #include "stream.hpp"
@@ -15,6 +17,7 @@ namespace binance = qp::data_source::source::exchange::binance;
 using binance::BinanceHistoricalStream;
 using binance::BinanceMarket;
 using binance::Cadence;
+using binance::parsers::BookDepthParser;
 using binance::parsers::FundingParser;
 using binance::parsers::KlineParser;
 using qp::EventKind;
@@ -33,6 +36,7 @@ constexpr qp::Timestamp kFeb = 1706745600000000000LL;
 
 using KlineStream   = BinanceHistoricalStream<KlineParser, FakeFetchPool>;
 using FundingStream = BinanceHistoricalStream<FundingParser, FakeFetchPool>;
+using DepthStream   = BinanceHistoricalStream<BookDepthParser, FakeFetchPool>;
 
 std::vector<std::string> daily_keys() {
     return {
@@ -536,4 +540,173 @@ TEST(BinanceStream, DistinctStampsCountNoRepeats) {
     }
 
     EXPECT_EQ(stream->stats().repeated_stamps, 0u);
+}
+
+// ---------------------------------------------------------------------------
+// Grouped rows. bookDepth writes ten rows per sample, so the stream collects
+// each run sharing a leading field and hands it to the parser whole.
+// ---------------------------------------------------------------------------
+
+namespace {
+
+std::vector<std::string> depth_keys(int days) {
+    std::vector<std::string> keys;
+    for (int day = 1; day <= days; ++day) {
+        const std::string stamp = (day < 10 ? "0" : "") + std::to_string(day);
+        keys.push_back("data/futures/um/daily/bookDepth/BTCUSDT/BTCUSDT-bookDepth-2024-01-" +
+                       stamp + ".zip");
+    }
+    return keys;
+}
+
+std::unique_ptr<DepthStream> make_depth_stream(FakeFetchPool& pool) {
+    return std::make_unique<DepthStream>(pool, BinanceMarket::UsdM, Cadence::Daily, "BTCUSDT", "",
+                                         kInstrument);
+}
+
+/// The rows of one sample at 2024-01-01 00:00:<second>, restricted to the
+/// given bands so a test can build short, long or duplicated groups.
+std::string depth_rows(int                     second,
+                       const std::vector<int>& bands = {-5, -4, -3, -2, -1, 1, 2, 3, 4, 5}) {
+    std::string out;
+    for (auto band : bands) {
+        out += "2024-01-01 00:00:";
+        out += second < 10 ? "0" : "";
+        out += std::to_string(second);
+        out += ',';
+        out += std::to_string(band);
+        out += ",1";
+        out += std::to_string(band < 0 ? -band : band);
+        out += ".5,2";
+        out += std::to_string(band < 0 ? -band : band);
+        out += ".25\n";
+    }
+    return out;
+}
+
+const std::string kDepthHeader = "timestamp,percentage,depth,notional\n";
+
+constexpr qp::Timestamp kSecond = 1'000'000'000LL;
+
+std::vector<MarketEvent> events_of(DepthStream& stream) {
+    std::vector<MarketEvent> out;
+    MarketEvent              event{};
+    while (stream.next(event)) out.push_back(event);
+    return out;
+}
+
+}  // namespace
+
+TEST(BinanceStreamGrouped, TenRowsMakeOneEvent) {
+    FakeFetchPool pool;
+    auto          stream = make_depth_stream(pool);
+    stream->plan(depth_keys(1), kJan, kFeb);
+
+    MarketEvent event{};
+    EXPECT_FALSE(stream->next(event));
+    ASSERT_TRUE(pool.deliver(kDepthHeader + depth_rows(10) + depth_rows(40)));
+
+    const auto events = events_of(*stream);
+    ASSERT_EQ(events.size(), 2u);
+    EXPECT_EQ(events[0].base.kind, EventKind::BookDepth);
+    EXPECT_EQ(events[0].base.ts, kJan + 10 * kSecond);
+    EXPECT_EQ(events[1].base.ts, kJan + 40 * kSecond);
+
+    const auto* depth = std::get_if<qp::BookDepthEvent>(&events[0].payload);
+    ASSERT_NE(depth, nullptr);
+    ASSERT_NE(depth->bands, nullptr);
+    EXPECT_DOUBLE_EQ(depth->bands->bids[4].depth, 15.5);
+    EXPECT_DOUBLE_EQ(depth->bands->asks[0].notional, 21.25);
+
+    EXPECT_EQ(stream->stats().rows_parsed, 20u) << "rows, not events";
+    EXPECT_EQ(stream->stats().rows_rejected, 0u);
+    EXPECT_EQ(stream->stats().header_rows, 1u);
+}
+
+// A short group is rejected as a whole and counted by its rows, and the next
+// group still parses.
+TEST(BinanceStreamGrouped, ShortGroupRejectedInFull) {
+    FakeFetchPool pool;
+    auto          stream = make_depth_stream(pool);
+    stream->plan(depth_keys(1), kJan, kFeb);
+
+    MarketEvent event{};
+    EXPECT_FALSE(stream->next(event));
+    ASSERT_TRUE(pool.deliver(depth_rows(10, {-5, -4, -3, -2, -1, 1, 2, 3, 4}) + depth_rows(40)));
+
+    const auto events = events_of(*stream);
+    ASSERT_EQ(events.size(), 1u);
+    EXPECT_EQ(events[0].base.ts, kJan + 40 * kSecond);
+    EXPECT_EQ(stream->stats().rows_rejected, 9u);
+    EXPECT_EQ(stream->stats().rows_parsed, 10u);
+}
+
+// An oversized run is consumed whole, not split into a full group and a stray
+// row that would then be read as the start of the next one.
+TEST(BinanceStreamGrouped, OversizedGroupRejectedInFull) {
+    FakeFetchPool pool;
+    auto          stream = make_depth_stream(pool);
+    stream->plan(depth_keys(1), kJan, kFeb);
+
+    MarketEvent event{};
+    EXPECT_FALSE(stream->next(event));
+    ASSERT_TRUE(
+        pool.deliver(depth_rows(10, {-5, -4, -3, -2, -1, 1, 2, 3, 4, 5, 5}) + depth_rows(40)));
+
+    const auto events = events_of(*stream);
+    ASSERT_EQ(events.size(), 1u);
+    EXPECT_EQ(events[0].base.ts, kJan + 40 * kSecond);
+    EXPECT_EQ(stream->stats().rows_rejected, 11u);
+}
+
+// The run ends with the file, so half a sample at the end of one file and half
+// at the start of the next are two bad groups, never one fused good one.
+TEST(BinanceStreamGrouped, GroupNeverSpansFiles) {
+    FakeFetchPool pool;
+    auto          stream = make_depth_stream(pool);
+    stream->plan(depth_keys(2), kJan, kFeb);
+
+    MarketEvent event{};
+    EXPECT_FALSE(stream->next(event));
+    ASSERT_TRUE(pool.deliver(depth_rows(10, {-5, -4, -3, -2, -1})));
+    ASSERT_TRUE(pool.deliver(depth_rows(10, {1, 2, 3, 4, 5}) + depth_rows(40)));
+
+    const auto events = events_of(*stream);
+    ASSERT_EQ(events.size(), 1u);
+    EXPECT_EQ(events[0].base.ts, kJan + 40 * kSecond);
+    EXPECT_EQ(stream->stats().rows_rejected, 10u);
+    EXPECT_EQ(stream->stats().files_read, 2u);
+}
+
+// A blank line ends a run like any other change of leading field.
+TEST(BinanceStreamGrouped, BlankLineEndsGroup) {
+    FakeFetchPool pool;
+    auto          stream = make_depth_stream(pool);
+    stream->plan(depth_keys(1), kJan, kFeb);
+
+    MarketEvent event{};
+    EXPECT_FALSE(stream->next(event));
+    ASSERT_TRUE(pool.deliver(depth_rows(10) + "\n" + depth_rows(40)));
+
+    EXPECT_EQ(events_of(*stream).size(), 2u);
+    EXPECT_EQ(stream->stats().blank_rows, 1u);
+}
+
+TEST(BinanceStreamGrouped, CrlfRowsGroup) {
+    FakeFetchPool pool;
+    auto          stream = make_depth_stream(pool);
+    stream->plan(depth_keys(1), kJan, kFeb);
+
+    std::string file = depth_rows(10);
+    std::string crlf;
+    for (char c : file) {
+        if (c == '\n') crlf += '\r';
+        crlf += c;
+    }
+
+    MarketEvent event{};
+    EXPECT_FALSE(stream->next(event));
+    ASSERT_TRUE(pool.deliver(crlf));
+    EXPECT_EQ(events_of(*stream).size(), 1u);
+    EXPECT_EQ(stream->stats().rows_rejected, 0u);
 }

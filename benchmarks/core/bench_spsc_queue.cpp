@@ -101,24 +101,15 @@ void BM_Spsc_PushPopInt(benchmark::State& state) {
 BENCHMARK(BM_Spsc_PushPopInt<false>);
 BENCHMARK(BM_Spsc_PushPopInt<true>);
 
-// MarketEvent is a type this queue can carry in production. A fresh copy
-// each iteration: BookDiffEvent's levels live behind their own
-// shared_ptr<const BookLevels> (core/types.hpp), so copying the event is a
-// refcount bump, not a deep vector copy — this isolates that cost.
-// Templated on UseHeap for the same reason as BM_Spsc_PushPopInt above,
-// but at MarketEvent's actual width instead of int's.
 template <bool UseHeap>
 void BM_Spsc_PushPopMarketEvent(benchmark::State& state) {
     qp::SpscQueue<qp::MarketEvent, 1024, UseHeap> q;
 
-    qp::BookDiffEvent seed;
-    seed.levels = std::make_shared<const qp::BookLevels>(qp::BookLevels{
-        {{100.00, 1.0}, {99.50, 2.0}, {99.00, 0.5}},
-        {{100.50, 1.5}, {101.00, 0.75}},
-    });
+    qp::BookDepthEvent seed;
+    seed.bands = std::make_shared<const qp::BookDepthBands>();
 
     for (auto _ : state) {
-        qp::MarketEvent fresh{.base = {.kind = qp::EventKind::BookDiff}, .payload = seed};
+        qp::MarketEvent fresh{.base = {.kind = qp::EventKind::BookDepth}, .payload = seed};
         bool            pushed = q.push(std::move(fresh));
         benchmark::DoNotOptimize(pushed);
         auto v = q.pop();
@@ -129,19 +120,7 @@ void BM_Spsc_PushPopMarketEvent(benchmark::State& state) {
 BENCHMARK(BM_Spsc_PushPopMarketEvent<false>);
 BENCHMARK(BM_Spsc_PushPopMarketEvent<true>);
 
-// Real contention: one shared queue, two real OS threads racing on its
-// atomics — thread 0 is the producer, thread 1 the consumer, both spinning
-// against the other's pace (push fails while full, pop fails while empty).
-// This is different from wrapping BM_Spsc_PushPopInt in ->Threads(N): that gives
-// every thread its own queue (SpscQueue is single-producer/single-consumer
-// by construction, so it can't do otherwise), which only measures cache/
-// memory-bandwidth pressure from unrelated concurrent work, not the thing
-// this queue actually exists for — a producer and consumer contending on
-// one instance. `static` makes the instance shared across the group;
-// Google Benchmark barriers every thread before the loop starts and before
-// any exits, so thread 0's pre-loop drain (leftover items from a prior
-// --benchmark_repetitions run) is guaranteed to finish before thread 1
-// starts popping.
+// Real contention.
 void BM_Spsc_PushPopContended(benchmark::State& state) {
     static qp::SpscQueue<int, 1024> q;
     if (state.thread_index() == 0) {

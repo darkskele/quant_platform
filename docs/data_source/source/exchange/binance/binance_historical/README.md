@@ -11,7 +11,7 @@ Subscription x configured datasets
 BinanceHistoricalStream
    plan()   bucket listing ─▶ the file keys falling inside the span
    pump()   url + position ─▶ FetchPool ─▶ GET, unzip ─▶ SlotRing at that position
-   next()   rows ─▶ RowParser ─▶ MarketEvent, stamped with its instrument
+   next()   rows ─▶ Parser ─▶ MarketEvent, stamped with its instrument
         │
         ▼
    merge heap, earliest front event across every stream
@@ -22,7 +22,7 @@ BinanceHistoricalStream
 
 ## Components
 
-- `parsers/`. The `RowParser` seam and one parser per dataset.
+- `parsers/`. The `Parser` seam and one parser per dataset.
 - `FetchPool` (`fetch_pool.hpp`). The fetch seam. A stream names a URL and a ring position, the pool puts the decompressed file there. Failures arrive too, so a stream never waits on one forever.
 - `BinanceHistoricalStream` (`stream.hpp`). One dataset for one symbol. Plans its own files, keeps its own prefetch window full, parses on the calling thread, and counts what it could not read.
 - `endpoints.hpp`. The dataset table. Bucket path, cadence support, column count, and which column carries base-asset volume.

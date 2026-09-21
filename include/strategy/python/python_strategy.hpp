@@ -11,6 +11,18 @@
 
 namespace qp::strategy::python {
 
+/// One bit per EventKind. Wide enough for every kind, so a new one cannot fall
+/// off the top and be filtered out without a word.
+using KindMask = std::uint32_t;
+
+inline constexpr KindMask kAllKinds = ~KindMask{0};
+
+static_assert(kEventKindCount <= sizeof(KindMask) * 8, "EventKind outgrew KindMask");
+
+inline constexpr KindMask kind_bit(EventKind kind) noexcept {
+    return KindMask{1} << static_cast<unsigned>(kind);
+}
+
 /// Strategy that forwards on_event/on_timer to Python callables and
 /// returns their intent iterable as a span over an in-object scratch pool.
 ///
@@ -21,7 +33,7 @@ class PythonStrategy {
     static constexpr std::size_t kMaxIntents = MaxIntents;
 
     PythonStrategy(pybind11::object on_event_cb, pybind11::object on_timer_cb,
-                   std::uint8_t kind_mask = 0xFF)
+                   KindMask kind_mask = kAllKinds)
         : on_event_cb_{std::move(on_event_cb)},
           on_timer_cb_{std::move(on_timer_cb)},
           kind_mask_{kind_mask} {}
@@ -42,7 +54,7 @@ class PythonStrategy {
     std::span<const Intent> on_event(const MarketEvent& event) {
         // Skip the GIL and the Python call entirely for unsubscribed kinds.
         // A funding-only strategy pays nothing per kline this way.
-        if (!(kind_mask_ & (1u << static_cast<unsigned>(event.base.kind)))) return {};
+        if (!(kind_mask_ & kind_bit(event.base.kind))) return {};
         return invoke(on_event_cb_, event);
     }
 
@@ -64,7 +76,7 @@ class PythonStrategy {
 
     pybind11::object          on_event_cb_;
     pybind11::object          on_timer_cb_;
-    std::uint8_t              kind_mask_;
+    KindMask                  kind_mask_;
     IntentBuffer<kMaxIntents> buffer_{};
 };
 

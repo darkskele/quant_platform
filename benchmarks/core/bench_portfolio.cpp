@@ -57,11 +57,11 @@ MarketEvent mark_price_kline_event(Price close) {
     return ev;
 }
 
-MarketEvent book_diff_event() {
+MarketEvent book_depth_event() {
     MarketEvent ev;
     ev.base = {
-        .kind = EventKind::BookDiff, .exchange = kExchange, .market = kMarket, .symbol = kSymbol};
-    ev.payload = BookDiffEvent{};
+        .kind = EventKind::BookDepth, .exchange = kExchange, .market = kMarket, .symbol = kSymbol};
+    ev.payload = BookDepthEvent{};
     return ev;
 }
 
@@ -110,16 +110,16 @@ void BM_Portfolio_ApplyMarkPriceFromMarkPriceKline(benchmark::State& state) {
 
 BENCHMARK(BM_Portfolio_ApplyMarkPriceFromMarkPriceKline);
 
-void BM_Portfolio_ApplyMarkPriceIgnoresBookDiff(benchmark::State& state) {
+void BM_Portfolio_ApplyMarkPriceIgnoresBookDepth(benchmark::State& state) {
     Portfolio portfolio = make_portfolio();
-    auto      event     = book_diff_event();
+    auto      event     = book_depth_event();
     for (auto _ : state) {
         portfolio.apply_mark_price(event);
         benchmark::DoNotOptimize(portfolio);
     }
 }
 
-BENCHMARK(BM_Portfolio_ApplyMarkPriceIgnoresBookDiff);
+BENCHMARK(BM_Portfolio_ApplyMarkPriceIgnoresBookDepth);
 
 void BM_Portfolio_Position(benchmark::State& state) {
     Portfolio portfolio = make_portfolio();

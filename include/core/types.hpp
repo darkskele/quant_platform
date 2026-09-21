@@ -1,9 +1,10 @@
 #pragma once
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <type_traits>
 #include <variant>
-#include <vector>
 
 namespace qp {
 
@@ -14,24 +15,20 @@ using Notional  = double;
 
 enum class Side : std::uint8_t { Buy, Sell };
 
-struct PriceLevel {
-    Price price{};
-    Qty   qty{};
-};
-
-static_assert(std::is_trivially_copyable_v<PriceLevel>);
-static_assert(sizeof(PriceLevel) == 16, "unexpected padding/size regression");
-
 enum class EventKind : std::uint8_t {
-    BookDiff,
     Trade,
     Funding,
-    BookSnapshot,
     Kline,
     MarkPriceKline,
     PremiumIndexKline,
-    OpenInterest
+    OpenInterest,
+    BookDepth,
+    END
 };
+
+/// Kinds in EventKind. Masks over kinds size themselves off this, so it moves
+/// with the last enumerator.
+inline constexpr std::size_t kEventKindCount = static_cast<std::size_t>(EventKind::END);
 
 struct EventBase {
     EventKind     kind{};
@@ -93,25 +90,29 @@ struct OpenInterestEvent {
 
 static_assert(std::is_trivially_copyable_v<OpenInterestEvent>);
 
-struct BookLevels {
-    std::vector<PriceLevel> bids;
-    std::vector<PriceLevel> asks;
+/// Size resting between mid and one band's distance from it. Cumulative, so
+/// band 5 includes everything inside band 1.
+struct DepthBand {
+    Qty      depth{};     ///< Contracts on Coin-M, base asset on USD-M.
+    Notional notional{};  ///< Base coin on Coin-M, quote on USD-M, since Coin-M is inverse.
 };
 
-struct BookDiffEvent {
-    std::uint64_t                     first_seq{};
-    std::uint64_t                     seq{};
-    std::uint64_t                     prev_seq{};
-    std::shared_ptr<const BookLevels> levels;
+/// Binance's bookDepth sample, roughly every 30 seconds. Index k is the band
+/// k + 1 percent from mid. @todo too binance specific, find some way to generalise
+struct BookDepthBands {
+    std::array<DepthBand, 5> bids;
+    std::array<DepthBand, 5> asks;
 };
 
-struct BookSnapshotEvent {
-    std::shared_ptr<const BookLevels> levels;
+/// Behind a shared_ptr, so ten bands inline do not widen every MarketEvent to
+/// carry them.
+/// @todo maybe switch for vector when we generalize
+struct BookDepthEvent {
+    std::shared_ptr<const BookDepthBands> bands;
 };
 
-using MarketEventPayload =
-    std::variant<TradeEvent, FundingEvent, KlineEvent, MarkPriceKlineEvent, PremiumIndexKlineEvent,
-                 OpenInterestEvent, BookDiffEvent, BookSnapshotEvent>;
+using MarketEventPayload = std::variant<TradeEvent, FundingEvent, KlineEvent, MarkPriceKlineEvent,
+                                        PremiumIndexKlineEvent, OpenInterestEvent, BookDepthEvent>;
 
 struct MarketEvent {
     EventBase          base{};

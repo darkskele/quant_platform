@@ -3,61 +3,18 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include <optional>
-
 #include "python_risk_gate.hpp"
+#include "support/python_interpreter.hpp"
 #include "types.hpp"
 
 namespace py = pybind11;
-using qp::RiskDecision;
-using qp::RiskOutcome;
+using qp::risk::RiskDecision;
+using qp::risk::RiskOutcome;
 using qp::risk::python::PythonRiskGate;
-
-PYBIND11_EMBEDDED_MODULE(qp_test_types_risk, m) {
-    py::class_<qp::Intent>(m, "Intent")
-        .def(py::init<>())
-        .def_readwrite("exchange", &qp::Intent::exchange)
-        .def_readwrite("market", &qp::Intent::market)
-        .def_readwrite("symbol", &qp::Intent::symbol)
-        .def_readwrite("target_position", &qp::Intent::target_position);
-
-    py::enum_<qp::Side>(m, "Side").value("Buy", qp::Side::Buy).value("Sell", qp::Side::Sell);
-
-    py::class_<qp::Order>(m, "Order")
-        .def(py::init([](qp::OrderId id, std::uint16_t ex, std::uint16_t mk, std::uint16_t sy,
-                         qp::Side side, qp::Qty q) {
-                 return qp::Order{
-                     .id = id, .exchange = ex, .market = mk, .symbol = sy, .side = side, .qty = q};
-             }),
-             py::arg("id"), py::arg("exchange"), py::arg("market"), py::arg("symbol"),
-             py::arg("side"), py::arg("qty"))
-        .def_readwrite("id", &qp::Order::id)
-        .def_readwrite("exchange", &qp::Order::exchange)
-        .def_readwrite("market", &qp::Order::market)
-        .def_readwrite("symbol", &qp::Order::symbol)
-        .def_readwrite("side", &qp::Order::side)
-        .def_readwrite("qty", &qp::Order::qty);
-
-    py::enum_<qp::RiskOutcome>(m, "RiskOutcome")
-        .value("Approved", qp::RiskOutcome::Approved)
-        .value("Resized", qp::RiskOutcome::Resized)
-        .value("Rejected", qp::RiskOutcome::Rejected);
-
-    py::class_<qp::RiskDecision>(m, "RiskDecision")
-        .def(py::init([](qp::RiskOutcome oc, std::optional<qp::Order> ord) {
-                 return qp::RiskDecision{.outcome = oc, .order = ord};
-             }),
-             py::arg("outcome"), py::arg("order") = std::nullopt);
-}
 
 class PythonRiskGateTest : public ::testing::Test {
    protected:
-    static py::scoped_interpreter& guard() {
-        static py::scoped_interpreter g;
-        return g;
-    }
-
-    void SetUp() override { guard(); }
+    void SetUp() override { qp::test::python(); }
 };
 
 TEST_F(PythonRiskGateTest, CheckWithNoneCallbackRejects) {
@@ -68,7 +25,7 @@ TEST_F(PythonRiskGateTest, CheckWithNoneCallbackRejects) {
 }
 
 TEST_F(PythonRiskGateTest, CheckReturnsPythonDecision) {
-    py::module_ types = py::module_::import("qp_test_types_risk");
+    py::module_ types = py::module_::import(qp::test::kTestTypesModule);
     py::dict    locals;
     locals["types"] = types;
     py::exec(
@@ -77,7 +34,7 @@ TEST_F(PythonRiskGateTest, CheckReturnsPythonDecision) {
         "                        symbol=intent.symbol, side=types.Side.Buy,\n"
         "                        qty=abs(intent.target_position))\n"
         "    return types.RiskDecision(outcome=types.RiskOutcome.Approved, order=order)\n",
-        py::globals(), locals);
+        locals);
 
     PythonRiskGate<> gate{locals["cb"], py::none()};
     auto             decision =
@@ -94,7 +51,7 @@ TEST_F(PythonRiskGateTest, CheckReturnsPythonDecision) {
 
 TEST_F(PythonRiskGateTest, CheckReturningNoneIsRejected) {
     py::dict locals;
-    py::exec("cb = lambda intent: None\n", py::globals(), locals);
+    py::exec("cb = lambda intent: None\n", locals);
 
     PythonRiskGate<> gate{locals["cb"], py::none()};
     auto             decision = gate.check(qp::Intent{});
@@ -103,7 +60,7 @@ TEST_F(PythonRiskGateTest, CheckReturningNoneIsRejected) {
 }
 
 TEST_F(PythonRiskGateTest, OnTickReturnsOrders) {
-    py::module_ types = py::module_::import("qp_test_types_risk");
+    py::module_ types = py::module_::import(qp::test::kTestTypesModule);
     py::dict    locals;
     locals["types"] = types;
     py::exec(
@@ -114,7 +71,7 @@ TEST_F(PythonRiskGateTest, OnTickReturnsOrders) {
         "        types.Order(id=2, exchange=0, market=1, symbol=11, side=types.Side.Buy, "
         "qty=2.5),\n"
         "    ]\n",
-        py::globals(), locals);
+        locals);
 
     PythonRiskGate<> gate{py::none(), locals["cb"]};
     auto             orders = gate.on_tick();
@@ -133,7 +90,7 @@ TEST_F(PythonRiskGateTest, OnTickWithNoneCallbackReturnsEmpty) {
 
 TEST_F(PythonRiskGateTest, OnTickCallbackReturningNoneMeansEmpty) {
     py::dict locals;
-    py::exec("cb = lambda: None\n", py::globals(), locals);
+    py::exec("cb = lambda: None\n", locals);
 
     PythonRiskGate<> gate{py::none(), locals["cb"]};
     EXPECT_TRUE(gate.on_tick().empty());

@@ -12,7 +12,7 @@ Run every suite, both presets, from a clean build. Build via Bash (`cmake` + `ct
 1. `rm -rf build/debug build/release`.
 2. For each preset in `debug`, then `release`:
    - `cmake --preset <preset> -DQP_BUILD_BENCHMARKS=OFF` (skips the benchmark fetch; tests don't need it).
-   - `cmake --build build/<preset> --target qp_all_tests -j`. Capture every compiler warning and error.
+   - `cmake --build build/<preset> --target qp_tests -j`. Capture every compiler warning and error.
    - `ctest --test-dir build/<preset> --output-on-failure`.
 
 A warning is a failure. Debug carries ASan/UBSan; release catches what only optimization exposes. Both must be clean.

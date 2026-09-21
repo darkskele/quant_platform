@@ -6,8 +6,10 @@
 #include <cstddef>
 #include <cstdio>
 #include <ctime>
+#include <map>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -655,6 +657,151 @@ TEST(BinanceHistoricalIntegration, MetricsMatchesTheRawCsvs) {
     }
 
     // The merge is still ascending with two markets interleaved.
+    Timestamp previous = 0;
+    for (const auto& event : sink.events) {
+        EXPECT_GE(event.base.ts, previous);
+        previous = event.base.ts;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// bookDepth. Ten rows per sample, so this proves the grouping end to end
+// against an oracle that groups by its own rule.
+// ---------------------------------------------------------------------------
+
+namespace {
+
+/// One sample flattened, bids then asks, each band as depth and notional.
+struct DepthRow {
+    Timestamp           ts{};
+    std::string         symbol;
+    std::vector<double> values;
+
+    auto key() const { return std::tie(ts, symbol); }
+
+    bool operator<(const DepthRow& other) const { return key() < other.key(); }
+};
+
+std::vector<DepthRow> fetch_expected_depth() {
+    std::vector<DepthRow> out;
+    for (const auto& stream : metrics_streams()) {
+        std::string url = "https://data.binance.vision/data/";
+        url += stream.market_path;
+        url += "/daily/bookDepth/";
+        url += stream.symbol;
+        url += '/';
+        url += stream.symbol;
+        url += "-bookDepth-2025-06-02.zip";
+
+        const auto             zip   = qp::data_source::network::http::get(url);
+        const auto             bytes = qp::data_source::archive::zip::unzip_single_entry(zip);
+        const std::string_view csv(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+
+        // Groups on the parsed stamp rather than the raw text, and places bands
+        // by value rather than by position, so neither shortcut in the source
+        // is repeated here.
+        std::map<Timestamp, std::map<int, std::pair<double, double>>> samples;
+        std::size_t                                                   start = 0;
+        while (start < csv.size()) {
+            auto end = csv.find('\n', start);
+            if (end == std::string_view::npos) end = csv.size();
+            auto line = csv.substr(start, end - start);
+            start     = end + 1;
+            if (!line.empty() && line.back() == '\r') line.remove_suffix(1);
+            if (line.empty()) continue;
+            if (line.front() < '0' || line.front() > '9') continue;
+
+            const auto fields = split(line);
+            EXPECT_EQ(fields.size(), 4u) << line;
+            if (fields.size() != 4) continue;
+            samples[datetime_to_nanos(fields[0])][std::stoi(fields[1])] = {std::stod(fields[2]),
+                                                                           std::stod(fields[3])};
+        }
+
+        for (const auto& [ts, bands] : samples) {
+            EXPECT_EQ(bands.size(), 10u) << stream.symbol << " at " << ts;
+            DepthRow row{.ts = ts, .symbol = stream.symbol, .values = {}};
+            for (int band : {-1, -2, -3, -4, -5, 1, 2, 3, 4, 5}) {
+                const auto found = bands.find(band);
+                row.values.push_back(found == bands.end() ? -1.0 : found->second.first);
+                row.values.push_back(found == bands.end() ? -1.0 : found->second.second);
+            }
+            out.push_back(std::move(row));
+        }
+    }
+    return out;
+}
+
+}  // namespace
+
+TEST(BinanceHistoricalIntegration, BookDepthMatchesTheRawCsvs) {
+    const auto universe = build_metrics_universe();
+
+    CollectingSink sink;
+    {
+        BinanceHistoricalConfig config{.streams = {StreamSpec{EndpointKind::BookDepth, ""}},
+                                       .pool    = pool_config(),
+                                       .cadence = Cadence::Daily,
+                                       .from    = kMetricsFrom,
+                                       .to      = kMetricsTo};
+
+        BinanceHistoricalSource<HttpFetchPool> source(config, universe);
+        ASSERT_EQ(source.stream_count(), 2u);
+        source.plan();
+
+        ControlChannel<1> control;
+        const auto        consumer = control.attach();
+
+        auto sources = std::forward_as_tuple(source);
+        auto sinks   = std::forward_as_tuple(sink);
+        qp::data_source::run_data_source(sources, sinks, control, consumer,
+                                         std::chrono::milliseconds{1});
+
+        EXPECT_EQ(source.pool().stats().completed_failed, 0u);
+        for (const auto& report : source.reports()) {
+            EXPECT_EQ(report.stats.files_read, 1u) << report.symbol;
+            EXPECT_EQ(report.stats.rows_rejected, 0u) << report.symbol;
+            EXPECT_EQ(report.stats.backwards_stamps, 0u) << report.symbol;
+            EXPECT_EQ(report.stats.repeated_stamps, 0u) << report.symbol;
+            EXPECT_EQ(report.stats.rows_parsed % 10, 0u) << report.symbol;
+        }
+    }
+
+    std::vector<DepthRow> actual;
+    actual.reserve(sink.events.size());
+    for (const auto& event : sink.events) {
+        ASSERT_EQ(event.base.kind, EventKind::BookDepth);
+        const auto* payload = std::get_if<qp::BookDepthEvent>(&event.payload);
+        ASSERT_NE(payload, nullptr);
+        ASSERT_NE(payload->bands, nullptr);
+
+        DepthRow row{.ts = event.base.ts, .symbol = symbol_name(universe, event), .values = {}};
+        for (const auto& band : payload->bands->bids) {
+            row.values.push_back(band.depth);
+            row.values.push_back(band.notional);
+        }
+        for (const auto& band : payload->bands->asks) {
+            row.values.push_back(band.depth);
+            row.values.push_back(band.notional);
+        }
+        actual.push_back(std::move(row));
+    }
+
+    auto expected = fetch_expected_depth();
+    ASSERT_FALSE(expected.empty());
+    std::sort(expected.begin(), expected.end());
+    std::sort(actual.begin(), actual.end());
+
+    ASSERT_EQ(actual.size(), expected.size());
+    for (std::size_t i = 0; i < actual.size(); ++i) {
+        EXPECT_EQ(actual[i].ts, expected[i].ts) << "sample " << i;
+        EXPECT_EQ(actual[i].symbol, expected[i].symbol) << "sample " << i;
+        ASSERT_EQ(actual[i].values.size(), expected[i].values.size());
+        for (std::size_t v = 0; v < actual[i].values.size(); ++v)
+            EXPECT_DOUBLE_EQ(actual[i].values[v], expected[i].values[v])
+                << "sample " << i << " value " << v;
+    }
+
     Timestamp previous = 0;
     for (const auto& event : sink.events) {
         EXPECT_GE(event.base.ts, previous);

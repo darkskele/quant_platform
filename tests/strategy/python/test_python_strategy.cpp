@@ -4,32 +4,18 @@
 #include <pybind11/stl.h>
 
 #include "python_strategy.hpp"
+#include "support/python_interpreter.hpp"
 #include "types.hpp"
 
 namespace py = pybind11;
+using qp::strategy::python::kAllKinds;
+using qp::strategy::python::kind_bit;
+using qp::strategy::python::KindMask;
 using qp::strategy::python::PythonStrategy;
-
-PYBIND11_EMBEDDED_MODULE(qp_test_types_strategy, m) {
-    py::class_<qp::Intent>(m, "Intent")
-        .def(py::init([](std::uint16_t ex, std::uint16_t mk, std::uint16_t sy, qp::Qty q) {
-                 return qp::Intent{
-                     .exchange = ex, .market = mk, .symbol = sy, .target_position = q};
-             }),
-             py::arg("exchange"), py::arg("market"), py::arg("symbol"), py::arg("target_position"))
-        .def_readwrite("exchange", &qp::Intent::exchange)
-        .def_readwrite("market", &qp::Intent::market)
-        .def_readwrite("symbol", &qp::Intent::symbol)
-        .def_readwrite("target_position", &qp::Intent::target_position);
-}
 
 class PythonStrategyTest : public ::testing::Test {
    protected:
-    static py::scoped_interpreter& guard() {
-        static py::scoped_interpreter g;
-        return g;
-    }
-
-    void SetUp() override { guard(); }
+    void SetUp() override { qp::test::python(); }
 };
 
 TEST_F(PythonStrategyTest, OnTimerWithNoneCallbackReturnsEmpty) {
@@ -46,7 +32,7 @@ TEST_F(PythonStrategyTest, OnEventWithNoneCallbackReturnsEmpty) {
 }
 
 TEST_F(PythonStrategyTest, OnTimerReturnsIntentsFromPython) {
-    py::module_ types = py::module_::import("qp_test_types_strategy");
+    py::module_ types = py::module_::import(qp::test::kTestTypesModule);
     py::dict    locals;
     locals["types"] = types;
     py::exec(
@@ -55,7 +41,7 @@ TEST_F(PythonStrategyTest, OnTimerReturnsIntentsFromPython) {
         "        types.Intent(exchange=0, market=2, symbol=1, target_position=3.5),\n"
         "        types.Intent(exchange=0, market=5, symbol=4, target_position=-6.0),\n"
         "    ]\n",
-        py::globals(), locals);
+        locals);
 
     PythonStrategy<> strategy{py::none(), locals["cb"]};
     auto             intents = strategy.on_timer(42);
@@ -71,14 +57,14 @@ TEST_F(PythonStrategyTest, OnTimerReturnsIntentsFromPython) {
 
 TEST_F(PythonStrategyTest, CallbackReturningNoneMeansEmpty) {
     py::dict locals;
-    py::exec("cb = lambda t: None\n", py::globals(), locals);
+    py::exec("cb = lambda t: None\n", locals);
 
     PythonStrategy<> strategy{py::none(), locals["cb"]};
     EXPECT_TRUE(strategy.on_timer(0).empty());
 }
 
 TEST_F(PythonStrategyTest, BufferIsReusedAcrossCalls) {
-    py::module_ types = py::module_::import("qp_test_types_strategy");
+    py::module_ types = py::module_::import(qp::test::kTestTypesModule);
     py::dict    locals;
     locals["types"] = types;
     py::exec(
@@ -87,7 +73,7 @@ TEST_F(PythonStrategyTest, BufferIsReusedAcrossCalls) {
         "    state[0] += 1\n"
         "    return [types.Intent(exchange=0, market=0, symbol=state[0], "
         "target_position=float(state[0]))]\n",
-        py::globals(), locals);
+        locals);
 
     PythonStrategy<> strategy{py::none(), locals["cb"]};
 
@@ -98,4 +84,27 @@ TEST_F(PythonStrategyTest, BufferIsReusedAcrossCalls) {
     auto second = strategy.on_timer(1);
     ASSERT_EQ(second.size(), 1u);
     EXPECT_EQ(second[0].symbol, 2u);
+}
+
+// The mask used to be eight bits, so the ninth kind shifted off the top and was
+// dropped even under the all kinds default. Every kind has to keep its own bit.
+TEST(PythonStrategyKindMask, EveryKindHasItsOwnBitInsideAllKinds) {
+    KindMask seen = 0;
+    for (std::size_t k = 0; k < qp::kEventKindCount; ++k) {
+        const auto bit = kind_bit(static_cast<qp::EventKind>(k));
+        EXPECT_NE(bit, 0u) << "kind " << k;
+        EXPECT_NE(kAllKinds & bit, 0u) << "kind " << k;
+        EXPECT_EQ(seen & bit, 0u) << "kind " << k << " shares a bit";
+        seen |= bit;
+    }
+}
+
+TEST_F(PythonStrategyTest, MaskedOutKindNeverReachesTheCallback) {
+    py::dict locals;
+    py::exec("def cb(event):\n    raise RuntimeError('should have been filtered')\n", locals);
+
+    PythonStrategy<> strategy{locals["cb"], py::none(), kind_bit(qp::EventKind::Trade)};
+    qp::MarketEvent  evt;
+    evt.base = {.kind = qp::EventKind::BookDepth, .ts = 0};
+    EXPECT_TRUE(strategy.on_event(evt).empty());
 }

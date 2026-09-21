@@ -390,3 +390,57 @@ TEST(BinanceSource, MetricsFallsBackToDailyWhenMonthlyAsked) {
     ASSERT_NE(klines, prefixes.end());
     EXPECT_NE(klines->find("/monthly/"), std::string::npos) << *klines;
 }
+
+namespace {
+
+/// One full bookDepth sample at 2024-01-01 00:<minute>:00.
+std::string depth_file(const std::vector<int>& minutes) {
+    std::string out = "timestamp,percentage,depth,notional\n";
+    for (auto minute : minutes)
+        for (int band : {-5, -4, -3, -2, -1, 1, 2, 3, 4, 5}) {
+            out += "2024-01-01 00:";
+            out += minute < 10 ? "0" : "";
+            out += std::to_string(minute);
+            out += ":00,";
+            out += std::to_string(band);
+            out += ",10.0,1000.0\n";
+        }
+    return out;
+}
+
+}  // namespace
+
+// A grouped stream sits in the merge like any other, one event per sample.
+TEST(BinanceSource, BookDepthMergesWithMetrics) {
+    const auto subs = universe({"BTCUSDT"});
+    Source     source(config({{EndpointKind::Metrics, ""}, {EndpointKind::BookDepth, ""}}), subs);
+    auto&      pool = source.pool();
+    source.plan_with(single_file_lister());
+
+    ASSERT_FALSE(source.next().has_value());
+    deliver_all(pool, {metrics_file({0, 5}), depth_file({1, 3})});
+
+    std::vector<std::pair<Timestamp, EventKind>> seen;
+    for (;;) {
+        auto pulled = source.next();
+        if (!pulled) {
+            ASSERT_EQ(pulled.error(), SourceStatus::Eof);
+            break;
+        }
+        if (pulled->base.kind == EventKind::BookDepth) {
+            const auto* depth = std::get_if<qp::BookDepthEvent>(&pulled->payload);
+            ASSERT_NE(depth, nullptr);
+            ASSERT_NE(depth->bands, nullptr);
+        }
+        seen.push_back({pulled->base.ts, pulled->base.kind});
+    }
+
+    constexpr Timestamp                                kMinute  = 60LL * 1'000'000'000LL;
+    const std::vector<std::pair<Timestamp, EventKind>> expected = {
+        {kJan1, EventKind::OpenInterest},
+        {kJan1 + kMinute, EventKind::BookDepth},
+        {kJan1 + 3 * kMinute, EventKind::BookDepth},
+        {kJan1Plus5Min, EventKind::OpenInterest},
+    };
+    EXPECT_EQ(seen, expected);
+}

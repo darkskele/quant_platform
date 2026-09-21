@@ -44,6 +44,12 @@ inline std::string_view take_field(std::string_view& row) noexcept {
     return field;
 }
 
+/// Text before the first comma, without consuming it. Rows of one group share
+/// it byte for byte, so comparing it finds a group's end without parsing.
+inline std::string_view leading_field(std::string_view row) noexcept {
+    return row.substr(0, row.find(','));
+}
+
 /// Anything the digit scan will not take, including exponents and padding.
 inline bool take_double_slow(std::string_view& row, double& out) noexcept {
     const auto  field = take_field(row);
@@ -81,7 +87,7 @@ inline bool take_decimal(std::string_view& row, double& out) noexcept {
 }
 
 /// A blank field is a figure the venue did not publish.
-/// Coin-M metrics leaves its three long short ratios empty 
+/// Coin-M metrics leaves its three long short ratios empty
 /// on every row. NaN insteadX.
 inline bool take_optional_decimal(std::string_view& row, double& out) noexcept {
     if (row.empty() || row.front() == ',') {

@@ -30,7 +30,7 @@ struct GapStats {
     std::size_t  backwards_stamps{};
 
     /// Rows repeating the stamp before them. The early metrics files carry
-    /// every row twice, so this is real data and not a parser fault. 
+    /// every row twice, so this is real data and not a parser fault.
     std::size_t repeated_stamps{};
 };
 
@@ -38,9 +38,9 @@ struct GapStats {
 /// own files, keeps its own queue fed off the pool, and parses on the calling
 /// thread.
 ///
-/// @tparam P the row parser, which fixes the dataset and the payload type.
+/// @tparam P the parser, which fixes the dataset and the payload type. 
 /// @tparam Pool the fetch pool the stream schedules against.
-template <parsers::RowParser P, FetchPool Pool>
+template <parsers::Parser P, FetchPool Pool>
 class BinanceHistoricalStream {
    public:
     BinanceHistoricalStream(Pool& pool, BinanceMarket market_path, Cadence cadence,
@@ -87,7 +87,7 @@ class BinanceHistoricalStream {
             if (rows_.empty() && !load_next_file()) return false;
 
             while (!rows_.empty()) {
-                const auto row = take_row();
+                auto row = take_row();
                 if (row.empty()) {
                     ++stats_.blank_rows;
                     continue;
@@ -99,21 +99,23 @@ class BinanceHistoricalStream {
 
                 Timestamp         ts{};
                 typename P::Event payload{};
+                std::size_t       used = 1;
+                if constexpr (requires { requires P::grouped; }) row = extend_run(row, used);
                 if (!P::parse(endpoint_, row, ts, payload)) {
-                    ++stats_.rows_rejected;
+                    stats_.rows_rejected += used;
                     continue;
                 }
                 if (ts < last_ts_) ++stats_.backwards_stamps;
                 if (ts == last_ts_ && stats_.rows_parsed > 0) ++stats_.repeated_stamps;
                 last_ts_ = ts;
-                ++stats_.rows_parsed;
+                stats_.rows_parsed += used;
 
                 out.base    = EventBase{.kind     = P::event_kind,
                                         .exchange = instrument_.exchange,
                                         .market   = instrument_.market,
                                         .symbol   = instrument_.symbol,
                                         .ts       = ts};
-                out.payload = payload;
+                out.payload = std::move(payload);
                 return true;
             }
         }
@@ -177,6 +179,28 @@ class BinanceHistoricalStream {
             ++stats_.files_read;
             return true;
         }
+    }
+
+    /// Widens first over the rows after it that share its leading field, so an
+    /// event spanning several rows reaches the parser as one block. used counts
+    /// the rows taken. The run ends with the file, so it never spans two.
+    std::string_view extend_run(std::string_view first, std::size_t& used) noexcept {
+        const auto  key = parsers::leading_field(first);
+        const char* end = first.data() + first.size();
+        while (!rows_.empty() && parsers::leading_field(peek_row()) == key) {
+            const auto row = take_row();
+            end            = row.data() + row.size();
+            ++used;
+        }
+        return {first.data(), static_cast<std::size_t>(end - first.data())};
+    }
+
+    /// The row take_row would return, left in place.
+    std::string_view peek_row() const noexcept {
+        const auto newline = rows_.find('\n');
+        auto       row     = newline == std::string_view::npos ? rows_ : rows_.substr(0, newline);
+        if (!row.empty() && row.back() == '\r') row.remove_suffix(1);
+        return row;
     }
 
     std::string_view take_row() noexcept {

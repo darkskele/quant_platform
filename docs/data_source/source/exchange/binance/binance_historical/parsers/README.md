@@ -1,6 +1,6 @@
 # parsers
 
-The `RowParser` seam and a parser per historical dataset. A parser turns one CSV row into a timestamp and a payload, and names the dataset and event kind it belongs to.
+The `Parser` seam and a parser per historical dataset. A parser turns one CSV row, or for a grouped dataset the run of rows making one event, into a timestamp and a payload, and names the dataset and event kind it belongs to.
 
 ## Diagram
 
@@ -8,7 +8,7 @@ The `RowParser` seam and a parser per historical dataset. A parser turns one CSV
 CSV row (string_view)
         │
         ▼
-RowParser::parse()      (parser.hpp: the concept)
+Parser::parse()      (parser.hpp: the concept)
         │   concrete parsers plug in here
         ▼
    bool, with ts and payload filled
@@ -28,7 +28,7 @@ RowParser::parse()      (parser.hpp: the concept)
 
 ## Milestones
 
-- [x] ~~`RowParser` concept~~
+- [x] ~~`Parser` concept~~
 - [x] ~~Single-pass field readers~~
 - [x] ~~A parser per published dataset~~
 - [ ] Trades and book depth rows

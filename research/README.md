@@ -6,9 +6,8 @@ What we are testing, what we ran, what we found. One entry per hypothesis, newes
 
 ## How to run
 - Env: `conda env create -f environment.yml` then select the `qp-research` kernel.
-- Module: build `qp_backtest` (VS Code task "Build: qp_backtest python module (release)"). It is a C extension, so a rebuild needs a kernel restart to take effect.
+- Module: build `qp_binance_funding_carry` (VS Code task "qp_binance_funding_carry"). It is a C extension, so a rebuild needs a kernel restart to take effect.
 - Layout: shared modules and the cost table notebook at this level, one folder per strategy below it, `funding_carry/` first.
-- Data: 10 symbols, 2022-01-01 to 2024-12-31, under `data/binance_historical/`. Fetch/refresh with `tools/fetch_backtest_data.sh`.
 
 ## Roadmap
 

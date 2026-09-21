@@ -31,7 +31,8 @@ enum class EndpointKind : std::uint8_t {
     MarkPriceKlines,
     PremiumIndexKlines,
     FundingRate,
-    Metrics
+    Metrics,
+    BookDepth
 };
 
 enum class Cadence : std::uint8_t { Daily, Monthly };
@@ -72,6 +73,9 @@ inline constexpr std::array kEndpoints = {
     // metrics is daily only on both markets. Monthly 404s.
     Endpoint{"futures/um", "metrics", CadenceSupport::DailyOnly, false, 8, kNoColumn},
     Endpoint{"futures/cm", "metrics", CadenceSupport::DailyOnly, false, 8, kNoColumn},
+    // bookDepth is daily only too, and ten rows make one sample.
+    Endpoint{"futures/um", "bookDepth", CadenceSupport::DailyOnly, false, 4, kNoColumn},
+    Endpoint{"futures/cm", "bookDepth", CadenceSupport::DailyOnly, false, 4, kNoColumn},
 };
 
 /// Null when the market does not publish that dataset, such as spot funding.
@@ -99,6 +103,8 @@ inline constexpr const Endpoint* find_endpoint(BinanceMarket market, EndpointKin
                 return "fundingRate";
             case EndpointKind::Metrics:
                 return "metrics";
+            case EndpointKind::BookDepth:
+                return "bookDepth";
         }
         return "";
     }();
@@ -201,6 +207,14 @@ inline constexpr std::uint8_t kToptraderPositionRatio = 5;
 inline constexpr std::uint8_t kAccountLongShortRatio  = 6;
 inline constexpr std::uint8_t kTakerLongShortVolRatio = 7;
 }  // namespace metrics_col
+
+/// bookDepth column indices. Percentage runs -5 to 5, skipping 0.
+namespace book_depth_col {
+inline constexpr std::uint8_t kTimestamp  = 0;
+inline constexpr std::uint8_t kPercentage = 1;
+inline constexpr std::uint8_t kDepth      = 2;
+inline constexpr std::uint8_t kNotional   = 3;
+}  // namespace book_depth_col
 
 namespace funding_col {
 inline constexpr std::uint8_t kCalcTime        = 0;
