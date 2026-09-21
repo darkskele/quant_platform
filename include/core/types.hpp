@@ -1,35 +1,34 @@
 #pragma once
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <type_traits>
 #include <variant>
-#include <vector>
 
 namespace qp {
 
 using Timestamp = std::int64_t;
 using Price     = double;
 using Qty       = double;
+using Notional  = double;
 
 enum class Side : std::uint8_t { Buy, Sell };
 
-struct PriceLevel {
-    Price price{};
-    Qty   qty{};
-};
-
-static_assert(std::is_trivially_copyable_v<PriceLevel>);
-static_assert(sizeof(PriceLevel) == 16, "unexpected padding/size regression");
-
 enum class EventKind : std::uint8_t {
-    BookDiff,
     Trade,
     Funding,
-    BookSnapshot,
     Kline,
     MarkPriceKline,
-    PremiumIndexKline
+    PremiumIndexKline,
+    OpenInterest,
+    BookDepth,
+    END
 };
+
+/// Kinds in EventKind. Masks over kinds size themselves off this, so it moves
+/// with the last enumerator.
+inline constexpr std::size_t kEventKindCount = static_cast<std::size_t>(EventKind::END);
 
 struct EventBase {
     EventKind     kind{};
@@ -41,10 +40,15 @@ struct EventBase {
 
 static_assert(std::is_trivially_copyable_v<EventBase>);
 
+/// One aggressor fill. Side is the taker's. The ids are the venue's, ids first
+/// and side last so the padding falls at the end.
 struct TradeEvent {
-    Side  side{};
-    Price price{};
-    Qty   qty{};
+    std::uint64_t id{};              ///< Aggregate trade id, consecutive per symbol.
+    std::uint64_t first_trade_id{};  ///< First underlying fill folded into this one.
+    std::uint64_t last_trade_id{};   ///< Last underlying fill folded into this one.
+    Price         price{};
+    Qty           qty{};  ///< Contracts on Coin-M, base asset elsewhere.
+    Side          side{};
 };
 
 struct FundingEvent {
@@ -77,32 +81,50 @@ struct PremiumIndexKlineEvent {
     Price     close{};
 };
 
-struct BookLevels {
-    std::vector<PriceLevel> bids;
-    std::vector<PriceLevel> asks;
+/// Binance's metrics dataset, sampled every five minutes. Coin-M publishes the
+/// open interest columns but leaves the three long short ratios empty, so any
+/// ratio here can be NaN and every reader has to check before using one.
+struct OpenInterestEvent {
+    Qty      open_interest{};        ///< Contracts on Coin-M, base asset on USD-M.
+    Notional open_interest_value{};  ///< Same figure in quote terms.
+    double   toptrader_account_ratio{};
+    double   toptrader_position_ratio{};
+    double   account_long_short_ratio{};
+    double   taker_long_short_volume_ratio{};
 };
 
-struct BookDiffEvent {
-    std::uint64_t                     first_seq{};
-    std::uint64_t                     seq{};
-    std::uint64_t                     prev_seq{};
-    std::shared_ptr<const BookLevels> levels;
+static_assert(std::is_trivially_copyable_v<OpenInterestEvent>);
+
+/// Size resting between mid and one band's distance from it. Cumulative, so
+/// band 5 includes everything inside band 1.
+struct DepthBand {
+    Qty      depth{};     ///< Contracts on Coin-M, base asset on USD-M.
+    Notional notional{};  ///< Base coin on Coin-M, quote on USD-M, since Coin-M is inverse.
 };
 
-struct BookSnapshotEvent {
-    std::shared_ptr<const BookLevels> levels;
+/// Binance's bookDepth sample, roughly every 30 seconds. Index k is the band
+/// k + 1 percent from mid. @todo too binance specific, find some way to generalise
+struct BookDepthBands {
+    std::array<DepthBand, 5> bids;
+    std::array<DepthBand, 5> asks;
+};
+
+/// Behind a shared_ptr, so ten bands inline do not widen every MarketEvent to
+/// carry them.
+/// @todo maybe switch for vector when we generalize
+struct BookDepthEvent {
+    std::shared_ptr<const BookDepthBands> bands;
 };
 
 using MarketEventPayload = std::variant<TradeEvent, FundingEvent, KlineEvent, MarkPriceKlineEvent,
-                                        PremiumIndexKlineEvent, BookDiffEvent, BookSnapshotEvent>;
+                                        PremiumIndexKlineEvent, OpenInterestEvent, BookDepthEvent>;
 
 struct MarketEvent {
     EventBase          base{};
     MarketEventPayload payload{};
 };
 
-using OrderId  = std::uint64_t;
-using Notional = double;
+using OrderId = std::uint64_t;
 
 struct Intent {
     std::uint16_t exchange{};

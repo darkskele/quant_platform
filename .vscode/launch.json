@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "All tests (debug)",
+            "name": "All tests - debug",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/debug/qp_tests",
@@ -29,10 +29,10 @@
                     "ignoreFailures": true
                 }
             ],
-            "preLaunchTask": "Build: qp_tests (debug)"
+            "preLaunchTask": "qp_tests - debug"
         },
         {
-            "name": "All tests (release)",
+            "name": "All tests - release",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/release/qp_tests",
@@ -55,13 +55,13 @@
                     "ignoreFailures": true
                 }
             ],
-            "preLaunchTask": "Build: qp_tests (release)"
+            "preLaunchTask": "qp_tests - release"
         },
         {
-            "name": "All benches (release)",
+            "name": "All tests - tsan",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/release/qp_bench",
+            "program": "${workspaceFolder}/build/tsan/qp_tests",
             "args": [],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
@@ -72,6 +72,10 @@
                 {
                     "name": "DEBUGINFOD_URLS",
                     "value": ""
+                },
+                {
+                    "name": "TSAN_OPTIONS",
+                    "value": "suppressions=${workspaceFolder}/tools/sanitizers/tsan.supp:second_deadlock_stack=1:ignore_noninstrumented_modules=1"
                 }
             ],
             "setupCommands": [
@@ -81,10 +85,10 @@
                     "ignoreFailures": true
                 }
             ],
-            "preLaunchTask": "Build: qp_bench (release)"
+            "preLaunchTask": "qp_tests - tsan"
         },
         {
-            "name": "Integration tests",
+            "name": "Integration tests - debug",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/debug/cmake/integration/qp_integration_tests",
@@ -111,10 +115,36 @@
                     "ignoreFailures": true
                 }
             ],
-            "preLaunchTask": "Build: qp_integration_tests (debug)"
+            "preLaunchTask": "qp_integration_tests - debug"
         },
         {
-            "name": "Integration tests (tsan)",
+            "name": "Integration tests - release",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/release/cmake/integration/qp_integration_tests",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "environment": [
+                {
+                    "name": "DEBUGINFOD_URLS",
+                    "value": ""
+                }
+            ],
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "qp_integration_tests - release"
+        },
+        {
+            "name": "Integration tests - tsan",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/tsan/cmake/integration/qp_integration_tests",
@@ -131,7 +161,7 @@
                 },
                 {
                     "name": "TSAN_OPTIONS",
-                    "value": "suppressions=${workspaceFolder}/tools/sanitizers/tsan.supp:second_deadlock_stack=1:history_size=7"
+                    "value": "suppressions=${workspaceFolder}/tools/sanitizers/tsan.supp:second_deadlock_stack=1:ignore_noninstrumented_modules=1"
                 }
             ],
             "setupCommands": [
@@ -141,7 +171,33 @@
                     "ignoreFailures": true
                 }
             ],
-            "preLaunchTask": "Build: qp_integration_tests (tsan)"
+            "preLaunchTask": "qp_integration_tests - tsan"
+        },
+        {
+            "name": "All benches",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/release/qp_bench",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "environment": [
+                {
+                    "name": "DEBUGINFOD_URLS",
+                    "value": ""
+                }
+            ],
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "qp_bench"
         },
         {
             "name": "Python benches",
@@ -153,7 +209,7 @@
             "cwd": "${workspaceFolder}",
             "justMyCode": false,
             "python": "${userHome}/miniconda3/envs/qp-research/bin/python",
-            "preLaunchTask": "Build: qp_python_backtest module (release)"
+            "preLaunchTask": "qp_python_backtest"
         },
         {
             "name": "Python tests",
@@ -165,7 +221,23 @@
             "cwd": "${workspaceFolder}",
             "justMyCode": false,
             "python": "${userHome}/miniconda3/envs/qp-research/bin/python",
-            "preLaunchTask": "Build: qp_python_backtest module (release)"
+            "preLaunchTask": "qp_python_backtest"
+        },
+        {
+            "name": "qp_binance_funding_carry",
+            "type": "node-terminal",
+            "request": "launch",
+            "command": "find build/release -name 'qp_binance_funding_carry.*.so' -exec realpath {} \\;",
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "qp_binance_funding_carry"
+        },
+        {
+            "name": "qp_python_backtest",
+            "type": "node-terminal",
+            "request": "launch",
+            "command": "find build/release -name 'qp_python_backtest.*.so' -exec realpath {} \\;",
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "qp_python_backtest"
         }
     ]
 }

@@ -53,22 +53,21 @@ TEST(FanoutSink, OneRecordFansOutToEveryConsumer) {
     }
 }
 
-TEST(FanoutSink, BookDiffLevelsAreSharedNotDeepCopiedAcrossConsumers) {
+TEST(FanoutSink, BookDepthBandsAreSharedNotDeepCopiedAcrossConsumers) {
     FanoutSink<4, 2> sink;
-    auto             levels =
-        std::make_shared<const qp::BookLevels>(qp::BookLevels{{{100.0, 1.0}}, {{101.0, 1.0}}});
+    auto             bands = std::make_shared<const qp::BookDepthBands>();
 
-    qp::BookDiffEvent ev;
-    ev.levels = levels;
-    sink.record(MarketEvent{.base = {.kind = qp::EventKind::BookDiff}, .payload = ev});
+    qp::BookDepthEvent ev;
+    ev.bands = bands;
+    sink.record(MarketEvent{.base = {.kind = qp::EventKind::BookDepth}, .payload = ev});
 
     auto first  = sink.queue().try_pop(0);
     auto second = sink.queue().try_pop(1);
     ASSERT_TRUE(first.has_value());
     ASSERT_TRUE(second.has_value());
 
-    // Each consumer's popped copy shares the same underlying BookLevels —
-    // a refcount bump, not a deep copy of the price levels.
-    EXPECT_EQ(std::get<qp::BookDiffEvent>(first->payload).levels.get(), levels.get());
-    EXPECT_EQ(std::get<qp::BookDiffEvent>(second->payload).levels.get(), levels.get());
+    // Each consumer's popped copy shares the same underlying bands, a refcount
+    // bump rather than a deep copy.
+    EXPECT_EQ(std::get<qp::BookDepthEvent>(first->payload).bands.get(), bands.get());
+    EXPECT_EQ(std::get<qp::BookDepthEvent>(second->payload).bands.get(), bands.get());
 }

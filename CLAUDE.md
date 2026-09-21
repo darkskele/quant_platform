@@ -8,7 +8,7 @@ A modular C++ trading platform where **backtest and live run the same code**. Ve
 - **Never call the system clock in strategy/risk code.** Time arrives on the pull, as `EngineInput::ts`. Determinism landmine.
 - **Strategies emit `Intent`, not venue calls.** They depend only on `MarketEvent` / `Portfolio` / `Intent`, never a concrete adapter.
 - **Static dispatch on every seam the software controls** (concepts over CRTP). Virtual dispatch only for a rare, config-selected choice off the hot path; no current seam qualifies. No vtable in the feed loop.
-- **Seams first, generality later.** Build concretely; abstract on the third implementation. No plugin framework before a plugin.
+- **Seams first, generality later.** Build concretely; abstract on the second implementation. No plugin framework before a plugin.
 - **Performance is a goal.** No heap allocation, needless copy, or indirection on the per-event/per-tick path. Cache-aware layout where it matters. `span`/`string_view`/`constexpr`/move where they apply.
 - **Data on disk is binary + zstd + partitioned, never JSON.** Record raw/normalized events, not reconstructed snapshots.
 - **Honest costs in `SimExecution`** (fees/funding/slippage/partials). An optimistic fill is how a backtest lies.
@@ -36,4 +36,4 @@ Follow the `writing` skill for every comment and doc. In short: terse, self-cont
 
 ## Build
 - **Don't build or run tests/benchmarks unless explicitly asked.** The user runs those. Exception: an iterative "fix X and verify it" step.
-- When asked: the `test`, `bench`, and `amend` skills build and run directly via Bash. VS Code's cppdbg/gdb launch is flaky under WSL2; plain execution is what works.
+- When asked: the `test` and `amend` skills build and run directly via Bash. VS Code's cppdbg/gdb launch is flaky under WSL2; plain execution is what works.

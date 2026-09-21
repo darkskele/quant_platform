@@ -53,11 +53,11 @@ class PythonBacktestBase : public BacktestBase<Derived> {
 
     void set_event_kinds(const std::vector<EventKind>& kinds) {
         if (kinds.empty()) {
-            event_kind_mask_ = 0xFF;
+            event_kind_mask_ = strategy::python::kAllKinds;
             return;
         }
-        std::uint8_t mask = 0;
-        for (EventKind k : kinds) mask |= static_cast<std::uint8_t>(1u << static_cast<unsigned>(k));
+        strategy::python::KindMask mask = 0;
+        for (EventKind k : kinds) mask |= strategy::python::kind_bit(k);
         event_kind_mask_ = mask;
     }
 
@@ -158,7 +158,7 @@ class PythonBacktestBase : public BacktestBase<Derived> {
     pybind11::object                      check_{pybind11::none()};
     pybind11::object                      on_tick_{pybind11::none()};
     Timestamp                             timer_period_ns_{0};
-    std::uint8_t                          event_kind_mask_{0xFF};
+    strategy::python::KindMask            event_kind_mask_{strategy::python::kAllKinds};
     engine::EquitySeriesCollector         equity_collector_{};
     MakeMatcher                           make_matcher_;
 

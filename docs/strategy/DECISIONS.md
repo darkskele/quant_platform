@@ -8,3 +8,4 @@
 6. Reacts only to `Funding` events on the configured futures leg; other kinds and instruments emit nothing.
 7. `PythonStrategy` acquires the GIL per call and forwards to two `py::object` callables. Single-threaded backtest scope.
 8. A `py::none` callback slot, or a `None` return from a callback, means an empty intent iterable, so a strategy with only `on_event` or only `on_timer` needs no dummy callable.
+9. `PythonStrategy` filters by a kind mask sized off `kEventKindCount` and asserted at compile time, so a new `EventKind` cannot fall past the top bit and be dropped without a word.

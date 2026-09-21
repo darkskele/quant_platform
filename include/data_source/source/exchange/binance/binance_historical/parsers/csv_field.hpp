@@ -2,6 +2,7 @@
 #include <array>
 #include <charconv>
 #include <cstdint>
+#include <limits>
 #include <string_view>
 
 #include "types.hpp"
@@ -43,6 +44,12 @@ inline std::string_view take_field(std::string_view& row) noexcept {
     return field;
 }
 
+/// Text before the first comma, without consuming it. Rows of one group share
+/// it byte for byte, so comparing it finds a group's end without parsing.
+inline std::string_view leading_field(std::string_view row) noexcept {
+    return row.substr(0, row.find(','));
+}
+
 /// Anything the digit scan will not take, including exponents and padding.
 inline bool take_double_slow(std::string_view& row, double& out) noexcept {
     const auto  field = take_field(row);
@@ -76,6 +83,32 @@ inline bool take_decimal(std::string_view& row, double& out) noexcept {
     out = static_cast<double>(mantissa) / kPow10[scale];
     if (negative) out = -out;
     row.remove_prefix(p == end ? row.size() : static_cast<std::size_t>(p - begin) + 1);
+    return true;
+}
+
+/// A blank field is a figure the venue did not publish.
+/// Coin-M metrics leaves its three long short ratios empty
+/// on every row. NaN insteadX.
+inline bool take_optional_decimal(std::string_view& row, double& out) noexcept {
+    if (row.empty() || row.front() == ',') {
+        if (!row.empty()) row.remove_prefix(1);
+        out = std::numeric_limits<double>::quiet_NaN();
+        return true;
+    }
+    return take_decimal(row, out);
+}
+
+/// true or false in either case. Futures write lowercase and spot capitalises.
+inline bool take_bool(std::string_view& row, bool& out) noexcept {
+    const auto comma = row.find(',');
+    const auto field = row.substr(0, comma);
+    if (field == "true" || field == "True")
+        out = true;
+    else if (field == "false" || field == "False")
+        out = false;
+    else
+        return false;
+    row.remove_prefix(comma == std::string_view::npos ? row.size() : comma + 1);
     return true;
 }
 
@@ -114,6 +147,69 @@ inline bool take_stamp(std::string_view& row, Timestamp& out) noexcept {
 
     out = to_nanos(raw);
     row.remove_prefix(p == end ? row.size() : static_cast<std::size_t>(p - begin) + 1);
+    return true;
+}
+
+/// Days since the unix epoch, Howard Hinnant's civil calendar algorithm.
+inline constexpr std::int64_t days_from_civil(int y, int m, int d) noexcept {
+    y -= m <= 2;
+    const std::int64_t era = (y >= 0 ? y : y - 399) / 400;
+    const auto         yoe = static_cast<unsigned>(y - era * 400);
+    const auto         doy = static_cast<unsigned>((153 * (m + (m > 2 ? -3 : 9)) + 2) / 5 + d - 1);
+    const auto         doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    return era * 146'097 + static_cast<std::int64_t>(doe) - 719'468;
+}
+
+inline constexpr int days_in_month(int year, int month) noexcept {
+    constexpr int kDays[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    if (month < 1 || month > 12) return 0;
+    const bool leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
+    return month == 2 && leap ? 29 : kDays[month - 1];
+}
+
+/// Fixed width digit run, the only shape the datetime columns ever take.
+inline constexpr bool fixed_digits(std::string_view field, std::size_t pos, std::size_t count,
+                                   int& out) noexcept {
+    int value = 0;
+    for (std::size_t i = 0; i < count; ++i) {
+        const char c = field[pos + i];
+        if (!is_digit(c)) return false;
+        value = value * 10 + (c - '0');
+    }
+    out = value;
+    return true;
+}
+
+/// YYYY-MM-DD HH:MM:SS, the stamp the metrics and bookDepth datasets write.
+/// Every other dataset is epoch millis or micros, which take_stamp handles.
+/// UTC, since that is the only zone the bucket publishes in.
+inline bool take_datetime(std::string_view& row, Timestamp& out) noexcept {
+    constexpr std::size_t kWidth = 19;
+    if (row.size() < kWidth) return false;
+
+    const auto field = row.substr(0, kWidth);
+    if (field[4] != '-' || field[7] != '-' || field[10] != ' ' || field[13] != ':' ||
+        field[16] != ':')
+        return false;
+
+    int year{}, month{}, day{}, hour{}, minute{}, second{};
+    if (!fixed_digits(field, 0, 4, year) || !fixed_digits(field, 5, 2, month) ||
+        !fixed_digits(field, 8, 2, day) || !fixed_digits(field, 11, 2, hour) ||
+        !fixed_digits(field, 14, 2, minute) || !fixed_digits(field, 17, 2, second))
+        return false;
+
+    // Leap seconds are not in these files, so 60 is a malformed row and not a
+    // real instant.
+    if (day < 1 || day > days_in_month(year, month)) return false;
+    if (hour > 23 || minute > 59 || second > 59) return false;
+
+    // A longer field is a different format, not this one with a tail.
+    if (row.size() > kWidth && row[kWidth] != ',') return false;
+
+    const std::int64_t days = days_from_civil(year, month, day);
+    const std::int64_t secs = days * 86'400LL + hour * 3'600LL + minute * 60LL + second;
+    out                     = secs * 1'000'000'000LL;
+    row.remove_prefix(row.size() > kWidth ? kWidth + 1 : kWidth);
     return true;
 }
 

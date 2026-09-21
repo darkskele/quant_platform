@@ -51,12 +51,6 @@ if(QP_BUILD_BENCHMARKS)
     FetchContent_MakeAvailable(googlebenchmark)
 endif()
 
-add_custom_target(qp_all_tests)
-function(qp_register_test name)
-    add_test(NAME ${name} COMMAND ${name})
-    add_dependencies(qp_all_tests ${name})
-endfunction()
-
 option(QP_BUILD_PYTHON "Build the Python bindings" OFF)
 if(QP_BUILD_PYTHON)
     # Use the modern FindPython instead of pybind11's deprecated
@@ -98,12 +92,15 @@ if(BUILD_TESTING)
     # Every test_*.cpp under tests/. CONFIGURE_DEPENDS re-globs at build
     # time, so a new file needs no edit here.
     file(GLOB_RECURSE QP_TEST_SRCS CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/tests/test_*.cpp)
-    # tests/*/python/ needs pybind11 and its own embed-linking target, so
-    # it stays out of this aggregate.
-    list(FILTER QP_TEST_SRCS EXCLUDE REGEX "/python/")
-    # tests/integration/ hits the network and runs for minutes, so it is its
-    # own binary rather than part of the fast suite.
+    # Anything hitting the network runs for minutes, so it lives in the
+    # integration binary rather than the fast suite.
     list(FILTER QP_TEST_SRCS EXCLUDE REGEX "/integration/")
+    list(FILTER QP_TEST_SRCS EXCLUDE REGEX "_integration\\.cpp$")
+    # The python tests need an embedded interpreter, so they only join when the
+    # bindings are built.
+    if(NOT QP_BUILD_PYTHON)
+        list(FILTER QP_TEST_SRCS EXCLUDE REGEX "/python/")
+    endif()
     add_executable(qp_tests ${QP_TEST_SRCS})
     target_link_libraries(qp_tests PRIVATE
         qp_core qp_core_test_support qp_execution qp_execution_sim
@@ -115,6 +112,21 @@ if(BUILD_TESTING)
         qp_risk_test_support qp_risk_basic qp_engine_test_support
         qp_backtest_compose Threads::Threads GTest::gtest GTest::gtest_main
     )
+    add_test(NAME qp_tests COMMAND qp_tests)
+
+    if(QP_BUILD_PYTHON)
+        # One interpreter and one set of test types for every python test in
+        # the binary. pybind refuses a type registered twice in one process.
+        target_sources(qp_tests PRIVATE ${CMAKE_SOURCE_DIR}/tests/support/python_test_types.cpp)
+        target_include_directories(qp_tests PRIVATE ${CMAKE_SOURCE_DIR}/include/apps/backtest)
+        target_link_libraries(qp_tests PRIVATE qp_risk_python qp_strategy_python pybind11::embed)
+        # pybind's types are hidden, so anything holding a py::object has to be
+        # too, or every such class warns.
+        set_target_properties(qp_tests PROPERTIES CXX_VISIBILITY_PRESET hidden)
+        # The interpreter leaks by design at exit, which LeakSanitizer reports.
+        set_tests_properties(qp_tests PROPERTIES ENVIRONMENT
+            "LSAN_OPTIONS=suppressions=${CMAKE_SOURCE_DIR}/tools/sanitizers/lsan_python.supp")
+    endif()
 endif()
 
 if(QP_BUILD_BENCHMARKS)
@@ -142,6 +154,9 @@ if(QP_BUILD_BENCHMARKS)
 endif()
 
 if(QP_BUILD_PYTHON)
-    pybind11_add_module(qp_backtest src/apps/backtest/funding_carry/bindings.cpp)
-    target_link_libraries(qp_backtest PRIVATE qp_backtest_compose)
+    pybind11_add_module(qp_binance_funding_carry src/apps/backtest/funding_carry/bindings.cpp)
+    target_link_libraries(qp_binance_funding_carry PRIVATE
+        qp_backtest_compose
+        qp_core_bindings qp_engine_bindings qp_risk_basic_bindings qp_strategy_carry_bindings
+    )
 endif()

@@ -284,7 +284,7 @@ def run(years, workers, tier):
     if tier == "no python":
         # A kind this run never produces, so the mask short circuits before the
         # GIL is taken and nothing crosses the boundary at all.
-        backtest.set_event_kinds([EventKind.BookDiff])
+        backtest.set_event_kinds([EventKind.BookDepth])
     else:
         backtest.set_on_event(on_event)
     if tier == "strategy":

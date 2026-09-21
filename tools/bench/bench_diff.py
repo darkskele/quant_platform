@@ -4,11 +4,16 @@ render a Markdown table of real_time/cpu_time deltas, matched by benchmark
 name (run_name, falling back to name — stable across runs, unlike
 family_index which is reassigned fresh per report).
 
-A delta only counts as a real diff, not WSL2 noise, if it clears BOTH a
-relative and an absolute floor (default 5% and 1.5 ns) on real_time OR
-cpu_time — relative alone misflags sub-nanosecond benchmarks (0.15 ns ->
-0.17 ns is "+13%" and pure jitter); absolute alone misflags large
-benchmarks where 5% is a big number of ns but nothing changed structurally.
+A delta only counts as a real diff, not WSL2 noise, if it passes three tests
+on real_time OR cpu_time. First the whole suite's shift is divided out: the
+median current/baseline ratio across every shared benchmark is machine state,
+not code, since one change cannot move every benchmark at once. Then the
+corrected delta has to clear BOTH a relative and an absolute floor (default 5%
+and 1.5 ns), since relative alone misflags sub-nanosecond benchmarks and
+absolute alone misflags large ones. Then it has to sit outside sigma (default 2)
+standard deviations of the two runs' combined repetition spread, so a benchmark
+that jitters widely has to move further to count. A report without repetitions
+has no spread, and only the floors apply.
 Rows clearing neither are counted, not shown — the table is the thing
 worth reading before a commit, not a full noise-included dump (that's what
 the tracked bench_results.json is for). Rows sorted worst regression
@@ -21,9 +26,18 @@ diffed. A benchmark present in only one report is listed separately
 
 import argparse
 import json
+import math
+import statistics
 import sys
 
 _UNIT_TO_NS = {"ns": 1, "us": 1e3, "ms": 1e6, "s": 1e9}
+
+
+def _spread(report: dict) -> dict[str, dict]:
+    """The stddev aggregate per benchmark, where repetitions produced one."""
+    return {case.get("run_name", case.get("name", "")): case
+            for case in report.get("benchmarks", [])
+            if case.get("aggregate_name") == "stddev"}
 
 
 def _index(report: dict) -> dict[str, dict]:
@@ -59,32 +73,57 @@ def _pct(base: float, cur: float) -> float:
     return ((cur - base) / base * 100) if base else 0.0
 
 
-def _clears(base: float, cur: float, threshold_pct: float, threshold_ns: float) -> bool:
-    return abs(cur - base) >= threshold_ns and abs(_pct(base, cur)) >= threshold_pct
+def _clears(base: float, cur: float, spread: float, threshold_pct: float, threshold_ns: float,
+            sigma: float) -> bool:
+    delta = abs(cur - base)
+    return (delta >= threshold_ns and abs(_pct(base, cur)) >= threshold_pct
+            and delta > sigma * spread)
 
 
-def diff(baseline: dict, current: dict, threshold_pct: float, threshold_ns: float) -> str:
-    base_index = _index(baseline)
-    cur_index  = _index(current)
+def _drift(base_index: dict, cur_index: dict, shared: list[str], field: str) -> float:
+    """Median current/baseline ratio, the part of every delta that is the machine."""
+    ratios = [_ns(cur_index[label], field) / _ns(base_index[label], field)
+              for label in shared if _ns(base_index[label], field) > 0]
+    return statistics.median(ratios) if ratios else 1.0
+
+
+def _sd(spread: dict, label: str, field: str) -> float:
+    case = spread.get(label)
+    return _ns(case, field) if case else 0.0
+
+
+def diff(baseline: dict, current: dict, threshold_pct: float, threshold_ns: float,
+         sigma: float = 2.0) -> str:
+    base_index, base_spread = _index(baseline), _spread(baseline)
+    cur_index, cur_spread   = _index(current), _spread(current)
 
     shared  = [label for label in cur_index if label in base_index]
     added   = [label for label in cur_index if label not in base_index]
     removed = [label for label in base_index if label not in cur_index]
 
+    drift_real = _drift(base_index, cur_index, shared, "real_time")
+    drift_cpu  = _drift(base_index, cur_index, shared, "cpu_time")
+
     rows = []
     noise = 0
     for label in shared:
         base, cur = base_index[label], cur_index[label]
-        base_real, cur_real = _ns(base, "real_time"), _ns(cur, "real_time")
-        base_cpu, cur_cpu   = _ns(base, "cpu_time"), _ns(cur, "cpu_time")
-        if not (_clears(base_real, cur_real, threshold_pct, threshold_ns) or
-                _clears(base_cpu, cur_cpu, threshold_pct, threshold_ns)):
+        base_real, cur_real = _ns(base, "real_time"), _ns(cur, "real_time") / drift_real
+        base_cpu, cur_cpu   = _ns(base, "cpu_time"), _ns(cur, "cpu_time") / drift_cpu
+        spread_real = math.hypot(_sd(base_spread, label, "real_time"),
+                                 _sd(cur_spread, label, "real_time") / drift_real)
+        spread_cpu  = math.hypot(_sd(base_spread, label, "cpu_time"),
+                                 _sd(cur_spread, label, "cpu_time") / drift_cpu)
+        if not (_clears(base_real, cur_real, spread_real, threshold_pct, threshold_ns, sigma) or
+                _clears(base_cpu, cur_cpu, spread_cpu, threshold_pct, threshold_ns, sigma)):
             noise += 1
             continue
         rows.append((label, base_real, cur_real, base_cpu, cur_cpu))
     rows.sort(key=lambda r: _pct(r[1], r[2]), reverse=True)
 
-    lines = ["## Benchmark diff (current vs. HEAD)", ""]
+    lines = ["## Benchmark diff (current vs. HEAD)", "",
+             f"Suite-wide drift x{drift_real:.2f} real, x{drift_cpu:.2f} cpu (median "
+             f"current/baseline), divided out below. Current columns are corrected.", ""]
     if rows:
         headers = ["Benchmark", "Baseline", "Current", "Δ Time", "Baseline CPU", "Current CPU", "Δ CPU"]
         lines += ["| " + " | ".join(headers) + " |", "| " + " | ".join(["---"] * len(headers)) + " |"]
@@ -96,8 +135,8 @@ def diff(baseline: dict, current: dict, threshold_pct: float, threshold_ns: floa
     else:
         lines.append("*No benchmarks changed beyond the noise floor.*")
 
-    lines += ["", f"{noise} benchmark(s) unchanged (within noise floor: "
-                  f"<{threshold_ns:g} ns or <{threshold_pct:g}%)."]
+    lines += ["", f"{noise} benchmark(s) unchanged (within noise: <{threshold_ns:g} ns, "
+                  f"<{threshold_pct:g}%, or inside {sigma:g} sigma of the runs' spread)."]
 
     if added:
         lines += ["", f"**Added** ({len(added)}): " + ", ".join(sorted(added))]
@@ -115,6 +154,8 @@ def main() -> int:
                          help="relative noise floor, %% (default 5.0)")
     parser.add_argument("--threshold-ns", type=float, default=1.5,
                          help="absolute noise floor, ns (default 1.5)")
+    parser.add_argument("--sigma", type=float, default=2.0,
+                         help="combined stddevs a delta must exceed (default 2.0)")
     parser.add_argument("-o", "--out", help="Markdown file to write (default: stdout)")
     args = parser.parse_args()
 
@@ -123,7 +164,7 @@ def main() -> int:
     with open(args.current_json) as f:
         current = json.load(f)
 
-    body = diff(baseline, current, args.threshold_pct, args.threshold_ns)
+    body = diff(baseline, current, args.threshold_pct, args.threshold_ns, args.sigma)
     if args.out:
         with open(args.out, "w") as f:
             f.write(body)

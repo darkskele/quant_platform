@@ -10,7 +10,7 @@
 using qp::ExchangeId;
 using qp::Subscription;
 using qp::SubscriptionBuilder;
-using qp::test::make_book_diff;
+using qp::test::make_book_depth;
 using qp::test::make_fill;
 using qp::test::make_funding;
 using qp::test::make_mark_price_kline;
@@ -147,10 +147,10 @@ TEST(Portfolio, ApplyMarkPriceIgnoresFundingEvents) {
     EXPECT_DOUBLE_EQ(portfolio.equity(), portfolio.cash());
 }
 
-TEST(Portfolio, ApplyMarkPriceIgnoresBookDiffEvents) {
+TEST(Portfolio, ApplyMarkPriceIgnoresBookDepthEvents) {
     Portfolio portfolio{make_subscription()};
     portfolio.apply_fill(make_fill(1, qp::Side::Buy, 2.0, 100.0));
-    portfolio.apply_mark_price(make_book_diff(1, 0, 0, 0, 0));
+    portfolio.apply_mark_price(make_book_depth(1, 0));
 
     EXPECT_DOUBLE_EQ(portfolio.equity(), portfolio.cash());
 }

@@ -63,14 +63,11 @@ template <bool UseHeap>
 void BM_Spmc_PushTryPopMarketEvent(benchmark::State& state) {
     qp::SpmcQueue<qp::MarketEvent, 1024, 1, UseHeap> queue;
 
-    qp::BookDiffEvent seed;
-    seed.levels = std::make_shared<const qp::BookLevels>(qp::BookLevels{
-        {{100.00, 1.0}, {99.50, 2.0}, {99.00, 0.5}},
-        {{100.50, 1.5}, {101.00, 0.75}},
-    });
+    qp::BookDepthEvent seed;
+    seed.bands = std::make_shared<const qp::BookDepthBands>();
 
     for (auto _ : state) {
-        queue.push(qp::MarketEvent{.base = {.kind = qp::EventKind::BookDiff}, .payload = seed});
+        queue.push(qp::MarketEvent{.base = {.kind = qp::EventKind::BookDepth}, .payload = seed});
         auto v = queue.try_pop(0);
         benchmark::DoNotOptimize(v);
     }

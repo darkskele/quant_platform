@@ -11,9 +11,12 @@
 #include "fetch_pool.hpp"
 #include "http_fetch_pool.hpp"
 #include "listing.hpp"
+#include "parsers/agg_trades.hpp"
+#include "parsers/book_depth.hpp"
 #include "parsers/funding.hpp"
 #include "parsers/klines.hpp"
 #include "parsers/mark_klines.hpp"
+#include "parsers/metrics.hpp"
 #include "parsers/premium_klines.hpp"
 #include "source.hpp"
 #include "stream.hpp"
@@ -96,6 +99,9 @@ class BinanceHistoricalSource {
         plan_range(mark_, lister);
         plan_range(premium_, lister);
         plan_range(funding_, lister);
+        plan_range(metrics_, lister);
+        plan_range(book_depth_, lister);
+        plan_range(agg_trades_, lister);
     }
 
     /// Earliest buffered event across every stream. NoData while any unfinished
@@ -138,11 +144,14 @@ class BinanceHistoricalSource {
         collect(mark_, out);
         collect(premium_, out);
         collect(funding_, out);
+        collect(metrics_, out);
+        collect(book_depth_, out);
+        collect(agg_trades_, out);
         return out;
     }
 
    private:
-    template <parsers::RowParser P>
+    template <parsers::Parser P>
     using Stream = BinanceHistoricalStream<P, Pool>;
 
     /// One buffered event, the stream's place in the merge.
@@ -162,14 +171,14 @@ class BinanceHistoricalSource {
 
     /// The market slot and the lookahead travel with the stream, so nothing has
     /// to keep a parallel array in step with it.
-    template <parsers::RowParser P>
+    template <parsers::Parser P>
     struct Held {
         std::unique_ptr<Stream<P>> stream;
         std::uint16_t              market{};
         Slot                       slot;
     };
 
-    template <parsers::RowParser P>
+    template <parsers::Parser P>
     using Streams = std::vector<Held<P>>;
 
     void build_streams(const Subscription& universe) {
@@ -209,10 +218,19 @@ class BinanceHistoricalSource {
             case EndpointKind::FundingRate:
                 add(funding_, path, spec, symbol, instrument);
                 break;
+            case EndpointKind::Metrics:
+                add(metrics_, path, spec, symbol, instrument);
+                break;
+            case EndpointKind::BookDepth:
+                add(book_depth_, path, spec, symbol, instrument);
+                break;
+            case EndpointKind::AggTrades:
+                add(agg_trades_, path, spec, symbol, instrument);
+                break;
         }
     }
 
-    template <parsers::RowParser P>
+    template <parsers::Parser P>
     void add(Streams<P>& streams, BinanceMarket path, const StreamSpec& spec,
              const std::string& symbol, Subscription::Instrument instrument) {
         // Spot publishes no funding, mark or premium, so those are simply not
@@ -221,7 +239,8 @@ class BinanceHistoricalSource {
         if (entry == nullptr) return;
 
         // Falls back rather than building a path the dataset does not publish.
-        const auto cadence = supports(*entry, config_.cadence) ? config_.cadence : Cadence::Monthly;
+        const auto cadence =
+            supports(*entry, config_.cadence) ? config_.cadence : fallback_cadence(*entry);
 
         streams.push_back(
             Held<P>{.stream = std::make_unique<Stream<P>>(pool_, path, cadence, symbol,
@@ -231,7 +250,7 @@ class BinanceHistoricalSource {
                     .slot   = {}});
     }
 
-    template <parsers::RowParser P, class Lister>
+    template <parsers::Parser P, class Lister>
     void plan_range(Streams<P>& streams, Lister& lister) {
         for (auto& held : streams)
             held.stream->plan(lister(held.stream->prefix()), config_.from, config_.to);
@@ -252,6 +271,12 @@ class BinanceHistoricalSource {
                 return load(premium_[cursor.slot]);
             case EndpointKind::FundingRate:
                 return load(funding_[cursor.slot]);
+            case EndpointKind::Metrics:
+                return load(metrics_[cursor.slot]);
+            case EndpointKind::BookDepth:
+                return load(book_depth_[cursor.slot]);
+            case EndpointKind::AggTrades:
+                return load(agg_trades_[cursor.slot]);
         }
         return false;
     }
@@ -267,11 +292,17 @@ class BinanceHistoricalSource {
                 return premium_[cursor.slot].stream->finished();
             case EndpointKind::FundingRate:
                 return funding_[cursor.slot].stream->finished();
+            case EndpointKind::Metrics:
+                return metrics_[cursor.slot].stream->finished();
+            case EndpointKind::BookDepth:
+                return book_depth_[cursor.slot].stream->finished();
+            case EndpointKind::AggTrades:
+                return agg_trades_[cursor.slot].stream->finished();
         }
         return true;
     }
 
-    template <parsers::RowParser P>
+    template <parsers::Parser P>
     static bool load(Held<P>& held) {
         if (!held.slot.loaded) held.slot.loaded = held.stream->next(held.slot.event);
         return held.slot.loaded;
@@ -290,6 +321,9 @@ class BinanceHistoricalSource {
         add(mark_, EndpointKind::MarkPriceKlines);
         add(premium_, EndpointKind::PremiumIndexKlines);
         add(funding_, EndpointKind::FundingRate);
+        add(metrics_, EndpointKind::Metrics);
+        add(book_depth_, EndpointKind::BookDepth);
+        add(agg_trades_, EndpointKind::AggTrades);
 
         // Every stream is in exactly one of pending_ or heap_, or dropped once
         // finished, so neither grows past this and neither reallocates again.
@@ -298,7 +332,7 @@ class BinanceHistoricalSource {
         heap_.reserve(cursors_.size());
     }
 
-    template <parsers::RowParser P>
+    template <parsers::Parser P>
     void collect(const Streams<P>& streams, std::vector<StreamReport>& out) const {
         for (const auto& held : streams)
             out.push_back(StreamReport{.market   = held.market,
@@ -315,6 +349,9 @@ class BinanceHistoricalSource {
     Streams<parsers::MarkPriceKlineParser>    mark_;
     Streams<parsers::PremiumIndexKlineParser> premium_;
     Streams<parsers::FundingParser>           funding_;
+    Streams<parsers::MetricsParser>           metrics_;
+    Streams<parsers::BookDepthParser>         book_depth_;
+    Streams<parsers::AggTradesParser>         agg_trades_;
 
     std::vector<Cursor> cursors_;
     std::vector<Slot*>  slots_;

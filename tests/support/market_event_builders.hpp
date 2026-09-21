@@ -1,48 +1,30 @@
 #pragma once
+#include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <utility>
-#include <vector>
 
 #include "types.hpp"
 
 namespace qp::test {
 
-inline MarketEvent make_book_diff(std::uint16_t symbol, Timestamp ts, std::uint64_t first_seq,
-                                  std::uint64_t seq, std::uint64_t prev_seq,
-                                  std::vector<PriceLevel> bids   = {},
-                                  std::vector<PriceLevel> asks   = {},
-                                  std::uint16_t              market = 0,
-                                  std::uint16_t              exchange = 0) {
-    MarketEvent ev;
-    ev.base    = {.kind     = EventKind::BookDiff,
-                  .exchange = exchange,
-                  .market   = market,
-                  .symbol   = symbol,
-                  .ts       = ts};
-    ev.payload = BookDiffEvent{
-        .first_seq = first_seq,
-        .seq       = seq,
-        .prev_seq  = prev_seq,
-        .levels    = std::make_shared<BookLevels>(BookLevels{std::move(bids), std::move(asks)}),
-    };
-    return ev;
-}
+/// A bookDepth sample with every band populated, so a consumer that should
+/// ignore it has real bands to ignore.
+inline MarketEvent make_book_depth(std::uint16_t symbol, Timestamp ts, std::uint16_t market = 0,
+                                   std::uint16_t exchange = 0) {
+    BookDepthBands bands{};
+    for (std::size_t k = 0; k < bands.bids.size(); ++k) {
+        const double scale = static_cast<double>(k + 1);
+        bands.bids[k]      = DepthBand{.depth = 10.0 * scale, .notional = 1000.0 * scale};
+        bands.asks[k]      = DepthBand{.depth = 12.0 * scale, .notional = 1200.0 * scale};
+    }
 
-inline MarketEvent make_book_snapshot(std::uint16_t symbol, Timestamp ts,
-                                      std::vector<PriceLevel> bids   = {},
-                                      std::vector<PriceLevel> asks   = {},
-                                      std::uint16_t              market = 0,
-                                      std::uint16_t              exchange = 0) {
     MarketEvent ev;
-    ev.base    = {.kind     = EventKind::BookSnapshot,
+    ev.base    = {.kind     = EventKind::BookDepth,
                   .exchange = exchange,
                   .market   = market,
                   .symbol   = symbol,
                   .ts       = ts};
-    ev.payload = BookSnapshotEvent{
-        .levels = std::make_shared<BookLevels>(BookLevels{std::move(bids), std::move(asks)}),
-    };
+    ev.payload = BookDepthEvent{.bands = std::make_shared<const BookDepthBands>(bands)};
     return ev;
 }
 
@@ -55,7 +37,7 @@ inline MarketEvent make_trade(std::uint16_t symbol, Timestamp ts, Price price, Q
                   .market   = market,
                   .symbol   = symbol,
                   .ts       = ts};
-    ev.payload = TradeEvent{.side = side, .price = price, .qty = qty};
+    ev.payload = TradeEvent{.price = price, .qty = qty, .side = side};
     return ev;
 }
 
@@ -99,11 +81,8 @@ inline MarketEvent make_mark_price_kline(std::uint16_t symbol, Timestamp open_ti
                   .market   = market,
                   .symbol   = symbol,
                   .ts       = open_time};
-    ev.payload = MarkPriceKlineEvent{.close_time = close_time,
-                                     .open       = open,
-                                     .high       = high,
-                                     .low        = low,
-                                     .close      = close};
+    ev.payload = MarkPriceKlineEvent{
+        .close_time = close_time, .open = open, .high = high, .low = low, .close = close};
     return ev;
 }
 

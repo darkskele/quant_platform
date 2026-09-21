@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <string>
+#include <utility>
+#include <variant>
 #include <vector>
 
 #include "binance_historical_source.hpp"
@@ -65,6 +67,24 @@ std::string funding_file(const std::vector<long long>& calc_times_ms) {
     for (auto ms : calc_times_ms) {
         out += std::to_string(ms);
         out += ",8,0.0001\n";
+    }
+    return out;
+}
+
+/// Datetime stamped rows, the shape metrics publishes. Minutes are enough to
+/// separate samples inside one day.
+std::string metrics_file(const std::vector<int>& minutes, std::string_view symbol = "BTCUSDT") {
+    std::string out =
+        "create_time,symbol,sum_open_interest,sum_open_interest_value,"
+        "count_toptrader_long_short_ratio,sum_toptrader_long_short_ratio,count_long_short_ratio,"
+        "sum_taker_long_short_vol_ratio\n";
+    for (auto minute : minutes) {
+        out += "2024-01-01 00:";
+        out += minute < 10 ? "0" : "";
+        out += std::to_string(minute);
+        out += ":00,";
+        out += symbol;
+        out += ",100.5,2000000.25,1.1,1.2,1.3,1.4\n";
     }
     return out;
 }
@@ -280,4 +300,199 @@ TEST(BinanceSource, FundingStaysMonthlyUnderADailyConfig) {
 
     ASSERT_EQ(seen.size(), 1u);
     EXPECT_EQ(seen.front(), "data/futures/um/monthly/fundingRate/BTCUSDT/");
+}
+
+// 2024-01-01 00:00 and 00:05 UTC, the stamps metrics_file writes.
+namespace {
+constexpr Timestamp kJan1         = 1704067200LL * 1'000'000'000LL;
+constexpr Timestamp kJan1Plus5Min = kJan1 + 300LL * 1'000'000'000LL;
+}  // namespace
+
+TEST(BinanceSource, MetricsMergesWithKlinesInTimestampOrder) {
+    const auto subs = universe({"BTCUSDT"});
+    Source     source(config({{EndpointKind::Klines, "1h"}, {EndpointKind::Metrics, ""}}), subs);
+    auto&      pool = source.pool();
+    source.plan_with(single_file_lister());
+
+    ASSERT_FALSE(source.next().has_value());
+    deliver_all(pool, {kline_file({1704067200000}), metrics_file({0, 5})});
+
+    std::vector<std::pair<Timestamp, EventKind>> seen;
+    for (;;) {
+        auto pulled = source.next();
+        if (!pulled) {
+            ASSERT_EQ(pulled.error(), SourceStatus::Eof);
+            break;
+        }
+        seen.push_back({pulled->base.ts, pulled->base.kind});
+    }
+
+    ASSERT_EQ(seen.size(), 3u);
+    EXPECT_TRUE(std::is_sorted(seen.begin(), seen.end(),
+                               [](const auto& a, const auto& b) { return a.first < b.first; }));
+    EXPECT_EQ(seen.back().first, kJan1Plus5Min);
+    EXPECT_EQ(seen.back().second, EventKind::OpenInterest);
+}
+
+TEST(BinanceSource, MetricsCarriesItsPayload) {
+    const auto subs = universe({"BTCUSDT"});
+    Source     source(config({{EndpointKind::Metrics, ""}}), subs);
+    auto&      pool = source.pool();
+    source.plan_with(single_file_lister());
+
+    ASSERT_FALSE(source.next().has_value());
+    ASSERT_TRUE(pool.deliver(metrics_file({0})));
+
+    auto pulled = source.next();
+    ASSERT_TRUE(pulled.has_value());
+    EXPECT_EQ(pulled->base.ts, kJan1);
+    const auto* payload = std::get_if<qp::OpenInterestEvent>(&pulled->payload);
+    ASSERT_NE(payload, nullptr);
+    EXPECT_DOUBLE_EQ(payload->open_interest, 100.5);
+    EXPECT_DOUBLE_EQ(payload->open_interest_value, 2000000.25);
+}
+
+// Spot publishes no metrics, so the stream is simply not built, the same way
+// spot funding is skipped.
+TEST(BinanceSource, SpotMetricsBuildsNoStream) {
+    const auto subs = universe({"BTCUSDT"}, kSpot);
+    Source     source(config({{EndpointKind::Klines, "1h"}, {EndpointKind::Metrics, ""}}), subs);
+
+    EXPECT_EQ(source.stream_count(), 1u);
+}
+
+// metrics is daily only. Asking for monthly must plan daily rather than build a
+// monthly prefix that 404s.
+TEST(BinanceSource, MetricsFallsBackToDailyWhenMonthlyAsked) {
+    const auto subs = universe({"BTCUSDT"});
+    Source     source(
+        config({{EndpointKind::Klines, "1h"}, {EndpointKind::Metrics, ""}}, Cadence::Monthly),
+        subs);
+
+    std::vector<std::string> prefixes;
+    source.plan_with([&prefixes](std::string_view prefix) {
+        prefixes.emplace_back(prefix);
+        return std::vector<std::string>{};
+    });
+
+    ASSERT_EQ(prefixes.size(), 2u);
+    const auto metrics = std::find_if(prefixes.begin(), prefixes.end(), [](const std::string& p) {
+        return p.find("metrics") != std::string::npos;
+    });
+    ASSERT_NE(metrics, prefixes.end());
+    EXPECT_NE(metrics->find("/daily/"), std::string::npos) << *metrics;
+
+    // The kline stream asked for monthly and gets it, so the fallback is per
+    // endpoint and not a global downgrade.
+    const auto klines = std::find_if(prefixes.begin(), prefixes.end(), [](const std::string& p) {
+        return p.find("klines") != std::string::npos;
+    });
+    ASSERT_NE(klines, prefixes.end());
+    EXPECT_NE(klines->find("/monthly/"), std::string::npos) << *klines;
+}
+
+namespace {
+
+/// One full bookDepth sample at 2024-01-01 00:<minute>:00.
+std::string depth_file(const std::vector<int>& minutes) {
+    std::string out = "timestamp,percentage,depth,notional\n";
+    for (auto minute : minutes)
+        for (int band : {-5, -4, -3, -2, -1, 1, 2, 3, 4, 5}) {
+            out += "2024-01-01 00:";
+            out += minute < 10 ? "0" : "";
+            out += std::to_string(minute);
+            out += ":00,";
+            out += std::to_string(band);
+            out += ",10.0,1000.0\n";
+        }
+    return out;
+}
+
+}  // namespace
+
+// A grouped stream sits in the merge like any other, one event per sample.
+TEST(BinanceSource, BookDepthMergesWithMetrics) {
+    const auto subs = universe({"BTCUSDT"});
+    Source     source(config({{EndpointKind::Metrics, ""}, {EndpointKind::BookDepth, ""}}), subs);
+    auto&      pool = source.pool();
+    source.plan_with(single_file_lister());
+
+    ASSERT_FALSE(source.next().has_value());
+    deliver_all(pool, {metrics_file({0, 5}), depth_file({1, 3})});
+
+    std::vector<std::pair<Timestamp, EventKind>> seen;
+    for (;;) {
+        auto pulled = source.next();
+        if (!pulled) {
+            ASSERT_EQ(pulled.error(), SourceStatus::Eof);
+            break;
+        }
+        if (pulled->base.kind == EventKind::BookDepth) {
+            const auto* depth = std::get_if<qp::BookDepthEvent>(&pulled->payload);
+            ASSERT_NE(depth, nullptr);
+            ASSERT_NE(depth->bands, nullptr);
+        }
+        seen.push_back({pulled->base.ts, pulled->base.kind});
+    }
+
+    constexpr Timestamp                                kMinute  = 60LL * 1'000'000'000LL;
+    const std::vector<std::pair<Timestamp, EventKind>> expected = {
+        {kJan1, EventKind::OpenInterest},
+        {kJan1 + kMinute, EventKind::BookDepth},
+        {kJan1 + 3 * kMinute, EventKind::BookDepth},
+        {kJan1Plus5Min, EventKind::OpenInterest},
+    };
+    EXPECT_EQ(seen, expected);
+}
+
+namespace {
+
+/// Spot's shape, headerless with the eighth column, at 2024-01-01 00:00:<second>.
+std::string spot_trades_file(const std::vector<int>& seconds) {
+    std::string out;
+    int         id = 1;
+    for (auto second : seconds) {
+        out += std::to_string(id);
+        out += ",42000.5,0.01,";
+        out += std::to_string(id);
+        out += ',';
+        out += std::to_string(id);
+        out += ',';
+        out += std::to_string(1704067200000LL + second * 1000LL);
+        out += ",False,True\n";
+        ++id;
+    }
+    return out;
+}
+
+}  // namespace
+
+// Spot publishes aggTrades, unlike metrics and bookDepth, so a spot subscription
+// builds the stream and merges it in order with the others.
+TEST(BinanceSource, SpotAggTradesMergeWithKlines) {
+    const auto subs = universe({"BTCUSDT"}, kSpot);
+    Source     source(config({{EndpointKind::Klines, "1h"}, {EndpointKind::AggTrades, ""}}), subs);
+    auto&      pool = source.pool();
+    ASSERT_EQ(source.stream_count(), 2u);
+    source.plan_with(single_file_lister());
+
+    ASSERT_FALSE(source.next().has_value());
+    deliver_all(pool, {kline_file({1704067200000}), spot_trades_file({0, 1, 2})});
+
+    std::vector<std::pair<Timestamp, EventKind>> seen;
+    for (;;) {
+        auto pulled = source.next();
+        if (!pulled) {
+            ASSERT_EQ(pulled.error(), SourceStatus::Eof);
+            break;
+        }
+        seen.push_back({pulled->base.ts, pulled->base.kind});
+    }
+
+    ASSERT_EQ(seen.size(), 4u);
+    EXPECT_TRUE(std::is_sorted(seen.begin(), seen.end(),
+                               [](const auto& a, const auto& b) { return a.first < b.first; }));
+    EXPECT_EQ(std::count_if(seen.begin(), seen.end(),
+                            [](const auto& e) { return e.second == EventKind::Trade; }),
+              3);
 }

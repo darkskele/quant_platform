@@ -28,15 +28,24 @@ struct GapStats {
     std::size_t  rows_parsed{};
     std::size_t  rows_rejected{};
     std::size_t  backwards_stamps{};
+
+    /// Rows repeating the stamp before them. The early metrics files carry
+    /// every row twice, so this is real data and not a parser fault.
+    std::size_t repeated_stamps{};
+
+    /// Breaks in a sequenced dataset's ids, each one missing tape. Only a parser
+    /// that exposes a sequence is checked, since nothing else can say what is
+    /// missing without an interval to count against.
+    std::size_t sequence_gaps{};
 };
 
 /// One (market, symbol, kind, interval) and the events read out of it. Plans its
 /// own files, keeps its own queue fed off the pool, and parses on the calling
 /// thread.
 ///
-/// @tparam P the row parser, which fixes the dataset and the payload type.
+/// @tparam P the parser, which fixes the dataset and the payload type.
 /// @tparam Pool the fetch pool the stream schedules against.
-template <parsers::RowParser P, FetchPool Pool>
+template <parsers::Parser P, FetchPool Pool>
 class BinanceHistoricalStream {
    public:
     BinanceHistoricalStream(Pool& pool, BinanceMarket market_path, Cadence cadence,
@@ -83,7 +92,7 @@ class BinanceHistoricalStream {
             if (rows_.empty() && !load_next_file()) return false;
 
             while (!rows_.empty()) {
-                const auto row = take_row();
+                auto row = take_row();
                 if (row.empty()) {
                     ++stats_.blank_rows;
                     continue;
@@ -95,20 +104,25 @@ class BinanceHistoricalStream {
 
                 Timestamp         ts{};
                 typename P::Event payload{};
+                std::size_t       used = 1;
+                if constexpr (requires { requires P::grouped; }) row = extend_run(row, used);
                 if (!P::parse(endpoint_, row, ts, payload)) {
-                    ++stats_.rows_rejected;
+                    stats_.rows_rejected += used;
                     continue;
                 }
                 if (ts < last_ts_) ++stats_.backwards_stamps;
+                if (ts == last_ts_ && stats_.rows_parsed > 0) ++stats_.repeated_stamps;
                 last_ts_ = ts;
-                ++stats_.rows_parsed;
+                stats_.rows_parsed += used;
+                if constexpr (requires { P::sequence(payload); })
+                    check_sequence(P::sequence(payload));
 
                 out.base    = EventBase{.kind     = P::event_kind,
                                         .exchange = instrument_.exchange,
                                         .market   = instrument_.market,
                                         .symbol   = instrument_.symbol,
                                         .ts       = ts};
-                out.payload = payload;
+                out.payload = std::move(payload);
                 return true;
             }
         }
@@ -174,6 +188,36 @@ class BinanceHistoricalStream {
         }
     }
 
+    /// Widens first over the rows after it that share its leading field, so an
+    /// event spanning several rows reaches the parser as one block. used counts
+    /// the rows taken. The run ends with the file, so it never spans two.
+    std::string_view extend_run(std::string_view first, std::size_t& used) noexcept {
+        const auto  key = parsers::leading_field(first);
+        const char* end = first.data() + first.size();
+        while (!rows_.empty() && parsers::leading_field(peek_row()) == key) {
+            const auto row = take_row();
+            end            = row.data() + row.size();
+            ++used;
+        }
+        return {first.data(), static_cast<std::size_t>(end - first.data())};
+    }
+
+    /// A gap is any id other than the one after the last, including a repeat or
+    /// a step back. The first id of the stream has nothing to follow.
+    void check_sequence(std::uint64_t id) noexcept {
+        if (have_sequence_ && id != last_sequence_ + 1) ++stats_.sequence_gaps;
+        last_sequence_ = id;
+        have_sequence_ = true;
+    }
+
+    /// The row take_row would return, left in place.
+    std::string_view peek_row() const noexcept {
+        const auto newline = rows_.find('\n');
+        auto       row     = newline == std::string_view::npos ? rows_ : rows_.substr(0, newline);
+        if (!row.empty() && row.back() == '\r') row.remove_suffix(1);
+        return row;
+    }
+
     std::string_view take_row() noexcept {
         const auto       newline = rows_.find('\n');
         std::string_view row;
@@ -220,7 +264,7 @@ class BinanceHistoricalStream {
                          (stamp[3] - '0');
         const int month = (stamp[5] - '0') * 10 + (stamp[6] - '0');
         const int day   = stamp.size() >= 10 ? (stamp[8] - '0') * 10 + (stamp[9] - '0') : 1;
-        return days_from_civil(year, month, day) * 86'400LL * 1'000'000'000LL;
+        return parsers::days_from_civil(year, month, day) * 86'400LL * 1'000'000'000LL;
     }
 
     /// Bar width of a Binance interval token. Zero when the token is unknown or
@@ -244,13 +288,6 @@ class BinanceHistoricalStream {
         return 0;
     }
 
-    static constexpr int days_in_month(int year, int month) noexcept {
-        constexpr int kDays[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-        if (month < 1 || month > 12) return 0;
-        const bool leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
-        return month == 2 && leap ? 29 : kDays[month - 1];
-    }
-
     /// Bars a file of this stamp should hold. Zero when it cannot be known,
     /// which is every dataset whose interval is not in the path.
     std::int64_t expected_rows(std::string_view stamp) const noexcept {
@@ -263,19 +300,9 @@ class BinanceHistoricalStream {
             const int year = (stamp[0] - '0') * 1000 + (stamp[1] - '0') * 100 +
                              (stamp[2] - '0') * 10 + (stamp[3] - '0');
             const int month = (stamp[5] - '0') * 10 + (stamp[6] - '0');
-            span            = days_in_month(year, month) * kDay;
+            span            = parsers::days_in_month(year, month) * kDay;
         }
         return span / width;
-    }
-
-    /// Days since the unix epoch, Howard Hinnant's civil calendar algorithm.
-    static constexpr std::int64_t days_from_civil(int y, int m, int d) noexcept {
-        y -= m <= 2;
-        const std::int64_t era = (y >= 0 ? y : y - 399) / 400;
-        const auto         yoe = static_cast<unsigned>(y - era * 400);
-        const auto doy = static_cast<unsigned>((153 * (m + (m > 2 ? -3 : 9)) + 2) / 5 + d - 1);
-        const auto doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-        return era * 146'097 + static_cast<std::int64_t>(doe) - 719'468;
     }
 
     Pool*                    pool_;
@@ -300,6 +327,8 @@ class BinanceHistoricalStream {
     std::vector<std::byte> current_;
     std::string_view       rows_;
     Timestamp              last_ts_{};
+    std::uint64_t          last_sequence_{};
+    bool                   have_sequence_{false};
     GapStats               stats_;
 };
 

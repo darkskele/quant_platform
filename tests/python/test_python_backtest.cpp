@@ -13,6 +13,7 @@
 #include "matcher/last_trade/last_trade_matcher.hpp"
 #include "python/python_backtest.hpp"
 #include "subscription.hpp"
+#include "support/python_interpreter.hpp"
 #include "types.hpp"
 
 namespace py = pybind11;
@@ -22,11 +23,6 @@ using qp::Subscription;
 using qp::SubscriptionBuilder;
 using qp::backtest::python::PythonBacktestBase;
 using Matcher = qp::execution::sim::matcher::last_trade::LastTradeMatcher;
-
-PYBIND11_EMBEDDED_MODULE(qp_test_backtest_types, m) {
-    py::class_<qp::EventBase>(m, "EventBase").def_readonly("ts", &qp::EventBase::ts);
-    py::class_<qp::MarketEvent>(m, "MarketEvent").def_readonly("base", &qp::MarketEvent::base);
-}
 
 namespace {
 
@@ -67,7 +63,7 @@ class StubBacktest : public PythonBacktestBase<StubBacktest, Matcher> {
 
 /// Registers MarketEvent with the interpreter. Without it the strategy call
 /// fails converting its argument, which looks like a strategy error.
-void register_event_types() { py::module_::import("qp_test_backtest_types"); }
+void register_event_types() { py::module_::import(qp::test::kTestTypesModule); }
 
 Subscription one_symbol() {
     SubscriptionBuilder builder;
@@ -101,7 +97,7 @@ void run_guarded(Fn&& fn) {
 // The engine thread calls into python for every event. Nothing may hold the
 // GIL across run(), and the callback has to actually see the events.
 TEST(PythonBacktest, StrategyCallbackSeesEveryEvent) {
-    py::scoped_interpreter guard;
+    qp::test::python();
     register_event_types();
 
     StubBacktest backtest(one_symbol(), 512);
@@ -127,7 +123,7 @@ def make(counter):
 // sink nobody drains and the join never returns, so this hung instead of
 // reporting the error.
 TEST(PythonBacktest, RaisingCallbackPropagatesInsteadOfHanging) {
-    py::scoped_interpreter guard;
+    qp::test::python();
     register_event_types();
 
     // More events than the sink holds, so the source blocks once the engine is

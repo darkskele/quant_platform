@@ -1,6 +1,6 @@
 ---
 name: amend
-description: Make everything straight before a commit. Runs test and bench, checks the repo structure and the doc/comment standard hold, then audits the changed hot-path code for inefficiencies and needless copies. Fixes the mechanical violations, reports the performance findings. Explicit invocation only (/amend), never proactively.
+description: Make everything straight before a commit. Runs test, checks the repo structure and the doc/comment standard hold, then audits the changed hot-path code for inefficiencies and needless copies. Fixes the mechanical violations, reports the performance findings. Explicit invocation only (/amend), never proactively.
 ---
 
 Explicit invocation only (`/amend`).
@@ -9,8 +9,7 @@ Scope: the current change (`git status --short` + `git diff --staged --name-only
 
 ## 1. Tests and benches
 
-- Run `test`. Green in debug and release, no warnings. Fix anything that isn't.
-- Run `bench`. Summarize, and flag any regression against the baseline.
+- Run `test`. Every launch green, no warnings or sanitizer reports, and the bench summary with any confirmed regression. Fix anything that isn't green.
 
 ## 2. Repo structure holds
 

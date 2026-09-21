@@ -1,7 +1,5 @@
 #include <benchmark/benchmark.h>
 
-#include <vector>
-
 #include "exchange.hpp"
 #include "last_trade_matcher.hpp"
 #include "portfolio.hpp"
@@ -58,20 +56,17 @@ void BM_LastTradeMatcher_OnMarketEvent(benchmark::State& state) {
 
 BENCHMARK(BM_LastTradeMatcher_OnMarketEvent);
 
-void BM_LastTradeMatcher_OnMarketEventDiscardsPopulatedBookDiff(benchmark::State& state) {
-    Book                    book = make_book();
-    LastTradeMatcher        matcher{book};
-    constexpr int           kLevels = 20;
-    std::vector<PriceLevel> bids(kLevels, PriceLevel{.price = 100.0, .qty = 1.0});
-    std::vector<PriceLevel> asks(kLevels, PriceLevel{.price = 101.0, .qty = 1.0});
-    auto ev = qp::test::make_book_diff(kSymbol, 0, 0, 0, 0, bids, asks, kMarket, kExchange);
+void BM_LastTradeMatcher_OnMarketEventDiscardsBookDepth(benchmark::State& state) {
+    Book             book = make_book();
+    LastTradeMatcher matcher{book};
+    auto             ev = qp::test::make_book_depth(kSymbol, 0, kMarket, kExchange);
     for (auto _ : state) {
         matcher.on_market_event(ev);
         benchmark::DoNotOptimize(matcher);
     }
 }
 
-BENCHMARK(BM_LastTradeMatcher_OnMarketEventDiscardsPopulatedBookDiff);
+BENCHMARK(BM_LastTradeMatcher_OnMarketEventDiscardsBookDepth);
 
 void BM_LastTradeMatcher_TryFillFills(benchmark::State& state) {
     Book             book = make_book();
