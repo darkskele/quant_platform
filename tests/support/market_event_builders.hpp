@@ -37,7 +37,7 @@ inline MarketEvent make_trade(std::uint16_t symbol, Timestamp ts, Price price, Q
                   .market   = market,
                   .symbol   = symbol,
                   .ts       = ts};
-    ev.payload = TradeEvent{.side = side, .price = price, .qty = qty};
+    ev.payload = TradeEvent{.price = price, .qty = qty, .side = side};
     return ev;
 }
 

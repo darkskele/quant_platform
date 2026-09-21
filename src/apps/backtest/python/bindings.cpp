@@ -45,9 +45,12 @@ PYBIND11_MODULE(qp_python_backtest, m) {
         .value("BookDepth", qp::EventKind::BookDepth);
 
     py::class_<qp::TradeEvent>(m, "TradeEvent")
-        .def_readonly("side", &qp::TradeEvent::side)
+        .def_readonly("id", &qp::TradeEvent::id)
+        .def_readonly("first_trade_id", &qp::TradeEvent::first_trade_id)
+        .def_readonly("last_trade_id", &qp::TradeEvent::last_trade_id)
         .def_readonly("price", &qp::TradeEvent::price)
-        .def_readonly("qty", &qp::TradeEvent::qty);
+        .def_readonly("qty", &qp::TradeEvent::qty)
+        .def_readonly("side", &qp::TradeEvent::side);
 
     py::class_<qp::FundingEvent>(m, "FundingEvent")
         .def_readonly("funding_rate", &qp::FundingEvent::funding_rate)
@@ -181,7 +184,8 @@ PYBIND11_MODULE(qp_python_backtest, m) {
         .value("PremiumIndexKlines", binance::EndpointKind::PremiumIndexKlines)
         .value("FundingRate", binance::EndpointKind::FundingRate)
         .value("Metrics", binance::EndpointKind::Metrics)
-        .value("BookDepth", binance::EndpointKind::BookDepth);
+        .value("BookDepth", binance::EndpointKind::BookDepth)
+        .value("AggTrades", binance::EndpointKind::AggTrades);
 
     py::enum_<binance::Cadence>(m, "Cadence")
         .value("Daily", binance::Cadence::Daily)
@@ -210,7 +214,8 @@ PYBIND11_MODULE(qp_python_backtest, m) {
         .def_readonly("rows_parsed", &binance::GapStats::rows_parsed)
         .def_readonly("rows_rejected", &binance::GapStats::rows_rejected)
         .def_readonly("backwards_stamps", &binance::GapStats::backwards_stamps)
-        .def_readonly("repeated_stamps", &binance::GapStats::repeated_stamps);
+        .def_readonly("repeated_stamps", &binance::GapStats::repeated_stamps)
+        .def_readonly("sequence_gaps", &binance::GapStats::sequence_gaps);
 
     py::class_<binance::StreamReport>(m, "StreamReport")
         .def_readonly("market", &binance::StreamReport::market)

@@ -32,13 +32,18 @@ struct GapStats {
     /// Rows repeating the stamp before them. The early metrics files carry
     /// every row twice, so this is real data and not a parser fault.
     std::size_t repeated_stamps{};
+
+    /// Breaks in a sequenced dataset's ids, each one missing tape. Only a parser
+    /// that exposes a sequence is checked, since nothing else can say what is
+    /// missing without an interval to count against.
+    std::size_t sequence_gaps{};
 };
 
 /// One (market, symbol, kind, interval) and the events read out of it. Plans its
 /// own files, keeps its own queue fed off the pool, and parses on the calling
 /// thread.
 ///
-/// @tparam P the parser, which fixes the dataset and the payload type. 
+/// @tparam P the parser, which fixes the dataset and the payload type.
 /// @tparam Pool the fetch pool the stream schedules against.
 template <parsers::Parser P, FetchPool Pool>
 class BinanceHistoricalStream {
@@ -109,6 +114,8 @@ class BinanceHistoricalStream {
                 if (ts == last_ts_ && stats_.rows_parsed > 0) ++stats_.repeated_stamps;
                 last_ts_ = ts;
                 stats_.rows_parsed += used;
+                if constexpr (requires { P::sequence(payload); })
+                    check_sequence(P::sequence(payload));
 
                 out.base    = EventBase{.kind     = P::event_kind,
                                         .exchange = instrument_.exchange,
@@ -193,6 +200,14 @@ class BinanceHistoricalStream {
             ++used;
         }
         return {first.data(), static_cast<std::size_t>(end - first.data())};
+    }
+
+    /// A gap is any id other than the one after the last, including a repeat or
+    /// a step back. The first id of the stream has nothing to follow.
+    void check_sequence(std::uint64_t id) noexcept {
+        if (have_sequence_ && id != last_sequence_ + 1) ++stats_.sequence_gaps;
+        last_sequence_ = id;
+        have_sequence_ = true;
     }
 
     /// The row take_row would return, left in place.
@@ -312,6 +327,8 @@ class BinanceHistoricalStream {
     std::vector<std::byte> current_;
     std::string_view       rows_;
     Timestamp              last_ts_{};
+    std::uint64_t          last_sequence_{};
+    bool                   have_sequence_{false};
     GapStats               stats_;
 };
 

@@ -98,6 +98,20 @@ inline bool take_optional_decimal(std::string_view& row, double& out) noexcept {
     return take_decimal(row, out);
 }
 
+/// true or false in either case. Futures write lowercase and spot capitalises.
+inline bool take_bool(std::string_view& row, bool& out) noexcept {
+    const auto comma = row.find(',');
+    const auto field = row.substr(0, comma);
+    if (field == "true" || field == "True")
+        out = true;
+    else if (field == "false" || field == "False")
+        out = false;
+    else
+        return false;
+    row.remove_prefix(comma == std::string_view::npos ? row.size() : comma + 1);
+    return true;
+}
+
 inline bool take_integer(std::string_view& row, std::int64_t& out) noexcept {
     const char* const begin = row.data();
     const char* const end   = begin + row.size();

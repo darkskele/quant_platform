@@ -8,6 +8,7 @@
 
 using qp::Timestamp;
 using qp::data_source::source::exchange::binance::parsers::days_from_civil;
+using qp::data_source::source::exchange::binance::parsers::take_bool;
 using qp::data_source::source::exchange::binance::parsers::take_datetime;
 using qp::data_source::source::exchange::binance::parsers::take_decimal;
 using qp::data_source::source::exchange::binance::parsers::take_stamp;
@@ -196,4 +197,27 @@ TEST(CsvField, DatetimeAcceptsLeapDayAndRejectsNonLeap) {
     // 1900 is divisible by 4 but not a leap year.
     std::string_view century = "1900-02-29 12:00:00";
     EXPECT_FALSE(take_datetime(century, out));
+}
+
+TEST(CsvField, BoolTakesBothCasesAndAdvances) {
+    std::string_view row = "true,False,True,false";
+    bool             a{}, b{true}, c{}, d{true};
+    ASSERT_TRUE(take_bool(row, a));
+    ASSERT_TRUE(take_bool(row, b));
+    ASSERT_TRUE(take_bool(row, c));
+    ASSERT_TRUE(take_bool(row, d));
+    EXPECT_TRUE(a);
+    EXPECT_FALSE(b);
+    EXPECT_TRUE(c);
+    EXPECT_FALSE(d);
+    EXPECT_TRUE(row.empty());
+}
+
+TEST(CsvField, BoolRejectsAnythingElseAndLeavesRow) {
+    bool out{};
+    for (std::string_view text : {"TRUE", "1", "", "tru", "falsey"}) {
+        std::string_view row = text;
+        EXPECT_FALSE(take_bool(row, out)) << text;
+        EXPECT_EQ(row, text);
+    }
 }

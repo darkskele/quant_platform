@@ -11,6 +11,7 @@
 #include "fetch_pool.hpp"
 #include "http_fetch_pool.hpp"
 #include "listing.hpp"
+#include "parsers/agg_trades.hpp"
 #include "parsers/book_depth.hpp"
 #include "parsers/funding.hpp"
 #include "parsers/klines.hpp"
@@ -100,6 +101,7 @@ class BinanceHistoricalSource {
         plan_range(funding_, lister);
         plan_range(metrics_, lister);
         plan_range(book_depth_, lister);
+        plan_range(agg_trades_, lister);
     }
 
     /// Earliest buffered event across every stream. NoData while any unfinished
@@ -144,6 +146,7 @@ class BinanceHistoricalSource {
         collect(funding_, out);
         collect(metrics_, out);
         collect(book_depth_, out);
+        collect(agg_trades_, out);
         return out;
     }
 
@@ -221,6 +224,9 @@ class BinanceHistoricalSource {
             case EndpointKind::BookDepth:
                 add(book_depth_, path, spec, symbol, instrument);
                 break;
+            case EndpointKind::AggTrades:
+                add(agg_trades_, path, spec, symbol, instrument);
+                break;
         }
     }
 
@@ -269,6 +275,8 @@ class BinanceHistoricalSource {
                 return load(metrics_[cursor.slot]);
             case EndpointKind::BookDepth:
                 return load(book_depth_[cursor.slot]);
+            case EndpointKind::AggTrades:
+                return load(agg_trades_[cursor.slot]);
         }
         return false;
     }
@@ -288,6 +296,8 @@ class BinanceHistoricalSource {
                 return metrics_[cursor.slot].stream->finished();
             case EndpointKind::BookDepth:
                 return book_depth_[cursor.slot].stream->finished();
+            case EndpointKind::AggTrades:
+                return agg_trades_[cursor.slot].stream->finished();
         }
         return true;
     }
@@ -313,6 +323,7 @@ class BinanceHistoricalSource {
         add(funding_, EndpointKind::FundingRate);
         add(metrics_, EndpointKind::Metrics);
         add(book_depth_, EndpointKind::BookDepth);
+        add(agg_trades_, EndpointKind::AggTrades);
 
         // Every stream is in exactly one of pending_ or heap_, or dropped once
         // finished, so neither grows past this and neither reallocates again.
@@ -340,6 +351,7 @@ class BinanceHistoricalSource {
     Streams<parsers::FundingParser>           funding_;
     Streams<parsers::MetricsParser>           metrics_;
     Streams<parsers::BookDepthParser>         book_depth_;
+    Streams<parsers::AggTradesParser>         agg_trades_;
 
     std::vector<Cursor> cursors_;
     std::vector<Slot*>  slots_;

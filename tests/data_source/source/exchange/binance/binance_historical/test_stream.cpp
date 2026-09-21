@@ -5,6 +5,7 @@
 #include <variant>
 #include <vector>
 
+#include "parsers/agg_trades.hpp"
 #include "parsers/book_depth.hpp"
 #include "parsers/funding.hpp"
 #include "parsers/klines.hpp"
@@ -17,6 +18,7 @@ namespace binance = qp::data_source::source::exchange::binance;
 using binance::BinanceHistoricalStream;
 using binance::BinanceMarket;
 using binance::Cadence;
+using binance::parsers::AggTradesParser;
 using binance::parsers::BookDepthParser;
 using binance::parsers::FundingParser;
 using binance::parsers::KlineParser;
@@ -37,6 +39,7 @@ constexpr qp::Timestamp kFeb = 1706745600000000000LL;
 using KlineStream   = BinanceHistoricalStream<KlineParser, FakeFetchPool>;
 using FundingStream = BinanceHistoricalStream<FundingParser, FakeFetchPool>;
 using DepthStream   = BinanceHistoricalStream<BookDepthParser, FakeFetchPool>;
+using TradesStream  = BinanceHistoricalStream<AggTradesParser, FakeFetchPool>;
 
 std::vector<std::string> daily_keys() {
     return {
@@ -709,4 +712,145 @@ TEST(BinanceStreamGrouped, CrlfRowsGroup) {
     ASSERT_TRUE(pool.deliver(crlf));
     EXPECT_EQ(events_of(*stream).size(), 1u);
     EXPECT_EQ(stream->stats().rows_rejected, 0u);
+}
+
+// The stamp is the sixth field of an aggTrades row and many trades share a
+// millisecond, so the stream has to order on the right column and count those
+// shared stamps without dropping them.
+TEST(BinanceStream, AggTradesStampsFromTheSixthFieldAndKeepSharedMilliseconds) {
+    FakeFetchPool pool;
+    auto          stream = std::make_unique<TradesStream>(pool, BinanceMarket::UsdM, Cadence::Daily,
+                                                          "BTCUSDT", "", kInstrument);
+    stream->plan({"data/futures/um/daily/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2024-01-01.zip"}, kJan,
+                 kFeb);
+
+    MarketEvent event{};
+    EXPECT_FALSE(stream->next(event));
+    ASSERT_TRUE(pool.deliver(
+        "agg_trade_id,price,quantity,first_trade_id,last_trade_id,transact_time,is_buyer_maker\n"
+        "9,42000.1,0.5,100,100,1704067200000,false\n"
+        "10,42000.2,0.1,101,103,1704067200000,true\n"
+        "11,42000.0,0.2,104,104,1704067200001,false\n"));
+
+    std::vector<MarketEvent> events;
+    while (stream->next(event)) events.push_back(event);
+
+    ASSERT_EQ(events.size(), 3u);
+    EXPECT_EQ(events[0].base.kind, EventKind::Trade);
+    EXPECT_EQ(events[0].base.ts, 1704067200000LL * 1'000'000);
+    EXPECT_EQ(events[1].base.ts, events[0].base.ts);
+    EXPECT_EQ(events[2].base.ts, 1704067200001LL * 1'000'000);
+    EXPECT_EQ(std::get<qp::TradeEvent>(events[1].payload).side, qp::Side::Sell);
+
+    EXPECT_EQ(stream->stats().rows_parsed, 3u);
+    EXPECT_EQ(stream->stats().repeated_stamps, 1u);
+    EXPECT_EQ(stream->stats().backwards_stamps, 0u);
+    EXPECT_EQ(stream->stats().header_rows, 1u);
+    EXPECT_EQ(stream->stats().sequence_gaps, 0u) << "ids 9, 10, 11 run on";
+}
+
+namespace {
+
+/// Headerless futures rows with the given aggregate ids, a millisecond apart.
+std::string trades_with_ids(const std::vector<long long>& ids) {
+    std::string out;
+    long long   ms = 1704067200000LL;
+    for (auto id : ids) {
+        out += std::to_string(id);
+        out += ",42000.1,0.5,";
+        out += std::to_string(id * 10);
+        out += ',';
+        out += std::to_string(id * 10);
+        out += ',';
+        out += std::to_string(ms++);
+        out += ",false\n";
+    }
+    return out;
+}
+
+std::vector<std::string> trades_keys(int days) {
+    std::vector<std::string> keys;
+    for (int day = 1; day <= days; ++day)
+        keys.push_back("data/futures/um/daily/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2024-01-0" +
+                       std::to_string(day) + ".zip");
+    return keys;
+}
+
+std::unique_ptr<TradesStream> make_trades_stream(FakeFetchPool& pool) {
+    return std::make_unique<TradesStream>(pool, BinanceMarket::UsdM, Cadence::Daily, "BTCUSDT", "",
+                                          kInstrument);
+}
+
+std::size_t drain_trades(TradesStream& stream) {
+    std::size_t n = 0;
+    MarketEvent event{};
+    while (stream.next(event)) ++n;
+    return n;
+}
+
+}  // namespace
+
+// A jump in the aggregate ids is tape the file does not have. Every event still
+// comes through, and the break is counted.
+TEST(BinanceStreamSequence, JumpInIdsCountsOneGap) {
+    FakeFetchPool pool;
+    auto          stream = make_trades_stream(pool);
+    stream->plan(trades_keys(1), kJan, kFeb);
+
+    MarketEvent event{};
+    EXPECT_FALSE(stream->next(event));
+    ASSERT_TRUE(pool.deliver(trades_with_ids({9, 10, 13, 14})));
+
+    EXPECT_EQ(drain_trades(*stream), 4u);
+    EXPECT_EQ(stream->stats().sequence_gaps, 1u);
+}
+
+// Ids carry on across files, so a clean day boundary is not a gap.
+TEST(BinanceStreamSequence, IdsRunOnAcrossFiles) {
+    FakeFetchPool pool;
+    auto          stream = make_trades_stream(pool);
+    stream->plan(trades_keys(2), kJan, kFeb);
+
+    MarketEvent event{};
+    EXPECT_FALSE(stream->next(event));
+    ASSERT_TRUE(pool.deliver(trades_with_ids({1, 2, 3})));
+    ASSERT_TRUE(pool.deliver(trades_with_ids({4, 5})));
+
+    EXPECT_EQ(drain_trades(*stream), 5u);
+    EXPECT_EQ(stream->stats().sequence_gaps, 0u);
+}
+
+// A day that fails to fetch leaves the next day's first id far past the last
+// one read, which is exactly the tape that went missing.
+TEST(BinanceStreamSequence, FailedFileShowsAsAGap) {
+    FakeFetchPool pool;
+    auto          stream = make_trades_stream(pool);
+    stream->plan(trades_keys(3), kJan, kFeb);
+
+    MarketEvent event{};
+    EXPECT_FALSE(stream->next(event));
+    ASSERT_TRUE(pool.deliver(trades_with_ids({1, 2})));
+    ASSERT_TRUE(
+        pool.deliver_failure(qp::data_source::source::exchange::binance::FetchStatus::NotFound));
+    ASSERT_TRUE(pool.deliver(trades_with_ids({5, 6})));
+
+    EXPECT_EQ(drain_trades(*stream), 4u);
+    EXPECT_EQ(stream->stats().files_failed, 1u);
+    EXPECT_EQ(stream->stats().sequence_gaps, 1u);
+}
+
+// A repeated id is not the next one either, so it counts rather than passing
+// as continuity.
+TEST(BinanceStreamSequence, RepeatedIdCountsAsAGap) {
+    FakeFetchPool pool;
+    auto          stream = make_trades_stream(pool);
+    stream->plan(trades_keys(1), kJan, kFeb);
+
+    MarketEvent event{};
+    EXPECT_FALSE(stream->next(event));
+    ASSERT_TRUE(pool.deliver(trades_with_ids({1, 2, 2, 3})));
+
+    EXPECT_EQ(drain_trades(*stream), 4u);
+    EXPECT_EQ(stream->stats().sequence_gaps, 1u)
+        << "the second 2 breaks the run, the 3 after it does not";
 }

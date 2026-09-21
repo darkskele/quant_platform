@@ -40,10 +40,15 @@ struct EventBase {
 
 static_assert(std::is_trivially_copyable_v<EventBase>);
 
+/// One aggressor fill. Side is the taker's. The ids are the venue's, ids first
+/// and side last so the padding falls at the end.
 struct TradeEvent {
-    Side  side{};
-    Price price{};
-    Qty   qty{};
+    std::uint64_t id{};              ///< Aggregate trade id, consecutive per symbol.
+    std::uint64_t first_trade_id{};  ///< First underlying fill folded into this one.
+    std::uint64_t last_trade_id{};   ///< Last underlying fill folded into this one.
+    Price         price{};
+    Qty           qty{};  ///< Contracts on Coin-M, base asset elsewhere.
+    Side          side{};
 };
 
 struct FundingEvent {

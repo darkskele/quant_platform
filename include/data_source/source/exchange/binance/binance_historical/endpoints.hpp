@@ -32,7 +32,8 @@ enum class EndpointKind : std::uint8_t {
     PremiumIndexKlines,
     FundingRate,
     Metrics,
-    BookDepth
+    BookDepth,
+    AggTrades
 };
 
 enum class Cadence : std::uint8_t { Daily, Monthly };
@@ -76,6 +77,11 @@ inline constexpr std::array kEndpoints = {
     // bookDepth is daily only too, and ten rows make one sample.
     Endpoint{"futures/um", "bookDepth", CadenceSupport::DailyOnly, false, 4, kNoColumn},
     Endpoint{"futures/cm", "bookDepth", CadenceSupport::DailyOnly, false, 4, kNoColumn},
+    // Spot adds an eighth column, is_best_match. Quantity is read by position,
+    // and on Coin-M it counts contracts.
+    Endpoint{"spot", "aggTrades", CadenceSupport::Both, false, 8, kNoColumn},
+    Endpoint{"futures/um", "aggTrades", CadenceSupport::Both, false, 7, kNoColumn},
+    Endpoint{"futures/cm", "aggTrades", CadenceSupport::Both, false, 7, kNoColumn},
 };
 
 /// Null when the market does not publish that dataset, such as spot funding.
@@ -105,6 +111,8 @@ inline constexpr const Endpoint* find_endpoint(BinanceMarket market, EndpointKin
                 return "metrics";
             case EndpointKind::BookDepth:
                 return "bookDepth";
+            case EndpointKind::AggTrades:
+                return "aggTrades";
         }
         return "";
     }();
@@ -215,6 +223,18 @@ inline constexpr std::uint8_t kPercentage = 1;
 inline constexpr std::uint8_t kDepth      = 2;
 inline constexpr std::uint8_t kNotional   = 3;
 }  // namespace book_depth_col
+
+/// aggTrades column indices. The stamp is column 5, not the first.
+namespace agg_trades_col {
+inline constexpr std::uint8_t kAggTradeId   = 0;
+inline constexpr std::uint8_t kPrice        = 1;
+inline constexpr std::uint8_t kQuantity     = 2;
+inline constexpr std::uint8_t kFirstTradeId = 3;
+inline constexpr std::uint8_t kLastTradeId  = 4;
+inline constexpr std::uint8_t kTransactTime = 5;
+inline constexpr std::uint8_t kIsBuyerMaker = 6;
+inline constexpr std::uint8_t kIsBestMatch  = 7;
+}  // namespace agg_trades_col
 
 namespace funding_col {
 inline constexpr std::uint8_t kCalcTime        = 0;

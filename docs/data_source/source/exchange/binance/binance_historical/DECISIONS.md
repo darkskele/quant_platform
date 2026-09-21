@@ -20,3 +20,4 @@
 18. Rows repeating the stamp before them are counted, not dropped. The 2020 and early 2021 metrics files publish every row twice, and a dataset like aggTrades shares a stamp across genuinely distinct events, so dropping on a repeat could not be a stream wide rule.
 19. A group run ends at a change of leading field, a blank line, or the end of the file, so a group never spans two files. The stream compares raw text and never parses a stamp to find the boundary.
 20. A rejected group counts every row in it, and rows parsed counts rows rather than events, so the two still add up to what the file held.
+21. A parser that exposes a sequence has its ids checked for continuity, and each break is counted as a sequence gap.

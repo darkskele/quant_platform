@@ -444,3 +444,55 @@ TEST(BinanceSource, BookDepthMergesWithMetrics) {
     };
     EXPECT_EQ(seen, expected);
 }
+
+namespace {
+
+/// Spot's shape, headerless with the eighth column, at 2024-01-01 00:00:<second>.
+std::string spot_trades_file(const std::vector<int>& seconds) {
+    std::string out;
+    int         id = 1;
+    for (auto second : seconds) {
+        out += std::to_string(id);
+        out += ",42000.5,0.01,";
+        out += std::to_string(id);
+        out += ',';
+        out += std::to_string(id);
+        out += ',';
+        out += std::to_string(1704067200000LL + second * 1000LL);
+        out += ",False,True\n";
+        ++id;
+    }
+    return out;
+}
+
+}  // namespace
+
+// Spot publishes aggTrades, unlike metrics and bookDepth, so a spot subscription
+// builds the stream and merges it in order with the others.
+TEST(BinanceSource, SpotAggTradesMergeWithKlines) {
+    const auto subs = universe({"BTCUSDT"}, kSpot);
+    Source     source(config({{EndpointKind::Klines, "1h"}, {EndpointKind::AggTrades, ""}}), subs);
+    auto&      pool = source.pool();
+    ASSERT_EQ(source.stream_count(), 2u);
+    source.plan_with(single_file_lister());
+
+    ASSERT_FALSE(source.next().has_value());
+    deliver_all(pool, {kline_file({1704067200000}), spot_trades_file({0, 1, 2})});
+
+    std::vector<std::pair<Timestamp, EventKind>> seen;
+    for (;;) {
+        auto pulled = source.next();
+        if (!pulled) {
+            ASSERT_EQ(pulled.error(), SourceStatus::Eof);
+            break;
+        }
+        seen.push_back({pulled->base.ts, pulled->base.kind});
+    }
+
+    ASSERT_EQ(seen.size(), 4u);
+    EXPECT_TRUE(std::is_sorted(seen.begin(), seen.end(),
+                               [](const auto& a, const auto& b) { return a.first < b.first; }));
+    EXPECT_EQ(std::count_if(seen.begin(), seen.end(),
+                            [](const auto& e) { return e.second == EventKind::Trade; }),
+              3);
+}

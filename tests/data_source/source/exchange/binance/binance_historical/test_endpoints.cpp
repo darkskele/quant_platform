@@ -1,10 +1,12 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <stdexcept>
 #include <string>
 
 #include "client.hpp"
 #include "endpoints.hpp"
+#include "listing.hpp"
 
 namespace binance = qp::data_source::source::exchange::binance;
 
@@ -145,6 +147,29 @@ TEST(BinanceEndpoints, BookDepthPathsAndCadence) {
               "data/futures/cm/daily/bookDepth/BTCUSD_PERP/");
 }
 
+TEST(BinanceEndpoints, AggTradesOnEveryMarketAtBothCadences) {
+    const auto& spot = endpoint(BinanceMarket::Spot, EndpointKind::AggTrades);
+    EXPECT_EQ(prefix(spot, "BTCUSDT", "", Cadence::Monthly),
+              "data/spot/monthly/aggTrades/BTCUSDT/");
+    EXPECT_EQ(file_name(spot, "BTCUSDT", "", "2025-06-02"), "BTCUSDT-aggTrades-2025-06-02.zip");
+    EXPECT_EQ(spot.column_count, 8) << "spot carries is_best_match";
+
+    const auto& um = endpoint(BinanceMarket::UsdM, EndpointKind::AggTrades);
+    EXPECT_EQ(prefix(um, "BTCUSDT", "", Cadence::Daily),
+              "data/futures/um/daily/aggTrades/BTCUSDT/");
+    EXPECT_EQ(um.column_count, 7);
+
+    const auto& cm = endpoint(BinanceMarket::CoinM, EndpointKind::AggTrades);
+    EXPECT_EQ(prefix(cm, "BTCUSD_PERP", "", Cadence::Daily),
+              "data/futures/cm/daily/aggTrades/BTCUSD_PERP/");
+    EXPECT_EQ(cm.column_count, 7);
+
+    for (const auto* e : {&spot, &um, &cm}) {
+        EXPECT_TRUE(supports(*e, Cadence::Daily));
+        EXPECT_TRUE(supports(*e, Cadence::Monthly));
+    }
+}
+
 TEST(BinanceEndpoints, SpotHasNoBookDepth) {
     EXPECT_THROW((void)endpoint(BinanceMarket::Spot, EndpointKind::BookDepth), std::out_of_range);
 }
@@ -235,5 +260,34 @@ TEST(BinanceEndpointsLive, EveryEntryResolvesToARealFile) {
         const auto  url = file_url(e, "BTCUSDT", "1h", c.cadence, c.stamp);
         SCOPED_TRACE(url);
         EXPECT_FALSE(qp::data_source::network::http::get(url).empty());
+    }
+}
+
+// aggTrades files run to hundreds of megabytes a month, so these are confirmed
+// against the bucket listing rather than downloaded.
+TEST(BinanceEndpointsLive, AggTradesEntriesAreListed) {
+    struct Case {
+        BinanceMarket    market;
+        std::string_view symbol;
+        Cadence          cadence;
+        std::string_view stamp;
+    };
+
+    const Case cases[] = {
+        {BinanceMarket::Spot, "BTCUSDT", Cadence::Daily, "2025-06-02"},
+        {BinanceMarket::Spot, "BTCUSDT", Cadence::Monthly, "2025-05"},
+        {BinanceMarket::UsdM, "BTCUSDT", Cadence::Daily, "2025-06-02"},
+        {BinanceMarket::UsdM, "BTCUSDT", Cadence::Monthly, "2025-05"},
+        {BinanceMarket::CoinM, "BTCUSD_PERP", Cadence::Daily, "2025-06-02"},
+        {BinanceMarket::CoinM, "BTCUSD_PERP", Cadence::Monthly, "2025-05"},
+    };
+
+    for (const auto& c : cases) {
+        const auto& e   = endpoint(c.market, EndpointKind::AggTrades);
+        const auto  dir = prefix(e, c.symbol, "", c.cadence);
+        const auto  key = dir + file_name(e, c.symbol, "", c.stamp);
+        SCOPED_TRACE(key);
+        const auto keys = binance::list_keys(dir);
+        EXPECT_NE(std::find(keys.begin(), keys.end(), key), keys.end());
     }
 }

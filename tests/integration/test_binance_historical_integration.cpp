@@ -808,3 +808,150 @@ TEST(BinanceHistoricalIntegration, BookDepthMatchesTheRawCsvs) {
         previous = event.base.ts;
     }
 }
+
+// ---------------------------------------------------------------------------
+// aggTrades. A day is already a million rows on spot, so this stays at one day
+// on two markets and refuses to plan more.
+// ---------------------------------------------------------------------------
+
+namespace {
+
+/// Spot is headerless with eight columns and microsecond stamps, Coin-M has a
+/// header, seven columns, milliseconds and contracts. Between them every shape.
+struct TradesStream {
+    std::uint16_t market{};
+    std::string   market_path;
+    std::string   symbol;
+};
+
+std::vector<TradesStream> trades_streams() {
+    return {{kSpot, "spot", "BTCUSDT"}, {kCoinM, "futures/cm", "BTCUSD_PERP"}};
+}
+
+struct TradeRow {
+    Timestamp     ts{};
+    std::string   symbol;
+    std::uint64_t id{};
+    double        price{};
+    double        qty{};
+    bool          sell{};
+
+    auto key() const { return std::tie(ts, symbol, id, price, qty, sell); }
+
+    bool operator<(const TradeRow& other) const { return key() < other.key(); }
+
+    bool operator==(const TradeRow& other) const { return key() == other.key(); }
+};
+
+std::vector<TradeRow> fetch_expected_trades() {
+    std::vector<TradeRow> rows;
+    for (const auto& stream : trades_streams()) {
+        std::string url = "https://data.binance.vision/data/";
+        url += stream.market_path;
+        url += "/daily/aggTrades/";
+        url += stream.symbol;
+        url += '/';
+        url += stream.symbol;
+        url += "-aggTrades-2025-06-02.zip";
+
+        const auto             zip   = qp::data_source::network::http::get(url);
+        const auto             bytes = qp::data_source::archive::zip::unzip_single_entry(zip);
+        const std::string_view csv(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+
+        std::size_t start = 0;
+        while (start < csv.size()) {
+            auto end = csv.find('\n', start);
+            if (end == std::string_view::npos) end = csv.size();
+            auto line = csv.substr(start, end - start);
+            start     = end + 1;
+            if (!line.empty() && line.back() == '\r') line.remove_suffix(1);
+            if (line.empty()) continue;
+            if (line.front() < '0' || line.front() > '9') continue;
+
+            const auto fields = split(line);
+            EXPECT_GE(fields.size(), 7u) << line;
+            if (fields.size() < 7) continue;
+            rows.push_back(TradeRow{.ts     = to_nanos(fields[5]),
+                                    .symbol = stream.symbol,
+                                    .id     = std::stoull(fields[0]),
+                                    .price  = std::stod(fields[1]),
+                                    .qty    = std::stod(fields[2]),
+                                    .sell   = fields[6] == "true" || fields[6] == "True"});
+        }
+    }
+    return rows;
+}
+
+}  // namespace
+
+TEST(BinanceHistoricalIntegration, AggTradesMatchesTheRawCsvs) {
+    SubscriptionBuilder builder;
+    for (const auto& stream : trades_streams())
+        builder.add(qp::ExchangeId::Binance, stream.market, stream.symbol);
+    const auto universe = std::move(builder).build();
+
+    CollectingSink sink;
+    {
+        BinanceHistoricalConfig config{.streams = {StreamSpec{EndpointKind::AggTrades, ""}},
+                                       .pool    = pool_config(),
+                                       .cadence = Cadence::Daily,
+                                       .from    = kMetricsFrom,
+                                       .to      = kMetricsTo};
+
+        BinanceHistoricalSource<HttpFetchPool> source(config, universe);
+        ASSERT_EQ(source.stream_count(), 2u);
+        source.plan();
+
+        // One file per stream. Anything more is a span that grew by accident.
+        for (const auto& report : source.reports())
+            ASSERT_EQ(report.stats.files_planned, 1u) << report.symbol;
+
+        ControlChannel<1> control;
+        const auto        consumer = control.attach();
+
+        auto sources = std::forward_as_tuple(source);
+        auto sinks   = std::forward_as_tuple(sink);
+        qp::data_source::run_data_source(sources, sinks, control, consumer,
+                                         std::chrono::milliseconds{1});
+
+        EXPECT_EQ(source.pool().stats().completed_failed, 0u);
+        for (const auto& report : source.reports()) {
+            EXPECT_EQ(report.stats.files_read, 1u) << report.symbol;
+            EXPECT_EQ(report.stats.rows_rejected, 0u) << report.symbol;
+            EXPECT_EQ(report.stats.backwards_stamps, 0u) << report.symbol;
+            EXPECT_EQ(report.stats.sequence_gaps, 0u) << report.symbol << " is missing tape";
+        }
+    }
+
+    std::vector<TradeRow> actual;
+    actual.reserve(sink.events.size());
+    Timestamp previous = 0;
+    for (const auto& event : sink.events) {
+        ASSERT_EQ(event.base.kind, EventKind::Trade);
+        EXPECT_GE(event.base.ts, previous) << "the merge went backwards";
+        previous = event.base.ts;
+
+        const auto& trade = std::get<qp::TradeEvent>(event.payload);
+        actual.push_back(TradeRow{.ts     = event.base.ts,
+                                  .symbol = symbol_name(universe, event),
+                                  .id     = trade.id,
+                                  .price  = trade.price,
+                                  .qty    = trade.qty,
+                                  .sell   = trade.side == qp::Side::Sell});
+    }
+
+    auto expected = fetch_expected_trades();
+    ASSERT_FALSE(expected.empty());
+    std::sort(expected.begin(), expected.end());
+    std::sort(actual.begin(), actual.end());
+
+    ASSERT_EQ(actual.size(), expected.size());
+    std::size_t mismatches = 0;
+    for (std::size_t i = 0; i < actual.size() && mismatches < 10; ++i) {
+        if (actual[i] == expected[i]) continue;
+        ++mismatches;
+        ADD_FAILURE() << "trade " << i << " differs: " << actual[i].symbol << " ts " << actual[i].ts
+                      << " vs " << expected[i].ts;
+    }
+    EXPECT_EQ(mismatches, 0u);
+}
