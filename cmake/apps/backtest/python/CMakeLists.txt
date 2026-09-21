@@ -8,4 +8,5 @@ target_link_libraries(qp_python_backtest PRIVATE
     qp_execution_sim_matcher_last_trade
     qp_data_source qp_sink_fanout qp_risk_python qp_strategy_python
     qp_binance_historical
+    qp_core_bindings qp_risk_bindings qp_engine_bindings qp_binance_historical_bindings
 )

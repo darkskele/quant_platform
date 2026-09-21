@@ -65,7 +65,7 @@ TEST(WorkQueue, HeapStorageBehavesTheSame) {
 }
 
 namespace {
-int g_alive = 0;
+std::atomic<int> g_alive{0};
 
 struct Tracked {
     int v;
@@ -85,11 +85,11 @@ TEST(WorkQueue, DestructorCleansUpRemainingElements) {
     {
         qp::WorkQueue<Tracked, 8> q;
         for (int i = 0; i < 5; ++i) EXPECT_TRUE(q.push(i));
-        EXPECT_EQ(g_alive, 5);
+        EXPECT_EQ(g_alive.load(), 5);
         for (int i = 0; i < 3; ++i) EXPECT_EQ(q.try_pop()->v, i);
-        EXPECT_EQ(g_alive, 2);
+        EXPECT_EQ(g_alive.load(), 2);
     }  // destructor must clean up the 2 remaining elements
-    EXPECT_EQ(g_alive, 0);
+    EXPECT_EQ(g_alive.load(), 0);
 }
 
 // A claim moves the shared cursor before the element leaves the slot, so the
@@ -109,9 +109,9 @@ TEST(WorkQueue, DestructorCleansUpAfterConcurrentConsumers) {
                     while (!q.try_pop()) std::this_thread::yield();
             });
         for (auto& t : consumers) t.join();
-        EXPECT_EQ(g_alive, 2);
+        EXPECT_EQ(g_alive.load(), 2);
     }
-    EXPECT_EQ(g_alive, 0);
+    EXPECT_EQ(g_alive.load(), 0);
 }
 
 TEST(WorkQueue, ConcurrentConsumersTakeEachElementOnce) {

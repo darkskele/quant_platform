@@ -21,3 +21,4 @@
 19. A group run ends at a change of leading field, a blank line, or the end of the file, so a group never spans two files. The stream compares raw text and never parses a stamp to find the boundary.
 20. A rejected group counts every row in it, and rows parsed counts rows rather than events, so the two still add up to what the file held.
 21. A parser that exposes a sequence has its ids checked for continuity, and each break is counted as a sequence gap.
+22. The source is exposed to python as an iterable of market events, separate from any backtest, so research and tests can pull the data without an engine. It keeps the subscription it resolved against alive beside it, and a pull waits out fetches with the GIL released, since no data yet is not the end.

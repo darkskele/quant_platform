@@ -9,3 +9,7 @@ target_link_libraries(qp_engine INTERFACE qp_core qp_execution qp_strategy qp_ri
 
 add_library(qp_engine_test_support INTERFACE)
 target_include_directories(qp_engine_test_support INTERFACE ${CMAKE_SOURCE_DIR}/tests)
+
+if(QP_BUILD_PYTHON)
+    add_subdirectory(python)
+endif()

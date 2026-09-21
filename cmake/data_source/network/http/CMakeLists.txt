@@ -13,3 +13,8 @@ target_include_directories(qp_network_http PUBLIC ${QP_INC})
 target_link_libraries(qp_network_http
     PRIVATE Boost::headers Boost::system OpenSSL::SSL OpenSSL::Crypto Threads::Threads
 )
+# Asio fences its handler blocks, which TSan cannot model, so GCC warns inside
+# Asio's own headers. The fence is Asio's, so the warning says nothing here.
+if(CMAKE_CXX_FLAGS MATCHES "-fsanitize=thread")
+    target_compile_options(qp_network_http PRIVATE -Wno-tsan)
+endif()

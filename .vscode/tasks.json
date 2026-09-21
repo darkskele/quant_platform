@@ -20,6 +20,15 @@
             ]
         },
         {
+            "label": "qp_tests - tsan",
+            "type": "shell",
+            "command": "cmake --preset tsan -DQP_BUILD_PYTHON=ON -DPYTHON_EXECUTABLE=$HOME/miniconda3/envs/qp-research/bin/python && cmake --build build/tsan --target qp_tests -j",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
             "label": "qp_integration_tests - debug",
             "type": "shell",
             "command": "cmake --preset debug -DQP_BUILD_PYTHON=ON -DPYTHON_EXECUTABLE=$HOME/miniconda3/envs/qp-research/bin/python && cmake --build build/debug --target qp_integration_tests -j",
@@ -32,6 +41,15 @@
             "label": "qp_integration_tests - release",
             "type": "shell",
             "command": "cmake --preset release -DQP_BUILD_PYTHON=ON -DPYTHON_EXECUTABLE=$HOME/miniconda3/envs/qp-research/bin/python && cmake --build build/release --target qp_integration_tests -j",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "qp_integration_tests - tsan",
+            "type": "shell",
+            "command": "cmake --preset tsan -DQP_BUILD_PYTHON=ON -DPYTHON_EXECUTABLE=$HOME/miniconda3/envs/qp-research/bin/python && cmake --build build/tsan --target qp_integration_tests -j",
             "group": "build",
             "problemMatcher": [
                 "$gcc"

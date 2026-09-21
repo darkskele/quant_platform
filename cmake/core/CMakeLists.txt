@@ -10,3 +10,7 @@ target_link_libraries(qp_core INTERFACE Threads::Threads)
 # Test/benchmark-only support.
 add_library(qp_core_test_support INTERFACE)
 target_include_directories(qp_core_test_support INTERFACE ${CMAKE_SOURCE_DIR}/tests)
+
+if(QP_BUILD_PYTHON)
+    add_subdirectory(python)
+endif()

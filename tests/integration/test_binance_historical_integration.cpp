@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <ctime>
+#include <limits>
 #include <map>
 #include <string>
 #include <tuple>
@@ -515,12 +516,26 @@ struct MetricsRow {
     std::string symbol;
     double      open_interest{};
     double      open_interest_value{};
+    double      account_ratio{};
+    double      position_ratio{};
+    double      long_short_ratio{};
     double      taker_ratio{};
 
     auto key() const { return std::tie(ts, symbol, open_interest, open_interest_value); }
 
     bool operator<(const MetricsRow& other) const { return key() < other.key(); }
 };
+
+/// A blank ratio is one the venue did not publish. NaN on both sides then.
+double optional_decimal(const std::string& field) {
+    return field.empty() ? std::numeric_limits<double>::quiet_NaN() : std::stod(field);
+}
+
+/// Equal to within a few ulps, or both unpublished.
+bool same_ratio(double a, double b) {
+    if (std::isnan(a) || std::isnan(b)) return std::isnan(a) && std::isnan(b);
+    return std::abs(a - b) <= 4 * std::numeric_limits<double>::epsilon() * std::abs(b);
+}
 
 /// A second implementation of the datetime rule, so a bug in the fast one does
 /// not cancel out.
@@ -566,6 +581,9 @@ std::vector<MetricsRow> fetch_expected_metrics() {
                                       .symbol              = stream.symbol,
                                       .open_interest       = std::stod(fields[2]),
                                       .open_interest_value = std::stod(fields[3]),
+                                      .account_ratio       = optional_decimal(fields[4]),
+                                      .position_ratio      = optional_decimal(fields[5]),
+                                      .long_short_ratio    = optional_decimal(fields[6]),
                                       .taker_ratio         = std::stod(fields[7])});
         }
     }
@@ -636,6 +654,9 @@ TEST(BinanceHistoricalIntegration, MetricsMatchesTheRawCsvs) {
                                     .symbol              = symbol,
                                     .open_interest       = payload->open_interest,
                                     .open_interest_value = payload->open_interest_value,
+                                    .account_ratio       = payload->toptrader_account_ratio,
+                                    .position_ratio      = payload->toptrader_position_ratio,
+                                    .long_short_ratio    = payload->account_long_short_ratio,
                                     .taker_ratio         = payload->taker_long_short_volume_ratio});
     }
 
@@ -654,6 +675,11 @@ TEST(BinanceHistoricalIntegration, MetricsMatchesTheRawCsvs) {
         EXPECT_DOUBLE_EQ(actual[i].open_interest_value, expected[i].open_interest_value)
             << "row " << i;
         EXPECT_DOUBLE_EQ(actual[i].taker_ratio, expected[i].taker_ratio) << "row " << i;
+        EXPECT_TRUE(same_ratio(actual[i].account_ratio, expected[i].account_ratio)) << "row " << i;
+        EXPECT_TRUE(same_ratio(actual[i].position_ratio, expected[i].position_ratio))
+            << "row " << i;
+        EXPECT_TRUE(same_ratio(actual[i].long_short_ratio, expected[i].long_short_ratio))
+            << "row " << i;
     }
 
     // The merge is still ascending with two markets interleaved.
@@ -810,49 +836,196 @@ TEST(BinanceHistoricalIntegration, BookDepthMatchesTheRawCsvs) {
 }
 
 // ---------------------------------------------------------------------------
-// aggTrades. A day is already a million rows on spot, so this stays at one day
-// on two markets and refuses to plan more.
+// The new datasets beyond one day: ids across file boundaries, the duplicated
+// early metrics, the alt the depth question is about, and all three merged.
 // ---------------------------------------------------------------------------
 
 namespace {
 
-/// Spot is headerless with eight columns and microsecond stamps, Coin-M has a
-/// header, seven columns, milliseconds and contracts. Between them every shape.
-struct TradesStream {
+constexpr Timestamp kSecond = 1'000'000'000LL;
+
+/// Runs a source to exhaustion and hands back what it emitted and reported.
+struct Drained {
+    std::vector<MarketEvent>           events;
+    std::vector<binance::StreamReport> reports;
+    std::size_t                        failed_fetches{};
+};
+
+Drained drain(std::vector<std::pair<std::uint16_t, std::string>> pairs,
+              std::vector<EndpointKind> kinds, Timestamp from, Timestamp to) {
+    SubscriptionBuilder builder;
+    for (const auto& [market, symbol] : pairs) builder.add(qp::ExchangeId::Binance, market, symbol);
+    const auto universe = std::move(builder).build();
+
+    BinanceHistoricalConfig config{
+        .streams = {}, .pool = pool_config(), .cadence = Cadence::Daily, .from = from, .to = to};
+    for (const auto kind : kinds) config.streams.push_back(StreamSpec{kind, ""});
+
+    Drained        out;
+    CollectingSink sink;
+    {
+        BinanceHistoricalSource<HttpFetchPool> source(config, universe);
+        source.plan();
+
+        ControlChannel<1> control;
+        const auto        consumer = control.attach();
+        auto              sources  = std::forward_as_tuple(source);
+        auto              sinks    = std::forward_as_tuple(sink);
+        qp::data_source::run_data_source(sources, sinks, control, consumer,
+                                         std::chrono::milliseconds{1});
+
+        out.reports        = source.reports();
+        out.failed_fetches = source.pool().stats().completed_failed;
+    }
+    out.events = std::move(sink.events);
+    return out;
+}
+
+void expect_clean(const Drained& run) {
+    EXPECT_EQ(run.failed_fetches, 0u);
+    for (const auto& report : run.reports) {
+        EXPECT_EQ(report.stats.files_failed, 0u) << report.symbol;
+        EXPECT_EQ(report.stats.rows_rejected, 0u) << report.symbol;
+        EXPECT_EQ(report.stats.backwards_stamps, 0u) << report.symbol;
+        EXPECT_EQ(report.stats.sequence_gaps, 0u) << report.symbol;
+    }
+}
+
+}  // namespace
+
+// Three days of Coin-M trades. Ids carry on across both day boundaries, so the
+// stream counts no gap and the ids are one unbroken run.
+TEST(BinanceHistoricalIntegration, AggTradeIdsRunOnAcrossDays) {
+    const auto run = drain({{kCoinM, "BTCUSD_PERP"}}, {EndpointKind::AggTrades}, kMetricsFrom,
+                           kMetricsFrom + 3 * 86'400 * kSecond - kSecond);
+    expect_clean(run);
+    ASSERT_EQ(run.reports.size(), 1u);
+    EXPECT_EQ(run.reports[0].stats.files_read, 3u);
+    ASSERT_FALSE(run.events.empty());
+
+    auto expected = std::get<qp::TradeEvent>(run.events.front().payload).id;
+    for (const auto& event : run.events) {
+        const auto& trade = std::get<qp::TradeEvent>(event.payload);
+        ASSERT_EQ(trade.id, expected) << "the run of ids broke";
+        ++expected;
+    }
+}
+
+// The first months of metrics publish every row twice. They all arrive, and the
+// stream counts exactly the repeats.
+TEST(BinanceHistoricalIntegration, EarlyMetricsDuplicatesAreCountedExactly) {
+    constexpr Timestamp kSep15 = 1600128000LL * kSecond;
+    const auto          run    = drain({{kUsdM, "BTCUSDT"}}, {EndpointKind::Metrics}, kSep15,
+                                       kSep15 + 86'400 * kSecond - kSecond);
+    expect_clean(run);
+    ASSERT_EQ(run.reports.size(), 1u);
+    EXPECT_EQ(run.reports[0].stats.rows_parsed, 576u);
+    EXPECT_EQ(run.reports[0].stats.repeated_stamps, 288u);
+    EXPECT_EQ(run.events.size(), 576u);
+}
+
+// ONEUSDT is the alt whose tight top of book the depth question is about. Every
+// sample of a real day has to parse whole.
+TEST(BinanceHistoricalIntegration, BookDepthParsesAWholeDayForTheAlt) {
+    const auto run =
+        drain({{kUsdM, "ONEUSDT"}}, {EndpointKind::BookDepth}, kMetricsFrom, kMetricsTo);
+    expect_clean(run);
+    ASSERT_EQ(run.reports.size(), 1u);
+    EXPECT_GT(run.events.size(), 2'000u) << "a day is roughly one sample every 30 seconds";
+    EXPECT_EQ(run.reports[0].stats.rows_parsed, run.events.size() * 10);
+
+    for (const auto& event : run.events) {
+        const auto& bands = *std::get<qp::BookDepthEvent>(event.payload).bands;
+        for (std::size_t k = 1; k < bands.bids.size(); ++k) {
+            ASSERT_GE(bands.bids[k].depth, bands.bids[k - 1].depth) << "depth is cumulative";
+            ASSERT_GE(bands.asks[k].depth, bands.asks[k - 1].depth) << "depth is cumulative";
+        }
+    }
+}
+
+// All three datasets on one symbol in one source. They interleave in timestamp
+// order and each kind arrives exactly as often as its stream parsed it.
+TEST(BinanceHistoricalIntegration, NewDatasetsMergeIntoOneOrderedStream) {
+    const auto run =
+        drain({{kCoinM, "BTCUSD_PERP"}},
+              {EndpointKind::Metrics, EndpointKind::BookDepth, EndpointKind::AggTrades},
+              kMetricsFrom, kMetricsTo);
+    expect_clean(run);
+
+    std::size_t metrics = 0, depth = 0, trades = 0;
+    Timestamp   previous = 0;
+    for (const auto& event : run.events) {
+        ASSERT_GE(event.base.ts, previous) << "the merge went backwards";
+        previous = event.base.ts;
+        if (event.base.kind == EventKind::OpenInterest) ++metrics;
+        if (event.base.kind == EventKind::BookDepth) ++depth;
+        if (event.base.kind == EventKind::Trade) ++trades;
+    }
+
+    for (const auto& report : run.reports) {
+        if (report.kind == EndpointKind::Metrics) {
+            EXPECT_EQ(report.stats.rows_parsed, metrics);
+        }
+        if (report.kind == EndpointKind::BookDepth) {
+            EXPECT_EQ(report.stats.rows_parsed, depth * 10);
+        }
+        if (report.kind == EndpointKind::AggTrades) {
+            EXPECT_EQ(report.stats.rows_parsed, trades);
+        }
+    }
+    EXPECT_GT(metrics, 0u);
+    EXPECT_GT(depth, 0u);
+    EXPECT_GT(trades, 0u);
+}
+
+// ---------------------------------------------------------------------------
+// aggTrades against the raw csvs, every field, on every shape the dataset
+// ships in: spot headerless with eight columns and microseconds, futures with
+// a header, futures before the header existed, and a monthly file.
+// ---------------------------------------------------------------------------
+
+namespace {
+
+struct TradesFile {
     std::uint16_t market{};
     std::string   market_path;
     std::string   symbol;
 };
 
-std::vector<TradesStream> trades_streams() {
-    return {{kSpot, "spot", "BTCUSDT"}, {kCoinM, "futures/cm", "BTCUSD_PERP"}};
-}
-
+/// One trade flattened. Keyed on the aggregate id, which is unique per symbol.
 struct TradeRow {
-    Timestamp     ts{};
     std::string   symbol;
     std::uint64_t id{};
+    Timestamp     ts{};
+    std::uint64_t first_id{};
+    std::uint64_t last_id{};
     double        price{};
     double        qty{};
     bool          sell{};
 
-    auto key() const { return std::tie(ts, symbol, id, price, qty, sell); }
+    auto key() const { return std::tie(symbol, id, ts, first_id, last_id, price, qty, sell); }
 
     bool operator<(const TradeRow& other) const { return key() < other.key(); }
 
     bool operator==(const TradeRow& other) const { return key() == other.key(); }
 };
 
-std::vector<TradeRow> fetch_expected_trades() {
+/// cadence is "daily" or "monthly", stamp the file's date in that cadence.
+std::vector<TradeRow> fetch_expected_trades(const std::vector<TradesFile>& files,
+                                            std::string_view cadence, std::string_view stamp) {
     std::vector<TradeRow> rows;
-    for (const auto& stream : trades_streams()) {
+    for (const auto& file : files) {
         std::string url = "https://data.binance.vision/data/";
-        url += stream.market_path;
-        url += "/daily/aggTrades/";
-        url += stream.symbol;
+        url += file.market_path;
         url += '/';
-        url += stream.symbol;
-        url += "-aggTrades-2025-06-02.zip";
+        url += cadence;
+        url += "/aggTrades/";
+        url += file.symbol;
+        url += '/';
+        url += file.symbol;
+        url += "-aggTrades-";
+        url += stamp;
+        url += ".zip";
 
         const auto             zip   = qp::data_source::network::http::get(url);
         const auto             bytes = qp::data_source::archive::zip::unzip_single_entry(zip);
@@ -871,35 +1044,39 @@ std::vector<TradeRow> fetch_expected_trades() {
             const auto fields = split(line);
             EXPECT_GE(fields.size(), 7u) << line;
             if (fields.size() < 7) continue;
-            rows.push_back(TradeRow{.ts     = to_nanos(fields[5]),
-                                    .symbol = stream.symbol,
-                                    .id     = std::stoull(fields[0]),
-                                    .price  = std::stod(fields[1]),
-                                    .qty    = std::stod(fields[2]),
-                                    .sell   = fields[6] == "true" || fields[6] == "True"});
+            rows.push_back(TradeRow{.symbol   = file.symbol,
+                                    .id       = std::stoull(fields[0]),
+                                    .ts       = to_nanos(fields[5]),
+                                    .first_id = std::stoull(fields[3]),
+                                    .last_id  = std::stoull(fields[4]),
+                                    .price    = std::stod(fields[1]),
+                                    .qty      = std::stod(fields[2]),
+                                    .sell     = fields[6] == "true" || fields[6] == "True"});
         }
     }
     return rows;
 }
 
-}  // namespace
+/// Pulls the files through the source and checks every trade against the csv.
+void expect_trades_match(const std::vector<TradesFile>& files, Cadence cadence, Timestamp from,
+                         Timestamp to, std::string_view stamp) {
+    std::vector<std::pair<std::uint16_t, std::string>> pairs;
+    for (const auto& file : files) pairs.emplace_back(file.market, file.symbol);
 
-TEST(BinanceHistoricalIntegration, AggTradesMatchesTheRawCsvs) {
     SubscriptionBuilder builder;
-    for (const auto& stream : trades_streams())
-        builder.add(qp::ExchangeId::Binance, stream.market, stream.symbol);
+    for (const auto& [market, symbol] : pairs) builder.add(qp::ExchangeId::Binance, market, symbol);
     const auto universe = std::move(builder).build();
+
+    BinanceHistoricalConfig config{.streams = {StreamSpec{EndpointKind::AggTrades, ""}},
+                                   .pool    = pool_config(),
+                                   .cadence = cadence,
+                                   .from    = from,
+                                   .to      = to};
 
     CollectingSink sink;
     {
-        BinanceHistoricalConfig config{.streams = {StreamSpec{EndpointKind::AggTrades, ""}},
-                                       .pool    = pool_config(),
-                                       .cadence = Cadence::Daily,
-                                       .from    = kMetricsFrom,
-                                       .to      = kMetricsTo};
-
         BinanceHistoricalSource<HttpFetchPool> source(config, universe);
-        ASSERT_EQ(source.stream_count(), 2u);
+        ASSERT_EQ(source.stream_count(), files.size());
         source.plan();
 
         // One file per stream. Anything more is a span that grew by accident.
@@ -908,9 +1085,8 @@ TEST(BinanceHistoricalIntegration, AggTradesMatchesTheRawCsvs) {
 
         ControlChannel<1> control;
         const auto        consumer = control.attach();
-
-        auto sources = std::forward_as_tuple(source);
-        auto sinks   = std::forward_as_tuple(sink);
+        auto              sources  = std::forward_as_tuple(source);
+        auto              sinks    = std::forward_as_tuple(sink);
         qp::data_source::run_data_source(sources, sinks, control, consumer,
                                          std::chrono::milliseconds{1});
 
@@ -932,15 +1108,18 @@ TEST(BinanceHistoricalIntegration, AggTradesMatchesTheRawCsvs) {
         previous = event.base.ts;
 
         const auto& trade = std::get<qp::TradeEvent>(event.payload);
-        actual.push_back(TradeRow{.ts     = event.base.ts,
-                                  .symbol = symbol_name(universe, event),
-                                  .id     = trade.id,
-                                  .price  = trade.price,
-                                  .qty    = trade.qty,
-                                  .sell   = trade.side == qp::Side::Sell});
+        actual.push_back(TradeRow{.symbol   = symbol_name(universe, event),
+                                  .id       = trade.id,
+                                  .ts       = event.base.ts,
+                                  .first_id = trade.first_trade_id,
+                                  .last_id  = trade.last_trade_id,
+                                  .price    = trade.price,
+                                  .qty      = trade.qty,
+                                  .sell     = trade.side == qp::Side::Sell});
     }
 
-    auto expected = fetch_expected_trades();
+    auto expected =
+        fetch_expected_trades(files, cadence == Cadence::Daily ? "daily" : "monthly", stamp);
     ASSERT_FALSE(expected.empty());
     std::sort(expected.begin(), expected.end());
     std::sort(actual.begin(), actual.end());
@@ -950,8 +1129,33 @@ TEST(BinanceHistoricalIntegration, AggTradesMatchesTheRawCsvs) {
     for (std::size_t i = 0; i < actual.size() && mismatches < 10; ++i) {
         if (actual[i] == expected[i]) continue;
         ++mismatches;
-        ADD_FAILURE() << "trade " << i << " differs: " << actual[i].symbol << " ts " << actual[i].ts
-                      << " vs " << expected[i].ts;
+        ADD_FAILURE() << actual[i].symbol << " trade " << actual[i].id << " differs from the csv's "
+                      << expected[i].id;
     }
     EXPECT_EQ(mismatches, 0u);
+}
+
+}  // namespace
+
+// Today's shape on all three markets: spot headerless with eight columns and
+// microsecond stamps, the futures with a header, Coin-M counting contracts.
+TEST(BinanceHistoricalIntegration, AggTradesMatchTheRawCsvsOnEveryMarket) {
+    expect_trades_match({{kSpot, "spot", "BTCUSDT"},
+                         {kUsdM, "futures/um", "BTCUSDT"},
+                         {kCoinM, "futures/cm", "BTCUSD_PERP"}},
+                        Cadence::Daily, kMetricsFrom, kMetricsTo, "2025-06-02");
+}
+
+// USD-M before the header was added. The same parser has to take both.
+TEST(BinanceHistoricalIntegration, AggTradesMatchTheHeaderlessFuturesShape) {
+    constexpr Timestamp kJun2021 = 1622592000LL * kSecond;
+    expect_trades_match({{kUsdM, "futures/um", "ONEUSDT"}}, Cadence::Daily, kJun2021,
+                        kJun2021 + 86'400 * kSecond - kSecond, "2021-06-02");
+}
+
+// A month in one file, which is a different path and file name from a day.
+TEST(BinanceHistoricalIntegration, AggTradesMatchAMonthlyFile) {
+    constexpr Timestamp kMay2024 = 1714521600LL * kSecond;
+    expect_trades_match({{kUsdM, "futures/um", "ONEUSDT"}}, Cadence::Monthly, kMay2024,
+                        kMay2024 + 86'400 * kSecond, "2024-05");
 }

@@ -155,5 +155,8 @@ endif()
 
 if(QP_BUILD_PYTHON)
     pybind11_add_module(qp_binance_funding_carry src/apps/backtest/funding_carry/bindings.cpp)
-    target_link_libraries(qp_binance_funding_carry PRIVATE qp_backtest_compose)
+    target_link_libraries(qp_binance_funding_carry PRIVATE
+        qp_backtest_compose
+        qp_core_bindings qp_engine_bindings qp_risk_basic_bindings qp_strategy_carry_bindings
+    )
 endif()

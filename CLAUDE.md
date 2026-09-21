@@ -36,4 +36,4 @@ Follow the `writing` skill for every comment and doc. In short: terse, self-cont
 
 ## Build
 - **Don't build or run tests/benchmarks unless explicitly asked.** The user runs those. Exception: an iterative "fix X and verify it" step.
-- When asked: the `test`, `bench`, and `amend` skills build and run directly via Bash. VS Code's cppdbg/gdb launch is flaky under WSL2; plain execution is what works.
+- When asked: the `test` and `amend` skills build and run directly via Bash. VS Code's cppdbg/gdb launch is flaky under WSL2; plain execution is what works.

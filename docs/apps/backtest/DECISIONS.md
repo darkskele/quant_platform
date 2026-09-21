@@ -11,3 +11,4 @@
 9. The python variant holds `py::object` callback slots and constructs fresh adapter instances in `make_engine()`, so between-run callback swaps and repeated `run()` calls do not need adapter mutators.
 10. The python module releases the GIL around `plan()` and `run()`, so the engine and source threads can acquire it inside each callback.
 11. `FundingCarryBacktest` is on an `EofSource` stub until it is wired to a real source.
+12. Python bindings are split by level. Each level registers only its own types through one `bind_<level>` function in its own `python/` directory, built as a static library, and a module links the levels it needs and calls them in dependency order, core first. A module's own file binds only what is specific to that app.

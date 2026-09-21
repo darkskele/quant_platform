@@ -15,3 +15,7 @@ target_link_libraries(qp_binance_historical
     PUBLIC qp_source_pure Threads::Threads
     PRIVATE qp_network_http qp_archive_zip
 )
+
+if(QP_BUILD_PYTHON)
+    add_subdirectory(python)
+endif()
