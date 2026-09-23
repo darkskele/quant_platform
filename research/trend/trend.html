@@ -442,6 +442,11 @@ p { margin: 0 0 14px; }
   <h3>Funding-aware sign <span class="stamp open">unverified</span></h3>
   <p>A long in hot funding pays more than a small price move earns. Subtract trailing funding from the trailing return before taking the sign. This is what separates a directional premium from paying carry to be long crypto. The old lift was 0.06 and sat inside the noise. Re-test it.</p>
 
+  <h3>Trend strength filter <span class="stamp open">untested</span></h3>
+  <p>The sign fires on any move. A 5% run and a 0.3% drift both take a full position. Scale the trailing return by its own volatility and act on the standardised move, so a weak name in chop sits smaller or flat and a clean run sizes up.</p>
+  <p>Two endpoints cannot tell a steady climb from a spike that round-tripped. Measure the path instead, efficiency ratio or the fit of price on time across the window, and gate on trend quality not just direction. Requiring several lookbacks to agree is the cheap version of the same idea.</p>
+  <p>The dead band was tested on turnover and came back null. This is the conviction question, whether a stronger or cleaner trend is a better trend, and it is untested.</p>
+
   <h3>Signal shape <span class="stamp held">held</span></h3>
   <p>Continuous conviction, MA crossover, EWMA crossover and Baz-scored EWMA all lost to the plain sign. Crossovers sat at or below zero. Conviction lifted 0.22 in sample and nothing out of fold.</p>
 
@@ -570,6 +575,14 @@ p { margin: 0 0 14px; }
 
   <div class="queue">
     <div class="q">
+      <div class="q-n">00</div>
+      <div>
+        <p class="q-run">Explore the data <span class="stamp held">done</span></p>
+        <p class="q-meta">every USDT perp, daily bars 2020 to 2026, moves and funding by correlation only</p>
+        <p class="q-ask">Trend is weak and lives at the market, 1.5 to 1.9 standard errors and a sign that flips by year. The stronger pattern is the opposite, coins snap back against the market over 1 to 2 weeks at 3.5 to 3.9. Coins under $10M a day show no trend at all. Returns are Student t near 3.3 degrees of freedom, so tail weeks are far more common than normal.</p>
+      </div>
+    </div>
+    <div class="q">
       <div class="q-n">01</div>
       <div>
         <p class="q-run">Reproduce the old window <span class="stamp held">passed</span></p>
@@ -580,33 +593,33 @@ p { margin: 0 0 14px; }
     <div class="q">
       <div class="q-n">02</div>
       <div>
-        <p class="q-run">Build the point-in-time universe</p>
-        <p class="q-meta">bucket listing, listing dates, trailing dollar volume</p>
-        <p class="q-ask">Which names were tradeable on which date. Delisted perps stay in for the window they traded.</p>
+        <p class="q-run">Build the point-in-time universe <span class="stamp held">done</span></p>
+        <p class="q-meta">681 crypto perps after dropping 183 stock, ETF, commodity and tokenised-asset perps, 157 stopped trading, liquidity known before each week</p>
+        <p class="q-ask">About 200 coins trade over $10M a day at peak. The archive keeps frozen bars after trading stops, so a day only counts if something traded.</p>
       </div>
     </div>
     <div class="q">
       <div class="q-n">03</div>
       <div>
-        <p class="q-run">Calibrate the cost ladder</p>
-        <p class="q-meta">aggTrades and bookDepth, 20 to 30 names across buckets</p>
-        <p class="q-ask">What a thin name really costs. One day of ONEUSDT showed 0.82 bps half spread, tighter than the mega-caps. If thin names are tight but shallow, cost is depth, not spread.</p>
+        <p class="q-run">Calibrate the cost ladder <span class="stamp held">done</span></p>
+        <p class="q-meta">trade prints and book depth, 70 coin-dates across liquidity bands, 2023 to 2026</p>
+        <p class="q-ask">Spreads are tight, depth is the cost. A $100k book pays about the fee and matches the provisional numbers. At $1M the always-on books hold over the span but fade on recent weeks. At $10M impact kills every book.</p>
       </div>
     </div>
     <div class="q">
       <div class="q-n">04</div>
       <div>
-        <p class="q-run">Wide lookback sweep</p>
-        <p class="q-meta">full universe, 2020 to now, L across 1, 2, 4, 8, 12</p>
-        <p class="q-ask">Is the sawtooth real or fold luck. This run decides whether the lane continues.</p>
+        <p class="q-run">Wide lookback sweep <span class="stamp open">partial pass</span></p>
+        <p class="q-meta">full universe, 2020 to now, L across 1, 2, 4, 8, 12, provisional cost</p>
+        <p class="q-ask">The sawtooth is gone. Every lookback earns, 4 weeks best. Net 0.85 per coin, 0.80 market, 0.55 and 0.67 out of sample. Mostly a market bet. Fails the pooled bar on 2026 and on 0.7 out of sample.</p>
       </div>
     </div>
     <div class="q">
       <div class="q-n">05</div>
       <div>
-        <p class="q-run">Condition map</p>
-        <p class="q-meta">same run, split by states known at trade time</p>
-        <p class="q-ask">Where does it thrive. Trend, volatility, funding, dispersion, open interest and liquidity states. A condition passes only if the book clears the bar inside it out of sample.</p>
+        <p class="q-run">Condition map <span class="stamp open">candidate</span></p>
+        <p class="q-meta">six conditions from the past only, thirds cut on past data, open interest still to add</p>
+        <p class="q-ask">Trend works after a moderate market month. Inside it 1.61, 2.17 unseen, positive every year 2020 to 2026, robust to window, holds at twice cost. Outside it trend loses at most lookbacks. Only 98 weeks, luck-corrected odds modest, cut point sensitive.</p>
       </div>
     </div>
     <div class="q">
@@ -620,9 +633,9 @@ p { margin: 0 0 14px; }
     <div class="q">
       <div class="q-n">07</div>
       <div>
-        <p class="q-run">Mechanism conditioning</p>
-        <p class="q-meta">open interest from metrics</p>
-        <p class="q-ask">Is the premium concentrated where forced deleveraging is.</p>
+        <p class="q-run">Mechanism conditioning <span class="stamp open">partial</span></p>
+        <p class="q-meta">open interest in contracts across six majors, from late 2022</p>
+        <p class="q-ask">Trend loses after the market sheds leverage, when open interest sits below its recent average, in training and unseen weeks. Growth in open interest says nothing. About 190 weeks only.</p>
       </div>
     </div>
     <div class="q">
@@ -655,7 +668,7 @@ p { margin: 0 0 14px; }
 
   <h2>Where this stands</h2>
 
-  <p>The streamed pipeline is verified. It reproduces the old sweep exactly. No finding is verified on the wide data yet. Three reads held, three open.</p>
+  <p>The streamed pipeline is verified. The wide sweep keeps the lane open but fails the pooled bar. Trend after a moderate market month is a candidate conditional pass, positive every year. Three reads held, three open.</p>
 
   <p>Held. Simple beats complex, on every shape and combiner tested. Weekly beats daily.</p>
 
