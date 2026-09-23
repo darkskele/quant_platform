@@ -602,8 +602,8 @@ p { margin: 0 0 14px; }
       <div class="q-n">03</div>
       <div>
         <p class="q-run">Calibrate the cost ladder <span class="stamp held">done</span></p>
-        <p class="q-meta">trade prints and book depth, 70 coin-dates across liquidity bands, 2023 to 2026</p>
-        <p class="q-ask">Spreads are tight, depth is the cost. A $100k book pays about the fee and matches the provisional numbers. At $1M the always-on books hold over the span but fade on recent weeks. At $10M impact kills every book.</p>
+        <p class="q-meta">trade prints and book depth, 72 coin-dates across liquidity bands, 2023 to 2026</p>
+        <p class="q-ask">Spreads are tight, depth is the cost. A $100k book pays about the fee and matches the provisional numbers. At $1M the always-on books hold over the span but fade on recent weeks. At $10M impact kills every book. Books thinned in 2026, $87k of depth for a $10M coin against $187k to $298k before, so recent cost is worse.</p>
       </div>
     </div>
     <div class="q">
@@ -619,7 +619,7 @@ p { margin: 0 0 14px; }
       <div>
         <p class="q-run">Condition map <span class="stamp open">candidate</span></p>
         <p class="q-meta">six conditions from the past only, thirds cut on past data, open interest still to add</p>
-        <p class="q-ask">Trend works after a moderate market month. Inside it 1.61, 2.17 unseen, positive every year 2020 to 2026, robust to window, holds at twice cost. Outside it trend loses at most lookbacks. Only 98 weeks, luck-corrected odds modest, cut point sensitive.</p>
+        <p class="q-ask">Trend works after a moderate market month. Inside it 1.61, and 2.17 on a frozen out-of-sample block the rule never saw, positive in all three unseen years. Robust to window, holds at twice cost and to a $1M book, half the drawdown of always-on. Open interest does not stack. Priced against the search, the weeks it trades read 56 to 65 percent real, but the full gated book that sits flat 71 percent of the time falls below the multiple-testing bar. Real on a small sample, not proven.</p>
       </div>
     </div>
     <div class="q">
@@ -662,9 +662,25 @@ p { margin: 0 0 14px; }
         <p class="q-ask">Does a learned signal beat the plain sign net of cost out of fold. Prior is low. Boosted models lost to persistence on carry.</p>
       </div>
     </div>
+    <div class="q">
+      <div class="q-n">11</div>
+      <div>
+        <p class="q-run">Signal shape, path and breakout</p>
+        <p class="q-meta">efficiency ratio, up-day fraction, R-squared of price on time, Donchian breakout</p>
+        <p class="q-ask">The sign of two endpoints throws away the path. A steady grind and a spike that round-tripped read the same. Test whether a clean path predicts persistence better than the raw sign, and whether a new L-week high beats being above L weeks ago. New, untested on this universe.</p>
+      </div>
+    </div>
+    <div class="q">
+      <div class="q-n">12</div>
+      <div>
+        <p class="q-run">Signal decomposition</p>
+        <p class="q-meta">next-week return on market lags, residual lags, funding, open interest, walk-forward</p>
+        <p class="q-ask">Break the trailing return into its terms and fit the weight each earns out of fold. Splits into a weak market-trend term and the strong cross-sectional reversal term. The reversal term belongs to the cross-sectional lane. Subsumes the funding-aware sign and the boosted signal.</p>
+      </div>
+    </div>
   </div>
 
-  <p>08 to 10 are exploratory. Fit walk-forward. Judge on net lift over the plain sign out of fold, never on accuracy or IC.</p>
+  <p>08 to 12 are exploratory, ML last and on hold. Fit walk-forward, judge on net lift over the plain sign out of fold, never on accuracy or IC. Deadband, conviction weighting and multi-horizon agreement were tested null on the old ten-symbol sample and get a wide re-test only if a shape in 11 moves first.</p>
 
   <h2>Where this stands</h2>
 
