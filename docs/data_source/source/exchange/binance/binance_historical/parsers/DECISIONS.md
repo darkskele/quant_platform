@@ -20,3 +20,4 @@
 21. Booleans are accepted in both cases, since futures write lowercase and spot capitalises, and nothing else is.
 22. Coin-M trade quantity is contracts. The dataset has no base column and contract sizes are not known to the platform, so it is carried as published and marked on the event.
 23. A trade carries the venue's aggregate id and the range of underlying fills it folds, so a gap, a replay or a trade count is visible downstream. They cost no width, since the kline payload already sets the variant's size.
+24. Book depth reads the percent as a decimal and accepts the 0.2 bands files carry from 2026-01-14 as a pair or not at all. They are checked but not kept, so the event stays five whole-percent bands a side.

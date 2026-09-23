@@ -31,6 +31,7 @@ Prose follows the `writing` skill, terse, no em dashes, no colons or semicolons,
 - State the finding directly and stay honest about softness, a soft Sharpe is called soft.
 - Easy on the jargon, explain the concept once in plain terms before naming it.
 - Math in KaTeX with dollar delimiters. Inline is `$x$`, display is `$$x$$`.
+- After a display block, break the terms down in plain notes form, one bullet a term, what each symbol is and what it contributes. Read it back so a reader gets the formula without parsing the notation.
 
 ## Notebook section pattern
 
