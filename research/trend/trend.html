@@ -433,7 +433,7 @@ p { margin: 0 0 14px; }
   <p>The whole signal. Sign of the trailing return, L swept over 1, 2, 4, 8 and 12 weeks. L=1 and L=4 cleared the bar on the old sample and everything between them did not. Winners whose neighbours disagree are lucky cells. Re-run the grid before building on it.</p>
 
   <h3>Size and weighting <span class="stamp open">reopened</span></h3>
-  <p>Target weekly vol per symbol, capped. Size does not move the hurdle, because fees and funding both scale with notional. It sets dollar PnL, drawdown and impact. Realized-vol scaling stays deferred.</p>
+  <p>Target weekly vol per symbol, capped. Size does not move the hurdle, because fees and funding both scale with notional. It sets dollar PnL, drawdown and impact. Realized-vol scaling stays deferred. The vol estimate is a shared sizing utility, not a lane. A better one, EWMA or a GARCH family over the rolling std, is a coarse-first spike, does net Sharpe or drawdown move at all.</p>
   <p>Weighting is what changed. Equal weight over ten mega-caps was a liquid book. Equal weight over four hundred perps puts BTC notional into a thin alt, which is maximum weight where the spread is widest and least known. Run equal weight and liquidity weight side by side. The gap between them is how much of the edge is a cost guess.</p>
 
   <h3>Cadence <span class="stamp held">held</span></h3>
@@ -617,9 +617,9 @@ p { margin: 0 0 14px; }
     <div class="q">
       <div class="q-n">05</div>
       <div>
-        <p class="q-run">Condition map <span class="stamp open">candidate</span></p>
-        <p class="q-meta">six conditions from the past only, thirds cut on past data, open interest still to add</p>
-        <p class="q-ask">Trend works after a moderate market month. Inside it 1.61, and 2.17 on a frozen out-of-sample block the rule never saw, positive in all three unseen years. Robust to window, holds at twice cost and to a $1M book, half the drawdown of always-on. Open interest does not stack. Priced against the search, the weeks it trades read 56 to 65 percent real, but the full gated book that sits flat 71 percent of the time falls below the multiple-testing bar. Real on a small sample, not proven.</p>
+        <p class="q-run">Condition map <span class="stamp block">parked</span></p>
+        <p class="q-meta">six conditions from the past only, thirds cut on past data, open interest included</p>
+        <p class="q-ask">Resolved. Judged on its in-condition sleeve, the object a regime gate would trade, not on the always-on book. The sleeve of 98 weeks reads 1.61, 2.17 unseen, positive every year and real at even odds after the search, 0.55 to 0.64. Run always on it dilutes to 0.90 and 0.06 to 0.13, which is the cost of no gate, not a mark on the signal. Not thrown out, not banked. The binding constraint is the 98 weeks. Parked for more weeks or the cross-sectional reversal it is really pricing.</p>
       </div>
     </div>
     <div class="q">
@@ -666,8 +666,8 @@ p { margin: 0 0 14px; }
       <div class="q-n">11</div>
       <div>
         <p class="q-run">Signal shape, path and breakout</p>
-        <p class="q-meta">efficiency ratio, up-day fraction, R-squared of price on time, Donchian breakout</p>
-        <p class="q-ask">The sign of two endpoints throws away the path. A steady grind and a spike that round-tripped read the same. Test whether a clean path predicts persistence better than the raw sign, and whether a new L-week high beats being above L weeks ago. New, untested on this universe.</p>
+        <p class="q-meta">efficiency ratio, up-day fraction, R-squared of price on time, Donchian breakout, open-interest-confirmed break</p>
+        <p class="q-ask">The sign of two endpoints throws away the path. A steady grind and a spike that round-tripped read the same. Test whether a clean path predicts persistence better than the raw sign, and whether a new L-week high beats being above L weeks ago. Then back the break with capital, take it only when contract open interest is also near an L-week high, since a break on falling open interest is a squeeze that round-trips. Volume is the weaker read, it marks turnover not commitment and often marks exhaustion. Judge net lift over the plain sign out of fold, and expect it leverage-conditional. New, untested on this universe.</p>
       </div>
     </div>
     <div class="q">
@@ -678,13 +678,21 @@ p { margin: 0 0 14px; }
         <p class="q-ask">Break the trailing return into its terms and fit the weight each earns out of fold. Splits into a weak market-trend term and the strong cross-sectional reversal term. The reversal term belongs to the cross-sectional lane. Subsumes the funding-aware sign and the boosted signal.</p>
       </div>
     </div>
+    <div class="q">
+      <div class="q-n">13</div>
+      <div>
+        <p class="q-run">Statistical and positioning features</p>
+        <p class="q-meta">skewness, kurtosis, return autocorrelation, and the cross-sectional column, funding, open interest, dispersion, co-movement, liquidity, depth</p>
+        <p class="q-ask">The single-name price features are spent. Test the ones that carry independent information, higher moments and autocorrelation, autocorrelation being the trend against reversal question itself. Then the venue's real edge, the cross-sectional and positioning features, where forced deleveraging lives. Technical indicators are monotone transforms of price already carried, low prior, test cheap. Hypothesis first, then the smallest feature that expresses it, never a feature zoo sifted by a model. Judge net lift over the plain sign out of fold.</p>
+      </div>
+    </div>
   </div>
 
-  <p>08 to 12 are exploratory, ML last and on hold. Fit walk-forward, judge on net lift over the plain sign out of fold, never on accuracy or IC. Deadband, conviction weighting and multi-horizon agreement were tested null on the old ten-symbol sample and get a wide re-test only if a shape in 11 moves first.</p>
+  <p>08 to 13 are exploratory, ML last and on hold. Fit walk-forward, judge on net lift over the plain sign out of fold, never on accuracy or IC. Deadband, conviction weighting and multi-horizon agreement were tested null on the old ten-symbol sample and get a wide re-test only if a shape in 11 moves first.</p>
 
   <h2>Where this stands</h2>
 
-  <p>The streamed pipeline is verified. The wide sweep keeps the lane open but fails the pooled bar. Trend after a moderate market month is a candidate conditional pass, positive every year. Three reads held, three open.</p>
+  <p>The streamed pipeline is verified. The wide sweep keeps the lane open but fails the pooled bar. The moderate-month condition is a parked candidate, real as a 98-week sleeve at even odds and under-powered to clear the search, judged on the sleeve a regime gate would trade rather than the always-on book. What it prices is a cross-sectional reversal, banked for the mean-reversion lane. That lane shares this one's universe, cadence and structure, so running the two together only repeats the same pipeline and findings. Trend runs to the end and is written up first, then mean reversion begins on top of it. This lane is pushed to the ends of the data, signal shape and backed breakout in 11 next.</p>
 
   <p>Held. Simple beats complex, on every shape and combiner tested. Weekly beats daily.</p>
 
