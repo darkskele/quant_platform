@@ -619,7 +619,7 @@ p { margin: 0 0 14px; }
       <div>
         <p class="q-run">Condition map <span class="stamp block">parked</span></p>
         <p class="q-meta">six conditions from the past only, thirds cut on past data, open interest included</p>
-        <p class="q-ask">Resolved. Judged on its in-condition sleeve, the object a regime gate would trade, not on the always-on book. The sleeve of 98 weeks reads 1.61, 2.17 unseen, positive every year and real at even odds after the search, 0.55 to 0.64. Run always on it dilutes to 0.90 and 0.06 to 0.13, which is the cost of no gate, not a mark on the signal. Not thrown out, not banked. The binding constraint is the 98 weeks. Parked for more weeks or the cross-sectional reversal it is really pricing.</p>
+        <p class="q-ask">Resolved. Judged on its in-condition sleeve, the object a regime gate would trade, not on the always-on book. The sleeve of 98 weeks reads 1.61, 2.17 unseen, positive every year and real at even odds after the search, 0.55 to 0.64. Run always on it dilutes to 0.90 and 0.06 to 0.13, which is the cost of no gate, not a mark on the signal. Not thrown out, not banked. The binding constraint is the 98 weeks. Parked for more weeks or a mechanism.</p>
       </div>
     </div>
     <div class="q">
@@ -665,17 +665,17 @@ p { margin: 0 0 14px; }
     <div class="q">
       <div class="q-n">11</div>
       <div>
-        <p class="q-run">Signal shape, path and breakout</p>
-        <p class="q-meta">efficiency ratio, up-day fraction, R-squared of price on time, Donchian breakout, open-interest-confirmed break</p>
-        <p class="q-ask">The sign of two endpoints throws away the path. A steady grind and a spike that round-tripped read the same. Test whether a clean path predicts persistence better than the raw sign, and whether a new L-week high beats being above L weeks ago. Then back the break with capital, take it only when contract open interest is also near an L-week high, since a break on falling open interest is a squeeze that round-trips. Volume is the weaker read, it marks turnover not commitment and often marks exhaustion. Judge net lift over the plain sign out of fold, and expect it leverage-conditional. New, untested on this universe.</p>
+        <p class="q-run">Signal shape, path and breakout <span class="stamp block">tested flat</span></p>
+        <p class="q-meta">Donchian breakout as a direction rule, efficiency ratio as a direction-only predictor over cross-sectional thirds</p>
+        <p class="q-ask">Tested, kept inside the signal phase, direction only with sizing held fixed. At 4 weeks, the lookback that pays, nothing beats the plain sign. The Donchian breakout is much worse, 0.39 against 0.85, a weekly new high on a thin alt is as often the top as the start. Cleanliness sorted into thirds does not separate at 4 weeks, clean and choppy trends continue the same and the choppy third even leads out of fold, so the path is not signal there. It separates only at 8 and 12 weeks where the raw sign is weak, lifting the clean third toward but not past the 4-week sign. The open-interest-backed break was not run, the raw break loses so the filter would rescue a loser and open interest is majors only, it belongs with the leverage mechanism.</p>
       </div>
     </div>
     <div class="q">
       <div class="q-n">12</div>
       <div>
-        <p class="q-run">Signal decomposition</p>
-        <p class="q-meta">next-week return on market lags, residual lags, funding, open interest, walk-forward</p>
-        <p class="q-ask">Break the trailing return into its terms and fit the weight each earns out of fold. Splits into a weak market-trend term and the strong cross-sectional reversal term. The reversal term belongs to the cross-sectional lane. Subsumes the funding-aware sign and the boosted signal.</p>
+        <p class="q-run">Signal decomposition <span class="stamp block">done</span></p>
+        <p class="q-meta">next-week return on market, residual and funding terms, and the residual book across formation horizons</p>
+        <p class="q-ask">Done. The 4-week trend is a strong market-timing beta, 0.80 of the 0.85, plus two weak kickers. Coin selection adds 0.05 and at this horizon it is cross-sectional momentum not reversal, long the coins that beat the market makes 0.28. In the pooled regression the market term is t 12.7, the residual t 3.3, and funding a separate t 3.6, so the signal is not carry in disguise. The cross-section only reverses at 1 to 2 weeks, a separate short-horizon signal for the mean-reversion lane, not a piece of the 4-week trend. Subsumes the funding-aware sign 06.</p>
       </div>
     </div>
     <div class="q">
@@ -683,7 +683,15 @@ p { margin: 0 0 14px; }
       <div>
         <p class="q-run">Statistical and positioning features</p>
         <p class="q-meta">skewness, kurtosis, return autocorrelation, and the cross-sectional column, funding, open interest, dispersion, co-movement, liquidity, depth</p>
-        <p class="q-ask">The single-name price features are spent. Test the ones that carry independent information, higher moments and autocorrelation, autocorrelation being the trend against reversal question itself. Then the venue's real edge, the cross-sectional and positioning features, where forced deleveraging lives. Technical indicators are monotone transforms of price already carried, low prior, test cheap. Hypothesis first, then the smallest feature that expresses it, never a feature zoo sifted by a model. Judge net lift over the plain sign out of fold.</p>
+        <p class="q-ask">The single-name price features are spent. Test the ones that carry independent information, higher moments and autocorrelation, autocorrelation being the trend against reversal question itself. Then the venue's real edge, the cross-sectional and positioning features, where forced deleveraging lives. Technical indicators are monotone transforms of price already carried, low prior, test cheap. Hypothesis first, then the smallest feature that expresses it, never a feature zoo sifted by a model. Judge net lift over the plain sign out of fold. Skew, size and carry are cross-sectional signals of their own, they belong to their lanes, not to trend.</p>
+      </div>
+    </div>
+    <div class="q">
+      <div class="q-n">14</div>
+      <div>
+        <p class="q-run">Bounding the headline <span class="stamp held">done</span></p>
+        <p class="q-meta">block bootstrap of the Sharpe, cumulative return through the known crashes, year by year</p>
+        <p class="q-ask">The edge is real but loosely measured. The bootstrapped Sharpe floors near 0.3 for both books and is positive in essentially every draw, but the interval runs to 1.4. The crash profile is classic trend, the market book up 64% and 69% through the May 2021 flush and LUNA, down 27% through the FTX whipsaw and 14% through the March 2023 depeg. Only 2026 loses across the board. Honest beta, loosely measured, not a passed strategy.</p>
       </div>
     </div>
   </div>
@@ -692,7 +700,7 @@ p { margin: 0 0 14px; }
 
   <h2>Where this stands</h2>
 
-  <p>The streamed pipeline is verified. The wide sweep keeps the lane open but fails the pooled bar. The moderate-month condition is a parked candidate, real as a 98-week sleeve at even odds and under-powered to clear the search, judged on the sleeve a regime gate would trade rather than the always-on book. What it prices is a cross-sectional reversal, banked for the mean-reversion lane. That lane shares this one's universe, cadence and structure, so running the two together only repeats the same pipeline and findings. Trend runs to the end and is written up first, then mean reversion begins on top of it. This lane is pushed to the ends of the data, signal shape and backed breakout in 11 next.</p>
+  <p>The streamed pipeline is verified. The wide sweep keeps the lane open but fails the pooled bar. The moderate-month condition is a parked candidate, real as a 98-week sleeve at even odds and under-powered to clear the search, judged on the sleeve a regime gate would trade rather than the always-on book. The decomposition settles what trend is. The 4-week book is a market-timing beta plus a weak cross-sectional momentum kicker and a small separate funding term, not carry and not reversal. The cross-section only reverses at 1 to 2 weeks, a separate short-horizon signal banked for the mean-reversion lane. That lane shares this one's universe, cadence and structure, so running the two together only repeats the pipeline, so trend runs to the end and is written up first. This lane is pushed to the ends of the data. Signal shape tested flat, decomposition done, the headline bounded, a real but loosely measured beta with a bootstrap floor near 0.3 and a classic crash profile. What is left is cross-sectional lane scope, the open-interest mechanism is thin and regime-flavoured, and ML stays deferred. The trend signal research is done, ready for write-up.</p>
 
   <p>Held. Simple beats complex, on every shape and combiner tested. Weekly beats daily.</p>
 
