@@ -13,7 +13,7 @@
 11. A failed file still counts its expected rows, so the shortfall shows against rows parsed rather than disappearing.
 12. Fetch and decompression happen on pool threads, parsing happens on the pull thread. `next()` does one refill plus a heap pop in steady state.
 13. The merge holds only streams without a front event in a pending list, everything else in a heap, so a pull never walks every stream.
-14. Heap ties fall to the lower stream index, so a replay of the same span yields the same order every time.
+14. At an equal stamp a bar merges after every other kind, so a trade on a bar's last instant arrives before the bar summarising it. Remaining heap ties fall to the lower stream index, so a replay of the same span yields the same order every time.
 15. The source owns its pool and quiesces it in the destructor, so workers are joined while the queues they write into are still alive.
 16. Streams pump on starvation and on a tick mask otherwise, so a busy stream pays a local increment per event rather than the ring's atomics.
 17. Per-stream gap stats are reported rather than thrown on, since a historical sweep is judged by what it read, not by whether every file existed.

@@ -14,13 +14,13 @@ inline bool parse_klines_row(const Endpoint& entry, std::string_view row, Timest
     KlineRow fields{};
     if (!read_kline_row(entry, row, fields)) return false;
 
-    ts  = fields.open_time;
-    out = KlineEvent{.close_time = fields.close_time,
-                     .open       = fields.open,
-                     .high       = fields.high,
-                     .low        = fields.low,
-                     .close      = fields.close,
-                     .volume     = fields.volume};
+    ts  = fields.close_time;
+    out = KlineEvent{.open_time = fields.open_time,
+                     .open      = fields.open,
+                     .high      = fields.high,
+                     .low       = fields.low,
+                     .close     = fields.close,
+                     .volume    = fields.volume};
     return true;
 }
 

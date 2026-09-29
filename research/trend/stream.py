@@ -100,7 +100,7 @@ def _collect(symbols, specs, cadence, start, end, workers=32):
         b = e.base
         if b.kind == kline:
             p = e.payload
-            bars.append((name[b.symbol], p.close_time, p.high, p.low, p.close, p.volume))
+            bars.append((name[b.symbol], b.ts, p.high, p.low, p.close, p.volume))
         elif b.kind == funding:
             prints.append((name[b.symbol], b.ts, e.payload.funding_rate))
         return None

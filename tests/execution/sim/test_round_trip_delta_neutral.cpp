@@ -108,9 +108,9 @@ TEST(RoundTripDeltaNeutral, CashMatchesHandComputedFundingMinusSpreadAndFees) {
     book.apply_mark_price(qp::test::make_kline(kSym, 0, 1, kRef, kRef, kRef, kRef, 0.0, kPerp));
 
     gateway.on_market_event(
-        qp::test::make_mark_price_kline(kSym, 1, kRef, 2, kRef, kRef, kRef, kPerp));
+        qp::test::make_mark_price_kline(kSym, 2, kRef, 1, kRef, kRef, kRef, kPerp));
     book.apply_mark_price(
-        qp::test::make_mark_price_kline(kSym, 1, kRef, 2, kRef, kRef, kRef, kPerp));
+        qp::test::make_mark_price_kline(kSym, 2, kRef, 1, kRef, kRef, kRef, kPerp));
 
     Order open_orders[] = {buy(1, kSpot), sell(2, kPerp)};
     submit_and_drain(gateway, book, open_orders, 10);
@@ -140,9 +140,9 @@ TEST(RoundTripDeltaNeutral, NegativeFundingBillsTheShort) {
     gateway.on_market_event(qp::test::make_kline(kSym, 0, 1, kRef, kRef, kRef, kRef, 0.0, kPerp));
     book.apply_mark_price(qp::test::make_kline(kSym, 0, 1, kRef, kRef, kRef, kRef, 0.0, kPerp));
     gateway.on_market_event(
-        qp::test::make_mark_price_kline(kSym, 1, kRef, 2, kRef, kRef, kRef, kPerp));
+        qp::test::make_mark_price_kline(kSym, 2, kRef, 1, kRef, kRef, kRef, kPerp));
     book.apply_mark_price(
-        qp::test::make_mark_price_kline(kSym, 1, kRef, 2, kRef, kRef, kRef, kPerp));
+        qp::test::make_mark_price_kline(kSym, 2, kRef, 1, kRef, kRef, kRef, kPerp));
 
     Order open_orders[] = {buy(1, kSpot), sell(2, kPerp)};
     submit_and_drain(gateway, book, open_orders, 10);

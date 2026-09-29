@@ -57,7 +57,7 @@ struct FundingEvent {
 };
 
 struct KlineEvent {
-    Timestamp close_time{};
+    Timestamp open_time{};  ///< The bar's identity. The event is stamped at its close.
     Price     open{};
     Price     high{};
     Price     low{};
@@ -66,7 +66,7 @@ struct KlineEvent {
 };
 
 struct MarkPriceKlineEvent {
-    Timestamp close_time{};
+    Timestamp open_time{};  ///< The bar's identity. The event is stamped at its close.
     Price     open{};
     Price     high{};
     Price     low{};
@@ -74,7 +74,7 @@ struct MarkPriceKlineEvent {
 };
 
 struct PremiumIndexKlineEvent {
-    Timestamp close_time{};
+    Timestamp open_time{};  ///< The bar's identity. The event is stamped at its close.
     Price     open{};
     Price     high{};
     Price     low{};

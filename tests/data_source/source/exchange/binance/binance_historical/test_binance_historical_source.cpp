@@ -163,8 +163,8 @@ TEST(BinanceSource, MergesTwoSymbolsInTimestampOrder) {
 
     ASSERT_EQ(seen.size(), 4u);
     EXPECT_TRUE(std::is_sorted(seen.begin(), seen.end()));
-    EXPECT_EQ(seen.front(), 1704067200000LL * 1'000'000);
-    EXPECT_EQ(seen.back(), 1704078000000LL * 1'000'000);
+    EXPECT_EQ(seen.front(), 1704067200001LL * 1'000'000);
+    EXPECT_EQ(seen.back(), 1704078000001LL * 1'000'000);
 }
 
 TEST(BinanceSource, MergesAcrossKinds) {

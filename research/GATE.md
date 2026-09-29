@@ -11,14 +11,14 @@ A result quoted anywhere, in the research log, in a notebook read, in a handoff,
 | 1.1 | Coverage | Train plus test spans 5 years and contains one full bull and bear cycle. Tier 0 (2022 to 2024) fails this on span, tier 1 hourly (from 2017 spot, 2020 perp) clears it | Untested in the regime that kills it |
 | 1.2 | Contract continuity | Perpetuals, so no roll. Symbol renames and contract-spec changes (tick size, multiplier, margin asset) are handled, not silently spliced | False signals at the splice, inflated returns |
 | 1.3 | Survivorship | Delisted and deprecated perps are in the universe for the window they traded. A universe built from currently listed symbols is biased and must be named as such | Returns inflated, the dead symbols were the losses |
-| 1.4 | Timestamp alignment | One clock, UTC milliseconds, across spot, perp, funding and open interest. Funding stamps are settlement time, not print time. Bar stamps are open time, consistently | Cross-market signals silently shifted, leakage or lag |
+| 1.4 | Timestamp alignment | One clock, UTC milliseconds, across spot, perp, funding and open interest. Funding stamps are settlement time, not print time. Bar identity is open time, consistently. A bar is delivered at its close time, never its open | Cross-market signals silently shifted, leakage or lag |
 | 1.5 | Gaps and outliers | Missing bars, halts and zero-volume stretches are counted and handled explicitly, not forward-filled into a signal | A halt reads as a flat market and fabricates edge |
 
 ## Layer 2, temporal integrity
 
 | # | check | pass criteria | failure consequence |
 |---|---|---|---|
-| 2.1 | Look-ahead | Signal formed on bar close T acts no earlier than T plus one bar. The engine is the arbiter, an event drives the strategy and the strategy cannot see past it | Backtest inflated 2x to 10x |
+| 2.1 | Look-ahead | Signal formed on bar close T acts no earlier than T plus one bar. The engine is the arbiter, an event drives the strategy and the strategy cannot see past it. A bar reaches the strategy at its close time and after every event inside it | Backtest inflated 2x to 10x |
 | 2.2 | Train and test separation | Strictly temporal. No shuffled split, no fit on pooled history then test inside it | Overfitting becomes undetectable |
 | 2.3 | Feature lag | Every feature uses information available at or before its stamp. Rolling stats are trailing. Cross-sectional ranks use the same bar for every symbol | Future information in the feature set |
 | 2.4 | Label and purge | Labels use only forward data, and the train and test folds are purged by the full label horizon plus an embargo. A 24 bar cumulative label needs a 24 bar purge, not 1 | Adjacent rows share forward prints, every metric inflated |

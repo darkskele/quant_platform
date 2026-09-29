@@ -43,8 +43,8 @@ TEST(BinanceKlineParser, ParsesUsdMRow) {
     KlineEvent kline{};
     ASSERT_TRUE(parse_klines_row(kUsdM, kUsdMRowMillis, ts, kline));
 
-    EXPECT_EQ(ts, 1748822400000LL * 1'000'000);
-    EXPECT_EQ(kline.close_time, 1748825999999LL * 1'000'000);
+    EXPECT_EQ(ts, 1748825999999LL * 1'000'000);
+    EXPECT_EQ(kline.open_time, 1748822400000LL * 1'000'000);
     EXPECT_DOUBLE_EQ(kline.open, 105583.30);
     EXPECT_DOUBLE_EQ(kline.high, 105700.00);
     EXPECT_DOUBLE_EQ(kline.low, 105351.80);
@@ -57,21 +57,21 @@ TEST(BinanceKlineParser, ParsesSpotMillisRow) {
     KlineEvent kline{};
     ASSERT_TRUE(parse_klines_row(kUsdM, kSpotRowMillis, ts, kline));
 
-    EXPECT_EQ(ts, 1685664000000LL * 1'000'000);
+    EXPECT_EQ(ts, 1685667599999LL * 1'000'000);
     EXPECT_DOUBLE_EQ(kline.open, 26817.93);
     EXPECT_DOUBLE_EQ(kline.volume, 3258.76190000);
 }
 
 // Same instant in both units has to land on the same nanosecond.
 TEST(BinanceKlineParser, MicrosecondAndMillisecondStampsAgree) {
-    Timestamp  micros_ts{};
-    Timestamp  millis_ts{};
-    KlineEvent ignored{};
-    ASSERT_TRUE(parse_klines_row(kUsdM, kSpotRowMicros, micros_ts, ignored));
-    ASSERT_TRUE(parse_klines_row(kUsdM, kUsdMRowMillis, millis_ts, ignored));
+    Timestamp  ts{};
+    KlineEvent micros{};
+    KlineEvent millis{};
+    ASSERT_TRUE(parse_klines_row(kUsdM, kSpotRowMicros, ts, micros));
+    ASSERT_TRUE(parse_klines_row(kUsdM, kUsdMRowMillis, ts, millis));
 
-    EXPECT_EQ(micros_ts, millis_ts);
-    EXPECT_EQ(micros_ts, 1748822400000000000LL);
+    EXPECT_EQ(micros.open_time, millis.open_time);
+    EXPECT_EQ(micros.open_time, 1748822400000000000LL);
 }
 
 TEST(BinanceKlineParser, MicrosecondRowKeepsFieldsIntact) {
@@ -79,7 +79,8 @@ TEST(BinanceKlineParser, MicrosecondRowKeepsFieldsIntact) {
     KlineEvent kline{};
     ASSERT_TRUE(parse_klines_row(kUsdM, kSpotRowMicros, ts, kline));
 
-    EXPECT_EQ(kline.close_time, 1748825999999999LL * 1'000);
+    EXPECT_EQ(ts, 1748825999999999LL * 1'000);
+    EXPECT_EQ(kline.open_time, 1748822400000000LL * 1'000);
     EXPECT_DOUBLE_EQ(kline.open, 105642.93);
     EXPECT_DOUBLE_EQ(kline.close, 105427.48);
 }
@@ -137,11 +138,11 @@ TEST(BinanceKlineParser, RejectsEmptyRow) {
 // A failed parse must not half write the caller's event.
 TEST(BinanceKlineParser, FailureLeavesOutputUntouched) {
     Timestamp  ts{42};
-    KlineEvent kline{.close_time = 7, .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0};
+    KlineEvent kline{.open_time = 7, .open = 1.0, .high = 2.0, .low = 3.0, .close = 4.0};
     EXPECT_FALSE(parse_klines_row(kUsdM, "1748822400000,105583.30,nope", ts, kline));
 
     EXPECT_EQ(ts, 42);
-    EXPECT_EQ(kline.close_time, 7);
+    EXPECT_EQ(kline.open_time, 7);
     EXPECT_DOUBLE_EQ(kline.open, 1.0);
 }
 
@@ -151,5 +152,5 @@ TEST(BinanceKlineParser, IgnoresTrailingCarriageReturn) {
     std::string row(kUsdMRowMillis);
     row += '\r';
     ASSERT_TRUE(parse_klines_row(kUsdM, row, ts, kline));
-    EXPECT_EQ(ts, 1748822400000LL * 1'000'000);
+    EXPECT_EQ(ts, 1748825999999LL * 1'000'000);
 }
