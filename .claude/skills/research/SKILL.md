@@ -45,7 +45,7 @@ Do NOT write cells that describe what was just done, and do NOT write "next step
 
 ## Analytical discipline
 
-`research/GATE.md` is the bar every result clears before it is quoted as a finding, and every item of it before anything goes live. Report the gate status with the number. The rest of this section is how to get there.
+`research/signal/SIGNAL_GATE.md` is the bar every signal result clears before it is quoted as a finding. Report the gate status with the number. The rest of this section is how to get there.
 
 - Judge by net PnL and Sharpe, not IC. IC does not translate to money here, that is a settled finding.
 - Coarse first. Answer the binary question, does it move at all. Stop if flat, flat is itself the answer. Go finer only on the axis that moved, never two grids at once.
@@ -89,6 +89,7 @@ Two phases, and the seam between them gates the roadmap.
 ## Working with the repo owner and git
 
 - Never `git commit`, `git add`, or touch the index, however the request is phrased, unless commit permission is given explicitly for that turn. The owner commits, often between turns, and works out of staged changes as pre-commit review.
+- In a cloud session the work exists only in the container. On request, commit it to a temporary `claude/` branch and push, so the owner can build and run it, then squash to one commit on the named branch and delete the temp branch.
 - Plan docs are never committed, a hard rule. A research plan markdown is a working file only, it never enters a commit and no reference to it does either, not in a tracked file, not in a commit message.
 - Push, merge and branch only when prompted. Merge with `--ff-only` so no merge commit is created, which also keeps it inside the no-commit rule.
 - Do not edit research notebooks to answer a question, answer in chat unless asked to write it in.
