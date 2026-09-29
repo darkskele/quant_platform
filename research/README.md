@@ -40,6 +40,16 @@ Lanes are git worktrees, one per chat. Main is carry. `alpha-research` is trend.
 
 Time-series trend on every liquid USDT perp, weekly, 2020 to 2026. Notebooks in `signal/trend/`.
 
+### Registered test, Data A review on spot 2017 to 2019 (2026-09-29) - continues, no fail rule met
+
+The registered 3 to 6 week band, run once on Binance spot from August 2017 to December 2019, in `trend_registered.ipynb`. Read straight from the archive by `spot.py`, since the engine module cannot be built in the cloud session. VEN's swap into VET joined the named redenomination list before the run.
+
+- Net 1.03 over 112 weeks, probability 0.94 on one trial. Neither registered fail rule fires, so the test continues to the forward perps run.
+- 72% of the return is 7 weeks in 2017, long BTC then BTC and ETH through the December bubble. From 2018, on six to eight coins, 0.37 over 105 weeks.
+- Random signs on the same coins reach 0.98. On A alone `gate fail S2 V1, open D1 S3 T5`.
+
+Read. Data A does not refute the trend premium and adds little for it. Spot from 2017 to 2019 held under ten liquid coins, so the test rests on the forward run.
+
 ### Review and rescore against the signal gate (2026-09-29) - gate fail, parked
 
 A review of the lane replaced `GATE.md` with the signal gate, calibrated on simulated books before the rerun. It fixed what the review found, then rescored every result in `trend_gate.ipynb`.

@@ -127,7 +127,7 @@ def ladder(sample: pd.DataFrame) -> dict:
     return {'spread': (a1, b1), 'depth': (a2, b2)}
 
 
-def one_way_bps(fit: dict, liquidity: pd.DataFrame, trade_usd: pd.DataFrame) -> pd.DataFrame:
+def one_way_bps(fit: dict, liquidity: pd.DataFrame, trade_usd: pd.DataFrame, fee_bps=FEE_BPS) -> pd.DataFrame:
     """Fee plus half spread plus impact, for a trade of trade_usd in a coin of that liquidity.
 
     Impact assumes resting size spread evenly across the 1% band, so taking
@@ -136,4 +136,4 @@ def one_way_bps(fit: dict, liquidity: pd.DataFrame, trade_usd: pd.DataFrame) -> 
     lv = np.log10(liquidity.clip(lower=1e5))
     half_spread = 10 ** (fit['spread'][0] + fit['spread'][1] * lv)
     depth = 10 ** (fit['depth'][0] + fit['depth'][1] * lv)
-    return FEE_BPS + half_spread + 50 * trade_usd / depth
+    return fee_bps + half_spread + 50 * trade_usd / depth

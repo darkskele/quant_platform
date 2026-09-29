@@ -28,8 +28,9 @@ class Book:
     given, then each trade is priced off the ladder at its dollar size.
     """
 
-    def __init__(self, p: panel.Panel | None = None):
+    def __init__(self, p: panel.Panel | None = None, fee_bps=costs.FEE_BPS):
         self.p = p or panel.load()
+        self.fee_bps = fee_bps
         self.W, self.LIQ, self.VOL, self.F = self.p.weekly, self.p.liquidity, self.p.vol, self.p.funding
         self.R = self.p.simple.reindex_like(self.W).fillna(0.0)
         self.provisional = pd.DataFrame(np.where(self.LIQ >= 1e7, 7.5, 15.0), index=self.LIQ.index, columns=self.LIQ.columns)
@@ -46,7 +47,7 @@ class Book:
         """Gross, funding, cost, turnover and net per week, from the first week holding anything."""
         w = self.hold(w)
         dw = (w - w.shift(1).fillna(0.0)).abs()
-        bps = self.provisional if size is None else costs.one_way_bps(fit, self.LIQ, dw * size)
+        bps = self.provisional if size is None else costs.one_way_bps(fit, self.LIQ, dw * size, self.fee_bps)
         out = pd.DataFrame({'gross': (w * self.R).sum(axis=1), 'funding': -(w * self.F).sum(axis=1),
                             'cost': -(dw * bps * cost_mult / 1e4).sum(axis=1), 'turnover': dw.sum(axis=1)})
         out['net'] = out.gross + out.funding + out.cost

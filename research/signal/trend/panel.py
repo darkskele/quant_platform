@@ -21,7 +21,7 @@ import pandas as pd
 import stream
 
 # Symbol and the day trading resumed at the new denomination.
-REDENOMINATIONS = {('BNXUSDT', '2023-02-22')}
+REDENOMINATIONS = {('BNXUSDT', '2023-02-22'), ('VENUSDT', '2018-10-19')}
 
 
 @dataclass
@@ -40,6 +40,11 @@ def load(start='2020-01-01', end='2026-09-01', crypto_only=True) -> Panel:
     if crypto_only:
         drop = stream.non_crypto()
         bars, prints = bars[~bars.symbol.isin(drop)], prints[~prints.symbol.isin(drop)]
+    return build(bars, prints)
+
+
+def build(bars: pd.DataFrame, prints: pd.DataFrame | None = None) -> Panel:
+    """The weekly panel from daily bars and funding prints in long form. No prints means no funding."""
     close = bars.pivot(index='day', columns='symbol', values='close')
     volume = bars.pivot(index='day', columns='symbol', values='volume')
 
@@ -53,8 +58,11 @@ def load(start='2020-01-01', end='2026-09-01', crypto_only=True) -> Panel:
     liquidity = dollar_volume.rolling(30, min_periods=20).median().resample('W-SUN').last().shift(1)
     vol = weekly.rolling(12, min_periods=8).std().shift(1)
 
-    fund = prints.pivot_table(index='t', columns='symbol', values='rate', aggfunc='last')
-    funding = fund.resample('W-SUN').sum().reindex(index=weekly.index, columns=weekly.columns).fillna(0.0)
+    if prints is None or prints.empty:
+        funding = pd.DataFrame(0.0, index=weekly.index, columns=weekly.columns)
+    else:
+        fund = prints.pivot_table(index='t', columns='symbol', values='rate', aggfunc='last')
+        funding = fund.resample('W-SUN').sum().reindex(index=weekly.index, columns=weekly.columns).fillna(0.0)
 
     held = np.log(close.where(traded)).ffill().diff().where(traded)
     reopen = traded & ~traded.shift(1, fill_value=False) & held.notna()

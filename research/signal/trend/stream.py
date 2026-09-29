@@ -23,6 +23,11 @@ CACHE = Path.home() / ".cache" / "qp-research"
 LISTING = "https://s3-ap-northeast-1.amazonaws.com/data.binance.vision?delimiter=/&prefix="
 
 
+def built() -> bool:
+    """True when the qp_python_backtest extension has been built."""
+    return bool(glob.glob(str(REPO / "build/release/**/qp_python_backtest*.so"), recursive=True))
+
+
 def module():
     """The built qp_python_backtest extension."""
     found = sorted(glob.glob(str(REPO / "build/release/**/qp_python_backtest*.so"), recursive=True))
@@ -73,10 +78,10 @@ def _ns(day) -> int:
     return int(t.value)
 
 
-def _collect(symbols, specs, cadence, start, end, workers=32):
+def _collect(symbols, specs, cadence, start, end, workers=32, market="UsdM"):
     """Kline and funding rows for symbols between start and end, plus the stream reports."""
     q = module()
-    um = int(q.BinanceMarket.UsdM)
+    um = int(getattr(q.BinanceMarket, market))
     builder = q.SubscriptionBuilder()
     for s in symbols:
         builder.add(q.ExchangeId.Binance, um, s)
@@ -129,17 +134,17 @@ def _runs(days):
     return runs
 
 
-def daily_bars(symbols, start, end, log=print):
+def daily_bars(symbols, start, end, log=print, market="UsdM"):
     """Daily high, low, close and volume in long form, for days in [start, end)."""
     q = module()
     spec = [q.StreamSpec(q.EndpointKind.Klines, "1d")]
-    bars, _, reports = _collect(symbols, spec, q.Cadence.Monthly, start, end)
+    bars, _, reports = _collect(symbols, spec, q.Cadence.Monthly, start, end, market=market)
 
     fills = []
     for sym, g in bars.groupby("symbol"):
         span = pd.date_range(g.day.min(), g.day.max(), freq="D")
         for first, last in _runs(span.difference(g.day)):
-            filled, _, _ = _collect([sym], spec, q.Cadence.Daily, first, last + pd.Timedelta(days=1))
+            filled, _, _ = _collect([sym], spec, q.Cadence.Daily, first, last + pd.Timedelta(days=1), market=market)
             fills.append(filled)
             log(f"{sym} filled {first.date()} to {last.date()} from daily files, {len(filled)} rows")
     if fills:
@@ -199,6 +204,21 @@ def universe(start, end, chunk=50, log=print):
         bars.append(pd.read_parquet(bars_file))
         prints.append(pd.read_parquet(prints_file))
     return pd.concat(bars, ignore_index=True), pd.concat(prints, ignore_index=True)
+
+
+def spot_bars(symbols, start, end, chunk=50, log=print):
+    """Daily bars for spot pairs in long form, pulled in chunks through the qp source and cached."""
+    folder = CACHE / f"spot_stream_daily_{pd.Timestamp(start).date()}_{pd.Timestamp(end).date()}"
+    folder.mkdir(parents=True, exist_ok=True)
+    bars = []
+    for i in range(0, len(symbols), chunk):
+        path = folder / f"bars_{i:04d}.parquet"
+        if not path.exists():
+            b, _ = daily_bars(symbols[i:i + chunk], start, end, log, market="Spot")
+            b.to_parquet(path)
+            log(f"chunk {i // chunk + 1} of {-(-len(symbols) // chunk)} streamed, {len(b)} bars")
+        bars.append(pd.read_parquet(path))
+    return pd.concat(bars, ignore_index=True)
 
 
 def open_interest(symbols, start, end, log=print):
