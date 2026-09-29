@@ -85,6 +85,12 @@ Two phases, and the seam between them gates the roadmap.
 - Metrics must be invariant to size and magnitude. A capture ratio above one meant a two-unit book measured against a one-unit oracle, not over-capture. Sanity-check any ratio against its theoretical bound.
 - Quantify the ceiling before committing to a build. The plan called maker the largest saving, but the optimistic ceiling was about 6 percent for the low-turnover winner, because a low-turnover book pays little in fees. Do not inherit a plan's priority without checking the number.
 - Know what cannot be modelled offline and say so. Maker fills, liquidation and the short-spot borrow need tick data that was discarded or live data that does not exist yet. Those are testnet measurements, not notebook cells.
+- Count evidence in independent units, not rows. A pooled regression over coin-weeks reported the market term at t 12.7. Coins in one week move together, so the rows are not independent, and with errors clustered by week it was t 1.33. Cluster by period whenever rows share one.
+- Never standardise a regressor within a group where it is constant. The market trend is one number per week, so scaling it across that week's coins is zero over zero, and the result was floating-point noise that still printed a t-stat. Scale a per-period term across periods.
+- A span that helped choose a result is not out of sample. The map picked its condition on the rule that the earlier and later weeks agree, then the later weeks were quoted as a frozen holdout. When the condition was chosen in fold from the past alone, the search never picked it. Choose in fold, or register the choice before the data exists.
+- Run the neighbours of every winning setting before building on it. The lookback grid skipped 3 and 5 weeks, and when they were run 3 weeks earned almost nothing beside 4. A spike whose neighbours were never measured is a lucky cell until shown otherwise.
+- A conditional sleeve pays for switching on and off. Slicing the always-on book's returns to the condition's weeks skips every entry and exit, so the sleeve must be the gated book's returns with its exit cost booked to its last week.
+- Hindsight conditions look robust. Nudging the windows of a condition found on the full sample barely moved it, because every nudge was fitted to the same weeks. Robustness to its own settings is not evidence the condition would have been found.
 
 ## Working with the repo owner and git
 
