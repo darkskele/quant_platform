@@ -395,7 +395,7 @@ p { margin: 0 0 14px; }
     </div>
     <div class="fact">
       <p class="fact-label">Status</p>
-      <p class="fact-value status-live">Signal gate failed, stop condition met</p>
+      <p class="fact-value status-live">Parked, registered test drafted</p>
     </div>
   </div>
 
@@ -460,7 +460,7 @@ p { margin: 0 0 14px; }
 
   <div class="callout">
     <p class="callout-label">Stop condition</p>
-    <p>If the primary sweep and every tested condition come back gate fail, close the lane. No third grid. No finer axis. No re-opened combiner.</p>
+    <p>Close the lane if the registered test fails. A result at the park line on searched data parks rather than closes. No third grid. No finer axis. No re-opened combiner.</p>
   </div>
 
   <div class="callout">
@@ -676,16 +676,44 @@ p { margin: 0 0 14px; }
       <div>
         <p class="q-run">Scoring against the signal gate <span class="stamp block">gate fail</span></p>
         <p class="q-meta">every trial rebuilt as a return series, the always-on books and the sleeve through every check, costed off the ladder at a $100k book</p>
-        <p class="q-ask">Per coin and market always on, gate fail S1 S4, open T5. The sleeve, gate fail S1 S5 S6, open T5. Every data, time and cost check passes. The halt fix moves nothing, 4 held gaps worth 0.03%. What remains is a market-timing premium near 0.8 whose evidence falls short of the bar, and a condition search that paid out of sample when run in fold.</p>
+        <p class="q-ask">Per coin and market always on, gate fail S1 S4, open T5. The sleeve, gate fail S1 S5 S6, open T5. Every data, time and cost check passes. The halt fix moves nothing, 4 held gaps worth 0.03%. What remains is a market-timing premium near 0.8 whose evidence falls short of the bar, and a condition search that paid out of sample when run in fold. Parked, not closed. The always-on book fails significance at the park line on searched data.</p>
+      </div>
+    </div>
+    <div class="q">
+      <div class="q-n">16</div>
+      <div>
+        <p class="q-run">Registered replication <span class="stamp open">drafted</span></p>
+        <p class="q-meta">the 3 to 6 week band on Binance spot 2017 to 2019 and on perps forward, one trial</p>
+        <p class="q-ask">The test that settles the lane without a search penalty. Specified below, binding once committed.</p>
       </div>
     </div>
   </div>
 
   <p>08 to 13 are exploratory, ML last and on hold. Fit walk-forward, judge on net lift over the plain sign out of fold, never on accuracy or IC. Deadband, conviction weighting and multi-horizon agreement were tested null on the old ten-symbol sample and get a wide re-test only if a shape in 11 moves first.</p>
 
+  <h2>Registered test, draft</h2>
+
+  <p>One test, written before it runs. It becomes binding on the day it is committed, and nothing else scored on its data counts toward it.</p>
+
+  <div class="ledger">
+    <div class="row"><span class="label">Hypothesis</span><span class="value">Liquid crypto trends over 3 to 6 weeks net of cost, from under-reaction and forced deleveraging</span></div>
+    <div class="row"><span class="label">Book</span><span class="value">Per coin sign of the trailing return, averaged over 3, 4, 5 and 6 weeks. Inverse 12-week volatility, gross one, Sunday close</span></div>
+    <div class="row"><span class="label">Universe</span><span class="value">Coins with a trailing 30-day median dollar volume of at least $10M, as of the week before</span></div>
+    <div class="row"><span class="label">Data A</span><span class="value">Binance spot, August 2017 to December 2019, never loaded by this lane</span></div>
+    <div class="row"><span class="label">Data B</span><span class="value">Binance USD-M perps, forward from the commit that registers this test</span></div>
+    <div class="row"><span class="label">Cost</span><span class="value">Measured ladder at a $100k book. 10 bps spot taker on A, 5 bps and funding on B</span></div>
+    <div class="row"><span class="label">Trials</span><span class="value">One. Any other cut of this data is exploratory</span></div>
+    <div class="row"><span class="label">Pass</span><span class="value">S1 at 0.95 on one trial over A and B pooled, and every other signal gate check</span></div>
+    <div class="row"><span class="label">Park</span><span class="value">S1 between 0.5 and 0.95, with A and B agreeing under S3</span></div>
+    <div class="row"><span class="label">Fail</span><span class="value">S1 below 0.5, or a negative Sharpe on A alone</span></div>
+    <div class="row"><span class="label">Reviews</span><span class="value">Once on A, then each full year of B. No other look counts</span></div>
+  </div>
+
+  <p>The band trades the region the wide data found rather than its best cell, so the 3-week hole is inside it on purpose. Spot cannot short without a borrow, so the short side on A is a paper return and the borrow stays open. A holds about 125 weeks and B adds 52 a year. At a true Sharpe of 0.8 the pooled test reaches 80% power near 500 weeks, so park is the expected outcome for years. The test is built to refute. A real 0.8 edge fails on A alone about one time in nine, and an edge of zero half the time.</p>
+
   <h2>Where this stands</h2>
 
-  <p>Every scored result fails the signal gate, which meets the stop condition. The always-on 4-week book earns, 0.85 net per coin and 0.80 market over six and a half years, holds in walk forward and survives cost at a $100k book. It sits at the luck bar of the search that found it, and 3 weeks earning almost nothing beside 4 and 5 makes the setting indistinguishable from a lucky cell. The moderate-month sleeve was a hindsight pick that a search run in fold never makes. What survives is a thinly evidenced market-timing premium, a funding term at t 3.00, and a condition search that paid out of sample. The cross-section reverses at 1 to 2 weeks, banked for the mean-reversion lane. The lane is reviewed and ready for write-up.</p>
+  <p>Parked. Every scored result fails the signal gate, but the always-on book fails significance at the park line, 0.49 against 0.5, on data the lane has searched. It earns, 0.85 net per coin and 0.80 market over six and a half years, holds in walk forward and survives cost at a $100k book. 3 weeks earning almost nothing beside 4 and 5 makes the 4-week setting indistinguishable from a lucky cell, so the registered test trades the 3 to 6 week band instead. The moderate-month sleeve was a hindsight pick that a search run in fold never makes. What survives is a thinly evidenced market-timing premium, a funding term at t 3.00, and a condition search that paid out of sample. The cross-section reverses at 1 to 2 weeks, banked for the mean-reversion lane. The review is ready for write-up, and the lane waits on the registered test.</p>
 
   <p>Held. Simple beats complex, on every shape and combiner tested. Weekly beats daily. The funding-aware sign adds nothing. Halt gaps do not move the book.</p>
 

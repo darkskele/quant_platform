@@ -40,7 +40,7 @@ Lanes are git worktrees, one per chat. Main is carry. `alpha-research` is trend.
 
 Time-series trend on every liquid USDT perp, weekly, 2020 to 2026. Notebooks in `signal/trend/`.
 
-### Review and rescore against the signal gate (2026-09-29) - gate fail, stop condition met
+### Review and rescore against the signal gate (2026-09-29) - gate fail, parked
 
 A review of the lane replaced `GATE.md` with the signal gate, calibrated on simulated books before the rerun. It fixed what the review found, then rescored every result in `trend_gate.ipynb`.
 
@@ -51,7 +51,7 @@ A review of the lane replaced `GATE.md` with the signal gate, calibrated on simu
 - Decomposition with errors clustered by week. Market term t 1.33, not 12.7. Residual t 2.13, funding t 3.00. The funding-aware sign is flat, within 0.06 of the plain sign.
 - Every data, time and cost check passes. Halt gaps move the book 0.03%. Capacity is about \$1M before the recent weeks fade.
 
-Read. The 4-week book earns, but it sits at the luck bar of the search that found it, and its lookback neighbours make the setting indistinguishable from a lucky cell. The sleeve was a hindsight pick. A condition search run in fold still paid out of sample, 1.38 on its sleeve against 0.64 always on. Every scored result fails, which meets the lane's stop condition. Signal research is reviewed and ready for write-up.
+Read. The 4-week book earns, but it sits at the luck bar of the search that found it, and its lookback neighbours make the setting indistinguishable from a lucky cell. The sleeve was a hindsight pick. A condition search run in fold still paid out of sample, 1.38 on its sleeve against 0.64 always on. Every scored result fails, but the always-on book fails significance at the park line on data the lane has searched, so the lane parks rather than closes. It waits on one registered test, the 3 to 6 week band on Binance spot from 2017 to 2019 and on perps forward, a single trial with no search penalty. The review is ready for write-up.
 
 ## Funding carry
 
