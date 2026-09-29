@@ -262,11 +262,12 @@ TEST(BinanceStream, ParsesDeliveredFileIntoEvents) {
     EXPECT_EQ(event.base.exchange, kInstrument.exchange);
     EXPECT_EQ(event.base.market, kInstrument.market);
     EXPECT_EQ(event.base.symbol, kInstrument.symbol);
-    EXPECT_EQ(event.base.ts, 1704067200000LL * 1'000'000);
+    EXPECT_EQ(event.base.ts, 1704070799999LL * 1'000'000);
+    EXPECT_EQ(std::get<KlineEvent>(event.payload).open_time, 1704067200000LL * 1'000'000);
     EXPECT_DOUBLE_EQ(std::get<KlineEvent>(event.payload).open, 42000.10);
 
     ASSERT_TRUE(stream->next(event));
-    EXPECT_EQ(event.base.ts, 1704070800000LL * 1'000'000);
+    EXPECT_EQ(event.base.ts, 1704074399999LL * 1'000'000);
 }
 
 TEST(BinanceStream, HeaderRowIsCountedNotParsed) {

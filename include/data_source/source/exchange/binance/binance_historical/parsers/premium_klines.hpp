@@ -14,12 +14,12 @@ inline bool parse_premium_klines_row(const Endpoint& entry, std::string_view row
     KlineRow fields{};
     if (!read_kline_row(entry, row, fields)) return false;
 
-    ts  = fields.open_time;
-    out = PremiumIndexKlineEvent{.close_time = fields.close_time,
-                                 .open       = fields.open,
-                                 .high       = fields.high,
-                                 .low        = fields.low,
-                                 .close      = fields.close};
+    ts  = fields.close_time;
+    out = PremiumIndexKlineEvent{.open_time = fields.open_time,
+                                 .open      = fields.open,
+                                 .high      = fields.high,
+                                 .low       = fields.low,
+                                 .close     = fields.close};
     return true;
 }
 

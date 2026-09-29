@@ -35,8 +35,8 @@ TEST(BinanceMarkKlineParser, ParsesRow) {
     MarkPriceKlineEvent mark{};
     ASSERT_TRUE(parse_mark_klines_row(kUsdM, kMarkRow, ts, mark));
 
-    EXPECT_EQ(ts, 1748822400000LL * 1'000'000);
-    EXPECT_EQ(mark.close_time, 1748825999999LL * 1'000'000);
+    EXPECT_EQ(ts, 1748825999999LL * 1'000'000);
+    EXPECT_EQ(mark.open_time, 1748822400000LL * 1'000'000);
     EXPECT_DOUBLE_EQ(mark.open, 105589.61297464);
     EXPECT_DOUBLE_EQ(mark.high, 105683.60);
     EXPECT_DOUBLE_EQ(mark.low, 105362.40);
@@ -55,8 +55,8 @@ TEST(BinancePremiumKlineParser, ParsesNegativeRates) {
     PremiumIndexKlineEvent premium{};
     ASSERT_TRUE(parse_premium_klines_row(kUsdM, kPremiumRow, ts, premium));
 
-    EXPECT_EQ(ts, 1748822400000LL * 1'000'000);
-    EXPECT_EQ(premium.close_time, 1748825999999LL * 1'000'000);
+    EXPECT_EQ(ts, 1748825999999LL * 1'000'000);
+    EXPECT_EQ(premium.open_time, 1748822400000LL * 1'000'000);
     EXPECT_DOUBLE_EQ(premium.open, -0.00057025);
     EXPECT_DOUBLE_EQ(premium.high, 0.0);
     EXPECT_DOUBLE_EQ(premium.low, -0.00080144);
@@ -65,10 +65,10 @@ TEST(BinancePremiumKlineParser, ParsesNegativeRates) {
 
 TEST(BinancePremiumKlineParser, FailureLeavesOutputUntouched) {
     Timestamp              ts{42};
-    PremiumIndexKlineEvent premium{.close_time = 7, .open = 1.0};
+    PremiumIndexKlineEvent premium{.open_time = 7, .open = 1.0};
     EXPECT_FALSE(parse_premium_klines_row(kUsdM, "1748822400000,-0.00057025,nope", ts, premium));
 
     EXPECT_EQ(ts, 42);
-    EXPECT_EQ(premium.close_time, 7);
+    EXPECT_EQ(premium.open_time, 7);
     EXPECT_DOUBLE_EQ(premium.open, 1.0);
 }
