@@ -391,11 +391,11 @@ p { margin: 0 0 14px; }
     </div>
     <div class="fact">
       <p class="fact-label">Binding constraint</p>
-      <p class="fact-value">Cost, not signal</p>
+      <p class="fact-value">Evidence, then capacity</p>
     </div>
     <div class="fact">
       <p class="fact-label">Status</p>
-      <p class="fact-value status-live">Re-proving on wide data</p>
+      <p class="fact-value status-live">Parked, registered test drafted</p>
     </div>
   </div>
 
@@ -409,7 +409,7 @@ p { margin: 0 0 14px; }
 
   <p>It earns its place on the regime map, not on Sharpe. Carry is short vol and pays in calm. Trend is long vol and pays in dislocation. Long-only crypto lost about 1.3 Sharpe in the 2022 bear. Trend earned about 0.9. Own both.</p>
 
-  <p>Crowding costs capacity, not edge. Capacity is not our constraint. Cost is.</p>
+  <p>Crowding costs capacity, not edge. Here capacity binds early. The always-on book fades on recent weeks at a $1M book and dies at $10M.</p>
 
   <h2>Why it should be larger in crypto</h2>
 
@@ -456,34 +456,11 @@ p { margin: 0 0 14px; }
   <p>The last two are held on thin evidence. Re-open them only if the plain lookback survives.</p>
 
   <h2>The bar</h2>
-  <p>Unchanged on purpose. A bar rewritten after results is not a bar. All of it, out of sample, per year.</p>
-
-  <div class="ledger">
-    <div class="row">
-      <span class="label">Book Sharpe net of cost and funding</span>
-      <span class="value">&gt; 0.7</span>
-    </div>
-    <div class="row">
-      <span class="label">Positive in every calendar year</span>
-      <span class="value">yes, incl. bear</span>
-    </div>
-    <div class="row">
-      <span class="label">Sign survives at 2x real cost</span>
-      <span class="value">yes</span>
-    </div>
-    <div class="row">
-      <span class="label">Fee + funding drag as fraction of gross</span>
-      <span class="value">&lt; 40%</span>
-    </div>
-    <div class="row">
-      <span class="label">Beats long-only on the regime map</span>
-      <span class="value">bear-year positive</span>
-    </div>
-  </div>
+  <p>The signal gate, one bar for every signal lane, calibrated on simulated books with known edges before this lane was rescored. The lane's first bar asked for Sharpe 0.7 out of sample and a positive Sharpe in every year. A real 0.8 edge passes that about one time in ten, so it could not tell a real premium from luck.</p>
 
   <div class="callout">
     <p class="callout-label">Stop condition</p>
-    <p>Written with the bar. If the wide sweep is flat across every cell net of the ladder, and no lookback clears 0.7 out of sample, pooled or inside any tested condition, close the lane. No third grid. No finer axis. No re-opened combiner.</p>
+    <p>Close the lane if the registered test fails. A result at the park line on searched data parks rather than closes. No third grid. No finer axis. No re-opened combiner.</p>
   </div>
 
   <div class="callout">
@@ -500,7 +477,7 @@ p { margin: 0 0 14px; }
     </div>
     <div class="step">
       <div class="step-n">01</div>
-      <div class="step-text">Five purged walk-forward folds. Fit on the early folds. Report on the held-out ones, per year.</div>
+      <div class="step-text">Walk forward with every choice made in fold, the lookback and the condition alike. A span used to choose is never quoted as out of sample.</div>
     </div>
     <div class="step">
       <div class="step-n">02</div>
@@ -609,25 +586,25 @@ p { margin: 0 0 14px; }
     <div class="q">
       <div class="q-n">04</div>
       <div>
-        <p class="q-run">Wide lookback sweep <span class="stamp open">partial pass</span></p>
-        <p class="q-meta">full universe, 2020 to now, L across 1, 2, 4, 8, 12, provisional cost</p>
-        <p class="q-ask">The sawtooth is gone. Every lookback earns, 4 weeks best. Net 0.85 per coin, 0.80 market, 0.55 and 0.67 out of sample. Mostly a market bet. Fails the pooled bar on 2026 and on 0.7 out of sample.</p>
+        <p class="q-run">Wide lookback sweep <span class="stamp block">gate fail S1 S4</span></p>
+        <p class="q-meta">full universe, 2020 to now, L across 1, 2, 3, 4, 5, 6, 8, 12, provisional cost</p>
+        <p class="q-ask">Every book earns at every lookback, 4 weeks best. Net 0.85 per coin, 0.80 market. A walk forward picks 4 weeks at every fold from the past alone and makes 0.72 from May 2022. The surface is ragged. 3 weeks sits in a hole, 0.18 per coin and 0.02 market, between 2 and 4, so 4 weeks cannot be told from a lucky cell. Against a search worth about 42 independent tests the per coin book is real with probability 0.49 and the market book 0.43. Mostly a market bet. 2026 negative for every book but one.</p>
       </div>
     </div>
     <div class="q">
       <div class="q-n">05</div>
       <div>
-        <p class="q-run">Condition map <span class="stamp block">parked</span></p>
+        <p class="q-run">Condition map <span class="stamp block">gate fail S1 S5 S6</span></p>
         <p class="q-meta">six conditions from the past only, thirds cut on past data, open interest included</p>
-        <p class="q-ask">Resolved. Judged on its in-condition sleeve, the object a regime gate would trade, not on the always-on book. The sleeve of 98 weeks reads 1.61, 2.17 unseen, positive every year and real at even odds after the search, 0.55 to 0.64. Run always on it dilutes to 0.90 and 0.06 to 0.13, which is the cost of no gate, not a mark on the signal. Not thrown out, not banked. The binding constraint is the 98 weeks. Parked for more weeks or a mechanism.</p>
+        <p class="q-ask">Exploratory. The moderate-month sleeve makes 1.56 over 98 weeks with its switching cost, positive every year it covers. A condition search run in fold never picks it. It picks after a rise, then high funding, and those choices earn 1.38 out of sample against 0.64 always on. Inside its own weeks the one-week rule makes 1.70 and the short basket 0.90. The map is 0.67 likely to have picked a lucky cell. Real with probability 0.38 against a search worth about 74 tests.</p>
       </div>
     </div>
     <div class="q">
       <div class="q-n">06</div>
       <div>
-        <p class="q-run">Funding-aware sign re-test</p>
+        <p class="q-run">Funding-aware sign re-test <span class="stamp held">tested flat</span></p>
         <p class="q-meta">same run, funding subtracted from the trailing return</p>
-        <p class="q-ask">How much of the result was carry paid to be long crypto.</p>
+        <p class="q-ask">Within 0.06 of the plain sign at every lookback, up at 1, 8 and 12 weeks and down at 2 and 4. The plain sign is not harvesting carry paid to be long.</p>
       </div>
     </div>
     <div class="q">
@@ -673,9 +650,9 @@ p { margin: 0 0 14px; }
     <div class="q">
       <div class="q-n">12</div>
       <div>
-        <p class="q-run">Signal decomposition <span class="stamp block">done</span></p>
+        <p class="q-run">Signal decomposition <span class="stamp held">done</span></p>
         <p class="q-meta">next-week return on market, residual and funding terms, and the residual book across formation horizons</p>
-        <p class="q-ask">Done. The 4-week trend is a strong market-timing beta, 0.80 of the 0.85, plus two weak kickers. Coin selection adds 0.05 and at this horizon it is cross-sectional momentum not reversal, long the coins that beat the market makes 0.28. In the pooled regression the market term is t 12.7, the residual t 3.3, and funding a separate t 3.6, so the signal is not carry in disguise. The cross-section only reverses at 1 to 2 weeks, a separate short-horizon signal for the mean-reversion lane, not a piece of the 4-week trend. Subsumes the funding-aware sign 06.</p>
+        <p class="q-ask">The 4-week trend is market timing plus a weak cross-sectional kicker. Timing the market is 0.80 of the 0.85, coin selection adds 0.05 and is momentum, not reversal. With errors clustered by week the market term is t 1.33, the residual t 2.13 and funding t 3.00, a separate term the funding-aware sign cannot turn into money. The cross-section reverses only at 1 to 2 weeks, a separate short-horizon signal for the mean-reversion lane.</p>
       </div>
     </div>
     <div class="q">
@@ -691,20 +668,56 @@ p { margin: 0 0 14px; }
       <div>
         <p class="q-run">Bounding the headline <span class="stamp held">done</span></p>
         <p class="q-meta">block bootstrap of the Sharpe, cumulative return through the known crashes, year by year</p>
-        <p class="q-ask">The edge is real but loosely measured. The bootstrapped Sharpe floors near 0.3 for both books and is positive in essentially every draw, but the interval runs to 1.4. The crash profile is classic trend, the market book up 64% and 69% through the May 2021 flush and LUNA, down 27% through the FTX whipsaw and 14% through the March 2023 depeg. Only 2026 loses across the board. Honest beta, loosely measured, not a passed strategy.</p>
+        <p class="q-ask">Real but loosely measured. The bootstrap floor is 0.36 per coin and 0.29 market, positive in essentially every draw, with a ceiling near 1.4. Drawdowns are deep, a median worst of 0.60 per coin and 0.93 market in summed weekly returns. Classic crash profile, up 64% and 69% through the May 2021 flush and LUNA for the market book, down 27% through the FTX whipsaw.</p>
+      </div>
+    </div>
+    <div class="q">
+      <div class="q-n">15</div>
+      <div>
+        <p class="q-run">Scoring against the signal gate <span class="stamp block">gate fail</span></p>
+        <p class="q-meta">every trial rebuilt as a return series, the always-on books and the sleeve through every check, costed off the ladder at a $100k book</p>
+        <p class="q-ask">Per coin and market always on, gate fail S1 S4, open T5. The sleeve, gate fail S1 S5 S6, open T5. Every data, time and cost check passes. The halt fix moves nothing, 4 held gaps worth 0.03%. What remains is a market-timing premium near 0.8 whose evidence falls short of the bar, and a condition search that paid out of sample when run in fold. Parked, not closed. The always-on book fails significance at the park line on searched data.</p>
+      </div>
+    </div>
+    <div class="q">
+      <div class="q-n">16</div>
+      <div>
+        <p class="q-run">Registered replication <span class="stamp open">continues to Data B</span></p>
+        <p class="q-meta">the 3 to 6 week band on Binance spot 2017 to 2019 and on perps forward, one trial</p>
+        <p class="q-ask">Data A reviewed. Net 1.03 over 112 weeks, probability 0.94 on one trial, so neither fail rule fires. But 72% of the return is 7 weeks long BTC and ETH through the December 2017 bubble, and from 2018, on six to eight coins, it makes 0.37 while random signs reach 0.98. On A alone gate fail S2 V1, open D1 S3 T5. Spot 2017 to 2019 was too thin to say much. The forward perps run carries the test.</p>
       </div>
     </div>
   </div>
 
   <p>08 to 13 are exploratory, ML last and on hold. Fit walk-forward, judge on net lift over the plain sign out of fold, never on accuracy or IC. Deadband, conviction weighting and multi-horizon agreement were tested null on the old ten-symbol sample and get a wide re-test only if a shape in 11 moves first.</p>
 
+  <h2>Registered test, draft</h2>
+
+  <p>One test, written before it runs. It becomes binding on the day it is committed, and nothing else scored on its data counts toward it.</p>
+
+  <div class="ledger">
+    <div class="row"><span class="label">Hypothesis</span><span class="value">Liquid crypto trends over 3 to 6 weeks net of cost, from under-reaction and forced deleveraging</span></div>
+    <div class="row"><span class="label">Book</span><span class="value">Per coin sign of the trailing return, averaged over 3, 4, 5 and 6 weeks. Inverse 12-week volatility, gross one, Sunday close</span></div>
+    <div class="row"><span class="label">Universe</span><span class="value">Coins with a trailing 30-day median dollar volume of at least $10M, as of the week before</span></div>
+    <div class="row"><span class="label">Data A</span><span class="value">Binance spot, August 2017 to December 2019, never loaded by this lane</span></div>
+    <div class="row"><span class="label">Data B</span><span class="value">Binance USD-M perps, forward from the commit that registers this test</span></div>
+    <div class="row"><span class="label">Cost</span><span class="value">Measured ladder at a $100k book. 10 bps spot taker on A, 5 bps and funding on B</span></div>
+    <div class="row"><span class="label">Trials</span><span class="value">One. Any other cut of this data is exploratory</span></div>
+    <div class="row"><span class="label">Pass</span><span class="value">S1 at 0.95 on one trial over A and B pooled, and every other signal gate check</span></div>
+    <div class="row"><span class="label">Park</span><span class="value">S1 between 0.5 and 0.95, with A and B agreeing under S3</span></div>
+    <div class="row"><span class="label">Fail</span><span class="value">S1 below 0.5, or a negative Sharpe on A alone</span></div>
+    <div class="row"><span class="label">Reviews</span><span class="value">Once on A, then each full year of B. No other look counts</span></div>
+  </div>
+
+  <p>The band trades the region the wide data found rather than its best cell, so the 3-week hole is inside it on purpose. Spot cannot short without a borrow, so the short side on A is a paper return and the borrow stays open. A holds about 125 weeks and B adds 52 a year. At a true Sharpe of 0.8 the pooled test reaches 80% power near 500 weeks, so park is the expected outcome for years. The test is built to refute. A real 0.8 edge fails on A alone about one time in nine, and an edge of zero half the time.</p>
+
   <h2>Where this stands</h2>
 
-  <p>The streamed pipeline is verified. The wide sweep keeps the lane open but fails the pooled bar. The moderate-month condition is a parked candidate, real as a 98-week sleeve at even odds and under-powered to clear the search, judged on the sleeve a regime gate would trade rather than the always-on book. The decomposition settles what trend is. The 4-week book is a market-timing beta plus a weak cross-sectional momentum kicker and a small separate funding term, not carry and not reversal. The cross-section only reverses at 1 to 2 weeks, a separate short-horizon signal banked for the mean-reversion lane. That lane shares this one's universe, cadence and structure, so running the two together only repeats the pipeline, so trend runs to the end and is written up first. This lane is pushed to the ends of the data. Signal shape tested flat, decomposition done, the headline bounded, a real but loosely measured beta with a bootstrap floor near 0.3 and a classic crash profile. What is left is cross-sectional lane scope, the open-interest mechanism is thin and regime-flavoured, and ML stays deferred. The trend signal research is done, ready for write-up.</p>
+  <p>Parked. Every scored result fails the signal gate, but the always-on book fails significance at the park line, 0.49 against 0.5, on data the lane has searched. It earns, 0.85 net per coin and 0.80 market over six and a half years, holds in walk forward and survives cost at a $100k book. 3 weeks earning almost nothing beside 4 and 5 makes the 4-week setting indistinguishable from a lucky cell, so the registered test trades the 3 to 6 week band instead. The moderate-month sleeve was a hindsight pick that a search run in fold never makes. What survives is a thinly evidenced market-timing premium, a funding term at t 3.00, and a condition search that paid out of sample. The cross-section reverses at 1 to 2 weeks, banked for the mean-reversion lane. The review is ready for write-up, and the lane waits on the registered test.</p>
 
-  <p>Held. Simple beats complex, on every shape and combiner tested. Weekly beats daily.</p>
+  <p>Held. Simple beats complex, on every shape and combiner tested. Weekly beats daily. The funding-aware sign adds nothing. Halt gaps do not move the book.</p>
 
-  <p>Open. The lookback grid and the 0.85 at L=1. The 14.9 bps cost and the ladder slope replacing it. Book weighting. Positive in every calendar year, which was three observations. The 0.06 funding lift, which sat inside the noise.</p>
+  <p>Open. Whether a condition chosen in fold survives as its own pre-registered test. Why ranks and money disagree on the cross-sectional rest. The cost ladder fit on 2023 to 2026 depth and applied back to 2020. Book weighting.</p>
 
   <p>The grid below is what the wide run is measured against. It is not a finding.</p>
 

@@ -33,6 +33,7 @@ Follow the `writing` skill for every comment and doc. In short: terse, self-cont
 - **Never `git commit` in this repo**, however the request is phrased. Propose a message, leave the change for the user.
 - **Never `git add`, stage, or touch the index** unless staging was explicitly asked. The user works out of staged changes as pre-commit review.
 - Branching and pull/rebase only when directly prompted for that action.
+- **Cloud sessions are the exception.** Work in a remote container exists nowhere else, so when the user asks, commit to a temporary `claude/` branch and push it for the user to build and run. The final squashed push to a named branch, and deleting the temp branch, also happen on request.
 
 ## Build
 - **Don't build or run tests/benchmarks unless explicitly asked.** The user runs those. Exception: an iterative "fix X and verify it" step.

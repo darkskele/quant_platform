@@ -45,7 +45,7 @@ Do NOT write cells that describe what was just done, and do NOT write "next step
 
 ## Analytical discipline
 
-`research/GATE.md` is the bar every result clears before it is quoted as a finding, and every item of it before anything goes live. Report the gate status with the number. The rest of this section is how to get there.
+`research/signal/SIGNAL_GATE.md` is the bar every signal result clears before it is quoted as a finding. Report the gate status with the number. The rest of this section is how to get there.
 
 - Judge by net PnL and Sharpe, not IC. IC does not translate to money here, that is a settled finding.
 - Coarse first. Answer the binary question, does it move at all. Stop if flat, flat is itself the answer. Go finer only on the axis that moved, never two grids at once.
@@ -85,10 +85,17 @@ Two phases, and the seam between them gates the roadmap.
 - Metrics must be invariant to size and magnitude. A capture ratio above one meant a two-unit book measured against a one-unit oracle, not over-capture. Sanity-check any ratio against its theoretical bound.
 - Quantify the ceiling before committing to a build. The plan called maker the largest saving, but the optimistic ceiling was about 6 percent for the low-turnover winner, because a low-turnover book pays little in fees. Do not inherit a plan's priority without checking the number.
 - Know what cannot be modelled offline and say so. Maker fills, liquidation and the short-spot borrow need tick data that was discarded or live data that does not exist yet. Those are testnet measurements, not notebook cells.
+- Count evidence in independent units, not rows. A pooled regression over coin-weeks reported the market term at t 12.7. Coins in one week move together, so the rows are not independent, and with errors clustered by week it was t 1.33. Cluster by period whenever rows share one.
+- Never standardise a regressor within a group where it is constant. The market trend is one number per week, so scaling it across that week's coins is zero over zero, and the result was floating-point noise that still printed a t-stat. Scale a per-period term across periods.
+- A span that helped choose a result is not out of sample. The map picked its condition on the rule that the earlier and later weeks agree, then the later weeks were quoted as a frozen holdout. When the condition was chosen in fold from the past alone, the search never picked it. Choose in fold, or register the choice before the data exists.
+- Run the neighbours of every winning setting before building on it. The lookback grid skipped 3 and 5 weeks, and when they were run 3 weeks earned almost nothing beside 4. A spike whose neighbours were never measured is a lucky cell until shown otherwise.
+- A conditional sleeve pays for switching on and off. Slicing the always-on book's returns to the condition's weeks skips every entry and exit, so the sleeve must be the gated book's returns with its exit cost booked to its last week.
+- Hindsight conditions look robust. Nudging the windows of a condition found on the full sample barely moved it, because every nudge was fitted to the same weeks. Robustness to its own settings is not evidence the condition would have been found.
 
 ## Working with the repo owner and git
 
 - Never `git commit`, `git add`, or touch the index, however the request is phrased, unless commit permission is given explicitly for that turn. The owner commits, often between turns, and works out of staged changes as pre-commit review.
+- In a cloud session the work exists only in the container. On request, commit it to a temporary `claude/` branch and push, so the owner can build and run it, then squash to one commit on the named branch and delete the temp branch.
 - Plan docs are never committed, a hard rule. A research plan markdown is a working file only, it never enters a commit and no reference to it does either, not in a tracked file, not in a commit message.
 - Push, merge and branch only when prompted. Merge with `--ff-only` so no merge commit is created, which also keeps it inside the no-commit rule.
 - Do not edit research notebooks to answer a question, answer in chat unless asked to write it in.
