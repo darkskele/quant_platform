@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <memory>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -113,7 +114,7 @@ class BinanceHistoricalSource {
         bool        waiting = false;
         for (const auto index : pending_) {
             if (refill(index)) {
-                heap_.push_back({slots_[index]->event.base.ts, index});
+                heap_.push_back({slots_[index]->event.base.ts, is_bar(index), index});
                 std::push_heap(heap_.begin(), heap_.end(), later_first);
                 continue;
             }
@@ -127,7 +128,7 @@ class BinanceHistoricalSource {
         if (heap_.empty()) return std::unexpected(SourceStatus::Eof);
 
         std::pop_heap(heap_.begin(), heap_.end(), later_first);
-        const auto index = heap_.back().second;
+        const auto index = std::get<2>(heap_.back());
         heap_.pop_back();
 
         pending_.push_back(index);
@@ -166,8 +167,9 @@ class BinanceHistoricalSource {
         std::uint32_t slot{};
     };
 
-    /// Timestamp first, so the heap orders on it and breaks ties on the index.
-    using Entry = std::pair<Timestamp, std::uint32_t>;
+    /// Timestamp first, so the heap orders on it. At an equal stamp a bar comes
+    /// after everything else, then ties break on the index.
+    using Entry = std::tuple<Timestamp, bool, std::uint32_t>;
 
     /// The market slot and the lookahead travel with the stream, so nothing has
     /// to keep a parallel array in step with it.
@@ -279,6 +281,12 @@ class BinanceHistoricalSource {
                 return load(agg_trades_[cursor.slot]);
         }
         return false;
+    }
+
+    bool is_bar(std::uint32_t index) const noexcept {
+        const auto kind = cursors_[index].kind;
+        return kind == EndpointKind::Klines || kind == EndpointKind::MarkPriceKlines ||
+               kind == EndpointKind::PremiumIndexKlines;
     }
 
     bool finished(std::uint32_t index) const {

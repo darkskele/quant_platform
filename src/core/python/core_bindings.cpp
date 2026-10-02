@@ -41,7 +41,7 @@ void bind_core(py::module_& m) {
         .def_readonly("interval_hours", &FundingEvent::interval_hours);
 
     py::class_<KlineEvent>(m, "KlineEvent")
-        .def_readonly("close_time", &KlineEvent::close_time)
+        .def_readonly("open_time", &KlineEvent::open_time)
         .def_readonly("open", &KlineEvent::open)
         .def_readonly("high", &KlineEvent::high)
         .def_readonly("low", &KlineEvent::low)
@@ -49,14 +49,14 @@ void bind_core(py::module_& m) {
         .def_readonly("volume", &KlineEvent::volume);
 
     py::class_<MarkPriceKlineEvent>(m, "MarkPriceKlineEvent")
-        .def_readonly("close_time", &MarkPriceKlineEvent::close_time)
+        .def_readonly("open_time", &MarkPriceKlineEvent::open_time)
         .def_readonly("open", &MarkPriceKlineEvent::open)
         .def_readonly("high", &MarkPriceKlineEvent::high)
         .def_readonly("low", &MarkPriceKlineEvent::low)
         .def_readonly("close", &MarkPriceKlineEvent::close);
 
     py::class_<PremiumIndexKlineEvent>(m, "PremiumIndexKlineEvent")
-        .def_readonly("close_time", &PremiumIndexKlineEvent::close_time)
+        .def_readonly("open_time", &PremiumIndexKlineEvent::open_time)
         .def_readonly("open", &PremiumIndexKlineEvent::open)
         .def_readonly("high", &PremiumIndexKlineEvent::high)
         .def_readonly("low", &PremiumIndexKlineEvent::low)

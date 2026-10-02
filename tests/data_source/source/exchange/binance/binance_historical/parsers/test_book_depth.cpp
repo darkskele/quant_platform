@@ -174,3 +174,85 @@ TEST(BinanceBookDepth, ParserFillsSharedBands) {
     ASSERT_NE(out.bands, nullptr);
     EXPECT_DOUBLE_EQ(out.bands->bids[4].depth, 7708.55);
 }
+
+namespace {
+
+// A real sample in the format files use from 2026-01-14, SUIUSDT on 2026-06-10 at 00:00:04 UTC.
+constexpr std::array<std::string_view, 12> kDecimalSample = {
+    "2026-06-10 00:00:04,-5.00,12609172.40000000,9251650.44169000",
+    "2026-06-10 00:00:04,-4.00,11968366.70000000,8793096.68030000",
+    "2026-06-10 00:00:04,-3.00,10220927.30000000,7529640.12237000",
+    "2026-06-10 00:00:04,-2.00,6021220.10000000,4461996.17321000",
+    "2026-06-10 00:00:04,-1.00,2724929.00000000,2031541.36847000",
+    "2026-06-10 00:00:04,-0.20,503140.90000000,376502.53635000",
+    "2026-06-10 00:00:04,0.20,481542.80000000,361124.24020000",
+    "2026-06-10 00:00:04,1.00,2516233.00000000,1893467.89721000",
+    "2026-06-10 00:00:04,2.00,4824184.70000000,3649851.26398000",
+    "2026-06-10 00:00:04,3.00,8388440.20000000,6386305.29204000",
+    "2026-06-10 00:00:04,4.00,9781455.20000000,7465835.99343000",
+    "2026-06-10 00:00:04,5.00,10036089.00000000,7664672.64109000",
+};
+
+constexpr Timestamp kDecimalStamp = 1781049604LL * 1'000'000'000LL;
+
+std::vector<std::string_view> decimal_sample() {
+    return {kDecimalSample.begin(), kDecimalSample.end()};
+}
+
+}  // namespace
+
+TEST(BinanceBookDepth, ParsesDecimalSampleWithInnerBands) {
+    Timestamp      ts{};
+    BookDepthBands out{};
+    ASSERT_TRUE(parse(decimal_sample(), ts, out));
+
+    EXPECT_EQ(ts, kDecimalStamp);
+    EXPECT_DOUBLE_EQ(out.bids[0].depth, 2724929.0);
+    EXPECT_DOUBLE_EQ(out.bids[0].notional, 2031541.36847);
+    EXPECT_DOUBLE_EQ(out.bids[4].depth, 12609172.4);
+    EXPECT_DOUBLE_EQ(out.asks[0].depth, 2516233.0);
+    EXPECT_DOUBLE_EQ(out.asks[4].notional, 7664672.64109);
+}
+
+TEST(BinanceBookDepth, DecimalRowOrderDoesNotMatter) {
+    auto rows = decimal_sample();
+    std::swap(rows[0], rows[11]);
+    std::swap(rows[5], rows[6]);
+    Timestamp      ts{};
+    BookDepthBands out{};
+    ASSERT_TRUE(parse(rows, ts, out));
+    EXPECT_DOUBLE_EQ(out.bids[4].depth, 12609172.4);
+    EXPECT_DOUBLE_EQ(out.asks[4].depth, 10036089.0);
+}
+
+TEST(BinanceBookDepth, RejectsOneInnerBandWithoutTheOther) {
+    auto rows = decimal_sample();
+    rows.erase(rows.begin() + 6);
+    Timestamp      ts{};
+    BookDepthBands out{};
+    EXPECT_FALSE(parse(rows, ts, out));
+}
+
+TEST(BinanceBookDepth, RejectsDuplicateInnerBand) {
+    auto rows = decimal_sample();
+    rows[6]   = "2026-06-10 00:00:04,-0.20,503140.90000000,376502.53635000";
+    Timestamp      ts{};
+    BookDepthBands out{};
+    EXPECT_FALSE(parse(rows, ts, out));
+}
+
+TEST(BinanceBookDepth, RejectsBandBetweenWholePercents) {
+    auto rows = decimal_sample();
+    rows[11]  = "2026-06-10 00:00:04,4.50,10036089.00000000,7664672.64109000";
+    Timestamp      ts{};
+    BookDepthBands out{};
+    EXPECT_FALSE(parse(rows, ts, out));
+}
+
+TEST(BinanceBookDepth, RejectsInnerBandsWithAnOuterBandMissing) {
+    auto rows = decimal_sample();
+    rows.pop_back();
+    Timestamp      ts{};
+    BookDepthBands out{};
+    EXPECT_FALSE(parse(rows, ts, out));
+}

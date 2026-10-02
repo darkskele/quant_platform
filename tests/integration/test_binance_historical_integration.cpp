@@ -207,7 +207,8 @@ std::vector<Row> fetch_expected() {
 
                 const auto fields = split(line);
                 Row row{.market = stream.market, .symbol = stream.symbol, .kind = stream.kind};
-                row.ts = to_nanos(fields[0]);
+                // Bars are stamped at close, column 6. Funding at calc time.
+                row.ts = to_nanos(fields[stream.kind == EventKind::Funding ? 0 : 6]);
 
                 if (stream.kind == EventKind::Funding) {
                     row.a = std::stod(fields[2]);
@@ -330,10 +331,13 @@ TEST(BinanceHistoricalIntegration, MatchesTheRawCsvsExactly) {
     EXPECT_EQ(produced, expected);
 
     // Both sides scale the same raw integer, so agreeing with each other says
-    // nothing about the epoch itself. 2025-01-01T00:00:00Z is 1735689600
-    // seconds, and the span starts there, so the first hourly bar must land on
-    // it exactly. This is what catches a wrong unit or a wrong epoch.
-    EXPECT_EQ(produced.front().ts, 1735689600000000000LL);
+    // nothing about the epoch itself. The span starts at 2025-01-01T00:00:00Z,
+    // so the first hourly bar must close at 00:59:59.999 exactly. This is what
+    // catches a wrong unit or a wrong epoch.
+    const auto first_bar = std::find_if(produced.begin(), produced.end(),
+                                        [](const Row& r) { return r.kind == EventKind::Kline; });
+    ASSERT_NE(first_bar, produced.end());
+    EXPECT_EQ(first_bar->ts, 1735693199999000000LL);
 }
 
 // Every hourly bar in a month should be there. Counts the source computed from
@@ -471,10 +475,16 @@ TEST(BinanceHistoricalIntegration, OneSymbolTwoMonthsCountsEveryRow) {
 
     // Anchors the epoch. Both sides of the pipeline scale the same raw integer,
     // so a count alone would not catch a unit or offset error.
+    // Bars are stamped at close, one millisecond before the next bar opens.
     constexpr Timestamp kHour = 3600LL * 1'000'000'000LL;
+    constexpr Timestamp kMs   = 1'000'000LL;
     ASSERT_FALSE(sink.events.empty());
-    EXPECT_EQ(sink.events.front().base.ts, kJan);
-    EXPECT_EQ(sink.events.back().base.ts, kMar - kHour)
+    const auto first_bar =
+        std::find_if(sink.events.begin(), sink.events.end(),
+                     [](const MarketEvent& e) { return e.base.kind == EventKind::Kline; });
+    ASSERT_NE(first_bar, sink.events.end());
+    EXPECT_EQ(first_bar->base.ts, kJan + kHour - kMs);
+    EXPECT_EQ(sink.events.back().base.ts, kMar - kMs)
         << "the last bar should be the final hour of february";
 }
 

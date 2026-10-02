@@ -61,18 +61,18 @@ inline MarketEvent make_kline(std::uint16_t symbol, Timestamp open_time, Timesta
                   .exchange = exchange,
                   .market   = market,
                   .symbol   = symbol,
-                  .ts       = open_time};
-    ev.payload = KlineEvent{.close_time = close_time,
-                            .open       = open,
-                            .high       = high,
-                            .low        = low,
-                            .close      = close,
-                            .volume     = volume};
+                  .ts       = close_time};
+    ev.payload = KlineEvent{.open_time = open_time,
+                            .open      = open,
+                            .high      = high,
+                            .low       = low,
+                            .close     = close,
+                            .volume    = volume};
     return ev;
 }
 
-inline MarketEvent make_mark_price_kline(std::uint16_t symbol, Timestamp open_time, Price close,
-                                         Timestamp close_time = 0, Price open = 0.0,
+inline MarketEvent make_mark_price_kline(std::uint16_t symbol, Timestamp close_time, Price close,
+                                         Timestamp open_time = 0, Price open = 0.0,
                                          Price high = 0.0, Price low = 0.0,
                                          std::uint16_t market = 0, std::uint16_t exchange = 0) {
     MarketEvent ev;
@@ -80,9 +80,9 @@ inline MarketEvent make_mark_price_kline(std::uint16_t symbol, Timestamp open_ti
                   .exchange = exchange,
                   .market   = market,
                   .symbol   = symbol,
-                  .ts       = open_time};
+                  .ts       = close_time};
     ev.payload = MarkPriceKlineEvent{
-        .close_time = close_time, .open = open, .high = high, .low = low, .close = close};
+        .open_time = open_time, .open = open, .high = high, .low = low, .close = close};
     return ev;
 }
 
