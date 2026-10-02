@@ -1,45 +1,53 @@
-<title>trend</title>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trend Following Write-up</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}]})"></script>
 <style>
 :root {
   color-scheme: light;
-  --ground:  #fbfaf6;
-  --surface: #f2eee3;
-  --ink:     #0e0d0b;
-  --muted:   #5a5851;
-  --rule:    #e0dcce;
-  --long:    #2a6dbf;
-  --short:   #c9532c;
-  --accent:  #c8933b;
-  --accent-soft: #efdba5;
+  --ground:      #faf8fc;
+  --surface:     #f1ecf7;
+  --ink:         #16121c;
+  --muted:       #5f5870;
+  --rule:        #e3dcec;
+  --accent:      #6b3fa0;
+  --accent-soft: #e6daf4;
+  --long:        #2a6dbf;
+  --short:       #c9532c;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --ground:  #17171a;
-    --surface: #21201d;
-    --ink:     #f6f4ee;
-    --muted:   #b4b3a9;
-    --rule:    #34332f;
-    --long:    #4d8ede;
-    --short:   #db6e40;
-    --accent:  #d9a854;
-    --accent-soft: #574220;
+    --ground:      #141118;
+    --surface:     #1e1925;
+    --ink:         #f3eff8;
+    --muted:       #b3aac2;
+    --rule:        #332c3d;
+    --accent:      #b48ce6;
+    --accent-soft: #3a2b4f;
+    --long:        #4d8ede;
+    --short:       #db6e40;
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --ground:  #17171a;
-  --surface: #21201d;
-  --ink:     #f6f4ee;
-  --muted:   #b4b3a9;
-  --rule:    #34332f;
-  --long:    #4d8ede;
-  --short:   #db6e40;
-  --accent:  #d9a854;
-  --accent-soft: #574220;
+  --ground:      #141118;
+  --surface:     #1e1925;
+  --ink:         #f3eff8;
+  --muted:       #b3aac2;
+  --rule:        #332c3d;
+  --accent:      #b48ce6;
+  --accent-soft: #3a2b4f;
+  --long:        #4d8ede;
+  --short:       #db6e40;
 }
 
 * { box-sizing: border-box; }
@@ -48,731 +56,1350 @@ body {
   background: var(--ground);
   color: var(--ink);
   font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
-  font-size: 15px;
-  line-height: 1.6;
+  font-size: 16px;
+  line-height: 1.65;
   margin: 0;
   -webkit-font-smoothing: antialiased;
 }
 
-.page {
-  max-width: 620px;
-  margin: 0 auto;
-  padding: 44px 22px 96px;
-}
+.page { max-width: 680px; margin: 0 auto; padding: 0 16px 120px; }
 
 .eyebrow {
   font-family: 'IBM Plex Mono', ui-monospace, monospace;
   font-size: 11px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--muted);
-  margin: 0 0 14px;
+  color: var(--accent);
+  margin: 0 0 16px;
 }
 
 h1, h2, h3 { margin: 0; text-wrap: balance; }
 
-h1 {
-  font-family: 'Fraunces', Georgia, serif;
-  font-weight: 400;
-  font-size: 42px;
-  line-height: 1;
-  letter-spacing: -0.02em;
-  font-variation-settings: "opsz" 144, "SOFT" 30;
-}
-
-.subhead {
-  color: var(--muted);
-  font-size: 15px;
-  margin: 10px 0 0;
-}
-
-.note {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--muted);
-  border-left: 2px solid var(--accent);
-  padding: 2px 0 2px 12px;
-  margin: 18px 0 0;
-}
-
-.lede {
-  font-family: 'Fraunces', Georgia, serif;
-  font-weight: 400;
-  font-size: 21px;
-  line-height: 1.4;
-  font-variation-settings: "opsz" 24;
-  color: var(--ink);
-  margin: 34px 0 40px;
-  padding-left: 18px;
-  border-left: 2px solid var(--accent);
-}
-
 h2 {
   font-family: 'Fraunces', Georgia, serif;
   font-weight: 500;
-  font-size: 22px;
+  font-size: 26px;
   line-height: 1.2;
   font-variation-settings: "opsz" 48;
-  margin: 52px 0 14px;
+  margin: 0 0 18px;
 }
 
 h3 {
   font-family: 'IBM Plex Sans', sans-serif;
   font-weight: 600;
-  font-size: 15px;
-  margin: 22px 0 6px;
+  font-size: 16px;
+  margin: 28px 0 8px;
 }
 
-p { margin: 0 0 14px; }
+p { margin: 0 0 16px; }
 
-.mono {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  font-variant-numeric: tabular-nums;
-}
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
 
-.tag-long  { color: var(--long); }
-.tag-short { color: var(--short); }
-.tag-hold  { color: var(--accent); font-weight: 500; }
-
-.stamp {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  padding: 2px 6px;
-  border-radius: 2px;
-  border: 1px solid var(--rule);
-  color: var(--muted);
-  white-space: nowrap;
-  vertical-align: 2px;
-}
-.stamp.held  { color: var(--long);   border-color: var(--long); }
-.stamp.open  { color: var(--short);  border-color: var(--short); }
-.stamp.block { color: var(--accent); border-color: var(--accent); }
-
-.facts {
-  border-top: 1px solid var(--rule);
-  border-bottom: 1px solid var(--rule);
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  margin: 40px 0 0;
-}
-.fact {
-  padding: 14px 0;
+/* Title page */
+.cover {
+  min-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 56px 0 40px;
   border-bottom: 1px solid var(--rule);
 }
-.fact:nth-child(odd)  { padding-right: 14px; }
-.fact:nth-child(even) { padding-left: 14px; border-left: 1px solid var(--rule); }
-.fact:nth-last-child(-n+2) { border-bottom: none; }
-.fact-label {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  font-size: 10.5px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin: 0 0 5px;
+.cover h1 {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 400;
+  font-size: clamp(40px, 9vw, 64px);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  font-variation-settings: "opsz" 144, "SOFT" 30;
+  margin: 0 0 20px;
 }
-.fact-value {
-  font-family: 'IBM Plex Sans', sans-serif;
-  font-size: 14.5px;
-  font-weight: 500;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-}
-.fact-value.status-live { color: var(--accent); }
+.cover .sub { font-size: 18px; color: var(--muted); margin: 0; max-width: 32em; }
+.cover .bar { width: 64px; height: 4px; background: var(--accent); border-radius: 2px; margin: 0 0 28px; }
+.meta { display: grid; grid-template-columns: max-content 1fr; gap: 6px 24px; margin: 0; font-size: 14px; }
+.meta dt { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); padding-top: 3px; }
+.meta dd { margin: 0; }
 
-.ledger {
-  border-top: 1px solid var(--rule);
-  border-bottom: 1px solid var(--rule);
-  margin: 20px 0 4px;
-}
-.row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 12px;
-  padding: 11px 0;
-  border-bottom: 1px solid var(--rule);
-  align-items: baseline;
-}
-.row:last-child { border-bottom: none; }
-.label { color: var(--muted); font-size: 14px; }
-.value {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  font-variant-numeric: tabular-nums;
-  font-size: 14px;
-  color: var(--ink);
-  text-align: right;
-}
-.value.gone { color: var(--short); }
-
-.callout {
-  margin-top: 20px;
-  padding: 16px 18px;
-  border: 1px solid var(--rule);
-  background: var(--surface);
-  border-radius: 3px;
-  font-size: 14px;
-  color: var(--ink);
-}
-.callout p:last-child { margin-bottom: 0; }
-.callout .callout-label {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  font-size: 10.5px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--muted);
+/* Sections */
+section { padding: 64px 0 0; }
+.num {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  color: var(--accent);
+  letter-spacing: 0.08em;
+  display: block;
   margin: 0 0 6px;
 }
 
-.step {
-  display: grid;
-  grid-template-columns: 32px 1fr;
-  gap: 14px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--rule);
-  align-items: baseline;
+.overview {
+  background: var(--surface);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 6px 6px 0;
+  padding: 28px 28px 14px;
+  margin-top: 56px;
 }
-.step:last-child { border-bottom: none; }
-.step-n {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  font-size: 12px;
+.overview h2 { font-size: 22px; }
+
+/* Contents */
+.toc ol { list-style: none; padding: 0; margin: 0; }
+.toc li { display: grid; grid-template-columns: 2.6em 1fr; padding: 7px 0; border-bottom: 1px solid var(--rule); }
+.toc li span { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); padding-top: 3px; }
+.toc a { color: var(--ink); text-decoration: none; }
+.toc a:hover { color: var(--accent); }
+.toc .part { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); padding: 20px 0 4px; border: 0; display: block; }
+
+/* Placeholder for the author's prose */
+.write {
+  border: 1px dashed var(--rule);
+  border-radius: 6px;
+  padding: 18px 20px;
   color: var(--muted);
-  padding-top: 2px;
-}
-.step-text {
-  font-size: 14.5px;
-  color: var(--ink);
-  line-height: 1.5;
-}
-.steps {
-  margin-top: 16px;
-  border-top: 1px solid var(--rule);
+  font-style: italic;
+  margin: 0 0 20px;
 }
 
-.queue {
-  margin-top: 16px;
-  border-top: 1px solid var(--rule);
+/* A number later corrected */
+.corrected {
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: 0 6px 6px 0;
+  padding: 12px 16px;
+  margin: 0 0 20px;
+  font-size: 15px;
 }
-.q {
-  display: grid;
-  grid-template-columns: 32px 1fr;
-  gap: 14px;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--rule);
-}
-.q:last-child { border-bottom: none; }
-.q-n {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  font-size: 12px;
-  color: var(--muted);
-  padding-top: 3px;
-}
-.q-run {
-  font-size: 14.5px;
-  font-weight: 600;
-  color: var(--ink);
+.corrected::before {
+  content: "corrected later";
+  display: block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
   margin: 0 0 4px;
 }
-.q-meta {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  font-size: 12px;
-  color: var(--muted);
-  margin: 0 0 6px;
-}
-.q-ask { font-size: 14px; color: var(--ink); margin: 0; }
 
-.grid-current {
-  margin: 18px 0 6px;
-  border-top: 1px solid var(--rule);
-  border-bottom: 1px solid var(--rule);
+/* Understanding notes, scaffolding removed before merge */
+.notes {
+  font-size: 14px;
+  line-height: 1.6;
+  background: var(--surface);
+  border-radius: 6px;
+  padding: 16px 20px 6px;
+  margin: 0 0 20px;
 }
-.grid-current .caption {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  font-size: 10.5px;
-  letter-spacing: 0.14em;
+.notes::before {
+  content: "notes";
+  display: block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--muted);
-  padding: 12px 0 4px;
+  color: var(--accent);
+  margin: 0 0 8px;
 }
-.gr {
-  display: grid;
-  grid-template-columns: 42px 60px 1fr 60px;
-  gap: 10px;
-  align-items: center;
-  padding: 8px 0;
-  border-top: 1px solid var(--rule);
-}
-.gr:first-of-type { border-top: none; }
-.gr-L {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  font-size: 12.5px;
-  color: var(--muted);
-}
-.gr-val {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  font-variant-numeric: tabular-nums;
-  font-size: 13px;
-  color: var(--ink);
-}
-.gr-val.neg { color: var(--short); }
-.gr-val.pos { color: var(--long); }
-.gr-note {
-  font-size: 12.5px;
-  color: var(--muted);
-  text-align: right;
-}
-.bar-track {
-  height: 6px;
-  background: transparent;
-  position: relative;
-  border-radius: 2px;
-}
-.bar-fill {
-  position: absolute;
-  top: 0;
-  height: 6px;
-  border-radius: 2px;
-}
-.bar-fill.pos { background: var(--accent); }
-.bar-fill.neg { background: var(--short); opacity: 0.55; }
-.bar-zero {
-  position: absolute;
-  top: -3px;
-  bottom: -3px;
-  width: 1px;
-  background: var(--rule);
-}
+.notes ul { margin: 0 0 12px; padding-left: 18px; }
+.notes li { margin: 0 0 4px; }
+.notes b { font-weight: 600; }
+.notes .ev { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); }
 
-@media (max-width: 520px) {
-  .page { padding: 32px 18px 72px; }
-  h1 { font-size: 34px; }
-  .lede { font-size: 18px; margin: 28px 0 32px; }
-  h2 { font-size: 20px; margin-top: 44px; }
-  .facts { grid-template-columns: 1fr; }
-  .fact:nth-child(even) { padding-left: 0; border-left: none; }
-  .fact:nth-child(odd)  { padding-right: 0; }
-  .fact:nth-last-child(-n+2) { border-bottom: 1px solid var(--rule); }
-  .fact:last-child { border-bottom: none; }
-  .gr { grid-template-columns: 34px 52px 1fr 52px; gap: 8px; }
-}
+.mono { font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums; }
 
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; margin: 4px 0 14px; }
+th, td { text-align: left; padding: 5px 8px 5px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500; color: var(--muted); }
+td.mono { white-space: nowrap; }
+
+figure { margin: 0 0 20px; }
+figure img { width: 100%; height: auto; border-radius: 4px; background: #fff; }
+figcaption { font-size: 13px; color: var(--muted); margin-top: 6px; }
+
+footer { margin-top: 96px; padding-top: 18px; border-top: 1px solid var(--rule); font-size: 12px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+
+@media print {
+  .cover { min-height: 100vh; page-break-after: always; }
+  .notes { display: none; }
+  section { page-break-inside: avoid; }
+}
 </style>
-
+</head>
+<body>
 <div class="page">
 
-  <p class="eyebrow">quant-platform · research lane</p>
-  <h1>trend</h1>
-  <p class="subhead">Time-series momentum on Binance USD-M perpetuals.</p>
+<header class="cover">
+  <div>
+    <p class="eyebrow">quant-platform · signal research</p>
+  </div>
+  <div>
+    <div class="bar"></div>
+    <h1>Trend Following on Crypto Perpetuals</h1>
+    <p class="sub">Time-series momentum on Binance USD-M perpetuals, 2020 to 2026. A signal research write-up.</p>
+  </div>
+  <dl class="meta">
+    <dt>Author</dt><dd>Swag Master Extreme</dd>
+    <dt>Research</dt><dd>September 2026</dd>
+    <dt>Lane</dt><dd>research/signal/trend</dd>
+    <dt>Status</dt><dd>Signal lane closed. Parked for regime gating, registered test running.</dd>
+  </dl>
+</header>
 
-  <p class="note">Rewritten 2026-09-20. The data changed. Every old number came from ten symbols, so each is marked held or open rather than carried forward.</p>
+<section class="overview" id="overview">
+  <span class="num">Executive overview</span>
+  <div>Does trend following Binance crypto perpetuals, make money after after honest costs? This research lane finds that the answer is probably yes, under strict conditions and proper regime gating - although 
+    official gate testing finds that it just falls short with a probability of 0.49 against a gate of 0.5 to park. This research finds a thin signal that is largely timing the markets movement, not a secret edge. It loses
+    slowly in choppy markets, wins in big crashes and booms and works best with 100k capacity book. This should b paired with proper regime gating before proper strategy research.
+  </div>
+</section>
 
-  <p class="lede">
-    Look back <span class="tag-hold">L</span> weeks. Above where it was, go <span class="tag-long">long</span>. Below, go <span class="tag-short">short</span>. Every perp carries its own signal and the book is the weighted average.
+<section class="toc" id="contents">
+  <span class="num">Contents</span>
+  <h2>Contents</h2>
+  <ol>
+    <li class="part">Framing</li>
+    <li><span>01</span><a href="#intro">Introduction</a></li>
+    <li><span>02</span><a href="#hypothesis">Hypothesis</a></li>
+    <li><span>03</span><a href="#method">Method</a></li>
+    <li><span>04</span><a href="#reading">How to read the numbers</a></li>
+    <li class="part">The research, in order</li>
+    <li><span>05</span><a href="#first-pass">A first pass on ten coins</a></li>
+    <li><span>06</span><a href="#new-data">The data changes</a></li>
+    <li><span>07</span><a href="#eda">Exploring the data</a></li>
+    <li><span>08</span><a href="#costs">What it costs</a></li>
+    <li><span>09</span><a href="#wide-sweep">The wide sweep</a></li>
+    <li><span>10</span><a href="#conditions">When trend works</a></li>
+    <li><span>11</span><a href="#what-it-is">What the signal really is</a></li>
+    <li><span>12</span><a href="#review">Review and rescore</a></li>
+    <li><span>13</span><a href="#registered">The registered test</a></li>
+    <li><span>14</span><a href="#late-check">A late check, and a second book</a></li>
+    <li class="part">Close</li>
+    <li><span>15</span><a href="#mistakes">What we got wrong</a></li>
+    <li><span>16</span><a href="#close">Signal lane close and handoff</a></li>
+    <li><span>17</span><a href="#lessons">Lessons for research practice</a></li>
+    <li class="part">Appendix</li>
+    <li><span>A</span><a href="#trials">Trial ledger</a></li>
+    <li><span>B</span><a href="#index">Notebooks and commits</a></li>
+    <li><span>C</span><a href="#not-modelled">What is not modelled</a></li>
+  </ol>
+</section>
+
+<section id="intro">
+  <span class="num">01</span>
+  <h2>Introduction</h2>
+  <div>
+    <p>Trend following bets that market movements in one direction will continue in that direction, essentially a time series momentum model.
+    Every sunday close, look at each coins return over the past \(L\) weeks. If it trends up, go long, if it goes down, short. Hold for a week and the decide
+    again.</p>
+    <p>For coin \(i\) in week \(t\), with \(r_{i,t}\) its weekly log return, the signal is the sign of the trailing move:</p>
+    $$ s_{i,t} = \operatorname{sign}\Big( \sum_{k=1}^{L} r_{i,t-k} \Big) $$
+    <p>The sum stops at 1, so it only considers weeks that have closed. How much of each coin is held, is sized according to the how much the coin swings. 
+    Each sign is divided by the coin's volatility over the last 12 weeks, \(\sigma_{i,t}\), and positions are scaled so that they add up to one.</p>
+    $$ w_{i,t} = \frac{s_{i,t} / \sigma_{i,t}}{\sum_j \lvert s_{j,t} \rvert / \sigma_{j,t}} $$
+    <p>A coin that swings twice as hard gets half the position, so no single wild coin runs the book. The book holds every liquid Binance USD-M perpetual this 
+    way at once. Its weekly return is the weighted sum of the coins' returns, minus funding and the cost of trading.</p>
+    <p>Trend is the simplest idea on the research list, which is why it came first. We used it to build and harden the research practice before the harder lanes.</p>
+  </div>
+</section>
+
+<section id="hypothesis">
+  <span class="num">02</span>
+  <h2>Hypothesis</h2>
+  <div>
+    <p>
+      Trend following is alternative beta, not alpha. It is a published style premium that any one can harvest, as such our expectation is modest. A sharpe of
+      0.5 to 0.8 after costs. It is expected to exist due to market under or over reactions, and the uncomfortable cost of holding (sideways markets expect 
+      small losses). What we hope to harvest, is gains when the market moves hard. This shape makes trend a form of insurance against big moves, and predicts
+      a book whose returns curves upward against the markets.
+    </p>
+    <p>
+      To see that shape, take every month of the backtest and mark it as one dot on a chart. How far right the dot sits is the market's return that month. 
+      How high it sits is the trend book's return that same month. Then draw the curve that best fits the dots.
+    </p>
+    $$ R_{\text{book},t} = a + b\,m_t + c\,m_t^2 + \varepsilon_t $$
+    <p>
+      Here \(m_t\) is the market's return in month \(t\) and \(R_{\text{book},t}\) is the book's. Each term is one feature of the curve.
+    </p>
+      <ul>
+        <li>
+          \(a\) is the height of the curve when the market does nothing. For trend it should sit slightly below zero, because a flat, choppy market keeps 
+          flipping the signal and each flip costs money.
+        </li>
+        <li>
+          \(b\,m_t\) is the straight-line part, the book's standing bet on the market. A book that was simply long would have a positive \(b\) and a curve 
+          sloping up to the right. Trend is long in some months and short in others, so \(b\) should be near zero.
+        </li>
+        <li>
+          \(c\,m_t^2\) is the bend. Squaring the market's return makes it positive whichever way the market moved, so a 20% crash and a 20% rally count the 
+          same. A positive \(c\) means the book gains when the market moves hard in either direction.
+        </li>
+        <li>
+          \(\varepsilon_t\) is what the curve does not explain, the scatter of dots around it.
+        </li>
+      </ul>
+    <p>
+      The prediction is \(c > 0\). Drawn out, the curve is a smile, a shallow dip in quiet months that rises at both ends. In a long crash every coin's
+      trailing return turns negative, the book goes short, and it earns as prices keep falling. In a long rally it is long and earns as they keep rising.
+      The smile shows best on monthly or quarterly returns, since trend needs a few weeks of a move before it changes side, so week by week the shape is 
+      faint.
+    </p>
+    <figure>
+<svg viewBox="0 -4 640 404" role="img" aria-labelledby="smile-t smile-d" style="width:100%;height:auto;font-family:'IBM Plex Sans',sans-serif">
+<title id="smile-t">Illustration of the trend smile</title>
+<desc id="smile-d">
+  Made-up monthly returns. The book loses a little when the market is flat and gains when it moves a lot in either direction.
+</desc>
+<line x1="56" x2="620" y1="339.4" y2="339.4" stroke="var(--rule,#e3dcec)" stroke-width="1"/>
+<text x="48" y="343.4" text-anchor="end" font-size="11" fill="var(--muted,#5f5870)">-5%</text>
+<line x1="56" x2="620" y1="276.3" y2="276.3" stroke="var(--rule,#e3dcec)" stroke-width="1.5"/>
+<text x="48" y="280.3" text-anchor="end" font-size="11" fill="var(--muted,#5f5870)">0%</text>
+<line x1="56" x2="620" y1="213.2" y2="213.2" stroke="var(--rule,#e3dcec)" stroke-width="1"/>
+<text x="48" y="217.2" text-anchor="end" font-size="11" fill="var(--muted,#5f5870)">+5%</text>
+<line x1="56" x2="620" y1="150.2" y2="150.2" stroke="var(--rule,#e3dcec)" stroke-width="1"/>
+<text x="48" y="154.2" text-anchor="end" font-size="11" fill="var(--muted,#5f5870)">+10%</text>
+<line x1="56" x2="620" y1="87.1" y2="87.1" stroke="var(--rule,#e3dcec)" stroke-width="1"/>
+<text x="48" y="91.1" text-anchor="end" font-size="11" fill="var(--muted,#5f5870)">+15%</text>
+<line x1="56" x2="620" y1="24.0" y2="24.0" stroke="var(--rule,#e3dcec)" stroke-width="1"/>
+<text x="48" y="28.0" text-anchor="end" font-size="11" fill="var(--muted,#5f5870)">+20%</text>
+<line x1="338.0" x2="338.0" y1="24" y2="352" stroke="var(--rule,#e3dcec)" stroke-width="1.5"/>
+<text x="56.0" y="370" text-anchor="middle" font-size="11" fill="var(--muted,#5f5870)">-30%</text>
+<text x="150.0" y="370" text-anchor="middle" font-size="11" fill="var(--muted,#5f5870)">-20%</text>
+<text x="244.0" y="370" text-anchor="middle" font-size="11" fill="var(--muted,#5f5870)">-10%</text>
+<text x="338.0" y="370" text-anchor="middle" font-size="11" fill="var(--muted,#5f5870)">0%</text>
+<text x="432.0" y="370" text-anchor="middle" font-size="11" fill="var(--muted,#5f5870)">+10%</text>
+<text x="526.0" y="370" text-anchor="middle" font-size="11" fill="var(--muted,#5f5870)">+20%</text>
+<text x="620.0" y="370" text-anchor="middle" font-size="11" fill="var(--muted,#5f5870)">+30%</text>
+<text x="338.0" y="392" text-anchor="middle" font-size="12" fill="var(--muted,#5f5870)">market return that month</text>
+<text transform="translate(14 188.0) rotate(-90)" text-anchor="middle" font-size="12" fill="var(--muted,#5f5870)">trend book return that month</text>
+<circle cx="308.2" cy="255.4" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -3.2%, book +1.7%</title></circle>
+<circle cx="320.4" cy="312.3" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -1.9%, book -2.9%</title></circle>
+<circle cx="364.7" cy="291.5" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +2.8%, book -1.2%</title></circle>
+<circle cx="363.0" cy="337.2" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +2.7%, book -4.8%</title></circle>
+<circle cx="383.5" cy="259.9" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +4.8%, book +1.3%</title></circle>
+<circle cx="360.9" cy="261.1" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +2.4%, book +1.2%</title></circle>
+<circle cx="259.3" cy="319.5" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -8.4%, book -3.4%</title></circle>
+<circle cx="357.3" cy="289.0" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +2.1%, book -1.0%</title></circle>
+<circle cx="270.3" cy="255.0" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -7.2%, book +1.7%</title></circle>
+<circle cx="416.1" cy="316.0" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +8.3%, book -3.1%</title></circle>
+<circle cx="374.1" cy="334.9" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +3.8%, book -4.6%</title></circle>
+<circle cx="401.0" cy="304.3" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +6.7%, book -2.2%</title></circle>
+<circle cx="383.9" cy="298.9" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +4.9%, book -1.8%</title></circle>
+<circle cx="313.2" cy="325.7" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -2.6%, book -3.9%</title></circle>
+<circle cx="396.9" cy="275.7" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +6.3%, book +0.0%</title></circle>
+<circle cx="285.8" cy="272.3" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -5.6%, book +0.3%</title></circle>
+<circle cx="355.6" cy="270.2" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +1.9%, book +0.5%</title></circle>
+<circle cx="369.3" cy="265.9" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +3.3%, book +0.8%</title></circle>
+<circle cx="214.5" cy="192.8" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -13.1%, book +6.6%</title></circle>
+<circle cx="400.3" cy="242.8" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +6.6%, book +2.7%</title></circle>
+<circle cx="366.9" cy="322.3" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +3.1%, book -3.6%</title></circle>
+<circle cx="305.1" cy="299.1" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -3.5%, book -1.8%</title></circle>
+<circle cx="469.8" cy="256.4" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +14.0%, book +1.6%</title></circle>
+<circle cx="322.3" cy="317.9" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -1.7%, book -3.3%</title></circle>
+<circle cx="272.9" cy="276.0" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -6.9%, book +0.0%</title></circle>
+<circle cx="365.6" cy="286.1" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +2.9%, book -0.8%</title></circle>
+<circle cx="371.9" cy="271.2" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +3.6%, book +0.4%</title></circle>
+<circle cx="377.4" cy="327.4" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +4.2%, book -4.1%</title></circle>
+<circle cx="324.9" cy="322.7" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -1.4%, book -3.7%</title></circle>
+<circle cx="373.2" cy="285.1" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +3.7%, book -0.7%</title></circle>
+<circle cx="352.4" cy="293.7" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +1.5%, book -1.4%</title></circle>
+<circle cx="333.3" cy="297.5" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -0.5%, book -1.7%</title></circle>
+<circle cx="414.5" cy="269.8" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +8.1%, book +0.5%</title></circle>
+<circle cx="442.5" cy="271.0" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +11.1%, book +0.4%</title></circle>
+<circle cx="381.4" cy="262.7" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +4.6%, book +1.1%</title></circle>
+<circle cx="178.6" cy="188.4" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -17.0%, book +7.0%</title></circle>
+<circle cx="394.2" cy="280.1" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +6.0%, book -0.3%</title></circle>
+<circle cx="325.6" cy="307.0" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -1.3%, book -2.4%</title></circle>
+<circle cx="347.6" cy="293.4" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +1.0%, book -1.4%</title></circle>
+<circle cx="244.6" cy="333.3" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -9.9%, book -4.5%</title></circle>
+<circle cx="425.8" cy="288.7" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +9.3%, book -1.0%</title></circle>
+<circle cx="278.4" cy="275.2" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -6.3%, book +0.1%</title></circle>
+<circle cx="391.5" cy="320.5" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +5.7%, book -3.5%</title></circle>
+<circle cx="296.3" cy="277.2" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -4.4%, book -0.1%</title></circle>
+<circle cx="405.5" cy="268.6" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +7.2%, book +0.6%</title></circle>
+<circle cx="429.9" cy="297.0" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +9.8%, book -1.6%</title></circle>
+<circle cx="193.2" cy="221.1" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -15.4%, book +4.4%</title></circle>
+<circle cx="286.7" cy="288.2" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -5.5%, book -0.9%</title></circle>
+<circle cx="334.8" cy="276.1" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -0.3%, book +0.0%</title></circle>
+<circle cx="375.2" cy="267.0" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +4.0%, book +0.7%</title></circle>
+<circle cx="77.7" cy="48.0" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -27.7%, book +18.1%</title></circle>
+<circle cx="352.5" cy="311.8" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +1.5%, book -2.8%</title></circle>
+<circle cx="327.1" cy="292.5" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -1.2%, book -1.3%</title></circle>
+<circle cx="286.0" cy="281.1" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -5.5%, book -0.4%</title></circle>
+<circle cx="347.7" cy="268.2" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +1.0%, book +0.6%</title></circle>
+<circle cx="299.7" cy="275.5" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -4.1%, book +0.1%</title></circle>
+<circle cx="275.8" cy="295.2" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -6.6%, book -1.5%</title></circle>
+<circle cx="236.5" cy="289.7" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -10.8%, book -1.1%</title></circle>
+<circle cx="366.4" cy="296.4" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +3.0%, book -1.6%</title></circle>
+<circle cx="354.5" cy="308.5" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +1.8%, book -2.6%</title></circle>
+<circle cx="387.0" cy="311.2" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +5.2%, book -2.8%</title></circle>
+<circle cx="253.1" cy="266.4" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -9.0%, book +0.8%</title></circle>
+<circle cx="515.1" cy="190.6" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +18.8%, book +6.8%</title></circle>
+<circle cx="324.9" cy="285.4" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -1.4%, book -0.7%</title></circle>
+<circle cx="234.3" cy="236.0" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -11.0%, book +3.2%</title></circle>
+<circle cx="309.9" cy="297.6" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -3.0%, book -1.7%</title></circle>
+<circle cx="383.3" cy="217.1" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +4.8%, book +4.7%</title></circle>
+<circle cx="367.5" cy="294.7" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +3.1%, book -1.5%</title></circle>
+<circle cx="410.6" cy="239.5" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +7.7%, book +2.9%</title></circle>
+<circle cx="347.3" cy="285.2" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +1.0%, book -0.7%</title></circle>
+<circle cx="285.6" cy="248.2" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -5.6%, book +2.2%</title></circle>
+<circle cx="381.3" cy="348.2" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +4.6%, book -5.7%</title></circle>
+<circle cx="330.4" cy="309.6" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -0.8%, book -2.6%</title></circle>
+<circle cx="383.7" cy="274.6" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +4.9%, book +0.1%</title></circle>
+<circle cx="344.2" cy="272.1" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +0.7%, book +0.3%</title></circle>
+<circle cx="354.2" cy="223.1" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +1.7%, book +4.2%</title></circle>
+<circle cx="382.8" cy="272.8" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +4.8%, book +0.3%</title></circle>
+<circle cx="281.2" cy="241.9" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -6.0%, book +2.7%</title></circle>
+<circle cx="294.2" cy="260.8" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -4.7%, book +1.2%</title></circle>
+<circle cx="168.6" cy="160.2" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -18.0%, book +9.2%</title></circle>
+<circle cx="441.0" cy="236.9" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +11.0%, book +3.1%</title></circle>
+<circle cx="414.7" cy="272.2" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +8.2%, book +0.3%</title></circle>
+<circle cx="312.6" cy="272.5" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -2.7%, book +0.3%</title></circle>
+<circle cx="454.1" cy="270.7" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +12.4%, book +0.4%</title></circle>
+<circle cx="312.3" cy="253.8" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -2.7%, book +1.8%</title></circle>
+<circle cx="355.4" cy="316.1" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +1.8%, book -3.2%</title></circle>
+<circle cx="516.5" cy="168.3" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +19.0%, book +8.6%</title></circle>
+<circle cx="385.3" cy="222.1" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market +5.0%, book +4.3%</title></circle>
+<circle cx="312.7" cy="292.8" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -2.7%, book -1.3%</title></circle>
+<circle cx="335.0" cy="288.3" r="4.5" fill="var(--muted,#5f5870)" fill-opacity="0.45" stroke="var(--ground,#faf8fc)" stroke-width="1"><title>market -0.3%, book -1.0%</title></circle>
+<path d="M74.8 41.7 L79.2 49.9 L83.6 58.0 L88.1 66.0 L92.5 73.8 L96.9 81.5 L101.3 89.0 L105.8 96.4 L110.2 103.7 L114.6 110.8 L119.0 117.8 L123.5 124.6 L127.9 131.3 L132.3 137.9 L136.7 144.3 L141.2 150.6 L145.6 156.8 L150.0 162.8 L154.4 168.6 L158.8 174.4 L163.3 180.0 L167.7 185.4 L172.1 190.7 L176.5 195.9 L181.0 200.9 L185.4 205.8 L189.8 210.5 L194.2 215.2 L198.7 219.6 L203.1 224.0 L207.5 228.1 L211.9 232.2 L216.4 236.1 L220.8 239.9 L225.2 243.5 L229.6 247.0 L234.0 250.4 L238.5 253.6 L242.9 256.6 L247.3 259.6 L251.7 262.4 L256.2 265.0 L260.6 267.5 L265.0 269.9 L269.4 272.1 L273.9 274.2 L278.3 276.2 L282.7 278.0 L287.1 279.7 L291.6 281.2 L296.0 282.6 L300.4 283.9 L304.8 285.0 L309.2 286.0 L313.7 286.8 L318.1 287.5 L322.5 288.1 L326.9 288.5 L331.4 288.8 L335.8 288.9 L340.2 288.9 L344.6 288.8 L349.1 288.5 L353.5 288.1 L357.9 287.5 L362.3 286.8 L366.8 286.0 L371.2 285.0 L375.6 283.9 L380.0 282.6 L384.4 281.2 L388.9 279.7 L393.3 278.0 L397.7 276.2 L402.1 274.2 L406.6 272.1 L411.0 269.9 L415.4 267.5 L419.8 265.0 L424.3 262.4 L428.7 259.6 L433.1 256.6 L437.5 253.6 L442.0 250.4 L446.4 247.0 L450.8 243.5 L455.2 239.9 L459.6 236.1 L464.1 232.2 L468.5 228.1 L472.9 224.0 L477.3 219.6 L481.8 215.2 L486.2 210.5 L490.6 205.8 L495.0 200.9 L499.5 195.9 L503.9 190.7 L508.3 185.4 L512.7 180.0 L517.2 174.4 L521.6 168.6 L526.0 162.8 L530.4 156.8 L534.8 150.6 L539.3 144.3 L543.7 137.9 L548.1 131.3 L552.5 124.6 L557.0 117.8 L561.4 110.8 L565.8 103.7 L570.2 96.4 L574.7 89.0 L579.1 81.5 L583.5 73.8 L587.9 66.0 L592.4 58.0 L596.8 49.9 L601.2 41.7" fill="none" stroke="var(--accent,#6b3fa0)" stroke-width="2.5" stroke-linecap="round"/>
+<text x="338.0" y="331.8" text-anchor="middle" font-size="12" fill="var(--ink,#16121c)">quiet months, small losses</text>
+<text x="74.8" y="15" text-anchor="start" font-size="12" fill="var(--ink,#16121c)">crash, trend is short</text>
+<text x="601.2" y="15" text-anchor="end" font-size="12" fill="var(--ink,#16121c)">rally, trend is long</text>
+<text x="516.6" y="223.3" text-anchor="start" font-size="12" fill="var(--accent,#6b3fa0)">fitted curve</text>
+</svg>
+      <figcaption>
+        Illustration with made up monthly returns, not data. Each dot is one month. The curve is the fit, a small loss when the market is flat and a gain
+        when it moves hard either way.
+      </figcaption>
+    </figure>
+    <p>
+      There are two reasons to expect the premium to be larger in crypto. Perpetual futures are heavily levered, so a sharp move liquidates the crowded 
+      side, and the liquidations push price further in the same direction. If that drives it, trend should do better when open interest is high. Crypto 
+      also has no earnings calendar or central disclosure, so news prices in over days rather than seconds, which suits a weekly horizon.
+    </p>
+    <p>
+      The hypothesis fails if the edge cannot be told apart from luck. The null is a true Sharpe of zero, where any profit comes from having tried many 
+      settings. The final judge is a registered test on data this research never searched.
+    </p>
+  </div>
+</section>
+
+
+<section id="method">
+  <span class="num">03</span>
+  <h2>Method</h2>
+  <div>
+    <h3>Data</h3>
+    <p>
+      Data is sourced from Binance's Vision archive, a public dump of historical market data. It is streamed straight through the platform's C++ data 
+      source.
+    </p>
+    <p>
+      The data used incudes daily price bars for every USD-M perp and funding payments for 2020 to 2026. Trade prints and order book depth are used 
+      only to measure costs.
+    </p>
+    <h3>The Universe</h3>
+    <p>
+      681 crypto perps, 157 of them delisted and kept for the span they traded. 183 stock, ETF, commodity and tokenised perps dropped. A coin counts 
+      in a week only if its past 30-day median volume was at least $10M.
+    </p>
+    <h3>The Book's Return</h3>
+    $$ R_t = \underbrace{\sum_i w_{i,t}\, R_{i,t}}_{\text{price}} \;-\; \underbrace{\sum_i w_{i,t}\, f_{i,t}}_{\text{funding}} \;-\; \underbrace{\sum_i \lvert w_{i,t} - w_{i,t-1} \rvert\, c_{i,t}}_{\text{trading cost}} $$
+    <ul>
+      <li>\(R_t\) is the book's return in week \(t\).</li>
+      <li>\(w_{i,t}\) is the position in coin \(i\), positive long and negative short, from the sizing rule.</li>
+      <li>\(R_{i,t}\) is the coin's price return that week.</li>
+      <li>\(f_{i,t}\) is the coin's funding summed over the week, positive when longs pay shorts.</li>
+      <li>\(c_{i,t}\) is the coin's cost per unit traded, built below.</li>
+    </ul>
+    <p>
+      The book earns the price move on each position and pays funding on it, and the sign of \(w_{i,t}\) flips funding into income for a short. 
+      Trading cost is charged only on the change in position, so a weight moving from +0.02 to -0.02 pays on 0.04.
+    </p>
+    <h3>Costs</h3>
+    <p>
+      The cost of one trade is three pieces:
+    </p>
+    $$ c = \underbrace{5\ \text{bps}}_{\text{fee}} + \underbrace{s(V)}_{\text{half spread}} + \underbrace{50 \cdot \frac{Q}{D(V)}}_{\text{impact}} \ \text{bps} $$
+    <ul>
+      <li>\(V\) is the coin's median daily dollar volume, how much of it trades in a normal day.</li>
+      <li>\(s(V)\) is the half spread for a coin trading \(V\) a day, the gap between the mid price and the price a taker gets.</li>
+      <li>\(D(V)\) is the depth for a coin trading \(V\) a day, the dollars resting in the order book within 1% of mid.</li>
+      <li>\(Q\) is the order's size in dollars.</li>
+      <li>A basis point, bp, is 0.01%.</li>
+    </ul>
+    <p>
+      Busier coins have tighter spreads and deeper books. Spread and depth were measured on 72 coin-days and fitted against volume, so any 
+      coin is priced from its volume alone. An order the size of \(D\) walks the whole 1% band and fills about 50 bps away on average, so
+      an order of \(Q\) pays \(Q/D\) of that. Headline results use a $100k book.
+    </p>
+    <h3>Judging a Result</h3>
+    <p>
+      Backtests are evaluated on out of sample and walk forward tests. Every choice (lookback, conditions) is made on past data then scored on the 
+      stretch that follows. Final results are scored against the signal gate, the bar here changed from a simple sharpe check to a calibrated gate.
+    </p>
+  </div>
+</section>
+
+<section id="reading">
+  <span class="num">04</span>
+  <h2>How to read the numbers</h2>
+  <h3>Returns</h3>
+  <ul>
+    <li><b>Sharpe.</b> The average weekly return divided by how much weekly returns swing, scaled to a year. \(\text{SR} = \bar{R} / \sigma_R \times \sqrt{52}\). 
+      At 0.8 a year loses money about one time in five. Every Sharpe here is annual.</li>
+    <li><b>Gross and net.</b> Gross is the price move alone. Net is after fees, spread, impact and funding. Every headline is net.</li>
+    <li><b>Drawdown.</b> The worst fall from a peak to a later trough. Quoted in summed weekly returns, so 0.60 means the weekly returns from peak to trough add to −60%.</li>
+    <li><b>Book size.</b> The dollars the book trades, which sets impact. Headlines use $100k.</li>
+    <li><b>Per coin and market book.</b> Per coin, every coin takes its own sign. Market, the whole basket takes one sign, from the average coin's trailing return.</li>
+    <li><b>Sleeve.</b> The book traded only in the weeks a market condition is on, flat otherwise.</li>
+    <li><b>Baskets.</b> Every liquid coin held long, or held short, over the same weeks. The baseline a directional book has to beat.</li>
+  </ul>
+  <h3>Samples</h3>
+  <ul>
+    <li><b>In sample.</b> The data a choice was made on. Flattering by construction.</li>
+    <li><b>Out of sample.</b> Data the choice never saw. The only honest score.</li>
+    <li><b>Walk forward.</b> Choose using only the past, score the next stretch, step forward and repeat. The scored stretches chain into one out of sample record.</li>
+    <li><b>Registered test.</b> One test written down and committed before it runs, on data never searched.</li>
+  </ul>
+  <h3>Luck</h3>
+  <ul>
+    <li><b>Trial.</b> Every setting tried, a lookback, a condition, a shape. Each is another lottery ticket, and the best of many looks better than the truth.</li>
+    <li><b>Effective trials.</b> Similar settings make near-identical books, so they count as fewer independent tries. The wide sweep was worth about 42.</li>
+    <li><b>Luck bar.</b> The Sharpe the best of that many tries reaches with no edge at all.</li>
+    <li><b>Probability real.</b> The chance the Sharpe beats the luck bar, corrected for fat tails. At least 0.95 passes, 0.5 to 0.95 parks.</li>
+    <li><b>t statistic.</b> How many standard errors an estimate sits from zero. About 2 is the usual line.</li>
+    <li><b>Clustered.</b> Coins in the same week move together, so 400 coins in one week are closer to one bet than 400. Clustering by week counts weeks, not coin-weeks.</li>
+    <li><b>Bootstrap.</b> Rebuild the return path 5,000 times from random 8-week blocks of itself. The spread of Sharpes across those paths shows how far this one could be off.</li>
+    <li><b>Power.</b> How likely a real edge is to pass. A true 0.8 needs about 504 weeks to pass 80% of the time. The perp data holds about 340.</li>
+  </ul>
+  <h3>The gate</h3>
+  <p>Every result carries a stamp. Pass, every check passes and probability real is 0.95 or more. Park, every check passes and it sits between 0.5 and 0.95, too little data rather than refuted. Fail, any check fails, listed by code. A check the data cannot settle yet is listed as open.</p>
+  <table>
+    <tr><th>code</th><th>check</th><th>asks</th></tr>
+    <tr><td class="mono">D1</td><td>Coverage</td><td>Five years of data and a full bull and bear cycle</td></tr>
+    <tr><td class="mono">T5</td><td>Point in time</td><td>Universe, liquidity and costs as known at each bar</td></tr>
+    <tr><td class="mono">S1</td><td>Significance</td><td>Probability real, against the luck bar for every trial</td></tr>
+    <tr><td class="mono">S2</td><td>Year stability</td><td>Still positive, and at least 40% of the whole, with any one year removed</td></tr>
+    <tr><td class="mono">S3</td><td>Out of sample</td><td>Walk forward positive and not far below in sample</td></tr>
+    <tr><td class="mono">S4</td><td>Neighbours</td><td>The settings either side of the winner earn too</td></tr>
+    <tr><td class="mono">S5</td><td>Selection overfit</td><td>The winner is not just the luckiest cell of the grid</td></tr>
+    <tr><td class="mono">S6</td><td>Baseline</td><td>Beats the long and short baskets over the same weeks</td></tr>
+    <tr><td class="mono">V1</td><td>Bootstrap</td><td>The worst 5% of bootstrap Sharpes stays above zero</td></tr>
+  </table>
+</section>
+
+<section id="first-pass">
+  <span class="num">05 · 13 September</span>
+  <h2>A first pass on ten coins</h2>
+  <p>
+    The lane started small. Ten large perps, ADA, AVAX, BNB, BTC, DOGE, ETH, LINK, LTC, SOL and XRP, from 2022 to 2024, one-minute bars rolled up to weekly closes. The book was simpler than the one in 
+    Method. Each coin took a full long or short position, the ten were weighted equally, and each sign flip paid a round trip from a flat per coin cost table. Every number in this section comes from 
+    that sample, and none of it is carried forward. It is the starting point the later work had to reproduce.
   </p>
 
-  <div class="facts">
-    <div class="fact">
-      <p class="fact-label">Market</p>
-      <p class="fact-value">Binance USD-M perps</p>
-    </div>
-    <div class="fact">
-      <p class="fact-label">Universe</p>
-      <p class="fact-value">Every perp, delisted included</p>
-    </div>
-    <div class="fact">
-      <p class="fact-label">Return source</p>
-      <p class="fact-value">Alternative beta, not alpha</p>
-    </div>
-    <div class="fact">
-      <p class="fact-label">Cadence</p>
-      <p class="fact-value">Weekly, dead band tested null</p>
-    </div>
-    <div class="fact">
-      <p class="fact-label">Binding constraint</p>
-      <p class="fact-value">Evidence, then capacity</p>
-    </div>
-    <div class="fact">
-      <p class="fact-label">Status</p>
-      <p class="fact-value status-live">Parked, registered test drafted</p>
-    </div>
-  </div>
+  <h3>Which lookback</h3>
+  <p>
+    The first question was which lookback \(L\) pays, so the rule was run at 1, 2, 4, 8 and 12 weeks. Two reference books sat alongside it, the same ten coins held long, once at equal size and once sized
+     by volatility. Trend has to beat simply owning the coins.
+  </p>
+  <figure>
+    <img src="img/first_pass_lookbacks.png" alt="Book Sharpe by lookback on ten perps, 2022 to 2024">
+    <figcaption>Ten perps, 2022 to 2024, net of cost and funding. 1 and 4 weeks pay, 2 and 8 lose. Dashed lines are the long-only books.</figcaption>
+  </figure>
+  <p>
+    1 week made 0.78 and 4 weeks 0.61. Between and beyond them, 2 and 8 weeks lost money. Neighbouring lookbacks disagreeing like this is the sawtooth. A real trend effect should change smoothly as the 
+    lookback grows, so a saw is a warning that the winners may be lucky cells in a noisy grid.
+  </p>
+  <p>
+    Pooled, trend did not beat the volatility sized long book at 0.87. Its case was the year split. Both long books lost 1.2 to 1.4 in the 2022 bear and earned 1.5 to 1.8 in the 2023 and 2024 bull. 
+    Trend earned 0.5 to 0.9 in every year, bear included, because in 2022 the trailing returns were negative and the book was short.
+  </p>
+  <figure>
+    <img src="img/first_pass_by_year.png" alt="Sharpe by year for trend and the long-only books">
+    <figcaption>Ten perps. Trend is steady across years, the long books swing with the market.</figcaption>
+  </figure>
+  <p>
+    Both winners kept their sign at twice the cost, and funding took only 0.06 to 0.10 off them. But the two lookbacks leaned on different coins, and three years is only 156 weeks per coin.
+  </p>
 
-  <h2>What we are harvesting</h2>
+  <h3>Subtracting funding from the signal</h3>
+  <p>
+    A long in a hot market pays funding every eight hours. If price rose less than the funding a long paid over the window, holding it lost money. The funding-aware sign subtracts that trailing 
+    funding from the trailing return before taking the sign. It lifted 1 week from 0.79 to 0.85 and 4 weeks from 0.61 to 0.65, mostly in the positive-funding years 2023 and 2024. The two signs 
+    disagreed in only 2 to 5% of weeks, so the lift rested on a handful of trades and sat inside the noise.
+  </p>
 
-  <p>Alternative beta. Not alpha.</p>
+  <h3>Cadence and dead band</h3>
+  <p>
+    Two ways to trade less or trade better. A dead band only flips the position when the trailing return clears a threshold, ignoring small wiggles around zero. It halved turnover but did not 
+    lift Sharpe, and 2 and 8 weeks stayed negative at every threshold, so the sawtooth was not caused by weeks sitting near zero. Checking the signal daily instead of weekly made 0.2 to 0.3 
+    against 0.5 to 0.8. The signal has nothing useful inside a week, so weekly stayed.
+  </p>
 
-  <p>Time-series momentum is a published style premium. Sixty instruments, eight decades, every asset class. Expect 0.5 to 0.8 after cost. A Sharpe of 3 means a bug.</p>
+  <h3>Signal shapes</h3>
+  <p>
+    The plain sign is the crudest reading of a trend. Four richer shapes were tried. A continuous position scaled by how strong the trailing move was. Moving average and exponential moving 
+    average crossovers, the standard trend shapes in traditional markets. A scored EWMA from the trend literature. Each was judged out of fold, fixed on earlier data and scored on later 
+    data it never saw.
+  </p>
+  <figure>
+    <img src="img/first_pass_shapes.png" alt="Signal shapes, in sample against out of fold">
+    <figcaption>Ten perps. Light bars in sample, dark bars out of fold. Nothing beats the plain sign once the data is new.</figcaption>
+  </figure>
+  <p>
+    The continuous position looked better in sample, 0.93 against 0.71, and tied the plain sign out of fold at 0.52 against 0.53. The crossovers lost or sat flat. Simple won.
+  </p>
 
-  <p>It pays because the payoff is unpleasant. Trend loses small and often in chop. It wins large and rarely in long moves. Few people want to hold that, so it is not competed away.</p>
+  <h3>Combining lookbacks</h3>
+  <p>
+    If 1 and 4 weeks both work, averaging them might work better. And if the sawtooth is real, a book that goes with the winning lookbacks and against the losing ones should profit from
+    it. Three combiners were tried, the average of the two winners, a sawtooth book with each lookback's sign fitted on past data, and a book reweighting lookbacks by their recent Sharpe.
+  </p>
+  <figure>
+    <img src="img/first_pass_combiners.png" alt="Combiners, in sample against out of fold">
+    <figcaption>Ten perps. The sawtooth book makes 1.75 in sample and loses out of fold. The gap between the bars is what fitting to the past looks like.</figcaption>
+  </figure>
+  <p>
+    In sample the sawtooth book made 1.75. Out of fold it lost money. The fitted signs on 2 and 8 weeks changed from one fold to the next, so the pattern the full sample showed appeared 
+    in only one of four folds. The average of the winners tied the plain sign, and the reweighting book lost both ways. The sawtooth is not a feature of the market, and building against 
+    it chases luck.
+  </p>
 
-  <p>It earns its place on the regime map, not on Sharpe. Carry is short vol and pays in calm. Trend is long vol and pays in dislocation. Long-only crypto lost about 1.3 Sharpe in the 2022 bear. Trend earned about 0.9. Own both.</p>
+  
+  <p>
+    The plain sign at 1 week made 0.78 over the sample and 0.53 out of fold, positive every year and robust to double cost. Every refinement tried, funding, dead bands, daily checks, 
+    shapes and combiners, failed to beat it on new data. But the out of fold record was four folds of about 30 weeks, ten coins that all survived, and a lookback grid shaped like a 
+    saw. There was not enough data to tell a real effect from a lucky one. Every grid run here also still counts as a trial against later results. Trials do not reset when the data 
+    widens.
+  </p>
+</section>
 
-  <p>Crowding costs capacity, not edge. Here capacity binds early. The always-on book fades on recent weeks at a $1M book and dies at $10M.</p>
+<section id="new-data">
+  <span class="num">06 · 20 to 23 September</span>
+  <h2>The data changes</h2>
+  <p>
+    Ten coins over three years could not tell a real effect from a lucky one. The platform's data source then gained the ability to stream the Binance Vision archive directly, every 
+    USD-M perp Binance has ever listed, live or delisted, from 2020. Five times the history and forty times the coins. The lane page was rewritten as a plan on the new data. Every 
+    number from the first pass was marked as something to re-prove rather than carried forward.
+  </p>
 
-  <h2>Why it should be larger in crypto</h2>
+  <h3>Reproduce before extending</h3>
+  <p>
+    Before trusting anything wide, the new pipeline had to return the old numbers on the old window. If it did not, every later result would inherit the fault. The old pipeline had 
+    read one minute files from disk and was since deleted, but its recorded numbers survived. So the same ten coins over 2022 to 2024 were streamed through the new source and run 
+    through the old method unchanged.
+  </p>
+  <p>
+    Every number matched exactly. The lookback grid with and without funding, the grid at zero, one and two times cost, both long-only books, and each coin's Sharpe individually. 
+    The one catch was the archive itself. Its monthly files leave out five days for LTC, SOL and XRP in early 2022, and one of the missing days is a Sunday, so those coins would 
+    have taken their weekly close from the Friday. The loader refills missing days from the archive's daily files. Without the refill, the book moved by 0.01 to 0.02.
+  </p>
 
-  <p>Two amplifiers. Both mechanical, so both testable.</p>
+  <h3>Building the universe</h3>
+  <p>
+    A universe of coins listed today would only contain survivors, and testing on survivors flatters any strategy. So the universe is every coin that ever traded, each included 
+    only for the span it traded, with membership decided from what was known at the time.
+  </p>
+  <ul>
+    <li>Binance lists perps on stocks, ETFs, commodities and tokenised real assets alongside crypto. They are a different market, and 183 were dropped, leaving 681 crypto perps.</li>
+    <li>157 of those stopped trading before the end. The archive keeps publishing bars for a dead coin, at a frozen price with zero volume, 52,773 such days in all. Counted as real, 
+      they make a dead coin look alive and calm. A day only counts if something traded.</li>
+    <li>A daily return only counts if the day before also traded, so no signal is built across a halt. Each coin's first 30 trading days are skipped while it finds its price, and a 
+      week needs at least 5 valid days.</li>
+    <li>A coin is tradeable in a week only if its median daily dollar volume over the previous 30 days cleared a floor, measured before the week starts.</li>
+  </ul>
+  <p>
+    Halts need care in both directions. BNX sat frozen at 119.93, then reopened at 1.59 after Binance changed its units, which reads as a 99% crash that never happened. Signals skip 
+    the halt, and redenominations like BNX come from a named list and are never booked as moves. A genuine halt is different, since a position cannot be closed while its coin is 
+    frozen, so the jump on reopening is booked in the book's return.
+  </p>
+  <figure>
+    <img src="img/universe_size.png" alt="Coins trading and tradeable each week, 2020 to 2026">
+    <figcaption>Coins trading each week, and those clearing $1M and $10M of daily volume. The drop at the right edge is the last, partial week.</figcaption>
+  </figure>
+  <p>
+    At a $1M floor, almost every coin that trades is tradeable, rising from 31 in 2020 to over 400 by 2026. At $10M the count peaked at 200 to 300 in 2024 and 2025 and fell to about 
+    110 in 2026. Most new listings are small. The deep, liquid universe is a few hundred coins at best, and it is thinning.
+  </p>
+</section>
 
-  <h3>Forced deleveraging</h3>
-  <p>Perps are levered and liquidate mechanically. A move against a crowded side triggers liquidations. Those push price the same way and trigger more. Trend monetizes that extension. If this is the source, trend is strongest when open interest is high going in.</p>
+<section id="eda">
+  <span class="num">07 · 23 September</span>
+  <h2>Exploring the data</h2>
+  <p>
+    Before building any strategy on the new data, we looked at the data itself. Which coins exist, how they move, how much they move together, and whether a coin's past says anything
+    about its next week. Nothing in this section is money. Every number is a description or a correlation, with no costs and no funding taken off. It set expectations for the backtests 
+    that followed. Coins here are tradeable at a floor of $1M a day.
+  </p>
 
-  <h3>Slow information diffusion</h3>
-  <p>No earnings calendar, no central disclosure. News prices over days, not seconds. Under-reaction is the textbook trend mechanism and weekly cadence is sized to it.</p>
+  <h3>How coins move</h3>
+  <p>
+    A typical coin moves about 120% a year, the calmest tenth 93% and the wildest tenth 207%. Extreme weeks are common. If weekly returns followed the normal bell curve, a week beyond 
+    3 standard deviations would be rare. Here it happens five times as often.
+  </p>
+  <figure>
+    <img src="img/eda_returns.png" alt="Weekly returns against a normal curve, log scale">
+    <figcaption>
+      Weekly returns of tradeable coins, in units of each coin's own volatility, against a normal curve. The vertical scale is logarithmic, so the gap in the tails is a factor 
+      of hundreds.
+    </figcaption>
+  </figure>
+  <p>
+    A better fit is a Student t curve, a bell curve with one extra setting for how heavy the tails are. The data fits it at about 3.3, which is very heavy. A 4 standard deviation week 
+    is about 100 times more common than the normal curve says. The tails also lean up. Weeks beyond +4 happen more than twice as often as weeks beyond -4, so coins spike up harder than 
+    they crash. For a short position that is squeeze risk.
+  </p>
+  <figure>
+<svg viewBox="0 0 640 360" role="img" aria-labelledby="t-t t-d" style="width:100%;height:auto;font-family:'IBM Plex Sans',sans-serif">
+<title id="t-t">Normal curve against a Student t curve</title>
+<desc id="t-d">
+  Two bell curves with the same spread on a logarithmic scale. The Student t with 3.3 degrees of freedom has far more weight in the tails.
+</desc>
+<line x1="56" x2="620" y1="314.0" y2="314.0" stroke="var(--rule,#e3dcec)" stroke-width="1"/>
+<text x="48" y="318.0" text-anchor="end" font-size="11" fill="var(--muted,#5f5870)">10<tspan dy="-4" font-size="8">-5</tspan></text>
+<line x1="56" x2="620" y1="255.2" y2="255.2" stroke="var(--rule,#e3dcec)" stroke-width="1"/>
+<text x="48" y="259.2" text-anchor="end" font-size="11" fill="var(--muted,#5f5870)">10<tspan dy="-4" font-size="8">-4</tspan></text>
+<line x1="56" x2="620" y1="196.4" y2="196.4" stroke="var(--rule,#e3dcec)" stroke-width="1"/>
+<text x="48" y="200.4" text-anchor="end" font-size="11" fill="var(--muted,#5f5870)">10<tspan dy="-4" font-size="8">-3</tspan></text>
+<line x1="56" x2="620" y1="137.6" y2="137.6" stroke="var(--rule,#e3dcec)" stroke-width="1"/>
+<text x="48" y="141.6" text-anchor="end" font-size="11" fill="var(--muted,#5f5870)">10<tspan dy="-4" font-size="8">-2</tspan></text>
+<line x1="56" x2="620" y1="78.8" y2="78.8" stroke="var(--rule,#e3dcec)" stroke-width="1"/>
+<text x="48" y="82.8" text-anchor="end" font-size="11" fill="var(--muted,#5f5870)">10<tspan dy="-4" font-size="8">-1</tspan></text>
+<line x1="56" x2="620" y1="20.0" y2="20.0" stroke="var(--rule,#e3dcec)" stroke-width="1"/>
+<text x="48" y="24.0" text-anchor="end" font-size="11" fill="var(--muted,#5f5870)">10<tspan dy="-4" font-size="8">0</tspan></text>
+<text x="56.0" y="332" text-anchor="middle" font-size="11" fill="var(--muted,#5f5870)">-8</text>
+<text x="126.5" y="332" text-anchor="middle" font-size="11" fill="var(--muted,#5f5870)">-6</text>
+<text x="197.0" y="332" text-anchor="middle" font-size="11" fill="var(--muted,#5f5870)">-4</text>
+<text x="267.5" y="332" text-anchor="middle" font-size="11" fill="var(--muted,#5f5870)">-2</text>
+<text x="338.0" y="332" text-anchor="middle" font-size="11" fill="var(--muted,#5f5870)">0</text>
+<text x="408.5" y="332" text-anchor="middle" font-size="11" fill="var(--muted,#5f5870)">+2</text>
+<text x="479.0" y="332" text-anchor="middle" font-size="11" fill="var(--muted,#5f5870)">+4</text>
+<text x="549.5" y="332" text-anchor="middle" font-size="11" fill="var(--muted,#5f5870)">+6</text>
+<text x="620.0" y="332" text-anchor="middle" font-size="11" fill="var(--muted,#5f5870)">+8</text>
+<text x="338.0" y="352" text-anchor="middle" font-size="12" fill="var(--muted,#5f5870)">weekly return, in standard deviations</text>
+<text transform="translate(14 167.0) rotate(-90)" text-anchor="middle" font-size="12" fill="var(--muted,#5f5870)">how common, log scale</text>
+<path d="M175.9 313.6 L177.6 307.8 L179.4 302.0 L181.1 296.3 L182.9 290.7 L184.7 285.1 L186.4 279.6 L188.2 274.1 L189.9 268.7 L191.7 263.4 L193.5 258.1 L195.2 252.9 L197.0 247.8 L198.8 242.7 L200.5 237.7 L202.3 232.7 L204.1 227.8 L205.8 223.0 L207.6 218.3 L209.3 213.6 L211.1 208.9 L212.9 204.4 L214.6 199.9 L216.4 195.4 L218.1 191.1 L219.9 186.8 L221.7 182.5 L223.4 178.3 L225.2 174.2 L227.0 170.2 L228.7 166.2 L230.5 162.2 L232.2 158.4 L234.0 154.6 L235.8 150.8 L237.5 147.2 L239.3 143.6 L241.1 140.0 L242.8 136.5 L244.6 133.1 L246.4 129.8 L248.1 126.5 L249.9 123.3 L251.6 120.1 L253.4 117.0 L255.2 114.0 L256.9 111.0 L258.7 108.1 L260.4 105.3 L262.2 102.5 L264.0 99.8 L265.7 97.1 L267.5 94.5 L269.3 92.0 L271.0 89.6 L272.8 87.2 L274.6 84.8 L276.3 82.6 L278.1 80.4 L279.8 78.2 L281.6 76.2 L283.4 74.1 L285.1 72.2 L286.9 70.3 L288.6 68.5 L290.4 66.7 L292.2 65.0 L293.9 63.4 L295.7 61.9 L297.5 60.4 L299.2 58.9 L301.0 57.5 L302.8 56.2 L304.5 55.0 L306.3 53.8 L308.0 52.7 L309.8 51.6 L311.6 50.6 L313.3 49.7 L315.1 48.9 L316.9 48.1 L318.6 47.3 L320.4 46.7 L322.1 46.1 L323.9 45.5 L325.7 45.0 L327.4 44.6 L329.2 44.3 L330.9 44.0 L332.7 43.8 L334.5 43.6 L336.2 43.5 L338.0 43.5 L339.8 43.5 L341.5 43.6 L343.3 43.8 L345.0 44.0 L346.8 44.3 L348.6 44.6 L350.3 45.0 L352.1 45.5 L353.9 46.1 L355.6 46.7 L357.4 47.3 L359.1 48.1 L360.9 48.9 L362.7 49.7 L364.4 50.6 L366.2 51.6 L368.0 52.7 L369.7 53.8 L371.5 55.0 L373.2 56.2 L375.0 57.5 L376.8 58.9 L378.5 60.4 L380.3 61.9 L382.1 63.4 L383.8 65.0 L385.6 66.7 L387.4 68.5 L389.1 70.3 L390.9 72.2 L392.6 74.1 L394.4 76.2 L396.2 78.2 L397.9 80.4 L399.7 82.6 L401.5 84.8 L403.2 87.2 L405.0 89.6 L406.7 92.0 L408.5 94.5 L410.3 97.1 L412.0 99.8 L413.8 102.5 L415.5 105.3 L417.3 108.1 L419.1 111.0 L420.8 114.0 L422.6 117.0 L424.4 120.1 L426.1 123.3 L427.9 126.5 L429.6 129.8 L431.4 133.1 L433.2 136.5 L434.9 140.0 L436.7 143.6 L438.5 147.2 L440.2 150.8 L442.0 154.6 L443.8 158.4 L445.5 162.2 L447.3 166.2 L449.0 170.2 L450.8 174.2 L452.6 178.3 L454.3 182.5 L456.1 186.8 L457.9 191.1 L459.6 195.4 L461.4 199.9 L463.1 204.4 L464.9 208.9 L466.7 213.6 L468.4 218.3 L470.2 223.0 L472.0 227.8 L473.7 232.7 L475.5 237.7 L477.2 242.7 L479.0 247.8 L480.8 252.9 L482.5 258.1 L484.3 263.4 L486.0 268.7 L487.8 274.1 L489.6 279.6 L491.3 285.1 L493.1 290.7 L494.9 296.3 L496.6 302.0 L498.4 307.8 L500.1 313.6" fill="none" stroke="var(--muted,#5f5870)" stroke-width="2" stroke-linecap="round"/>
+<path d="M56.0 248.5 L57.8 247.8 L59.5 247.2 L61.3 246.5 L63.1 245.8 L64.8 245.1 L66.6 244.4 L68.3 243.7 L70.1 243.0 L71.9 242.3 L73.6 241.6 L75.4 240.9 L77.1 240.1 L78.9 239.4 L80.7 238.7 L82.4 237.9 L84.2 237.2 L86.0 236.5 L87.7 235.7 L89.5 234.9 L91.2 234.2 L93.0 233.4 L94.8 232.6 L96.5 231.9 L98.3 231.1 L100.1 230.3 L101.8 229.5 L103.6 228.7 L105.4 227.9 L107.1 227.1 L108.9 226.3 L110.6 225.5 L112.4 224.6 L114.2 223.8 L115.9 222.9 L117.7 222.1 L119.4 221.2 L121.2 220.4 L123.0 219.5 L124.7 218.7 L126.5 217.8 L128.3 216.9 L130.0 216.0 L131.8 215.1 L133.6 214.2 L135.3 213.3 L137.1 212.3 L138.8 211.4 L140.6 210.5 L142.4 209.5 L144.1 208.6 L145.9 207.6 L147.6 206.6 L149.4 205.7 L151.2 204.7 L152.9 203.7 L154.7 202.7 L156.5 201.7 L158.2 200.7 L160.0 199.6 L161.8 198.6 L163.5 197.5 L165.3 196.5 L167.0 195.4 L168.8 194.3 L170.6 193.2 L172.3 192.1 L174.1 191.0 L175.9 189.9 L177.6 188.8 L179.4 187.6 L181.1 186.5 L182.9 185.3 L184.7 184.2 L186.4 183.0 L188.2 181.8 L189.9 180.6 L191.7 179.3 L193.5 178.1 L195.2 176.9 L197.0 175.6 L198.8 174.3 L200.5 173.0 L202.3 171.7 L204.1 170.4 L205.8 169.1 L207.6 167.7 L209.3 166.4 L211.1 165.0 L212.9 163.6 L214.6 162.2 L216.4 160.7 L218.1 159.3 L219.9 157.8 L221.7 156.4 L223.4 154.9 L225.2 153.4 L227.0 151.8 L228.7 150.3 L230.5 148.7 L232.2 147.1 L234.0 145.5 L235.8 143.9 L237.5 142.2 L239.3 140.6 L241.1 138.9 L242.8 137.2 L244.6 135.4 L246.4 133.7 L248.1 131.9 L249.9 130.1 L251.6 128.2 L253.4 126.4 L255.2 124.5 L256.9 122.6 L258.7 120.7 L260.4 118.7 L262.2 116.7 L264.0 114.7 L265.7 112.7 L267.5 110.6 L269.3 108.6 L271.0 106.4 L272.8 104.3 L274.6 102.1 L276.3 100.0 L278.1 97.7 L279.8 95.5 L281.6 93.2 L283.4 90.9 L285.1 88.6 L286.9 86.3 L288.6 84.0 L290.4 81.6 L292.2 79.2 L293.9 76.8 L295.7 74.4 L297.5 72.0 L299.2 69.6 L301.0 67.2 L302.8 64.8 L304.5 62.4 L306.3 60.1 L308.0 57.7 L309.8 55.5 L311.6 53.2 L313.3 51.0 L315.1 48.9 L316.9 46.9 L318.6 45.0 L320.4 43.1 L322.1 41.4 L323.9 39.9 L325.7 38.4 L327.4 37.2 L329.2 36.1 L330.9 35.1 L332.7 34.4 L334.5 33.9 L336.2 33.6 L338.0 33.5 L339.8 33.6 L341.5 33.9 L343.3 34.4 L345.0 35.1 L346.8 36.1 L348.6 37.2 L350.3 38.4 L352.1 39.9 L353.9 41.4 L355.6 43.1 L357.4 45.0 L359.1 46.9 L360.9 48.9 L362.7 51.0 L364.4 53.2 L366.2 55.5 L368.0 57.7 L369.7 60.1 L371.5 62.4 L373.2 64.8 L375.0 67.2 L376.8 69.6 L378.5 72.0 L380.3 74.4 L382.1 76.8 L383.8 79.2 L385.6 81.6 L387.4 84.0 L389.1 86.3 L390.9 88.6 L392.6 90.9 L394.4 93.2 L396.2 95.5 L397.9 97.7 L399.7 100.0 L401.5 102.1 L403.2 104.3 L405.0 106.4 L406.7 108.6 L408.5 110.6 L410.3 112.7 L412.0 114.7 L413.8 116.7 L415.5 118.7 L417.3 120.7 L419.1 122.6 L420.8 124.5 L422.6 126.4 L424.4 128.2 L426.1 130.1 L427.9 131.9 L429.6 133.7 L431.4 135.4 L433.2 137.2 L434.9 138.9 L436.7 140.6 L438.5 142.2 L440.2 143.9 L442.0 145.5 L443.8 147.1 L445.5 148.7 L447.3 150.3 L449.0 151.8 L450.8 153.4 L452.6 154.9 L454.3 156.4 L456.1 157.8 L457.9 159.3 L459.6 160.7 L461.4 162.2 L463.1 163.6 L464.9 165.0 L466.7 166.4 L468.4 167.7 L470.2 169.1 L472.0 170.4 L473.7 171.7 L475.5 173.0 L477.2 174.3 L479.0 175.6 L480.8 176.9 L482.5 178.1 L484.3 179.3 L486.0 180.6 L487.8 181.8 L489.6 183.0 L491.3 184.2 L493.1 185.3 L494.9 186.5 L496.6 187.6 L498.4 188.8 L500.1 189.9 L501.9 191.0 L503.7 192.1 L505.4 193.2 L507.2 194.3 L509.0 195.4 L510.7 196.5 L512.5 197.5 L514.2 198.6 L516.0 199.6 L517.8 200.7 L519.5 201.7 L521.3 202.7 L523.1 203.7 L524.8 204.7 L526.6 205.7 L528.4 206.6 L530.1 207.6 L531.9 208.6 L533.6 209.5 L535.4 210.5 L537.2 211.4 L538.9 212.3 L540.7 213.3 L542.5 214.2 L544.2 215.1 L546.0 216.0 L547.7 216.9 L549.5 217.8 L551.3 218.7 L553.0 219.5 L554.8 220.4 L556.5 221.2 L558.3 222.1 L560.1 222.9 L561.8 223.8 L563.6 224.6 L565.4 225.5 L567.1 226.3 L568.9 227.1 L570.6 227.9 L572.4 228.7 L574.2 229.5 L575.9 230.3 L577.7 231.1 L579.5 231.9 L581.2 232.6 L583.0 233.4 L584.8 234.2 L586.5 234.9 L588.3 235.7 L590.0 236.5 L591.8 237.2 L593.6 237.9 L595.3 238.7 L597.1 239.4 L598.9 240.1 L600.6 240.9 L602.4 241.6 L604.1 242.3 L605.9 243.0 L607.7 243.7 L609.4 244.4 L611.2 245.1 L613.0 245.8 L614.7 246.5 L616.5 247.2 L618.2 247.8 L620.0 248.5" fill="none" stroke="var(--accent,#6b3fa0)" stroke-width="2.5" stroke-linecap="round"/>
+<text x="507.2" y="290.5" font-size="12" fill="var(--ink,#16121c)" text-anchor="start">normal curve</text>
+<text x="521.3" y="149.4" font-size="12" fill="var(--ink,#16121c)" text-anchor="start">Student t, 3.3</text>
+</svg>
+    <figcaption>
+      The two curves themselves, not data, drawn with the same spread. Each step down the vertical scale is ten times rarer. At 4 standard deviations the Student t is about 
+      90 times more likely than the normal curve, at 5 about 5,000 times.
+    </figcaption>
+  </figure>
+  <p>
+    Volatility also differs about twofold between coins and swings nearly tenfold over time, from 27% to 244% a year for the market. Dividing each coin's return by its own recent 
+    volatility puts all coins on one scale, which is why the book sizes positions that way. It fixes the size of moves, not the jumps.
+  </p>
 
-  <p>Neither is tested. The test conditions book returns on open interest, which the source now carries.</p>
+  <h3>Coins move together</h3>
+  <p>
+    The average pair of coins has a correlation of 0.57 to 0.65 in every year to 2025, and one common factor, the market, explains 60 to 68% of all movement. Hundreds of coins are worth 
+    two or three independent bets. Adding more coins adds very little. 2026 is the exception so far, with correlation down to 0.31.
+  </p>
 
-  <h2>The book</h2>
-  <p>At each weekly close, take the trailing L-week return on every perp. Take its sign. Long if positive, short if negative. Size for equal risk. Hold a week. Re-decide.</p>
-  <p>How the per-symbol PnLs weight into a book is now a live decision. On ten mega-caps it was not.</p>
+  <h3>The typical coin loses money</h3>
+  <figure>
+    <img src="img/eda_typical_coin.png" alt="Holding every tradeable coin against holding BTC">
+    <figcaption>Cumulative log return of holding every tradeable coin equally, weighted by volume, and BTC alone.</figcaption>
+  </figure>
+  <p>
+    Holding every tradeable coin in equal amounts lost about 89% over the span, while BTC rose about eightfold. The average coin lost 1.4% a week, and it was not just new listings dumping, 
+    since coins over a year old lost about the same. Two things follow. Shorting the average coin made money, so a trend book's short side starts with the wind behind it. And beating a 
+    long-only basket of alts proves little, since that basket lost nearly everything.
+  </p>
 
-  <h2>Design decisions</h2>
+  <h3>Does the past predict next week</h3>
+  <p>
+    This is the question trend rests on. Take a return over the past \(L\) weeks and correlate it with the return next week. Positive means moves continue, which is trend. Negative means moves 
+    snap back. Because coins move together, it was asked three ways.
+  </p>
+  <ul>
+    <li>Coin alone. Each coin's own past against its own next week.</li>
+    <li>Whole market. The average coin's past against its next week.</li>
+    <li>Coin against market. Each coin's return minus the market's, so only what is special to that coin.</li>
+  </ul>
+  <figure>
+    <img src="img/eda_predict.png" alt="Correlation of past return with next week, by look-back, three views">
+    <figcaption>Correlation between the trailing return and next week's return, by look-back.</figcaption>
+  </figure>
+  <p>
+    The whole market trends, weakly. Its correlation with next week is +0.06 to +0.10 at every look-back, 1.1 to 1.9 standard errors from zero, where about 2 is the usual bar. Suggestive, not proven. 
+    It is carried by 2021 and reverses in 2020, 2022 and 2026.
+  </p>
+  <p>
+    Coins against the market do the opposite, and more strongly. A coin that beat the market over the last 1 or 2 weeks tends to lag it the next week, at 3.5 to 3.9 standard errors. By 8 weeks the 
+    effect has faded to nothing. A coin on its own barely predicts itself. Its trend is mostly the market's trend, partly cancelled by the snap-back against the market.
+  </p>
+  <p>Split by size, coins trading $1M to $10M a day show no trend at all, and coins above $10M show a little. That is where the $10M floor used from here on comes from.</p>
 
-  <h3>Direction <span class="stamp open">unverified</span></h3>
-  <p>The whole signal. Sign of the trailing return, L swept over 1, 2, 4, 8 and 12 weeks. L=1 and L=4 cleared the bar on the old sample and everything between them did not. Winners whose neighbours disagree are lucky cells. Re-run the grid before building on it.</p>
+  <h3>Funding</h3>
+  <p>
+    Funding follows the cycle. Longs paid 30 to 65 basis points a week in 2020 and 2021 and 23 in 2024. Shorts paid in 2022, 2025 and 2026. Coins that have rallied pay slightly more, so a trend book 
+    long a rising coin pays for the privilege.
+  </p>
 
-  <h3>Size and weighting <span class="stamp open">reopened</span></h3>
-  <p>Target weekly vol per symbol, capped. Size does not move the hurdle, because fees and funding both scale with notional. It sets dollar PnL, drawdown and impact. Realized-vol scaling stays deferred. The vol estimate is a shared sizing utility, not a lane. A better one, EWMA or a GARCH family over the rolling std, is a coarse-first spike, does net Sharpe or drawdown move at all.</p>
-  <p>Weighting is what changed. Equal weight over ten mega-caps was a liquid book. Equal weight over four hundred perps puts BTC notional into a thin alt, which is maximum weight where the spread is widest and least known. Run equal weight and liquidity weight side by side. The gap between them is how much of the edge is a cost guess.</p>
+  <h3>What it said going in</h3>
+  <ul>
+    <li>Trend lives at the level of the whole market, not the single coin, and it is weak.</li>
+    <li>The strongest pattern in the data is the opposite of trend, coins snapping back against the market over 1 to 2 weeks. That belongs to a different lane.</li>
+    <li>Hundreds of coins are two or three bets, so the book is less diversified than it looks.</li>
+    <li>Tails are heavy and lean up, so expect violent weeks and squeezes on shorts.</li>
+    <li>Small coins show no trend, so the book trades coins above $10M a day.</li>
+  </ul>
+</section>
 
-  <h3>Cadence <span class="stamp held">held</span></h3>
-  <p>Weekly. A dead band cuts turnover but does not lift Sharpe. Daily lost across the grid. Give daily one cheap re-test, because the old sample resampled one-minute bars and the new source serves hourly.</p>
+<section id="costs">
+  <span class="num">08 · 23 September</span>
+  <h2>What it costs</h2>
+  <p>Up to this point every result used a guessed cost, 7.5 basis points each way on coins trading at least $10M a day and 15 below that. A backtest with a guessed cost can be made to say anything, so cost was measured. The fee is known, 5 bps. The half spread and the depth of the order book were measured from the archive's trade tape and depth snapshots.</p>
 
-  <h3>Funding-aware sign <span class="stamp open">unverified</span></h3>
-  <p>A long in hot funding pays more than a small price move earns. Subtract trailing funding from the trailing return before taking the sign. This is what separates a directional premium from paying carry to be long crypto. The old lift was 0.06 and sat inside the noise. Re-test it.</p>
+  <h3>The measurements</h3>
+  <p>The sample is four dates, 10 March 2023, 2024 and 2025 and 10 June 2026, two days each, with about 20 coins per date drawn across liquidity bands from BTC-sized down to $300k a day. Trade prints and depth are heavy to stream, which is why this is a sample and not the whole universe. Of 80 coin-dates, 72 survived cleaning.</p>
+  <ul>
+    <li>Half spread comes from the trade tape. Every trade is tagged with which side started it. In each minute, the average price of buyer-started trades minus the average of seller-started trades is one spread, and the median across the day's minutes is the day's spread.</li>
+    <li>Depth is the dollars resting within 1% of the mid price, sampled every 30 seconds.</li>
+  </ul>
+  <p>Spreads turned out tight. Coins trading over $100M a day mostly pay under half a basis point, and $1M to $10M coins mostly 0.5 to 3. The widest thin names reach 6 to 15.</p>
 
-  <h3>Trend strength filter <span class="stamp open">untested</span></h3>
-  <p>The sign fires on any move. A 5% run and a 0.3% drift both take a full position. Scale the trailing return by its own volatility and act on the standardised move, so a weak name in chop sits smaller or flat and a clean run sizes up.</p>
-  <p>Two endpoints cannot tell a steady climb from a spike that round-tripped. Measure the path instead, efficiency ratio or the fit of price on time across the window, and gate on trend quality not just direction. Requiring several lookbacks to agree is the cheap version of the same idea.</p>
-  <p>The dead band was tested on turnover and came back null. This is the conviction question, whether a stronger or cleaner trend is a better trend, and it is untested.</p>
+  <h3>The cost ladder</h3>
+  <p>Half spread and depth were each fitted against a coin's daily dollar volume on logarithmic scales, so cost can be read off for any coin in any week from its volume alone.</p>
+  <figure>
+    <img src="img/cost_ladder.png" alt="Half spread and depth against daily dollar volume, with fits">
+    <figcaption>Each dot is one coin on one date. Both axes are logarithmic. Depth follows volume closely, half spread loosely.</figcaption>
+  </figure>
+  <p>Depth tracks volume well, the fit explaining 84% of the variation. Half spread tracks it loosely, 36%, and misses about twofold either way. That matters little, because depth is where the cost is.</p>
+  <table>
+    <tr><th>daily volume</th><th>half spread</th><th>depth within 1%</th><th>cost, $10k trade</th><th>cost, $100k trade</th></tr>
+    <tr><td class="mono">$1M</td><td class="mono">2.3 bps</td><td class="mono">$16k</td><td class="mono">39 bps</td><td class="mono">327 bps</td></tr>
+    <tr><td class="mono">$10M</td><td class="mono">1.2 bps</td><td class="mono">$103k</td><td class="mono">11 bps</td><td class="mono">55 bps</td></tr>
+    <tr><td class="mono">$100M</td><td class="mono">0.7 bps</td><td class="mono">$678k</td><td class="mono">6.4 bps</td><td class="mono">13 bps</td></tr>
+    <tr><td class="mono">$1,000M</td><td class="mono">0.4 bps</td><td class="mono">$4.5M</td><td class="mono">5.5 bps</td><td class="mono">6.5 bps</td></tr>
+  </table>
+  <p>For a small trade in a liquid coin, cost is mostly the fee. A $10k trade in a coin doing $10M a day costs about 11 bps each way, a little above the guess. The same coin at $100k costs about 55 bps, almost all of it impact, because only about $100k rests within 1% of its price. Cost is a question of size.</p>
 
-  <h3>Signal shape <span class="stamp held">held</span></h3>
-  <p>Continuous conviction, MA crossover, EWMA crossover and Baz-scored EWMA all lost to the plain sign. Crossovers sat at or below zero. Conviction lifted 0.22 in sample and nothing out of fold.</p>
+  <h3>How big a book</h3>
+  <p>The 4-week books were then repriced off the ladder at three book sizes. A coin's trade is its change in weight times the book, so a larger book means larger orders against the same depth.</p>
+  <table>
+    <tr><th>book size</th><th>per coin, whole span</th><th>per coin, later weeks</th><th>market, whole span</th><th>market, later weeks</th></tr>
+    <tr><td class="mono">guessed cost</td><td class="mono">0.85</td><td class="mono">0.55</td><td class="mono">0.80</td><td class="mono">0.67</td></tr>
+    <tr><td class="mono">$100k</td><td class="mono">0.85</td><td class="mono">0.53</td><td class="mono">0.79</td><td class="mono">0.66</td></tr>
+    <tr><td class="mono">$1M</td><td class="mono">0.68</td><td class="mono">0.16</td><td class="mono">0.70</td><td class="mono">0.45</td></tr>
+    <tr><td class="mono">$10M</td><td class="mono">−0.54</td><td class="mono">−1.40</td><td class="mono">−0.15</td><td class="mono">−0.95</td></tr>
+  </table>
+  <p>At $100k the measured cost barely moves the books, so the guess had been about right for a book that size. At $1M impact bites, hardest on the later 40% of weeks. At $10M every book loses money. Trading smaller coins is worse. A book on coins down to $1M a day goes negative on recent weeks from a $100k book.</p>
+  <p>The later weeks suffer because the books thinned. A coin doing $10M to $100M a day rested about $187k within 1% of mid in 2023 and 2025 and $298k in 2024, but only $87k in 2026. Less depth for the same volume means more impact.</p>
 
-  <h3>Combining lookbacks <span class="stamp held">held</span></h3>
-  <p>Winner-average, sawtooth-fitted and rolling-Sharpe combiners all failed out of sample. The sawtooth moves fold to fold. Reading it as signal chases luck.</p>
+  <h3>Limits of the measurement</h3>
+  <ul>
+    <li>The ladder is one curve pooled across dates, so it misses the thinning over time.</li>
+    <li>The archive has no depth before 2023, so 2020 to 2022 is priced off later books. Both make the early years look cheaper than they were.</li>
+    <li>Each weekly rebalance is priced as one order against one snapshot of the book. Spreading an order over a day meets fresh liquidity and costs less, so the ceiling is conservative.</li>
+  </ul>
+  <p>Cost does not kill trend at a small size and does kill it at a large one. From here on, headline results are priced off the ladder at a $100k book.</p>
+</section>
 
-  <p>The last two are held on thin evidence. Re-open them only if the plain lookback survives.</p>
+<section id="wide-sweep">
+  <span class="num">09 · 23 September</span>
+  <h2>The wide sweep</h2>
+  <p>This is the test the lane was rebuilt to run. The plain rule from the first pass, on every liquid crypto perp, over six and a half years, 349 weeks and 681 coins. The lookbacks were the same five as before, 1, 2, 4, 8 and 12 weeks. Cost was still the guess at this point, 7.5 bps each way on coins above $10M a day and 15 below, later confirmed as about right for a $100k book.</p>
+  <p>Four books ran the rule.</p>
+  <ul>
+    <li>Per coin, $10M. Every coin trading at least $10M a day takes its own sign.</li>
+    <li>Per coin, $1M. The same, with the smaller coins down to $1M a day included.</li>
+    <li>Market, $10M. One sign from the average coin's trailing return, applied to the whole $10M basket, all long or all short together.</li>
+    <li>BTC. The rule on BTC alone.</li>
+  </ul>
 
-  <h2>The bar</h2>
-  <p>The signal gate, one bar for every signal lane, calibrated on simulated books with known edges before this lane was rescored. The lane's first bar asked for Sharpe 0.7 out of sample and a positive Sharpe in every year. A real 0.8 edge passes that about one time in ten, so it could not tell a real premium from luck.</p>
+  <h3>Checking the backtest first</h3>
+  <p>Three checks before believing any number. Random long and short signals should lose about the cost of trading, and they did, averaging −0.28 and never beating +0.48. A signal one week staler should do worse, never better, or the backtest is seeing the future, and it fell from 0.85 to 0.36. And zero, one and two times cost should give three different answers, or cost is not wired in, and they gave 0.90, 0.85 and 0.81.</p>
 
-  <div class="callout">
-    <p class="callout-label">Stop condition</p>
-    <p>Close the lane if the registered test fails. A result at the park line on searched data parks rather than closes. No third grid. No finer axis. No re-opened combiner.</p>
-  </div>
+  <h3>The lookback grid</h3>
+  <figure>
+    <img src="img/wide_sweep_then.png" alt="Net Sharpe by lookback for four books, 2020 to 2026">
+    <figcaption>Net Sharpe by lookback, as run on 23 September. The dashed line is simply holding the $10M basket long.</figcaption>
+  </figure>
+  <table>
+    <tr><th>lookback</th><th>per coin $1M</th><th>per coin $10M</th><th>market $10M</th><th>BTC</th></tr>
+    <tr><td class="mono">1 week</td><td class="mono">0.56</td><td class="mono">0.57</td><td class="mono">0.42</td><td class="mono">0.30</td></tr>
+    <tr><td class="mono">2 weeks</td><td class="mono">0.40</td><td class="mono">0.43</td><td class="mono">0.46</td><td class="mono">0.45</td></tr>
+    <tr><td class="mono">4 weeks</td><td class="mono">0.73</td><td class="mono">0.85</td><td class="mono">0.80</td><td class="mono">1.19</td></tr>
+    <tr><td class="mono">8 weeks</td><td class="mono">0.52</td><td class="mono">0.54</td><td class="mono">0.32</td><td class="mono">0.54</td></tr>
+    <tr><td class="mono">12 weeks</td><td class="mono">0.37</td><td class="mono">0.44</td><td class="mono">0.52</td><td class="mono">0.51</td></tr>
+  </table>
+  <p>Every book made money at every lookback. Four weeks was best in every book, 0.85 per coin and 0.80 for the market book, against 0.58 for holding the basket. The sawtooth from the ten-coin sample was gone. There, 2 and 8 weeks lost. Here every lookback earned, with one peak at 4 weeks. It read as a real effect that the small sample had been too noisy to show.</p>
+  <div class="corrected">Lookbacks 3, 5 and 6 were not run here. Run in the review, 3 weeks made 0.18 per coin and 0.02 for the market book, a hole between 2 and 4. With that hole, 4 weeks could not be told from a lucky cell. The late check then found the hole is mostly an effect of rebalancing on Sunday, and that 4 weeks earns on every rebalance day.</div>
+  <p>Cost was not the constraint. Doubling it moved the per coin book from 0.85 to 0.81. Funding was the bigger drag, about 6.5% a year on the per coin book and 12% on the market book, which spends more time long when funding is hot.</p>
 
-  <div class="callout">
-    <p class="callout-label">Conditional pass</p>
-    <p>A strategy that misses the pooled bar can still pass. It has to clear the bar inside one market condition, consistently, out of sample. The condition must be known when the trade is placed. Define it before looking at returns, or fit it in fold. It must occur often enough to matter. Finding the condition is part of this gate. Switching on it live is a separate gate with its own model.</p>
-  </div>
+  <h3>Year by year</h3>
+  <table>
+    <tr><th>4 weeks</th><th>2020</th><th>2021</th><th>2022</th><th>2023</th><th>2024</th><th>2025</th><th>2026</th></tr>
+    <tr><td>per coin $10M</td><td class="mono">1.06</td><td class="mono">1.69</td><td class="mono">0.79</td><td class="mono">0.82</td><td class="mono">0.25</td><td class="mono">1.15</td><td class="mono">−0.64</td></tr>
+    <tr><td>market $10M</td><td class="mono">−0.63</td><td class="mono">1.73</td><td class="mono">0.76</td><td class="mono">1.06</td><td class="mono">0.44</td><td class="mono">1.27</td><td class="mono">−0.53</td></tr>
+    <tr><td>long basket</td><td class="mono">2.37</td><td class="mono">2.10</td><td class="mono">−1.63</td><td class="mono">1.38</td><td class="mono">0.74</td><td class="mono">−0.85</td><td class="mono">−0.11</td></tr>
+  </table>
+  <p>The per coin book was positive in every full year from 2020 to 2025, including the 2022 bear, where it made 0.79 while holding the basket lost 1.63. 2026 broke it. Every trend book was negative in 2026, the year coins stopped moving together. The market book also lost in 2020.</p>
 
-  <h2>Proof protocol</h2>
+  <h3>Small coins</h3>
+  <p>Coins trading $1M to $10M a day, run on their own, earned less at 4 weeks, 0.46 against 0.85, and far less reliably, losing in 2022, 2023 and 2024. Most of what they earned was the same market bet, the two books correlating 0.61. Small coins carry a weaker and less reliable version of the same trend, so the $10M books became the headline.</p>
 
-  <div class="steps">
-    <div class="step">
-      <div class="step-n">00</div>
-      <div class="step-text">Reproduce before extending. Run the old window through the new source and it must return the old number. Run both sides at the same bar resolution, the old path was one-minute resampled and the new one is hourly.</div>
-    </div>
-    <div class="step">
-      <div class="step-n">01</div>
-      <div class="step-text">Walk forward with every choice made in fold, the lookback and the condition alike. A span used to choose is never quoted as out of sample.</div>
-    </div>
-    <div class="step">
-      <div class="step-n">02</div>
-      <div class="step-text">Every headline at zero, one and two times cost. Then sweep the ladder slope. A level multiplier does not test the slope. Drop anything that flips sign in either sweep.</div>
-    </div>
-    <div class="step">
-      <div class="step-n">03</div>
-      <div class="step-text">Trials do not reset when the data widens. Every old grid still counts. Treat the wide lookback sweep as one pre-registered test and label everything else exploratory. Deflate by the full count. Report the grid spread, never the winner alone.</div>
-    </div>
-    <div class="step">
-      <div class="step-n">04</div>
-      <div class="step-text">Split every headline by year. 2024 does not carry a verdict and 2022 does not condemn one.</div>
-    </div>
-    <div class="step">
-      <div class="step-n">05</div>
-      <div class="step-text">Reference lines on every plot. Long-only unlevered, long-only vol-scaled, one-week persistence. Beat them on the regime map, not on pooled Sharpe.</div>
-    </div>
-    <div class="step">
-      <div class="step-n">06</div>
-      <div class="step-text">Universe membership is point in time. Listing dates and liquidity filters as of the bar, never as of today.</div>
-    </div>
-  </div>
+  <h3>Out of sample</h3>
+  <p>Picking the best lookback after seeing all the data flatters it. So the weeks were split into five blocks, the lookback was picked on the first three, and scored on the last two. Four weeks was picked in every book. On the unseen stretch from February 2024, the market book made 0.67 and the per coin book 0.55. Every lookback of both books stayed positive out of sample.</p>
+  <p>Then the correction for everything tried. The count stood at 45 trials, the 20 cells here plus about 25 on the ten-coin sample. Against a luck bar of 0.46 for that many tries, the per coin book was judged 84% likely to be real and the market book 81%. Real enough to pursue, not certain.</p>
+  <div class="corrected">The gate built in the review counts trials by how different their returns are and scores against a calibrated bar. With the fuller grid, the per coin book is real with probability 0.49 and the market book 0.43. A walk forward choosing the lookback at each of six folds makes 0.72 for both.</div>
 
-  <h2>Data</h2>
+  <h3>How much of it is a market bet</h3>
+  <p>When most coins rise together, the per coin book ends up long almost everything, which is just a bet on the market. Its profit splits exactly into two parts. The market part is its net long or short exposure times the basket's return. The rest nets to zero exposure and earns only from which coins it is long and which it is short.</p>
+  <p>At 4 weeks the market part carried 80% of the profit, and the per coin book's returns correlated 0.80 with the market book. The per coin book is mostly a market bet. The rest still earned on its own, and survived removing each coin's sensitivity to the market and capping extreme weeks. That clashed with the EDA, where coins ranked against the market snapped back. Ranks and money disagreed, and it was left as an open lead.</p>
 
-  <p>The old sample was ten symbols, 2022 to 2024, one-minute klines resampled to daily. The backtest now streams the Binance Vision archive directly. Nothing is stored.</p>
+  
+  <p>The bar written before any run asked for an out of sample Sharpe above 0.7 and a positive Sharpe in every calendar year. Neither book passed. The market book made 0.67 out of sample and lost 2020 and 2026. The per coin book made 0.55 and lost 2026. Both cleared double cost, the bear year and the limit on cost drag.</p>
+  <p>So the lane did not close and did not pass. Trend earned at every lookback and in every full year to 2025, mostly as a bet on the market's own trend, and failed in 2026. Something that works in most conditions and fails in one raises the next question. When does it work?</p>
+</section>
 
-  <div class="ledger">
-    <div class="row">
-      <span class="label">Universe</span>
-      <span class="value">every USD-M perp, delisted in</span>
-    </div>
-    <div class="row">
-      <span class="label">Span</span>
-      <span class="value">2020 to now</span>
-    </div>
-    <div class="row">
-      <span class="label">Bars</span>
-      <span class="value">any kline interval, 1m to 1d</span>
-    </div>
-    <div class="row">
-      <span class="label">Funding</span>
-      <span class="value">8h, full span</span>
-    </div>
-    <div class="row">
-      <span class="label">Also carried</span>
-      <span class="value">mark price, premium index</span>
-    </div>
-    <div class="row">
-      <span class="label">Trades</span>
-      <span class="value">aggTrades with taker side</span>
-    </div>
-    <div class="row">
-      <span class="label">Depth</span>
-      <span class="value">bookDepth, ±1 to 5% of mid, 30s</span>
-    </div>
-    <div class="row">
-      <span class="label">Open interest</span>
-      <span class="value">metrics, 5 min, from 2020-09</span>
-    </div>
-  </div>
+<section id="conditions">
+  <span class="num">10 · 23 to 24 September</span>
+  <h2>When trend works</h2>
+  <p>The wide sweep left a book that earned in most years and lost in 2026. A signal like that can still be worth trading if it earns reliably inside one kind of market, and that kind of market can be recognised before the trade. A separate system would then switch the signal on and off. This section looks for that condition.</p>
 
-  <p>We gained span and cross-section. Five times the history, forty times the names. That is enough to tell a rewarded lookback from a lucky one.</p>
+  <h3>Six conditions</h3>
+  <p>Six ways of describing the state of the market, each measured only from the past.</p>
+  <ul>
+    <li>Co-movement. How tightly liquid coins moved together over the last 12 weeks.</li>
+    <li>Market volatility. How much the market swung over the last 12 weeks.</li>
+    <li>Trend strength. The size of the market's last 4-week move, measured against its own volatility.</li>
+    <li>Funding. Average funding across liquid coins over the last 4 weeks.</li>
+    <li>Dispersion. How spread out coins' last 4-week returns are.</li>
+    <li>Market direction. Whether the market rose or fell over the last 4 weeks.</li>
+  </ul>
+  <p>Each was cut into low, middle and high thirds, with the cut points taken only from earlier weeks, so no week is sorted using its own future. Every result was split into a training stretch, 2020 to February 2024, and the unseen stretch after it. A condition only counts if the two agree.</p>
+  <figure>
+    <img src="img/conditions_map.png" alt="Per coin trend net Sharpe by third of each market condition">
+    <figcaption>Net Sharpe of the 4-week per coin book inside each third of each condition. The dashed line is all weeks, 0.85.</figcaption>
+  </figure>
+  <p>2026 turned out unlike any earlier year, with the lowest co-movement, the lowest volatility and the highest dispersion. Coins stopped moving as a pack. But those conditions could not explain the loss, because all of 2026 sits in one third of each. Two conditions agreed between training and unseen weeks.</p>
+  <ul>
+    <li>After a rise. When the market rose over the last 4 weeks, trend made 1.71, against 0.13 after a fall.</li>
+    <li>Low trend strength. When the market's last 4-week move was small, trend made 1.61, 1.21 in training and 2.17 unseen. After a large move it made 0.02.</li>
+  </ul>
 
-  <p>The bar got harder too. Positive in every calendar year was three chances to fail. Now it is six.</p>
+  <h3>Is it trend, or just being long</h3>
+  <p>After a rise the book is mostly long, so its profit could simply be the market continuing up. It was. Holding the basket long over the same weeks made 1.54, nearly as much as trend's 1.71, and the condition lost in 2022 and 2026. After a rise is mostly being long in a rally.</p>
+  <p>Low trend strength was different. Over those weeks the long basket lost 0.91 while trend made 1.61, and the profit came from the short side. After a small market decline, coins kept drifting down and the book was short them. It was positive in every year it covered, 2021 to 2026, including 2026 itself. Inside 2026, weeks after a small move made 1.01 and weeks after a large one lost 1.85. The year's loss came from trading after big market moves. This condition was named the moderate month.</p>
 
-  <p>We gained cost. aggTrades gives effective spread from the tape. bookDepth gives resting size near mid. Both are heavy, so measure a subset across liquidity buckets, never the whole universe.</p>
+  <h3>Stress-testing the moderate month</h3>
+  <p>It was found by looking, so the next step was to try to break it.</p>
+  <ul>
+    <li>Windows. Measuring the move over 2 or 4 weeks, against volatility over 8, 12 or 26, stayed positive in all six years. The cut point mattered more than it should. Thirds worked best, a quarter or a half were weaker.</li>
+    <li>Other lookbacks. Inside the condition trend earned at every lookback. Outside it trend lost at every lookback but 4 weeks.</li>
+    <li>A frozen block. With the rule fixed on the first 60% of weeks, the last 40% made 2.17 inside the condition, positive in 2024, 2025 and 2026, against 0.11 outside it.</li>
+    <li>Cost. It held at twice cost, 1.53, and up to a $1M book.</li>
+  </ul>
+  <figure>
+    <img src="img/candidate_book.png" alt="Cumulative return of the gated book against always-on trend">
+    <figcaption>Trading only in moderate months, flat otherwise, against trading every week. Shading marks the weeks the condition is on.</figcaption>
+  </figure>
+  <p>As a book that trades only in moderate months and sits flat otherwise, it made 0.90 against 0.85, positive every year, with half the drawdown. But it was in the market only 29% of the time, 98 weeks in all, and earned 20% a year against 45%. A cleaner, smaller book, not a bigger one.</p>
+  <div class="corrected">The frozen block was not unseen. The condition had been chosen after looking at every week, including those. When the choice of condition is itself made from the past alone at each fold, the search never picks the moderate month. It picks after a rise, then high funding. Those choices still earn, 1.38 against 0.64 for trading every week, so conditioning on the market pays, but the moderate month was a hindsight pick. The sleeve also had not paid for switching on and off, which takes it from 1.62 to 1.56, and simply holding the basket short over the same weeks makes 0.90 of it.</div>
 
-  <p>The old ten anchors all sat in the top bucket. They fixed the intercept and said nothing about the slope. Measure names in every bucket so the slope is measured, not assumed. Then sweep it anyway.</p>
+  <h3>Priced for the search</h3>
+  <p>By now about 95 settings had been tried, counting the sweep, the map and the stress variants. Against that many tries, the sleeve read as 55 to 64% likely to be real. About even odds, on 98 weeks. No window or cut adds more weeks, so the constraint was the sample itself.</p>
+  <p>This is where the practice changed. A conditional signal is judged on its sleeve, the weeks it actually trades, since those are what would run live behind a regime switch. Averaging in the flat weeks only measures the cost of having no switch. And detecting the condition live is a separate project from proving the signal works inside it. Signal research comes first, then regime detection, then building the strategy.</p>
 
-  <h2>What we run next</h2>
+  <h3>Open interest</h3>
+  <p>The hypothesis said trend feeds on leverage, so the last check used open interest, the total size of open perp positions, counted in contracts across six majors. Its growth said nothing reliable. Its level did. When open interest sat below its recent average, after the market had shed leverage, trend lost 1.39, in training and unseen weeks alike. At middling and high levels it earned. That fits the leverage idea from the other side, trend needs leverage in the market to feed its moves. The evidence is thin, about 190 weeks from late 2022, and it did not sharpen the moderate month when the two were combined.</p>
 
-  <div class="queue">
-    <div class="q">
-      <div class="q-n">00</div>
-      <div>
-        <p class="q-run">Explore the data <span class="stamp held">done</span></p>
-        <p class="q-meta">every USDT perp, daily bars 2020 to 2026, moves and funding by correlation only</p>
-        <p class="q-ask">Trend is weak and lives at the market, 1.5 to 1.9 standard errors and a sign that flips by year. The stronger pattern is the opposite, coins snap back against the market over 1 to 2 weeks at 3.5 to 3.9. Coins under $10M a day show no trend at all. Returns are Student t near 3.3 degrees of freedom, so tail weeks are far more common than normal.</p>
-      </div>
-    </div>
-    <div class="q">
-      <div class="q-n">01</div>
-      <div>
-        <p class="q-run">Reproduce the old window <span class="stamp held">passed</span></p>
-        <p class="q-meta">ten symbols, 2022 to 2024, 1d klines and funding</p>
-        <p class="q-ask">Exact match on every grid, reference line and symbol. Monthly files drop five days on three names. The loader refills them from the daily files.</p>
-      </div>
-    </div>
-    <div class="q">
-      <div class="q-n">02</div>
-      <div>
-        <p class="q-run">Build the point-in-time universe <span class="stamp held">done</span></p>
-        <p class="q-meta">681 crypto perps after dropping 183 stock, ETF, commodity and tokenised-asset perps, 157 stopped trading, liquidity known before each week</p>
-        <p class="q-ask">About 200 coins trade over $10M a day at peak. The archive keeps frozen bars after trading stops, so a day only counts if something traded.</p>
-      </div>
-    </div>
-    <div class="q">
-      <div class="q-n">03</div>
-      <div>
-        <p class="q-run">Calibrate the cost ladder <span class="stamp held">done</span></p>
-        <p class="q-meta">trade prints and book depth, 72 coin-dates across liquidity bands, 2023 to 2026</p>
-        <p class="q-ask">Spreads are tight, depth is the cost. A $100k book pays about the fee and matches the provisional numbers. At $1M the always-on books hold over the span but fade on recent weeks. At $10M impact kills every book. Books thinned in 2026, $87k of depth for a $10M coin against $187k to $298k before, so recent cost is worse.</p>
-      </div>
-    </div>
-    <div class="q">
-      <div class="q-n">04</div>
-      <div>
-        <p class="q-run">Wide lookback sweep <span class="stamp block">gate fail S1 S4</span></p>
-        <p class="q-meta">full universe, 2020 to now, L across 1, 2, 3, 4, 5, 6, 8, 12, provisional cost</p>
-        <p class="q-ask">Every book earns at every lookback, 4 weeks best. Net 0.85 per coin, 0.80 market. A walk forward picks 4 weeks at every fold from the past alone and makes 0.72 from May 2022. The surface is ragged. 3 weeks sits in a hole, 0.18 per coin and 0.02 market, between 2 and 4, so 4 weeks cannot be told from a lucky cell. Against a search worth about 42 independent tests the per coin book is real with probability 0.49 and the market book 0.43. Mostly a market bet. 2026 negative for every book but one.</p>
-      </div>
-    </div>
-    <div class="q">
-      <div class="q-n">05</div>
-      <div>
-        <p class="q-run">Condition map <span class="stamp block">gate fail S1 S5 S6</span></p>
-        <p class="q-meta">six conditions from the past only, thirds cut on past data, open interest included</p>
-        <p class="q-ask">Exploratory. The moderate-month sleeve makes 1.56 over 98 weeks with its switching cost, positive every year it covers. A condition search run in fold never picks it. It picks after a rise, then high funding, and those choices earn 1.38 out of sample against 0.64 always on. Inside its own weeks the one-week rule makes 1.70 and the short basket 0.90. The map is 0.67 likely to have picked a lucky cell. Real with probability 0.38 against a search worth about 74 tests.</p>
-      </div>
-    </div>
-    <div class="q">
-      <div class="q-n">06</div>
-      <div>
-        <p class="q-run">Funding-aware sign re-test <span class="stamp held">tested flat</span></p>
-        <p class="q-meta">same run, funding subtracted from the trailing return</p>
-        <p class="q-ask">Within 0.06 of the plain sign at every lookback, up at 1, 8 and 12 weeks and down at 2 and 4. The plain sign is not harvesting carry paid to be long.</p>
-      </div>
-    </div>
-    <div class="q">
-      <div class="q-n">07</div>
-      <div>
-        <p class="q-run">Mechanism conditioning <span class="stamp open">partial</span></p>
-        <p class="q-meta">open interest in contracts across six majors, from late 2022</p>
-        <p class="q-ask">Trend loses after the market sheds leverage, when open interest sits below its recent average, in training and unseen weeks. Growth in open interest says nothing. About 190 weeks only.</p>
-      </div>
-    </div>
-    <div class="q">
-      <div class="q-n">08</div>
-      <div>
-        <p class="q-run">Learned regimes <span class="stamp open">ML</span></p>
-        <p class="q-meta">unsupervised states from volatility, trend, funding, dispersion, open interest</p>
-        <p class="q-ask">Do learned states separate winning weeks from losing ones better than hand-picked conditions. Feeds the condition map.</p>
-      </div>
-    </div>
-    <div class="q">
-      <div class="q-n">09</div>
-      <div>
-        <p class="q-run">Meta-labelling <span class="stamp open">ML</span></p>
-        <p class="q-meta">plain sign picks the side, a classifier picks whether to take it</p>
-        <p class="q-ask">Does skipping low-odds weeks lift net Sharpe out of fold. The rule stays. The model only learns when to trust it.</p>
-      </div>
-    </div>
-    <div class="q">
-      <div class="q-n">10</div>
-      <div>
-        <p class="q-run">Gradient boosted signal <span class="stamp open">ML</span></p>
-        <p class="q-meta">per-name features across lookbacks, volatility, funding, open interest, depth</p>
-        <p class="q-ask">Does a learned signal beat the plain sign net of cost out of fold. Prior is low. Boosted models lost to persistence on carry.</p>
-      </div>
-    </div>
-    <div class="q">
-      <div class="q-n">11</div>
-      <div>
-        <p class="q-run">Signal shape, path and breakout <span class="stamp block">tested flat</span></p>
-        <p class="q-meta">Donchian breakout as a direction rule, efficiency ratio as a direction-only predictor over cross-sectional thirds</p>
-        <p class="q-ask">Tested, kept inside the signal phase, direction only with sizing held fixed. At 4 weeks, the lookback that pays, nothing beats the plain sign. The Donchian breakout is much worse, 0.39 against 0.85, a weekly new high on a thin alt is as often the top as the start. Cleanliness sorted into thirds does not separate at 4 weeks, clean and choppy trends continue the same and the choppy third even leads out of fold, so the path is not signal there. It separates only at 8 and 12 weeks where the raw sign is weak, lifting the clean third toward but not past the 4-week sign. The open-interest-backed break was not run, the raw break loses so the filter would rescue a loser and open interest is majors only, it belongs with the leverage mechanism.</p>
-      </div>
-    </div>
-    <div class="q">
-      <div class="q-n">12</div>
-      <div>
-        <p class="q-run">Signal decomposition <span class="stamp held">done</span></p>
-        <p class="q-meta">next-week return on market, residual and funding terms, and the residual book across formation horizons</p>
-        <p class="q-ask">The 4-week trend is market timing plus a weak cross-sectional kicker. Timing the market is 0.80 of the 0.85, coin selection adds 0.05 and is momentum, not reversal. With errors clustered by week the market term is t 1.33, the residual t 2.13 and funding t 3.00, a separate term the funding-aware sign cannot turn into money. The cross-section reverses only at 1 to 2 weeks, a separate short-horizon signal for the mean-reversion lane.</p>
-      </div>
-    </div>
-    <div class="q">
-      <div class="q-n">13</div>
-      <div>
-        <p class="q-run">Statistical and positioning features</p>
-        <p class="q-meta">skewness, kurtosis, return autocorrelation, and the cross-sectional column, funding, open interest, dispersion, co-movement, liquidity, depth</p>
-        <p class="q-ask">The single-name price features are spent. Test the ones that carry independent information, higher moments and autocorrelation, autocorrelation being the trend against reversal question itself. Then the venue's real edge, the cross-sectional and positioning features, where forced deleveraging lives. Technical indicators are monotone transforms of price already carried, low prior, test cheap. Hypothesis first, then the smallest feature that expresses it, never a feature zoo sifted by a model. Judge net lift over the plain sign out of fold. Skew, size and carry are cross-sectional signals of their own, they belong to their lanes, not to trend.</p>
-      </div>
-    </div>
-    <div class="q">
-      <div class="q-n">14</div>
-      <div>
-        <p class="q-run">Bounding the headline <span class="stamp held">done</span></p>
-        <p class="q-meta">block bootstrap of the Sharpe, cumulative return through the known crashes, year by year</p>
-        <p class="q-ask">Real but loosely measured. The bootstrap floor is 0.36 per coin and 0.29 market, positive in essentially every draw, with a ceiling near 1.4. Drawdowns are deep, a median worst of 0.60 per coin and 0.93 market in summed weekly returns. Classic crash profile, up 64% and 69% through the May 2021 flush and LUNA for the market book, down 27% through the FTX whipsaw.</p>
-      </div>
-    </div>
-    <div class="q">
-      <div class="q-n">15</div>
-      <div>
-        <p class="q-run">Scoring against the signal gate <span class="stamp block">gate fail</span></p>
-        <p class="q-meta">every trial rebuilt as a return series, the always-on books and the sleeve through every check, costed off the ladder at a $100k book</p>
-        <p class="q-ask">Per coin and market always on, gate fail S1 S4, open T5. The sleeve, gate fail S1 S5 S6, open T5. Every data, time and cost check passes. The halt fix moves nothing, 4 held gaps worth 0.03%. What remains is a market-timing premium near 0.8 whose evidence falls short of the bar, and a condition search that paid out of sample when run in fold. Parked, not closed. The always-on book fails significance at the park line on searched data.</p>
-      </div>
-    </div>
-    <div class="q">
-      <div class="q-n">16</div>
-      <div>
-        <p class="q-run">Registered replication <span class="stamp open">continues to Data B</span></p>
-        <p class="q-meta">the 3 to 6 week band on Binance spot 2017 to 2019 and on perps forward, one trial</p>
-        <p class="q-ask">Data A reviewed. Net 1.03 over 112 weeks, probability 0.94 on one trial, so neither fail rule fires. But 72% of the return is 7 weeks long BTC and ETH through the December 2017 bubble, and from 2018, on six to eight coins, it makes 0.37 while random signs reach 0.98. On A alone gate fail S2 V1, open D1 S3 T5. Spot 2017 to 2019 was too thin to say much. The forward perps run carries the test.</p>
-      </div>
-    </div>
-  </div>
+  
+  <p>Parked. Trend after a moderate market month looked like a real effect on a small sample, not a proven one, with 98 weeks as the binding constraint. After a rise was mostly being long. Low open interest was a warning, on little data.</p>
+</section>
 
-  <p>08 to 13 are exploratory, ML last and on hold. Fit walk-forward, judge on net lift over the plain sign out of fold, never on accuracy or IC. Deadband, conviction weighting and multi-horizon agreement were tested null on the old ten-symbol sample and get a wide re-test only if a shape in 11 moves first.</p>
+<section id="what-it-is">
+  <span class="num">11 · 28 September</span>
+  <h2>What the signal really is</h2>
+  <p>By now there was one book that earned and one condition that looked promising but thin. Three questions were left about the signal itself. Would a smarter reading of the trend beat the plain sign. What is the profit actually made of. And how far could the headline number be trusted.</p>
 
-  <h2>Registered test, draft</h2>
+  <h3>Does the path beat the sign</h3>
+  <p>The plain sign uses two prices and ignores everything between them. Two richer readings were tried, with the sizing held fixed so only the signal changed.</p>
+  <ul>
+    <li>Breakout. Go long at a new high for the window and short at a new low. At 4 weeks it made 0.39 against 0.85 for the plain sign. A new weekly high on a thin coin is as often the top as the start.</li>
+    <li>Cleanliness. Sort each week's trends by how directly price travelled, the net move divided by the sum of the weekly moves, and run the plain sign inside the clean, middle and choppy thirds. At 4 weeks clean and choppy trends continued equally, 0.77 each. Cleanliness only mattered at 8 and 12 weeks, where the plain sign is weak anyway.</li>
+  </ul>
+  <figure>
+    <img src="img/shape_clean.png" alt="Plain sign by trend cleanliness, later weeks">
+    <figcaption>The plain sign on clean and choppy trends, by lookback, on the later weeks. The lines only separate at long lookbacks.</figcaption>
+  </figure>
+  <p>Where trend pays, the direction of the move is the whole signal.</p>
 
-  <p>One test, written before it runs. It becomes binding on the day it is committed, and nothing else scored on its data counts toward it.</p>
+  <h3>What the profit is made of</h3>
+  <p>A coin's 4-week return is two things added together. The market's 4-week return, shared by every coin, and the coin's return beyond the market. The trend book bets on the sign of the sum. Betting on each piece separately shows where the money comes from.</p>
+  <table>
+    <tr><th>book at 4 weeks</th><th>net Sharpe</th></tr>
+    <tr><td>Full trend book, sign of the coin's own return</td><td class="mono">0.85</td></tr>
+    <tr><td>Market only, sign of the market's return on every coin</td><td class="mono">0.80</td></tr>
+    <tr><td>Coin picking only, long coins that beat the market, short those that lagged</td><td class="mono">0.28</td></tr>
+    <tr><td>Coin picking reversed</td><td class="mono">−0.49</td></tr>
+  </table>
+  <p>Timing the market is 0.80 of the 0.85. Picking coins adds 0.05, and it works in the trend direction, not the reverse. The EDA had seen coins snap back against the market, and repeating the coin-picking book at other horizons shows where.</p>
+  <figure>
+    <img src="img/decomp_reversal.png" alt="Coin picking book net Sharpe by formation horizon">
+    <figcaption>The coin-picking book by how many weeks it looks back. Negative means coins that beat the market go on to lag it.</figcaption>
+  </figure>
+  <p>Over 1 and 2 weeks coins reverse against the market. Around 3 weeks it crosses zero, and from 4 to 6 weeks coins that beat the market keep beating it. So the snap-back is a separate, faster effect, and it was set aside for the mean-reversion research.</p>
+  <p>The last step fitted next week's return on three things at once, the market's trend, the coin's trend beyond the market, and the funding paid on the coin.</p>
+  $$ r_{i,t+1} = \alpha + \beta_m\, m_t + \beta_c\, c_{i,t} + \beta_f\, f_{i,t} + \varepsilon_{i,t+1} $$
+  <ul>
+    <li>\(m_t\) is the market's 4-week return, one number per week.</li>
+    <li>\(c_{i,t}\) is the coin's 4-week return beyond the market.</li>
+    <li>\(f_{i,t}\) is the funding the coin's longs paid over 4 weeks.</li>
+    <li>Each \(\beta\) is how much next week's return moves with that term, and its t statistic is how sure the fit is that it is not zero.</li>
+  </ul>
+  <p>All three came out positive, with the market term at t 12.7, the coin term at 3.3 and funding at 3.6. Funding having its own effect meant the trend result was not just funding in disguise.</p>
+  <div class="corrected">The t of 12.7 was wrong. The fit treated all 41,354 coin-weeks as independent, but coins in the same week move together, and the market term is one number per week. Counted properly, by week, the market term is t 1.33, the coin term 2.13 and funding 3.00. The market timing earns in money but is thin as evidence.</div>
 
-  <div class="ledger">
-    <div class="row"><span class="label">Hypothesis</span><span class="value">Liquid crypto trends over 3 to 6 weeks net of cost, from under-reaction and forced deleveraging</span></div>
-    <div class="row"><span class="label">Book</span><span class="value">Per coin sign of the trailing return, averaged over 3, 4, 5 and 6 weeks. Inverse 12-week volatility, gross one, Sunday close</span></div>
-    <div class="row"><span class="label">Universe</span><span class="value">Coins with a trailing 30-day median dollar volume of at least $10M, as of the week before</span></div>
-    <div class="row"><span class="label">Data A</span><span class="value">Binance spot, August 2017 to December 2019, never loaded by this lane</span></div>
-    <div class="row"><span class="label">Data B</span><span class="value">Binance USD-M perps, forward from the commit that registers this test</span></div>
-    <div class="row"><span class="label">Cost</span><span class="value">Measured ladder at a $100k book. 10 bps spot taker on A, 5 bps and funding on B</span></div>
-    <div class="row"><span class="label">Trials</span><span class="value">One. Any other cut of this data is exploratory</span></div>
-    <div class="row"><span class="label">Pass</span><span class="value">S1 at 0.95 on one trial over A and B pooled, and every other signal gate check</span></div>
-    <div class="row"><span class="label">Park</span><span class="value">S1 between 0.5 and 0.95, with A and B agreeing under S3</span></div>
-    <div class="row"><span class="label">Fail</span><span class="value">S1 below 0.5, or a negative Sharpe on A alone</span></div>
-    <div class="row"><span class="label">Reviews</span><span class="value">Once on A, then each full year of B. No other look counts</span></div>
-  </div>
+  <h3>How far to trust the number</h3>
+  <p>A Sharpe measured once is one draw. To see the range it could have come from, the book's weekly returns were resampled 5,000 times in 8-week blocks.</p>
+  <table>
+    <tr><th>book</th><th>Sharpe</th><th>worst 5%</th><th>middle</th><th>best 5%</th></tr>
+    <tr><td>Per coin</td><td class="mono">0.85</td><td class="mono">0.36</td><td class="mono">0.92</td><td class="mono">1.47</td></tr>
+    <tr><td>Market</td><td class="mono">0.80</td><td class="mono">0.29</td><td class="mono">0.86</td><td class="mono">1.42</td></tr>
+  </table>
+  <p>Both stayed positive in essentially every resample, so the edge is unlikely to be zero. But the range is wide, 0.3 to 1.4. A real premium, loosely measured.</p>
+  <p>Then the crashes, which trend is meant to earn through.</p>
+  <table>
+    <tr><th>event</th><th>market book</th><th>per coin book</th></tr>
+    <tr><td>May 2021 flush</td><td class="mono">+64%</td><td class="mono">−16%</td></tr>
+    <tr><td>LUNA, 2022</td><td class="mono">+69%</td><td class="mono">+63%</td></tr>
+    <tr><td>FTX, 2022</td><td class="mono">−27%</td><td class="mono">−1%</td></tr>
+    <tr><td>March 2023 depeg</td><td class="mono">−14%</td><td class="mono">−7%</td></tr>
+    <tr><td>August 2024 unwind</td><td class="mono">+18%</td><td class="mono">+5%</td></tr>
+  </table>
+  <p>The textbook shape. Trend earns large in a crash that keeps going and loses when a crash snaps back before the signal can turn.</p>
+  <div class="corrected">The market book's 64% through May 2021 rested on a coin flip. The late check found the market's 4-week return that week was within 0.1% of zero, and a slightly different build of the same book went long instead of short.</div>
+  <figure>
+    <img src="img/validate_by_year.png" alt="Sharpe by year for the market and per coin books">
+    <figcaption>Sharpe by year. 2026 is negative for both books, and 2020 for the market book.</figcaption>
+  </figure>
 
-  <p>The band trades the region the wide data found rather than its best cell, so the 3-week hole is inside it on purpose. Spot cannot short without a borrow, so the short side on A is a paper return and the borrow stays open. A holds about 125 weeks and B adds 52 a year. At a true Sharpe of 0.8 the pooled test reaches 80% power near 500 weeks, so park is the expected outcome for years. The test is built to refute. A real 0.8 edge fails on A alone about one time in nine, and an edge of zero half the time.</p>
+  
+  <p>A market-timing premium near 0.8, with a small coin-picking kicker and a separate funding effect. Not improved by any richer reading of the trend. Real but loosely measured, with the classic crash profile. The work was judged ready to write up.</p>
+</section>
 
-  <h2>Where this stands</h2>
+<section id="review">
+  <span class="num">12 · 29 September</span>
+  <h2>Review and rescore</h2>
+  <p>Before the write-up, the whole of the research was reviewed. The review found an engine bug, replaced the bar the results were judged against, and corrected five mistakes. Then every result was scored again.</p>
 
-  <p>Parked. Every scored result fails the signal gate, but the always-on book fails significance at the park line, 0.49 against 0.5, on data the lane has searched. It earns, 0.85 net per coin and 0.80 market over six and a half years, holds in walk forward and survives cost at a $100k book. 3 weeks earning almost nothing beside 4 and 5 makes the 4-week setting indistinguishable from a lucky cell, so the registered test trades the 3 to 6 week band instead. The moderate-month sleeve was a hindsight pick that a search run in fold never makes. What survives is a thinly evidenced market-timing premium, a funding term at t 3.00, and a condition search that paid out of sample. The cross-section reverses at 1 to 2 weeks, banked for the mean-reversion lane. The review is ready for write-up, and the lane waits on the registered test.</p>
+  <h3>An engine bug</h3>
+  <p>A daily bar summarises a day and carries that day's closing price. The data source was stamping each bar with the time the day opened. Anything driven by time therefore saw a day's close a full day before it happened. It was fixed at the source, so a bar is now delivered when it closes, and a test was added that drives the real source through the real engine. The research notebooks read closes by day and were not using the early stamp, but the fix closes the door for anything that would.</p>
 
-  <p>Held. Simple beats complex, on every shape and combiner tested. Weekly beats daily. The funding-aware sign adds nothing. Halt gaps do not move the book.</p>
+  <h3>A calibrated bar</h3>
+  <p>The first bar asked for a Sharpe of 0.7 out of sample and a positive Sharpe in every calendar year. It sounds strict. To find out what it actually does, it was run on simulated books whose true edge was known.</p>
+  <table>
+    <tr><th>true Sharpe</th><th>passes the old bar</th><th>passes the new gate, one test</th></tr>
+    <tr><td class="mono">0</td><td class="mono">0%</td><td class="mono">6%</td></tr>
+    <tr><td class="mono">0.8</td><td class="mono">11%</td><td class="mono">64%</td></tr>
+    <tr><td class="mono">1.0</td><td class="mono">18%</td><td class="mono">80%</td></tr>
+    <tr><td class="mono">1.5</td><td class="mono">43%</td><td class="mono">96%</td></tr>
+  </table>
+  <p>The old bar passed a real 0.8 edge one time in nine. It could not tell a real premium from luck, because demanding a positive year every year fails a real edge most of the time. The signal gate replaced it. Its thresholds were set on those simulated books, it corrects for everything tried by how different the trials really were, and it has three outcomes instead of two. Pass, park for a result that is under-powered but not refuted, and fail.</p>
+  <p>The same simulation gives the hard limit of this research. A true 0.8 edge needs about 504 weeks to pass four times in five. The perp data holds about 340.</p>
 
-  <p>Open. Whether a condition chosen in fold survives as its own pre-registered test. Why ranks and money disagree on the cross-sectional rest. The cost ladder fit on 2023 to 2026 depth and applied back to 2020. Book weighting.</p>
+  <h3>What the review fixed</h3>
+  <ul>
+    <li>The decomposition counted coin-weeks as independent. Counted by week the market term fell from t 12.7 to 1.33.</li>
+    <li>Lookbacks 3, 5 and 6 had never been run. Run, 3 weeks made 0.17 beside 0.88 at 4 and 0.79 at 5.</li>
+    <li>The unseen stretch that confirmed the moderate month had already been used to choose it. Chosen from the past alone, a condition search never picks it.</li>
+    <li>The sleeve had not paid for switching on and off, and had not been set against simply holding the basket short.</li>
+    <li>A position held through a trading halt now books the jump when the coin reopens. It moved nothing, 4 held gaps worth 0.03%.</li>
+  </ul>
+  <figure>
+    <img src="img/wide_sweep_full.png" alt="Net Sharpe by lookback with 3, 5 and 6 weeks added">
+    <figcaption>The lookback grid with 3, 5 and 6 weeks added. 3 weeks sits in a hole between 2 and 4.</figcaption>
+  </figure>
+  <div class="corrected">The late check found the 3-week hole is mostly an effect of rebalancing on Sunday. On other days 21 days makes up to 0.75, and averaged over the days it is a shallow dip.</div>
 
-  <p>The grid below is what the wide run is measured against. It is not a finding.</p>
+  <h3>Every result scored again</h3>
+  <p>Every setting the research had tried on the wide data was rebuilt as a return series, 125 of them, plus about 30 from the ten-coin sample. They overlap heavily, so they are worth about 74 independent tests, and the lookback sweep with its history about 42. The best of 42 tests with no edge at all reaches a Sharpe of 0.86.</p>
+  <table>
+    <tr><th></th><th>per coin, always on</th><th>market, always on</th><th>moderate-month sleeve</th></tr>
+    <tr><td>Sharpe</td><td class="mono">0.85</td><td class="mono">0.79</td><td class="mono">1.54</td></tr>
+    <tr><td>Luck bar</td><td class="mono">0.86</td><td class="mono">0.86</td><td class="mono">1.75</td></tr>
+    <tr><td>Probability real</td><td class="mono">0.49</td><td class="mono">0.43</td><td class="mono">0.38</td></tr>
+    <tr><td>Walk forward</td><td class="mono">0.71</td><td class="mono">0.72</td><td class="mono">never picked</td></tr>
+    <tr><td>Stamp</td><td class="mono">fail S1 S4</td><td class="mono">fail S1 S4</td><td class="mono">fail S1 S5 S6</td></tr>
+  </table>
+  <ul>
+    <li>The always-on books fail on two counts. They sit at the luck bar, and 3 weeks earning nothing beside 4 and 5 fails the neighbour check. Everything else passes. The walk forward picks 4 weeks at every fold, no year carries the result, they beat the baskets, survive twice the cost and stay positive in the bootstrap.</li>
+    <li>The sleeve fails on search, on overfitting and on its baseline. The map it came from was more likely than not to have picked a lucky cell, and inside its own weeks the 1-week rule and the short basket did as well.</li>
+    <li>One thing from the conditions work survived. A condition search run on the past alone, picking after a rise and then high funding, made 1.38 out of sample against 0.64 for trading every week.</li>
+  </ul>
 
-  <div class="grid-current">
-    <p class="caption">Prior sample, ten symbols 2022 to 2024, funding-aware sign, net of cost and funding</p>
-    <div class="gr">
-      <span class="gr-L">L = 1</span>
-      <span class="gr-val pos">+0.85</span>
-      <span class="bar-track">
-        <span class="bar-zero" style="left: 30%"></span>
-        <span class="bar-fill pos" style="left: 30%; width: 60.7%"></span>
-      </span>
-      <span class="gr-note">to re-prove</span>
-    </div>
-    <div class="gr">
-      <span class="gr-L">L = 2</span>
-      <span class="gr-val neg">-0.08</span>
-      <span class="bar-track">
-        <span class="bar-zero" style="left: 30%"></span>
-        <span class="bar-fill neg" style="right: 64.3%; width: 5.7%"></span>
-      </span>
-      <span class="gr-note">flat</span>
-    </div>
-    <div class="gr">
-      <span class="gr-L">L = 4</span>
-      <span class="gr-val pos">+0.65</span>
-      <span class="bar-track">
-        <span class="bar-zero" style="left: 30%"></span>
-        <span class="bar-fill pos" style="left: 30%; width: 46.4%"></span>
-      </span>
-      <span class="gr-note">to re-prove</span>
-    </div>
-    <div class="gr">
-      <span class="gr-L">L = 8</span>
-      <span class="gr-val neg">-0.09</span>
-      <span class="bar-track">
-        <span class="bar-zero" style="left: 30%"></span>
-        <span class="bar-fill neg" style="right: 63.6%; width: 6.4%"></span>
-      </span>
-      <span class="gr-note">flat</span>
-    </div>
-    <div class="gr">
-      <span class="gr-L">L = 12</span>
-      <span class="gr-val pos">+0.02</span>
-      <span class="bar-track">
-        <span class="bar-zero" style="left: 30%"></span>
-        <span class="bar-fill pos" style="left: 30%; width: 1.4%"></span>
-      </span>
-      <span class="gr-note">noise</span>
-    </div>
-  </div>
+  
+  <p>Parked, not closed. The per coin book missed the park line by a hair, 0.49 against 0.5, on data that had been searched. What was left was a market-timing premium near 0.8 whose evidence fell short, and a hint that conditioning on the market pays. The only way to settle it was data nobody had looked at.</p>
+</section>
 
-  <div class="callout">
-    <p class="callout-label">What is not modelled offline</p>
-    <p>Impact beyond 5% of mid, where the depth bands stop. Liquidation risk on a short squeeze, which is live-only. Regime coverage reaches back to 2020, one deep bear and two bulls, still no 2018-style crash.</p>
-  </div>
+<section id="registered">
+  <span class="num">13 · 29 September</span>
+  <h2>The registered test</h2>
+  <p>Everything on the perp data from 2020 had been searched, so nothing on it could pass. A registered test gets round that. One book is written down in full, with its pass, park and fail rules, and committed. It is then scored only on data nobody has looked at. It counts as a single trial with no penalty for searching, because nothing about it was chosen on the data that scores it.</p>
+
+  <h3>What was registered</h3>
+  <table>
+    <tr><td>Hypothesis</td><td>Liquid crypto trends over 3 to 6 weeks net of cost, from slow reaction to news and forced deleveraging</td></tr>
+    <tr><td>Book</td><td>Each coin on the sign of its trailing return, averaged over 3, 4, 5 and 6 weeks. Inverse 12-week volatility, weekly at the Sunday close</td></tr>
+    <tr><td>Universe</td><td>Coins with a trailing 30-day median dollar volume of at least $10M, known the week before</td></tr>
+    <tr><td>Data A</td><td>Binance spot, August 2017 to December 2019, never loaded before</td></tr>
+    <tr><td>Data B</td><td>Binance USD-M perps, forward from the registering commit</td></tr>
+    <tr><td>Cost</td><td>The measured ladder at a $100k book. 10 bps fee on A, 5 bps and funding on B</td></tr>
+    <tr><td>Pass</td><td>Probability real of 0.95 on one trial over A and B together, and every other gate check</td></tr>
+    <tr><td>Park</td><td>Probability between 0.5 and 0.95, with A and B agreeing</td></tr>
+    <tr><td>Fail</td><td>Probability below 0.5, or a negative Sharpe on A alone</td></tr>
+    <tr><td>Reviews</td><td>Once on A, then each full year of B</td></tr>
+  </table>
+  <p>The book trades the band from 3 to 6 weeks, not the best single lookback, so the weak 3-week setting is inside it on purpose. The test was built to be able to fail. A real 0.8 edge fails on A alone about one time in nine, and an edge of zero about half the time. It was also built knowing a pass is years away. A and B together reach 500 weeks only after about seven years of B.</p>
+
+  <h3>Data A</h3>
+  <figure>
+    <img src="img/registered_spot.png" alt="Registered trend book on spot 2017 to 2019 against the long basket">
+    <figcaption>The registered book on Binance spot, against holding the basket long.</figcaption>
+  </figure>
+  <p>The book made 1.03 over 112 weeks, real with probability 0.94 on one trial. Neither fail rule fired, so the test continues to B.</p>
+  <p>The number flatters it. 72% of the return came from 7 weeks at the end of 2017, long BTC and then BTC and ETH through the December bubble. From 2018, on six to eight liquid coins, it made 0.37 over 105 weeks, and books of random signals reached as high as 0.98 on the same data. Taken alone, A fails two gate checks. Removing 2017 removes most of the Sharpe, and the bootstrap floor is below zero. Spot also cannot be shorted without borrowing, so the short side is a paper return.</p>
+  <p>Spot from 2017 to 2019 held too few liquid coins to say much. A does not refute the trend premium and adds little for it. The forward run on perps carries the test, and this section gets one update at each yearly review.</p>
+</section>
+
+<section id="late-check">
+  <span class="num">14 · 1 October</span>
+  <h2>A late check, and a second book</h2>
+  <p>Writing the research up raised questions it had never asked. Why whole weeks. Why Sunday. And whether a trend should mean more than a price ending above where it started. This section answers them. It ran after the registered test, on data the research had already searched, so everything in it is exploratory and nothing in it can pass the gate.</p>
+
+  <h3>Lookbacks in days, on every weekday</h3>
+  <p>Every result so far looked back a whole number of weeks and traded at Sunday's close. Here the lookback runs over every day count from 5 to 35, and the weekly rebalance moves to each of the seven days, 217 versions of each book. Built from daily data, the per coin book matches the weekly one exactly at 7, 14, 21, 28 and 35 days on a Sunday.</p>
+  <figure>
+    <img src="img/fine_surface.png" alt="Net Sharpe by lookback in days and rebalance day, per coin and market books">
+    <figcaption>Net Sharpe for every lookback and rebalance day. Blue earns, orange loses.</figcaption>
+  </figure>
+  <ul>
+    <li>The 4-week result is not a lucky cell. From 25 to 33 days the per coin book earns on every rebalance day, 0.59 to 1.29. At 28 days it makes 0.85 to 1.14 across the seven days, and Sunday, the day everything was quoted on, is the weakest.</li>
+    <li>The 3-week hole was mostly the Sunday. At 21 days the book makes 0.18 on a Sunday and 0.75 on a Thursday. Averaged over the days it is a shallow dip to about 0.35 between 16 and 22 days.</li>
+    <li>Lookbacks under two weeks are not real. A 7-day lookback makes 0.88 rebalanced on a Thursday and −0.53 on a Tuesday. A result that changes sign with the day of the week is noise.</li>
+    <li>The market book rests on one week. Built from daily data its 0.80 falls to 0.61. The two builds disagree on direction in 2 of 340 weeks, and one is the week before the May 2021 crash, where the market's 4-week return was within 0.1% of zero. One build went short and the other long, worth 0.97 of return between them.</li>
+  </ul>
+
+  <h3>Removing the rebalance day</h3>
+  <p>Any single rebalance day is arbitrary. The book that removes the choice splits its capital into seven slices and rebalances one slice each day. Every slice still holds for a week, so the trading is the same, but no day decides the result.</p>
+  <figure>
+    <img src="img/fine_seven_slice.png" alt="Seven-slice book Sharpe by lookback against the single-day books">
+    <figcaption>The seven-slice book against the range of the seven single-day books, by lookback.</figcaption>
+  </figure>
+  <p>At 28 days the seven-slice book makes 1.02, above the 0.85 quoted so far. It is positive every year from 2020 to 2025 and loses 2026, at −0.50. The earlier weeks make 1.25 and the later weeks 0.66. Against everything the research has tried it is real with probability 0.58 to 0.67, where the Sunday book sat at 0.49. That moves the main result from just under the park line to clearly above it, by removing an arbitrary choice rather than picking a better setting.</p>
+
+  <h3>Should a trend be more than a sign</h3>
+  <p>The plain sign uses two prices, the start and the end of the window. A stricter idea fits a straight line through the prices in the window and describes the trend by three things.</p>
+  <ul>
+    <li>Direction. Whether the line slopes up or down.</li>
+    <li>Tightness. How closely the prices hug the line, measured by \(R^2\), the share of the price's movement the line explains.</li>
+    <li>Steepness. How big the move the line describes is, measured against the coin's own normal move over that many days.</li>
+  </ul>
+  <p>Each was tested on lookbacks of 25 to 33 days across all seven rebalance days.</p>
+  <ul>
+    <li>Tightness alone does not help. Sorted into thirds, the tightest third makes 0.68, the loosest 0.76 and every coin together 0.92. A threshold on \(R^2\) lowers the Sharpe at every level, and the coins it removes earn as much as the ones it keeps.</li>
+    <li>Fitting the line on hourly prices instead of daily changes nothing. The two rank coins almost identically, a rank correlation of 0.987.</li>
+    <li>Steepness alone does not help either. The steep third makes 0.75 and the shallow third 0.75. Steepness and tightness also turn out to be nearly the same measurement, a rank correlation of 0.90, since a big move against a coin's own noise is a tight line.</li>
+    <li>The slope reads direction worse than the two endpoints, 0.68 against 0.92. A fitted line leans on the middle of the window and is slow to see a recent turn.</li>
+  </ul>
+  <p>A typical 4-week price path fits a line with an \(R^2\) of 0.45 with no filtering at all. Prices wander, and a wandering price looks like a trend by accident, so a straight path is weak evidence that something real is pushing it.</p>
+
+  <h3>All three together</h3>
+  <p>The full rule takes direction from the slope and trades a coin only if its line is both steep enough and tight enough. Both thresholds were swept as a grid of sixteen books, each a 28-day seven-slice book, fully invested in the coins that pass, at the measured cost.</p>
+  <table>
+    <tr><th>steepness / \(R^2\)</th><th>none</th><th>0.4</th><th>0.6</th><th>0.8</th></tr>
+    <tr><td class="mono">none</td><td class="mono">0.67</td><td class="mono">0.72</td><td class="mono">0.81</td><td class="mono">0.61</td></tr>
+    <tr><td class="mono">1.0</td><td class="mono">0.75</td><td class="mono">0.76</td><td class="mono">0.81</td><td class="mono">0.65</td></tr>
+    <tr><td class="mono">1.5</td><td class="mono">0.89</td><td class="mono">0.90</td><td class="mono">0.92</td><td class="mono">0.83</td></tr>
+    <tr><td class="mono">2.0</td><td class="mono">0.89</td><td class="mono">0.88</td><td class="mono">0.92</td><td class="mono">0.97</td></tr>
+  </table>
+  <p>No cell beats the plain sign's 1.04 on its own. The strictest corner comes closest, steepness of at least 2.0 and \(R^2\) of at least 0.8, at 0.97. It is the only book positive in all seven years, 2026 included. It is also a tiny book. Only 6% of coin-weeks pass both thresholds, the typical slice holds 2 coins, and its deepest drawdown is 0.91 against 0.39.</p>
+
+  <h3>A second book</h3>
+  <p>The strict rule is not the plain sign with a filter on. Its returns correlate 0.37 with the plain sign's. The broad book earns from holding every liquid coin in the direction of its last four weeks. The strict book earns from the few coins making outsized, clean moves. They fail at different times, so the two were held together at equal risk.</p>
+  <table>
+    <tr><th></th><th>plain sign</th><th>strict rule</th><th>both</th></tr>
+    <tr><td>Sharpe</td><td class="mono">1.04</td><td class="mono">0.97</td><td class="mono">1.22</td></tr>
+    <tr><td>Return a year</td><td class="mono">56%</td><td class="mono">110%</td><td class="mono">54%</td></tr>
+    <tr><td>Deepest drawdown</td><td class="mono">0.39</td><td class="mono">0.91</td><td class="mono">0.35</td></tr>
+    <tr><td>Worst week</td><td class="mono">−25%</td><td class="mono">−38%</td><td class="mono">−18%</td></tr>
+    <tr><td>2026</td><td class="mono">−0.48</td><td class="mono">1.18</td><td class="mono">0.93</td></tr>
+    <tr><td>Years positive, of 7</td><td class="mono">6</td><td class="mono">7</td><td class="mono">7</td></tr>
+    <tr><td>Probability real</td><td class="mono">0.59</td><td class="mono">0.52</td><td class="mono">0.76</td></tr>
+  </table>
+  <p>The pair beats either book alone on every row, and it is the first thing in this research to improve on the plain sign. The pair's return is scaled to the plain sign's risk, which is why it reads 54%.</p>
+  <p>It is a lead, not a finding. The 0.76 does not charge for picking the best corner of sixteen or for pairing the two after seeing both. The strict book often rests on two coins, and 2026 is 35 weeks. About 5,700 exploratory books were run in this check, all on data already searched. The only fair test left is data that does not exist yet, so the pair needed a test on data it had never seen.</p>
+  <h3>Testing the pair on another market</h3>
+  <p>The pair could not be tested on more crypto history, because there was none left unseen. But the rule is a general idea, and other markets have decades of history this research had never loaded. So the pair was written up as a second registered test and run on US-listed ETFs.</p>
+    <table>
+    <tr><td>Hypothesis</td><td>A trend that is both steep and tight continues, and held beside the plain sign at equal risk it beats the plain sign alone</td></tr>
+    <tr><td>Plain sign</td><td>Every liquid name on the sign of its trailing 4-week return</td></tr>
+    <tr><td>Strict rule</td><td>A line fitted through 4 weeks of daily log price. A name trades on the sign of the slope only where steepness is at least 2.0 and \(R^2\) at least 0.8, fully invested in the names that pass</td></tr>
+    <tr><td>Pair</td><td>Both at equal risk, each scaled by its own volatility over the prior 52 weeks</td></tr>
+    <tr><td>Shared</td><td>Inverse 12-week volatility, a $10M floor on trailing 30-day median dollar volume, one slice per rebalance day. As coded in <span class="mono">rule.py</span> at the registering commit</td></tr>
+    <tr><td>Data C</td><td>66 US-listed ETFs across stocks, bonds, commodities and currencies, the list in <span class="mono">etf.py</span>, adjusted daily closes from January 2005 to August 2026, never loaded by this lane. 20 trading days, five slices, 7.5 bps each way</td></tr>
+    <tr><td>Data B</td><td>Binance USD-M perps, forward from the registering commit. 28 days, seven slices, the measured ladder at a $100k book</td></tr>
+    <tr><td>Trials</td><td>One on each. Any other cut of this data is exploratory</td></tr>
+    <tr><td>Pass</td><td>The pair at S1 0.95 on one trial, above the plain sign, and every other signal gate check</td></tr>
+    <tr><td>Park</td><td>The pair at S1 between 0.5 and 0.95</td></tr>
+    <tr><td>Fail</td><td>The pair at S1 below 0.5, or the strict rule negative, or the pair below the plain sign</td></tr>
+    <tr><td>Reviews</td><td>Once on C. Each full year of B. No other look counts</td></tr>
+  </table>
+  <p>C is a different market, so it tests the idea and not the crypto signal. A pass on C says a steep and tight trend continues outside the market it was found in. A fail says the crypto result was probably fitted. Only B can pass the crypto pair. C holds about 1,100 weeks, where a true Sharpe of 0.8 needs about 500 to pass four times in five. Every fund in C is still listed, so funds that closed are missing, and the cost of borrowing a fund to short is not modelled.</p>
+  <figure>
+    <img src="img/replicate_books.png" alt="The registered books on 66 ETFs, cumulative return">
+    <figcaption>The three registered books on 66 ETFs, each scaled to the same risk.</figcaption>
+  </figure>
+  <p>The test fails on the ETF data. Over 1,089 weeks the pair makes −0.16, the plain sign −0.17 and the strict rule −0.12. The pair is real with probability 0.24 on one trial, and two of the three fail rules fire, the probability under 0.5 and the strict rule negative. Gate fail S1 S2 S6 C4 V1. It was run before the registration was committed, with the spec files unchanged since they were written.</p>
+  <p>Four-week trend does not pay on these funds at all, so the strict rule had no working base to add to. The registered cost of 7.5 bps was heavy for funds that move a fifth as much as coins, but the failure does not rest on it. With no cost the pair makes 0.23 against 0.13 for the plain sign, all of it from before 2013. The crypto pair has no support from outside crypto, and stays an exploratory lead that only the forward perps run can settle.</p>
+</section>
+
+<section id="mistakes">
+  <span class="num">15</span>
+  <h2>What we got wrong</h2>
+  <p>Each mistake below was made, believed for a while, and caught. They are listed because the corrections changed the conclusions, and because each one is easy to make again.</p>
+  <table>
+    <tr><th>mistake</th><th>what it claimed</th><th>what was true</th></tr>
+    <tr><td>Bars stamped at their open</td><td>A close is seen when it happens</td><td>The engine could see it a bar early</td></tr>
+    <tr><td>A bar that could not tell luck from edge</td><td>0.7 and every year positive is strict</td><td>It passes a real 0.8 one time in nine</td></tr>
+    <tr><td>Coin-weeks counted as independent</td><td>Market timing at t 12.7</td><td>t 1.33 counted by week</td></tr>
+    <tr><td>A stretch used to choose, quoted as unseen</td><td>The moderate month makes 2.17 on unseen weeks</td><td>A search on the past alone never picks it</td></tr>
+    <tr><td>A winner with unmeasured neighbours</td><td>4 weeks is a clean peak</td><td>3, 5 and 6 weeks had never been run</td></tr>
+    <tr><td>A sleeve with free switching</td><td>1.62 inside the condition</td><td>1.56 with its costs, and the short basket makes 0.90 of it</td></tr>
+    <tr><td>Halt gaps left out of returns</td><td>No effect assumed</td><td>No effect, 0.03%, but now measured</td></tr>
+    <tr><td>Reading single Sunday cells</td><td>3 weeks is a hole, 4 weeks may be luck</td><td>The hole is mostly the Sunday, and 4 weeks is a block on every day</td></tr>
+    <tr><td>A cost copied across markets</td><td>7.5 bps is a cautious cost for ETFs</td><td>It is several times heavier against funds that move a fifth as much</td></tr>
+    <tr><td>A registered test run before its commit</td><td>The spec came first</td><td>It did, but the history cannot show it</td></tr>
+  </table>
+  <p>The pattern in most of them is the same. A number looked good, and the check that would have embarrassed it had not been run yet.</p>
+</section>
+
+<section id="close">
+  <span class="num">16</span>
+  <h2>Signal lane close and handoff</h2>
+  <h3>The verdict on the signal</h3>
+  <p>Following the trend on liquid crypto perpetuals has earned after measured costs at a small size. It is a premium for timing the direction of the whole crypto market over about four weeks, with a small extra from picking coins. It is not a discovery and it is not proven.</p>
+  <ul>
+    <li>The book quoted throughout, 4 weeks at Sunday's close, makes 0.85 and is real with probability 0.49 against everything tried, a hair under the park line.</li>
+    <li>With the arbitrary rebalance day removed it makes 1.02 and reads 0.58 to 0.67. That is the better estimate, and it is exploratory.</li>
+    <li>It loses in 2026, it is weaker in the later weeks than the earlier ones, 0.66 against 1.25, and it fades at a $1M book and is gone at $10M.</li>
+    <li>It did not carry to another market. On 66 ETFs four-week trend earns nothing.</li>
+  </ul>
+  <p>Signal research on trend is closed with the signal parked. The data that exists cannot say more.</p>
+
+  <h3>What held throughout</h3>
+  <ul>
+    <li>Simple beat complex every time. Shapes, combiners, breakouts, cleanliness, line fits and thresholds all lost to the plain sign on its own.</li>
+    <li>About four weeks is the horizon. Under two weeks the result is noise, and by twelve it has faded.</li>
+    <li>Subtracting funding from the signal adds nothing, though funding has a small effect of its own.</li>
+    <li>Small coins carry a weaker, less reliable version of the same trend.</li>
+  </ul>
+
+  <h3>For regime detection</h3>
+  <ul>
+    <li>Conditioning on the market pays. A search choosing its condition from the past alone made 1.38 against 0.64 for trading every week, picking after a rise and then high funding.</li>
+    <li>Trend loses after the market has shed leverage, when open interest sits below its recent average.</li>
+    <li>The moderate month is a hypothesis only. Hindsight picked it.</li>
+  </ul>
+
+  <h3>For strategy research</h3>
+  <ul>
+    <li>Start from the seven-slice book at about four weeks, not the Sunday book.</li>
+    <li>Capacity is $100k to $1M. The cost ladder is fitted on 2023 to 2026 depth and applied back to 2020, and books thinned in 2026.</li>
+    <li>The strict three-part rule is a second, concentrated book that moves differently from the plain sign, a correlation of 0.37. Held together they made 1.22 on crypto. It is unproven, it failed outside crypto, and it typically holds two coins, so it needs position caps before it is anything.</li>
+    <li>Weighting and sizing are open. So is whether to hold the market book at all, given one knife-edge week moved its Sharpe by a fifth.</li>
+    <li>The crash profile belongs to the risk gate. Gains in crashes that keep going, losses in ones that snap back.</li>
+    <li>Rebalancing daily was never tested on the full data. The seven-slice book is the cheap version of it.</li>
+  </ul>
+
+  <h3>For other research</h3>
+  <ul>
+    <li>Coins reverse against the market over 1 to 2 weeks. That goes to mean reversion, which starts after this write-up.</li>
+    <li>Funding predicts next week's return on its own, at t 3.00. That goes to carry.</li>
+  </ul>
+
+  <h3>What runs on</h3>
+  <ul>
+    <li>The registered band test, forward on perps, reviewed yearly.</li>
+    <li>The pair, forward on perps on the same schedule. Paper trading both builds the same record with real fills.</li>
+    <li>A check of the strict rule against liquidations and open interest. A reason for it to work in crypto and not in ETFs would be worth more than more weeks.</li>
+  </ul>
+
+  <h3>Not pursued</h3>
+  <p>Learned regimes, a model deciding whether to take each trade, and a learned signal were planned and left for the regime and strategy phases. Higher moments and positioning features were left untested.</p>
+</section>
+
+<section id="lessons">
+  <span class="num">17</span>
+  <h2>Lessons for research practice</h2>
+  <ul>
+    <li>Calibrate the bar before scoring anything. Run it on simulated books with a known edge and see what it passes.</li>
+    <li>Trials never reset. Every setting tried counts against the next result, old data included.</li>
+    <li>Count evidence in independent bets. Four hundred coins in one week are closer to one bet than four hundred.</li>
+    <li>Measure the neighbours of a winner before building on it.</li>
+    <li>A span that helped choose a result is not out of sample. Choose from the past alone, or register the choice before the data exists.</li>
+    <li>A conditional book pays for switching and faces the simple baskets over the same weeks.</li>
+    <li>An arbitrary setting is still a setting. The rebalance day moved single results more than most of the differences they were read on.</li>
+    <li>Judge a rule that sits out on the trades it takes, and on return per dollar deployed. Flat time lowers a Sharpe by itself.</li>
+    <li>Scale a cost to the market it is charged in.</li>
+    <li>When time cannot be bought, test across markets. A day on unseen markets told more than a year of waiting would have.</li>
+    <li>Commit a registered test before running it.</li>
+    <li>Check the engine delivers what the test assumes. Every mock test passed the wrong clock.</li>
+  </ul>
+</section>
+
+<section id="trials">
+  <span class="num">Appendix A</span>
+  <h2>Trial ledger</h2>
+  <p>Every setting tried counts toward the luck bar. Near copies count as less than one, so the ledger is measured in effective trials, the number of independent tests with the same expected best.</p>
+  <table>
+    <tr><th>family</th><th>settings</th><th>effective trials</th><th>status</th></tr>
+    <tr><td>Ten-coin sample. Lookbacks, funding-aware sign, dead band, cadence, shapes, combiners</td><td class="mono">about 30</td><td class="mono">counted in full</td><td>superseded</td></tr>
+    <tr><td>Wide lookback sweep. 8 lookbacks, 4 books</td><td class="mono">32</td><td class="mono">42 with the ten-coin trials</td><td>primary, fail S1 S4</td></tr>
+    <tr><td>Everything else on the wide data. Coin-picking books, funding-aware sign, breakout, cleanliness, small coins, the condition map in both books, open interest, the moderate month and its variants</td><td class="mono">93</td><td class="mono">74 for the whole</td><td>exploratory</td></tr>
+    <tr><td>Registered band, spot 2017 to 2019</td><td class="mono">1</td><td class="mono">1</td><td>continues</td></tr>
+    <tr><td>Late check. Lookbacks in days by rebalance day, line fits, thresholds, the pair</td><td class="mono">about 5,700</td><td class="mono">not added to the ledger</td><td>exploratory</td></tr>
+    <tr><td>Registered pair, ETFs</td><td class="mono">1</td><td class="mono">1</td><td>fail</td></tr>
+  </table>
+  <p>The late check's books are close copies of each other, sixteen threshold books were worth 2.3 independent tests, but they were not rebuilt into the ledger. The probabilities quoted for them use the ledger's 42 and 74, which is generous to them.</p>
+</section>
+
+<section id="index">
+  <span class="num">Appendix B</span>
+  <h2>Notebooks and commits</h2>
+  <table>
+    <tr><th>section</th><th>notebooks</th><th>commits</th></tr>
+    <tr><td>05</td><td>old_data/trend_lookback_sweep, trend_funding_aware_sign, trend_cadence_dead_band, trend_signal_shapes, trend_combiner</td><td class="mono">92fe183 98b45be 645c68e 60109ec</td></tr>
+    <tr><td>06</td><td>trend_reproduce</td><td class="mono">aebcc08 1fb1f3f bc68e5b</td></tr>
+    <tr><td>07 to 10</td><td>trend_eda, trend_costs, trend_wide_sweep, trend_conditions, trend_candidate</td><td class="mono">83564e0 e5f9641 ac0b51f fbafe8f ef97f12 fda98ad</td></tr>
+    <tr><td>11</td><td>trend_shape, trend_decomp, trend_validate</td><td class="mono">ccde32d</td></tr>
+    <tr><td>12</td><td>trend_gate</td><td class="mono">6274917 2230fb3 1db299a</td></tr>
+    <tr><td>13</td><td>trend_registered</td><td class="mono">a26b03f 8987f36</td></tr>
+    <tr><td>14</td><td>trend_fine, trend_replicate</td><td class="mono">4af95af</td></tr>
+  </table>
+  <p>Sections 09 to 11 quote the numbers as they stood on the day, from the notebook versions at those commits. The notebooks in the repository are the reruns from the review.</p>
+</section>
+
+<section id="not-modelled">
+  <span class="num">Appendix C</span>
+  <h2>What is not modelled</h2>
+  <ul>
+    <li>Impact beyond 5% of the mid price, where the depth data stops.</li>
+    <li>Splitting an order over time. Each rebalance is priced as one order against one snapshot of the book, which overstates cost at size.</li>
+    <li>Depth before 2023. The archive has none, so 2020 to 2022 is priced off later, deeper books.</li>
+    <li>Liquidation on a short squeeze. It only exists live.</li>
+    <li>Borrow. Spot cannot be shorted without it, and the cost of borrowing an ETF is not charged.</li>
+    <li>A long crypto winter. The perp data starts in 2020 and holds one deep bear market and two bull markets.</li>
+  </ul>
+</section>
+
+
+<footer>quant-platform · signal research · trend</footer>
 
 </div>
+</body>
+</html>
