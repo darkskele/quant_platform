@@ -25,10 +25,13 @@ Parser::parse()      (parser.hpp: the concept)
 - **`MarkPriceKlineParser`** (`mark_klines.hpp`). Same shape without volume, which is always zero on this dataset.
 - **`PremiumIndexKlineParser`** (`premium_klines.hpp`). Same shape again, values are rates and go negative.
 - **`FundingParser`** (`funding.hpp`). Calc time, interval hours, and the rate.
+- **`MetricsParser`** (`metrics.hpp`). Open interest and its value, plus four optional long short ratios.
+- **`AggTradesParser`** (`agg_trades.hpp`). One aggregate trade, its id range and the taker's side.
+- **`BookDepthParser`** (`book_depth.hpp`). A grouped dataset. One sample of five whole-percent depth bands a side from a block of rows.
 
 ## Milestones
 
 - [x] ~~`Parser` concept~~
 - [x] ~~Single-pass field readers~~
 - [x] ~~A parser per published dataset~~
-- [ ] Trades and book depth rows
+- [x] ~~Trades and book depth rows~~
