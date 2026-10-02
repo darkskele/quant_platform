@@ -6,6 +6,7 @@ A modular C++ trading platform where **backtest and live run the same code**. Ve
 ## Non-negotiables
 - **One code path.** Backtest and live differ only in compile-time policy types (`Source`, `Transport`, `ExecutionGateway`, `Sink`). Never fork strategy logic on a macro.
 - **Never call the system clock in strategy/risk code.** Time arrives on the pull, as `EngineInput::ts`. Determinism landmine.
+- **An event is delivered when its information exists.** A bar arrives at its close, never its open. Every mock test passed the open-time stamp. Only an engine-level test through the real source caught it.
 - **Strategies emit `Intent`, not venue calls.** They depend only on `MarketEvent` / `Portfolio` / `Intent`, never a concrete adapter.
 - **Static dispatch on every seam the software controls** (concepts over CRTP). Virtual dispatch only for a rare, config-selected choice off the hot path; no current seam qualifies. No vtable in the feed loop.
 - **Seams first, generality later.** Build concretely; abstract on the second implementation. No plugin framework before a plugin.

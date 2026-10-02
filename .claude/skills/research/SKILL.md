@@ -53,6 +53,11 @@ Do NOT write cells that describe what was just done, and do NOT write "next step
 - Regime-normalize to separate skill from luck. A capture ratio compares across years, PnL does not.
 - Persistence is the reference line on every run. Report lift over persistence, and remember persistence has no training, it is the one-print rule.
 - Honest costs always. An optimistic fill is how a backtest lies.
+- Run the check that would embarrass a number before believing it. Nearly every mistake in the trend lane was a good number whose killer check had not been run yet.
+- Calibrate any new bar or metric on simulated books with a known edge before scoring with it. A bar that sounds strict can fail real edges and still pass luck.
+- Remove an arbitrary choice rather than picking a value. Rebalance day, start phase, bar build. Stagger or average over it, a seven-slice book rebalancing one slice a day, and quote that. A result that changes sign with an arbitrary choice is noise.
+- Evidence comes from independent bets, not from sampling. A 4-week signal read daily carries the same evidence as read weekly. A faster effect earns more bets a year, so a real one passes in fewer years, if it survives its larger cost. Trade on the mechanism's own clock, a calendar rebalance or an event trigger, and recalibrate the gate before scoring a new one. An event book counts its bets in independent events, since triggers cluster in volatile weeks.
+- When time cannot be bought, test the idea on a market the lane never loaded. A fail there says the result was probably fitted. A pass says the idea travels, it does not pass the original signal.
 
 ## Signals, strategies and regimes
 
@@ -61,7 +66,48 @@ Signal research proves an edge inside a stated market condition. It does not bui
 - A thin edge that only holds in a slim condition is still a strategy, as long as the edge inside the condition is real and the condition is known before the trade. The target is many condition-scoped signals, switched on and off by regime detection and sized by the risk gate. Nothing survives all regimes, so do not throw a signal away for failing pooled.
 - Judge a conditional signal on its in-condition record, the sleeve, since that is what runs live. Do not dilute it with the flat weeks a separate regime detector would remove. The always-on book is a capital-efficiency question, not the signal's verdict.
 - The search still counts. The conditional edge faces the multiple-testing correction over every condition and cut tried, and a short in-condition sample is the usual binding constraint. A promising sleeve that is under-powered is parked for more data or a mechanism, not passed and not killed.
-- Explore a lane to the ends of the data, then write it up, before opening a coupled one. Independent lanes run in parallel. Coupled lanes that share a universe, a cadence and a structure run one at a time, since together they repeat the same pipeline and findings. Trend runs to the end and is written up before mean reversion, its mirror, begins on top of it. Evidence that a rival effect is stronger in some condition, reversal against trend, is banked for that coupled lane, it does not close or pull forward the lane that turned it up. A lane closes on its own stop condition, never because a sibling looked better.
+- Explore a lane to the ends of the data, then write it up, before opening a coupled one. Independent lanes run in parallel. Coupled lanes that share a universe, a cadence and a structure run one at a time, since together they repeat the same pipeline and findings. Trend ran to the end and was written up before mean reversion, its mirror, began on top of it. Evidence that a rival effect is stronger in some condition, reversal against trend, is banked for that coupled lane, it does not close or pull forward the lane that turned it up. A lane closes on its own stop condition, never because a sibling looked better.
+
+## Opening a lane
+
+A lane opens with `spec.md` in its folder, committed before any return of the signal is computed. Describing the data comes first and may shape the spec. Measuring the signal may not.
+
+- Hypothesis. What pays, in which condition, on which universe and cadence.
+- Mechanism. Why it should pay, and who is on the other side.
+- Primary test. One book exactly as it will be coded, and its setting grid, which is the trial family S1 deflates by.
+- Kill rule. The result that closes the lane, and the result that parks it.
+- Data and span, and every trial already spent on them by coupled lanes.
+
+Everything outside the primary test is exploratory from the start. Amending the spec after a result is a new spec, its trials counted on top.
+
+## Registering a test
+
+A registered test is the only way past the search penalty. One trial, on data the lane never loaded or that does not exist yet.
+
+- The spec names the hypothesis, every book exactly as coded at the registering commit, the data and that it was never loaded, the trial count per dataset, the pass, park and fail rules, and when it is reviewed.
+- Commit and push the spec, then run. A run before the commit cannot be shown to have followed it.
+- One look per scheduled review. Any other cut of the data is exploratory.
+
+## Closing a lane
+
+A lane closes on its own stop condition, when the data that exists cannot say more.
+
+1. The write-up is the last review. Writing it raises questions the lane never asked. Answer them before closing, as exploratory, on searched data.
+2. `<lane>.html` in the lane folder, charts in `img/`. In the order the work was done, each number as it stood on the day with its later correction. Then what went wrong, the verdict and its stamp, what held, the handoffs to regime, strategy and other lanes, what runs on, what was not pursued, lessons, the trial ledger, the notebook and commit map, and what is not modelled.
+3. Every lesson lands here as a landmine or discipline line, and in the signal gate where it is a check.
+4. Forward registered tests are listed with their review dates.
+
+## Kinds of research
+
+Five kinds, each its own lane.
+
+- Signal. Is there an edge, in which condition, net of cost.
+- Cost. What trading costs and how to trade. Impact shape, spread and depth as they move, execution over time, funding as a process. Its model is charged the same in research and in the C++ `CostModel`.
+- Regime. Which state the market is in, known from the past alone. Switches signals on and off.
+- Risk. How much to hold and how bad it can get. Volatility and correlation forecasts, tails, sizing, the kill switch's limits.
+- Strategy. Composes a signal with its regime activation, its cost and its risk into a runnable book.
+
+Volatility models feed cost, regime and risk alike. Build them once.
 
 ## Signal research and strat research
 
@@ -90,6 +136,13 @@ Two phases, and the seam between them gates the roadmap.
 - A span that helped choose a result is not out of sample. The map picked its condition on the rule that the earlier and later weeks agree, then the later weeks were quoted as a frozen holdout. When the condition was chosen in fold from the past alone, the search never picked it. Choose in fold, or register the choice before the data exists.
 - Run the neighbours of every winning setting before building on it. The lookback grid skipped 3 and 5 weeks, and when they were run 3 weeks earned almost nothing beside 4. A spike whose neighbours were never measured is a lucky cell until shown otherwise.
 - A conditional sleeve pays for switching on and off. Slicing the always-on book's returns to the condition's weeks skips every entry and exit, so the sleeve must be the gated book's returns with its exit cost booked to its last week.
+- A bar stamped at its open leaks its close one bar early. Every mock test passed the wrong clock. Before trusting a time-driven result, check the engine delivers each event when its information exists, with a test that drives the real source through the real engine.
+- Single cells on one rebalance day misread the lookback grid. On Sundays 3 weeks looked like a hole and 4 weeks like possible luck. Across seven days the hole was mostly Sunday and 4 weeks was a solid block.
+- Two builds of one book must agree. The market book fell from 0.80 to 0.61 rebuilt from daily data, on one week where the 4-week market return sat within 0.1% of zero. A sign taken on a near-zero input is a coin flip, so report how much of the result rests on such weeks.
+- Judge a rule that sits out on the trades it takes and on return per dollar deployed. Flat time lowers a Sharpe by itself.
+- Scale a cost to the market it is charged in. 7.5 bps copied to ETFs was several times heavier against funds that move a fifth as much as coins.
+- A registered test ran before its spec was committed. The spec was unchanged, but the history cannot show it.
+- Every exploratory book enters the trial ledger. A late check ran about 5,700 books and quoted them against the ledger's older count, which is generous to them. Rebuild them as return series and recount the effective trials.
 - Hindsight conditions look robust. Nudging the windows of a condition found on the full sample barely moved it, because every nudge was fitted to the same weeks. Robustness to its own settings is not evidence the condition would have been found.
 
 ## Working with the repo owner and git

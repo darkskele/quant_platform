@@ -27,6 +27,7 @@ BinanceHistoricalStream
 - `BinanceHistoricalStream` (`stream.hpp`). One dataset for one symbol. Plans its own files, keeps its own prefetch window full, parses on the calling thread, and counts what it could not read.
 - `endpoints.hpp`. The dataset table. Bucket path, cadence support, column count, and which column carries base-asset volume.
 - `listing.hpp`. Bucket listing, keys or immediate children under a prefix, paged to exhaustion.
+- `python/`. The source exposed to python as an iterable of market events, with its plan and gap reports.
 
 ## Variations
 
@@ -41,5 +42,5 @@ BinanceHistoricalStream
 - [x] ~~Fetch pool with retries, failure accounting and a critical signal~~
 - [x] ~~Source merges every stream in ascending `ts` order~~
 - [x] ~~Correctness checked against live files~~
-- [ ] Trades and book depth datasets
+- [x] ~~Metrics, trades and book depth datasets~~
 - [ ] Resume a planned run without refetching what was already read

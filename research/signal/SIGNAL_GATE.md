@@ -25,6 +25,8 @@ A check the data at hand cannot settle is named as open in the stamp, for exampl
 - Each hypothesis names one primary test before any run. Its setting grid is the trial family S1 deflates by.
 - Everything else is exploratory. It is deflated by every trial run in the lane, old grids included. Trials do not reset when the data widens.
 - An exploratory result can at best park. It passes only on data it was not chosen on, a forward run or a span registered before it was looked at.
+- A registered test is committed before it is run. The spec names the hypothesis, the books as coded, the data, the trials, the pass, park and fail rules, and the reviews.
+- A setting with no reason to prefer one value, a rebalance day or a start phase, is staggered or averaged over, never chosen.
 - A mechanism stated before the test is what earns a result primary status. It is the prior, and it is why a pre-registered test pays a smaller penalty than a search.
 
 ## Conditional signals
@@ -34,6 +36,7 @@ A signal may earn only inside a market condition. It is judged on its sleeve, th
 - The condition is built from past data only, with cut points from earlier periods.
 - The condition is named before its results are seen, or it is chosen inside each walk forward fold. A condition picked from a full-sample map is exploratory.
 - The sleeve pays its own cost of switching on and off.
+- A rule that sits out part of the universe is also reported per dollar deployed.
 - The sleeve's baseline is the basket held long and held short over the same periods. Both are reported.
 - Every check below runs on the sleeve's periods.
 
@@ -76,7 +79,7 @@ A signal may earn only inside a market condition. It is judged on its sleeve, th
 | # | check | pass criteria |
 |---|---|---|
 | C1 | Fees | The venue's current taker rate per leg, checked against that market's own fee schedule |
-| C2 | Spread and impact | Taken from a cost ladder measured on the tape and book depth, at a stated research book size |
+| C2 | Spread and impact | Taken from a cost ladder measured on the tape and book depth of the market it is charged in, at a stated research book size |
 | C3 | Funding | Paid and received on every open perp leg at settlement |
 | C4 | Cost sensitivity | The sign survives twice the cost |
 

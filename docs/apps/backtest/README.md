@@ -18,12 +18,13 @@ BacktestBase::run()  (two threads, joined)
 
 ## Variations
 
-- **`FundingCarryBacktest`** (`funding_carry/`): the carry strategy over a futures and a spot leg. Runtime `Config` for the carry and risk knobs, reports `Results`.
-- **`PythonBinanceHistoricalBacktest`** (`python/`): Strategy and RiskGate are the python adapters, events come from the Binance historical source. Callbacks are set from the notebook via `set_on_event`/`set_on_timer`/`set_check`/`set_on_tick`, and `plan()` then `run()` drive it. Reports per-instrument fees, funding and basis alongside the equity series.
+- **`FundingCarryBacktest`** (`funding_carry/`): the carry strategy over a futures and a spot leg. Runtime `Config` for the carry and risk knobs, reports `Results`. Sources are an `EofSource` stub.
+- **`PythonBinanceHistoricalBacktest`** (`python/`): a `PythonBacktestBase` variant supplying the sources. Strategy and RiskGate are the python adapters, events come from the Binance historical source. Callbacks are set from the notebook via `set_on_event`/`set_on_timer`/`set_check`/`set_on_tick`, and `plan()` then `run()` drive it. Reports per-instrument fees, funding and basis alongside the equity series.
 
 ## Milestones
 
 - [x] ~~Wire a strategy through a real `Engine` composition end to end~~
 - [x] ~~Composition is runtime, driven by a `Subscription`~~
 - [x] ~~A real backtest run against real exchange data~~
-- [ ] Wire `FundingCarryBacktest` onto a live source
+- [ ] Wire `FundingCarryBacktest` onto a real source
+- [ ] A python backtest on the `CostAwareMatcher`
