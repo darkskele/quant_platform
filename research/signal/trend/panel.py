@@ -43,39 +43,53 @@ def load(start='2020-01-01', end='2026-09-01', crypto_only=True) -> Panel:
     return build(bars, prints)
 
 
-def build(bars: pd.DataFrame, prints: pd.DataFrame | None = None) -> Panel:
-    """The weekly panel from daily bars and funding prints in long form. No prints means no funding."""
+def daily_returns(close: pd.DataFrame, traded: pd.DataFrame) -> pd.DataFrame:
+    """Daily log returns on traded days, each coin's first 30 trading days skipped."""
+    daily = np.log(close.where(traded)).diff().where(traded & traded.shift(1, fill_value=False))
+    return daily.where(traded.cumsum().where(traded) > 30)
+
+
+def held_returns(close: pd.DataFrame, traded: pd.DataFrame) -> pd.DataFrame:
+    """Daily log returns a held position books, halt gaps included, redenominations dropped."""
+    held = np.log(close.where(traded)).ffill().diff().where(traded)
+    for sym, day in REDENOMINATIONS:
+        day = pd.Timestamp(day, tz='UTC')
+        if sym in held.columns and day in held.index:
+            held.loc[day, sym] = np.nan
+    return held
+
+
+def build(bars: pd.DataFrame, prints: pd.DataFrame | None = None, week='W-SUN') -> Panel:
+    """The weekly panel from daily bars and funding prints in long form. No prints means no funding.
+
+    week is the pandas rule naming the day each week ends on.
+    """
     close = bars.pivot(index='day', columns='symbol', values='close')
     volume = bars.pivot(index='day', columns='symbol', values='volume')
 
     traded = volume > 0
     dollar_volume = (volume * close).where(traded)
-    daily = np.log(close.where(traded)).diff().where(traded & traded.shift(1, fill_value=False))
-    daily = daily.where(traded.cumsum().where(traded) > 30)
+    daily = daily_returns(close, traded)
 
-    count = daily.notna().resample('W-SUN').sum()
-    weekly = daily.resample('W-SUN').sum(min_count=5).where(count >= 5)
-    liquidity = dollar_volume.rolling(30, min_periods=20).median().resample('W-SUN').last().shift(1)
+    count = daily.notna().resample(week).sum()
+    weekly = daily.resample(week).sum(min_count=5).where(count >= 5)
+    liquidity = dollar_volume.rolling(30, min_periods=20).median().resample(week).last().shift(1)
     vol = weekly.rolling(12, min_periods=8).std().shift(1)
 
     if prints is None or prints.empty:
         funding = pd.DataFrame(0.0, index=weekly.index, columns=weekly.columns)
     else:
         fund = prints.pivot_table(index='t', columns='symbol', values='rate', aggfunc='last')
-        funding = fund.resample('W-SUN').sum().reindex(index=weekly.index, columns=weekly.columns).fillna(0.0)
+        funding = fund.resample(week).sum().reindex(index=weekly.index, columns=weekly.columns).fillna(0.0)
 
-    held = np.log(close.where(traded)).ffill().diff().where(traded)
+    held = held_returns(close, traded)
     reopen = traded & ~traded.shift(1, fill_value=False) & held.notna()
-    for sym, day in REDENOMINATIONS:
-        day = pd.Timestamp(day, tz='UTC')
-        if sym in held.columns and day in held.index:
-            held.loc[day, sym] = np.nan
-    gaps = held.where(reopen).resample('W-SUN').sum(min_count=1)
-    simple = np.expm1(held.resample('W-SUN').sum(min_count=1))
+    gaps = held.where(reopen).resample(week).sum(min_count=1)
+    simple = np.expm1(held.resample(week).sum(min_count=1))
 
     # A coin idle on the week's last day that trades again later is halted, not delisted.
     trades_later = traded[::-1].cummax()[::-1]
-    halted = (~traded.resample('W-SUN').last() & trades_later.resample('W-SUN').last()).shift(1, fill_value=False)
+    halted = (~traded.resample(week).last() & trades_later.resample(week).last()).shift(1, fill_value=False)
     return Panel(weekly=weekly, simple=simple, liquidity=liquidity.reindex(weekly.index),
                  vol=vol, funding=funding, halted=halted.reindex(weekly.index).fillna(False).astype(bool),
                  gaps=gaps.reindex(weekly.index))

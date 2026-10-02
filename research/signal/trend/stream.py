@@ -176,20 +176,24 @@ def funding(symbols, start, end):
     return prints.pivot_table(index="t", columns="symbol", values="rate", aggfunc="last").sort_index(), reports
 
 
+def listed(start, end) -> list[str]:
+    """Every USDT perp, frozen with the daily cache so a later listing cannot shift the chunks."""
+    folder = CACHE / f"usdm_daily_{pd.Timestamp(start).date()}_{pd.Timestamp(end).date()}"
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / "symbols.txt"
+    if not path.exists():
+        path.write_text("\n".join(usdm_perps()))
+    return path.read_text().split()
+
+
 def universe(start, end, chunk=50, log=print):
     """Daily bars and funding for every USDT perp, pulled in chunks and cached.
 
     A chunk already on disk is read back rather than streamed, so an interrupted
     pull resumes where it stopped.
     """
-    tag = f"{pd.Timestamp(start).date()}_{pd.Timestamp(end).date()}"
-    folder = CACHE / f"usdm_daily_{tag}"
-    folder.mkdir(parents=True, exist_ok=True)
-    # The coin list is fixed with the cache, so a later listing cannot shift the chunks.
-    listed = folder / "symbols.txt"
-    if not listed.exists():
-        listed.write_text("\n".join(usdm_perps()))
-    symbols = listed.read_text().split()
+    symbols = listed(start, end)
+    folder = CACHE / f"usdm_daily_{pd.Timestamp(start).date()}_{pd.Timestamp(end).date()}"
 
     bars, prints = [], []
     for i in range(0, len(symbols), chunk):
@@ -204,6 +208,25 @@ def universe(start, end, chunk=50, log=print):
         bars.append(pd.read_parquet(bars_file))
         prints.append(pd.read_parquet(prints_file))
     return pd.concat(bars, ignore_index=True), pd.concat(prints, ignore_index=True)
+
+
+def hourly_closes(symbols, start, end, chunk=25, log=print):
+    """Hourly close per symbol, indexed by the hour's open, pulled in chunks and cached."""
+    q = module()
+    folder = CACHE / f"usdm_hourly_{pd.Timestamp(start).date()}_{pd.Timestamp(end).date()}"
+    folder.mkdir(parents=True, exist_ok=True)
+    closes = []
+    for i in range(0, len(symbols), chunk):
+        path = folder / f"close_{i:04d}.parquet"
+        if not path.exists():
+            bars, _, _ = _collect(symbols[i:i + chunk], [q.StreamSpec(q.EndpointKind.Klines, "1h")], q.Cadence.Monthly, start, end)
+            bars["hour"] = pd.to_datetime(bars.close_time, unit="ns", utc=True).dt.floor("h")
+            bars.pivot_table(index="hour", columns="symbol", values="close", aggfunc="last").astype("float32").to_parquet(path)
+            log(f"chunk {i // chunk + 1} of {-(-len(symbols) // chunk)} streamed, {len(bars)} bars")
+        closes.append(pd.read_parquet(path))
+    lo, hi = pd.Timestamp(start, tz="UTC"), pd.Timestamp(end, tz="UTC")
+    out = pd.concat(closes, axis=1).sort_index()
+    return out[(out.index >= lo) & (out.index < hi)]
 
 
 def spot_bars(symbols, start, end, chunk=50, log=print):
