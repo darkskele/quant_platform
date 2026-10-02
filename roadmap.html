@@ -248,6 +248,7 @@ footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--rule);
   </div>
   <div>
     <dl class="meta">
+      <dt>Author</dt><dd>Swag Master Extreme</dd>
       <dt>As of</dt><dd>2 October 2026</dd>
       <dt>Open lane</dt><dd>Mean reversion</dd>
       <dt>Colour</dt><dd>
@@ -265,6 +266,7 @@ footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--rule);
     <tr><td><span class="tag sig">signal</span></td><td>Time-series trend</td><td>Closed, parked. A market-timing premium near four weeks. The Sunday book makes 0.85 at probability 0.49, the seven-slice book 1.02 at 0.58 to 0.67, exploratory. Failed on 66 ETFs. <a href="research/signal/trend/trend.html">Write-up</a></td></tr>
     <tr><td><span class="tag sig">signal</span></td><td>Funding carry</td><td>Invalidated. Built before the method trend hardened, scored on gross funding. Redone from scratch</td></tr>
     <tr><td><span class="tag sig">signal</span></td><td>Mean reversion</td><td>Next</td></tr>
+    <tr><td><span class="tag sig">signal</span></td><td>Path shape</td><td>Future. After mean reversion</td></tr>
     <tr><td><span class="tag str">cost</span></td><td>Cost modelling</td><td>A static ladder from depth snapshots. Worth a lane of its own</td></tr>
     <tr><td><span class="tag reg">regime</span></td><td>Regime detection</td><td>Not designed</td></tr>
     <tr><td><span class="tag reg">risk</span></td><td>Risk research</td><td>Not designed. A basic exposure cap and drawdown kill switch exist</td></tr>
@@ -300,6 +302,26 @@ footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--rule);
     </ul>
   </div>
 
+  <div class="item">
+    <h3>Path shape</h3>
+    <p>After mean reversion. Intraday, on spot first. Does the shape of the path so far say a cost-beating move follows, and in which regime.</p>
+    <ul>
+      <li>The question is the probability of a winner given the shape at entry, never the shape given a winner. Every move looks like a trend in hindsight, and a shape common to winners is worthless if it is as common to losers.</li>
+      <li>Labels. Every candidate moment, not only the winners. Triple barrier, with take-profit and stop sized from the cost table and a time limit. Meta-labelling on top of a simple trigger.</li>
+      <li>Features from data up to the entry only. Truncated path signatures over several windows, with lead-lag and time augmentation. Regime state and volatility beside them.</li>
+      <li>Later geometry. Delay embedding and persistent homology, shapelets and the matrix profile. Signatures come first, cheaper and better grounded.</li>
+      <li>Extends to mean reversion. The same labels with the barriers flipped ask which shapes snap back.</li>
+      <li>1m bars cover a first look. Order flow for earlier detection needs trades and depth.</li>
+    </ul>
+  </div>
+  <div class="think">
+    <ul>
+      <li>Costs decide it. Spot round trips run about 15 to 25 bp, so the barriers sit well clear of that or the lane is fitting noise.</li>
+      <li>A shape search is a huge search. Every shape tried goes in the trial ledger. Purged walk-forward, the gate, then a registered holdout.</li>
+      <li>Spot is long only, so it harvests up-moves. Perps add the short side of every shape.</li>
+      <li>The honest prior is modest. Trend paid near four weeks, and intraday tends to revert.</li>
+    </ul>
+  </div>
   <div class="item">
     <h3>Later lanes</h3>
     <ul>
