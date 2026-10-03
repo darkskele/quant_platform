@@ -34,3 +34,6 @@ __pycache__/
 
 # Symlink to the shared devenv/vscode
 /.vscode
+
+*.egg-info/
+.pytest_cache/
