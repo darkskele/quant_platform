@@ -5,6 +5,7 @@ dependencies:
   - python=3.12
   - numpy
   - pandas
+  - scipy
   - matplotlib
   - jupyterlab
   - ipykernel
@@ -12,3 +13,8 @@ dependencies:
   - scikit-learn
   - lightgbm
   - pyarrow
+  - pytest
+  - statsmodels
+  - pip
+  - pip:
+      - -e .

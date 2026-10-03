@@ -31,3 +31,5 @@ config/*.local.*
 __pycache__/
 *.py[cod]
 *.pkl
+*.egg-info/
+.pytest_cache/

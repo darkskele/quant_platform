@@ -224,6 +224,38 @@
             "preLaunchTask": "qp_python_backtest"
         },
         {
+            "name": "qp_research tests",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": ["-q"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/python",
+            "justMyCode": false,
+            "python": "${userHome}/miniconda3/envs/qp-research/bin/python"
+        },
+        {
+            "name": "qp_research tests, current file",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": ["-q", "${file}"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/python",
+            "justMyCode": false,
+            "python": "${userHome}/miniconda3/envs/qp-research/bin/python"
+        },
+        {
+            "name": "qp_research tests, test explorer",
+            "type": "debugpy",
+            "request": "launch",
+            "purpose": ["debug-test"],
+            "presentation": {"hidden": true},
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "python": "${userHome}/miniconda3/envs/qp-research/bin/python"
+        },
+        {
             "name": "qp_binance_funding_carry",
             "type": "node-terminal",
             "request": "launch",
