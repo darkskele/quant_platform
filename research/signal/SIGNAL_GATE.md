@@ -20,6 +20,14 @@ A failed check is a stop. Fix it, then rerun the whole gate, not the failed item
 
 A check the data at hand cannot settle is named as open in the stamp, for example `gate park, needs about 500 weeks, open T5`. Open is not a pass. It says what data would close it.
 
+## What a stamp allows
+
+The stamp measures evidence. It is not a verdict on whether to trade. Six and a half years of weekly data passes a true 0.8 Sharpe only about two times in three on a single clean test, so a real, modest edge is expected to park.
+
+- `gate pass`. Proven on data it was not chosen on. Eligible for full size.
+- `gate park`. Promising, not proven. With a mechanism stated before the test, it goes to strategy research and trades at small size, paper or live, which collects the forward data a pass needs. It scales as the forward record agrees with the backtest and is cut when it diverges.
+- `gate fail`. A specific check failed. Not traded until the cause is fixed and the whole gate rerun.
+
 ## Primary and exploratory
 
 - Each hypothesis names one primary test before any run. Its setting grid is the trial family S1 deflates by.

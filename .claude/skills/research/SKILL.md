@@ -47,6 +47,7 @@ Do NOT write cells that describe what was just done, and do NOT write "next step
 
 `research/signal/SIGNAL_GATE.md` is the bar every signal result clears before it is quoted as a finding. Report the gate status with the number. The rest of this section is how to get there.
 
+- Park is the expected stamp for a real, modest edge, not a dead end. The data cannot prove a 0.8 Sharpe, so a parked signal with a mechanism goes forward to strategy research and small-size trading, and the forward record decides its size. Pass is for full size.
 - Judge by net PnL and Sharpe, not IC. IC does not translate to money here, that is a settled finding.
 - Coarse first. Answer the binary question, does it move at all. Stop if flat, flat is itself the answer. Go finer only on the axis that moved, never two grids at once.
 - A best cell whose neighbours and siblings do not agree with it is noise. Report the spread across the grid, not just the winner.
@@ -65,7 +66,7 @@ Signal research proves an edge inside a stated market condition. It does not bui
 
 - A thin edge that only holds in a slim condition is still a strategy, as long as the edge inside the condition is real and the condition is known before the trade. The target is many condition-scoped signals, switched on and off by regime detection and sized by the risk gate. Nothing survives all regimes, so do not throw a signal away for failing pooled.
 - Judge a conditional signal on its in-condition record, the sleeve, since that is what runs live. Do not dilute it with the flat weeks a separate regime detector would remove. The always-on book is a capital-efficiency question, not the signal's verdict.
-- The search still counts. The conditional edge faces the multiple-testing correction over every condition and cut tried, and a short in-condition sample is the usual binding constraint. A promising sleeve that is under-powered is parked for more data or a mechanism, not passed and not killed.
+- The search still counts. The conditional edge faces the multiple-testing correction over every condition and cut tried, and a short in-condition sample is the usual binding constraint. A promising sleeve that is under-powered is parked, not passed and not killed. With a mechanism it goes forward at small size, without one it waits for more data.
 - Explore a lane to the ends of the data, then write it up, before opening a coupled one. Independent lanes run in parallel. Coupled lanes that share a universe, a cadence and a structure run one at a time, since together they repeat the same pipeline and findings. Trend ran to the end and was written up before mean reversion, its mirror, began on top of it. Evidence that a rival effect is stronger in some condition, reversal against trend, is banked for that coupled lane, it does not close or pull forward the lane that turned it up. A lane closes on its own stop condition, never because a sibling looked better.
 
 ## Opening a lane

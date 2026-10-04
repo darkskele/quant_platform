@@ -249,7 +249,7 @@ footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--rule);
   <div>
     <dl class="meta">
       <dt>Author</dt><dd>Swag Master Extreme</dd>
-      <dt>As of</dt><dd>2 October 2026</dd>
+      <dt>As of</dt><dd>4 October 2026</dd>
       <dt>Open lane</dt><dd>Mean reversion</dd>
       <dt>Colour</dt><dd>
         <span class="tag sig">signal</span><span class="tag reg">regime</span><span class="tag str">strategy</span><span class="tag eng">engineering</span><span class="tag dat">data</span>
@@ -264,9 +264,9 @@ footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--rule);
   <div class="scroll"><table>
     <tr><th>area</th><th>what</th><th>state</th></tr>
     <tr><td><span class="tag sig">signal</span></td><td>Time-series trend</td><td>Closed, parked. A market-timing premium near four weeks. The Sunday book makes 0.85 at probability 0.49, the seven-slice book 1.02 at 0.58 to 0.67, exploratory. Failed on 66 ETFs. <a href="research/signal/trend/trend.html">Write-up</a></td></tr>
-    <tr><td><span class="tag sig">signal</span></td><td>Funding carry</td><td>Invalidated. Built before the method trend hardened, scored on gross funding. Redone from scratch</td></tr>
-    <tr><td><span class="tag sig">signal</span></td><td>Mean reversion</td><td>Next</td></tr>
-    <tr><td><span class="tag sig">signal</span></td><td>Path shape</td><td>Future. After mean reversion</td></tr>
+    <tr><td><span class="tag sig">signal</span></td><td>Funding carry</td><td>Invalidated. Built before the method trend hardened, scored on gross funding. Redone from scratch after mean reversion, rules first</td></tr>
+    <tr><td><span class="tag sig">signal</span></td><td>Mean reversion</td><td>Open. Planned, no signal return computed yet. <a href="research/signal/mean_reversion/mean_reversion.html">Plan</a></td></tr>
+    <tr><td><span class="tag sig">signal</span></td><td>Path shape</td><td>Future. After regime and risk</td></tr>
     <tr><td><span class="tag str">cost</span></td><td>Cost modelling</td><td>A static ladder from depth snapshots. Worth a lane of its own</td></tr>
     <tr><td><span class="tag reg">regime</span></td><td>Regime detection</td><td>Not designed</td></tr>
     <tr><td><span class="tag reg">risk</span></td><td>Risk research</td><td>Not designed. A basic exposure cap and drawdown kill switch exist</td></tr>
@@ -290,21 +290,34 @@ footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--rule);
       <li>Event-driven. A trigger on a move large against the coin's own volatility, checked at every hourly close, with exits on reversion, a time stop or a stop. The calendar book is its baseline. The gate is recalibrated for event books first.</li>
       <li>Every trend trial counts against it. Name the primary test and its mechanism before the first run.</li>
       <li>Starts on the research package and the trial ledger, not on copies of the trend modules.</li>
+      <li>Learning has room here. Meta-labelling on the event book first, deep learning on residual paths last, each beating the step before it net of cost.</li>
     </ul>
   </div>
 
   <div class="item">
     <h3>Funding carry, again</h3>
-    <p>The first pass taught the method and is invalidated by it. Cost-blind, a feature zoo before a hypothesis, no calibrated gate, no trial ledger. Redone from scratch after mean reversion, on the package, the ledger and measured costs.</p>
+    <p>The first pass taught the method and is invalidated by it. Cost-blind, a feature zoo before a hypothesis, no calibrated gate, no trial ledger. Redone from scratch after mean reversion, on the package, the ledger and measured costs. The last signal lane before regime and risk are modelled.</p>
     <ul>
+      <li>Rules first. Hold spot long and the perp short while funding is high, flat otherwise, every leg's fee, spread and funding charged. Largely self-contained, so it leans on cost, not on regime or risk.</li>
+      <li>Rate decay. How many more prints a high rate lasts, from open interest momentum and forced closing. A rate that needs four prints to repay entry is worthless if it collapses after two.</li>
+      <li>Basis timing. Whether the perp's premium over spot widens before settlement and collapses after, and whether timing entry and exit around the print beats trading at a fixed time.</li>
+      <li>Cross-sectional basis. Rank every coin's basis and fade the extremes, with momentum, open interest and perp against spot taker imbalance as factors, each with a reason stated first.</li>
       <li>Banked from trend. Funding predicted next week's return on its own, t 3.00.</li>
       <li>Banked from the first pass, as hypotheses only. Funding persists, basis drives it through the clamp, pooling across symbols beat fitting each.</li>
+    </ul>
+  </div>
+  <div class="think">
+    <ul>
+      <li>Four legs, not two. Spot and perp each pay a fee and a spread on the way in and out, so cost decides most of it. The cost lane's funding model comes first.</li>
+      <li>Only the positive side is easy. Negative funding means short spot, which needs a borrow the archive cannot price.</li>
+      <li>Hedged is not riskless. The perp leg can be liquidated in a squeeze while the spot leg sits elsewhere, so margin buffer is a minimum risk rule even before the risk lane.</li>
+      <li>Data. Basis timing needs premium and spot bars at the minute. Taker imbalance needs the taker volume the kline parser drops, or the trade tape. Market cap is not in the archive.</li>
     </ul>
   </div>
 
   <div class="item">
     <h3>Path shape</h3>
-    <p>After mean reversion. Intraday, on spot first. Does the shape of the path so far say a cost-beating move follows, and in which regime.</p>
+    <p>After regime and risk. Intraday, on spot first. Does the shape of the path so far say a cost-beating move follows, and in which regime.</p>
     <ul>
       <li>The question is the probability of a winner given the shape at entry, never the shape given a winner. Every move looks like a trend in hindsight, and a shape common to winners is worthless if it is as common to losers.</li>
       <li>Labels. Every candidate moment, not only the winners. Triple barrier, with take-profit and stop sized from the cost table and a time limit. Meta-labelling on top of a simple trigger.</li>
@@ -386,6 +399,7 @@ footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--rule);
     <li>Conditioning on the market pays. A search choosing from the past alone made 1.38 against 0.64 always on.</li>
     <li>Trend loses after deleveraging, with open interest below its recent average.</li>
     <li>The moderate month is a hypothesis only.</li>
+    <li>2026 is a break, not a recurring state. Lowest co-movement and highest dispersion on record, and every trend book lost. One episode, so a changepoint question before a state model.</li>
   </ul>
 </section>
 
@@ -396,6 +410,7 @@ footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--rule);
   <ul>
     <li>Volatility and correlation forecasts, for sizing and for the risk gate's limits.</li>
     <li>Tails and crash profiles. Trend gains in crashes that keep going and loses in ones that snap back.</li>
+    <li>Correlation sets breadth and the weight of the market factor in every book. It fell from 0.57 to 0.65 to 0.31 in 2026.</li>
     <li>The kill switch's drawdown limits, set from a model rather than a guess.</li>
   </ul>
   <p>Volatility models feed cost, regime and risk alike. Built once.</p>
@@ -496,7 +511,7 @@ footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--rule);
   </ul>
 </section>
 
-<footer>quant-platform · roadmap · 2 October 2026</footer>
+<footer>quant-platform · roadmap · 4 October 2026</footer>
 
 </div>
 </body>

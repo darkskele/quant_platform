@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mean Reversion Plan</title>
+<link rel="stylesheet" href="../page.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}]})"></script>
+</head>
+<body>
+<div class="page">
+
+<header class="cover">
+  <div>
+    <p class="eyebrow">quant-platform · signal research</p>
+  </div>
+  <div>
+    <div class="bar"></div>
+    <h1>Mean Reversion on Crypto Perpetuals</h1>
+    <p class="sub">Do coins that ran away from the market come back, net of cost? A plan. What we will try, what we expect, and how we will know.</p>
+  </div>
+  <dl class="meta">
+    <dt>Author</dt><dd>Swag Master Extreme</dd>
+    <dt>Research</dt><dd>October 2026</dd>
+    <dt>Lane</dt><dd>research/signal/mean_reversion</dd>
+    <dt>Status</dt><dd>Plan. No return of the signal computed in this lane yet.</dd>
+  </dl>
+</header>
+
+<section class="overview" id="overview">
+  <span class="num">Overview</span>
+  <p>Trend found one strong pattern it could not use. A coin that beat the market over the last one or two weeks tends to lag it the next week. This lane asks whether that snap-back makes money after honest costs, in which market condition, and on which clock.</p>
+  <p>The prior is mixed. Reversal is one of the oldest effects in finance and is usually read as a fee for providing liquidity. But it trades a lot, it is short the coins that just spiked, and in crypto the published evidence puts it in small, illiquid coins. Trend's own numbers show it fading in the later years.</p>
+  <p>The plan runs from a plain calendar book, through an event book that fades large moves as they happen, to a model deciding which fades to take, and only then to deep learning on the residual paths. Each step has to beat the one before it, net of cost, out of fold.</p>
+</section>
+
+<section class="toc" id="contents">
+  <span class="num">Contents</span>
+  <h2>Contents</h2>
+  <ol>
+    <li class="part">Framing</li>
+    <li><span>01</span><a href="#idea">The idea</a></li>
+    <li><span>02</span><a href="#inherited">What trend left us</a></li>
+    <li><span>03</span><a href="#prior-art">Prior art</a></li>
+    <li class="part">What we will try</li>
+    <li><span>04</span><a href="#hypotheses">Hypotheses</a></li>
+    <li><span>05</span><a href="#expect">What we expect</a></li>
+    <li class="part">How</li>
+    <li><span>06</span><a href="#data">Data and its shapes</a></li>
+    <li><span>07</span><a href="#knobs">The knobs</a></li>
+    <li><span>08</span><a href="#judging">How a result is judged</a></li>
+    <li><span>09</span><a href="#ml">Where ML and deep learning fit</a></li>
+    <li class="part">Plan</li>
+    <li><span>10</span><a href="#order">Order of work</a></li>
+    <li><span>11</span><a href="#rules">Kill, park and pass</a></li>
+    <li class="part">Appendix</li>
+    <li><span>A</span><a href="#sources">Sources</a></li>
+  </ol>
+</section>
+
+<section id="idea">
+  <span class="num">01</span>
+  <h2>The idea</h2>
+  <p>Trend bets a move continues. Mean reversion bets it comes back. Both can be true at once on different clocks and different pieces of the return, and trend showed exactly that.</p>
+  <p>A coin's return is split in two. The part every coin shares, the market, and the part that is the coin's own. The own part is the residual.</p>
+  $$ e_{i,t} = r_{i,t} - \beta_{i,t}\, m_t $$
+  <ul>
+    <li>\(e_{i,t}\) is coin \(i\)'s residual return in period \(t\), what it did beyond the market.</li>
+    <li>\(r_{i,t}\) is the coin's log return.</li>
+    <li>\(m_t\) is the market's return, the average liquid coin.</li>
+    <li>\(\beta_{i,t}\) is how strongly the coin moves with the market, fitted on past data only. Setting it to one gives the plain difference trend used.</li>
+  </ul>
+  <p>The residual is summed over a formation window and put on the coin's own scale, so a calm coin and a wild coin can be compared.</p>
+  $$ z_{i,t} = \frac{\sum_{k=1}^{L} e_{i,t-k}}{\sigma^{e}_{i,t}\sqrt{L}} $$
+  <ul>
+    <li>\(L\) is the formation window, how far back the run-away is measured.</li>
+    <li>\(\sigma^{e}_{i,t}\) is the coin's residual volatility per period, from earlier data.</li>
+    <li>\(z_{i,t}\) reads as how many of its own normal moves the coin has run ahead of or behind the market. A \(z\) of 3 is a coin three normal moves above where the market alone would have put it.</li>
+  </ul>
+  <p>The reversal book goes against \(z\). Short the coins far above the market, long the coins far below, sized by volatility and balanced so the book holds no net market exposure.</p>
+  $$ w_{i,t} \propto -\frac{g(z_{i,t})}{\sigma_{i,t}}, \qquad \sum_i w_{i,t} = 0, \qquad \sum_i \lvert w_{i,t} \rvert = 1 $$
+  <ul>
+    <li>\(g\) is the signal's shape. The sign, a rank, or the \(z\) itself.</li>
+    <li>Dividing by \(\sigma_{i,t}\) gives a wild coin a smaller position.</li>
+    <li>Weights summing to zero makes the book market neutral in dollars. Weights summing to one in size keeps it fully invested at one unit.</li>
+  </ul>
+  <p>Because it holds no net market position, the book earns only if the coins it is long beat the coins it is short. That is a cleaner question than trend's, which turned out to be mostly a bet on the market.</p>
+  <h3>A continuous view</h3>
+  <p>The same idea in continuous time is the Ornstein-Uhlenbeck process, a random walk pulled back toward a level.</p>
+  $$ dX_t = \kappa\,(\mu - X_t)\,dt + \sigma\, dW_t $$
+  <ul>
+    <li>\(X_t\) is the cumulative residual at time \(t\). A level, not a change, roughly the coin's log price relative to the market, \(\ln P_{i,t} - \beta_i \ln M_t\). Each residual return \(e_{i,t}\) is one step of this line, and \(X_t\) is where the steps have taken it so far.</li>
+    <li>\(d\) means a tiny change. \(dX_t\) is the change in \(X\) over the next instant, \(dt\) is the length of that instant.</li>
+    <li>\(\mu\) is the level it is pulled toward.</li>
+    <li>\(\kappa\) is how hard it is pulled. The further \(X_t\) sits from \(\mu\), the harder the pull. The half-life of a gap is \(\ln 2 / \kappa\).</li>
+    <li>\(W_t\) is Brownian motion, pure noise added up over time. It starts at zero, its changes are independent of the past, and a change over a span \(\Delta\) is normal with spread \(\sqrt{\Delta}\).</li>
+    <li>\(dW_t\) is one tiny random shock from it, and \(\sigma\) scales it to how noisy this coin's residual is. Together they are the flow, news and liquidations that keep knocking it away.</li>
+  </ul>
+  <p>Without the noise this would be \(dX/dt = \kappa(\mu - X)\), a gap decaying smoothly to zero. The noise is why it is written in changes rather than as a derivative, since Brownian motion is too jagged to have a slope anywhere. Read as a step of one period, it is a regression of the residual on its own last value, which is how it is fitted.</p>
+  <p>Fitting this per coin gives two useful numbers, how fast a gap closes and how far from the level the coin sits now in units of its own noise. It also gives the null to beat. A residual with \(\kappa\) of zero is a random walk and nothing comes back.</p>
+</section>
+
+<section id="inherited">
+  <span class="num">02</span>
+  <h2>What trend left us</h2>
+  <p>Trend measured the residual twice, once by correlation and once in money. Both are already spent, so they shape the plan but cannot count as evidence for it.</p>
+  <h3>By correlation</h3>
+  <p>A coin that beat the market over the last one or two weeks lagged it the next week, at 3.5 to 3.9 standard errors, measured across coins each week and averaged. By eight weeks it faded to nothing. No cost, no funding.</p>
+  <h3>In money</h3>
+  <p>Trend's coin-picking book went with the residual, long the coins that beat the market. Net of cost, at $10M and up, Sunday rebalance.</p>
+  <table>
+    <tr><th>formation</th><th>all weeks</th><th>earlier 60%</th><th>later 40%</th></tr>
+    <tr><td class="mono">1 week</td><td class="mono">−0.49</td><td class="mono">−0.68</td><td class="mono">−0.07</td></tr>
+    <tr><td class="mono">2 weeks</td><td class="mono">−0.41</td><td class="mono">−0.49</td><td class="mono">−0.24</td></tr>
+    <tr><td class="mono">3 weeks</td><td class="mono">−0.22</td><td class="mono">−0.39</td><td class="mono">+0.18</td></tr>
+    <tr><td class="mono">4 weeks</td><td class="mono">+0.28</td><td class="mono">+0.23</td><td class="mono">+0.39</td></tr>
+    <tr><td class="mono">6 weeks</td><td class="mono">+0.20</td><td class="mono">−0.11</td><td class="mono">+0.76</td></tr>
+    <tr><td class="mono">8 weeks</td><td class="mono">+0.14</td><td class="mono">+0.01</td><td class="mono">+0.36</td></tr>
+    <tr><td class="mono">12 weeks</td><td class="mono">+0.07</td><td class="mono">+0.05</td><td class="mono">+0.10</td></tr>
+  </table>
+  <p>Three things temper this before the lane starts.</p>
+  <ul>
+    <li><b>A losing momentum book is not a winning reversal book.</b> Both pay the same cost. At 4 weeks momentum made +0.28 and its reverse lost 0.50, so the gross edge was about 0.39 and cost took about 0.11 off each side. A one-week book trades far more. The reverse of −0.49 could be near zero after paying for itself twice.</li>
+    <li><b>It is fading.</b> At one week the momentum book lost 0.68 in the earlier weeks and 0.07 in the later ones. Most of the reversal sat in the early years.</li>
+    <li><b>Short the spikes.</b> Weeks beyond +4 standard deviations happened twice as often as weeks beyond −4. The reversal book is short exactly the coins that just spiked, which is squeeze risk. The funding those shorts receive is a partial offset.</li>
+  </ul>
+  <h3>Other things trend learned that apply here</h3>
+  <ul>
+    <li>Hundreds of coins are two or three independent bets. One common factor explains 60 to 68% of movement. Removing it is the point of the residual, but it also means the residual is small.</li>
+    <li>2026 broke the pattern. Correlation between coins fell to 0.31, and dispersion was the highest on record. Trend lost there. A residual book should behave differently in that kind of year, and which way is an open question.</li>
+    <li>Coins under $10M a day show weaker and less reliable effects, and cost far more to trade.</li>
+    <li>Trend lost in crashes that snapped back, FTX and the March 2023 depeg. That is reversal at the level of the whole market, a rival effect banked for this lane.</li>
+    <li>Cost is a question of size. At $100k it barely moved trend. Reversal trades several times more, so the measured ladder matters more here than it did there.</li>
+  </ul>
+</section>
+
+<section id="prior-art">
+  <span class="num">03</span>
+  <h2>Prior art</h2>
+  <p>Short-term reversal is one of the oldest effects in empirical finance. What follows is what it says for this lane, not a survey.</p>
+  <h3>In stocks</h3>
+  <table>
+    <tr><th>work</th><th>finding</th><th>for us</th></tr>
+    <tr><td>Jegadeesh 1990, Lehmann 1990</td><td>Stocks that rose most over the last week or month underperform the next, in the cross-section</td><td>The base effect. Weekly and monthly clocks</td></tr>
+    <tr><td>Lo and MacKinlay 1990</td><td>Part of contrarian profit is lead-lag, big stocks moving first and small ones following, not overreaction</td><td>In crypto BTC leads alts. A residual book can earn from that lag without any coin reverting. The residual's \(\beta\) and the skip day guard against it</td></tr>
+    <tr><td>Avellaneda and Lee 2010</td><td>Residuals from sector ETFs or principal components treated as Ornstein-Uhlenbeck processes. Trade when the residual is far from its level, exit when it returns</td><td>The template for the event book and the residual model. Its profits shrank over the 2000s</td></tr>
+    <tr><td>Nagel 2012</td><td>Reversal returns are the return to providing liquidity. They rise sharply when volatility is high</td><td>The mechanism, and a condition named before any test. Reversal should pay most in volatile, stressed weeks</td></tr>
+    <tr><td>Da, Liu and Schaumburg 2014</td><td>Moves not explained by news reverse, moves with news do not. Removing the news part quadruples the effect. Long side is fire sales, short side is sentiment</td><td>Separate flow moves from information moves. In crypto, forced flow shows as liquidations and open interest falling</td></tr>
+    <tr><td>Gatev, Goetzmann and Rouwenhorst 2006</td><td>Pairs that moved together and then diverge converge again</td><td>A residual against one partner instead of the market. A later variant, not the primary</td></tr>
+  </table>
+  <h3>In crypto</h3>
+  <table>
+    <tr><th>work</th><th>finding</th><th>for us</th></tr>
+    <tr><td>Liu, Tsyvinski and Wu 2022</td><td>Market, size and momentum explain the cross-section. Momentum at weekly horizons</td><td>On raw returns crypto trends at short horizons. Our reversal is on the residual, a different object</td></tr>
+    <tr><td>Dobrynskaya 2023</td><td>Raw momentum peaks at two weeks, reversal starts from four to six weeks, across about 2,000 coins to 2020</td><td>The opposite of our residual ordering. Raw and residual must not be confused, and the broad small-cap universe differs from ours</td></tr>
+    <tr><td>Zaremba and others 2021</td><td>Daily reversal across 3,600 coins, driven by illiquidity. The largest, most tradeable coins show daily momentum instead</td><td>A warning. The effect may live where we cannot trade it. The $10M floor may remove it</td></tr>
+    <tr><td>Jung, SSRN</td><td>Principal-component residuals with Ornstein-Uhlenbeck fits on crypto, walk forward</td><td>Reported as not robust. The classic stock recipe does not carry over directly</td></tr>
+  </table>
+  <h3>With learning</h3>
+  <table>
+    <tr><th>work</th><th>finding</th><th>for us</th></tr>
+    <tr><td>Krauss, Do and Huck 2017</td><td>Gradient boosting, random forests and deep nets on lagged returns of S&amp;P 500 stocks. Large daily statistical arbitrage returns, strongest early and fading later</td><td>Learning a reversal from lagged returns works until it is crowded. Expect decay</td></tr>
+    <tr><td>Guijarro-Ordonez, Pelger and Zanotti 2025</td><td>Residuals from latent factors, signals from a convolutional transformer over each residual's recent path, and an allocation trained directly for risk-adjusted return under constraints. Sharpe up to 4 gross on large US stocks</td><td>The clearest case for deep learning in this lane. Residual model, path model and allocation in one, trained on the money and not on a forecast</td></tr>
+    <tr><td>López de Prado 2018</td><td>Meta-labelling. A simple rule picks the side, a classifier decides whether to take the trade</td><td>The first place for a model here. Low dimensional and well posed</td></tr>
+  </table>
+  <h3>What the prior art says, together</h3>
+  <ul>
+    <li>Reversal is a fee for liquidity. It should pay most when liquidity is scarce, which is also when trading costs the most.</li>
+    <li>Flow reverses, information does not. The gain comes from telling them apart.</li>
+    <li>In crypto it lives in illiquid coins on raw returns. On liquid coins and on residuals it is untested in print.</li>
+    <li>It decays as it gets traded, in stocks and in learned versions alike.</li>
+    <li>Reversal is naturally a passive strategy, buying from sellers who need out. Taker execution gives a lot of it back.</li>
+  </ul>
+</section>
+
+<section id="hypotheses">
+  <span class="num">04</span>
+  <h2>Hypotheses</h2>
+  <p>Each hypothesis names what pays, why, and who is on the other side, before any test. One will become the primary test in the spec, chosen from what the data description and the cost ceiling show, before any return of the signal is computed. The rest are exploratory from the start.</p>
+
+  <h3>H1. Calendar residual reversal</h3>
+  <p>Coins that ran ahead of the market over a recent window lag it afterwards, and a market-neutral book fading them earns net of cost on coins above $10M a day. Trend only looked in whole weeks and saw it at one and two. The horizon is not fixed here. It is measured in days, from one day to four weeks.</p>
+  <ul>
+    <li><b>Mechanism.</b> Price pressure. Retail chasing a pump, a listing or a narrative, or a forced seller, pushes a coin away from where the market puts it. Whoever absorbs the flow is paid as it unwinds.</li>
+    <li><b>Other side.</b> Momentum chasers and forced sellers, who pay for immediacy.</li>
+    <li><b>Prediction.</b> Gross positive across a smooth band of formation windows somewhere under three weeks, crossing to momentum by about four, where trend found the residual turning. A single spike between flat neighbours is a lucky cell, not the band.</li>
+    <li><b>Why first.</b> It is the direct mirror of what trend measured, on the same panel, cadence and costs. It is the baseline every later book has to beat.</li>
+  </ul>
+
+  <h3>H2. Shock reversal, as an event</h3>
+  <p>A residual move that is large against the coin's own volatility, seen at an hourly close, comes back over the following hours to days.</p>
+  <ul>
+    <li><b>Mechanism.</b> Liquidation cascades. Leveraged positions are force-closed, the forced orders push price further, which triggers more. The move overshoots and comes back once the forced flow ends.</li>
+    <li><b>Other side.</b> Liquidated traders and the exchange's liquidation engine, which do not care about price.</li>
+    <li><b>Prediction.</b> Stronger per trade than H1, since it fades only the extremes. Fewer independent bets, since triggers cluster in volatile weeks. Exits on reversion, a time stop or a stop loss.</li>
+  </ul>
+
+  <h3>H3. Flow reverses, information does not</h3>
+  <p>A move that came with open interest falling reverts more than one that came with open interest rising.</p>
+  <ul>
+    <li><b>Mechanism.</b> Open interest falling means positions are being closed, often forced. Open interest rising means new positions, more likely someone who knows something. The crypto version of separating news from noise.</li>
+    <li><b>Prediction.</b> The fade earns in the falling third and is flat or negative in the rising third. A condition on H1 and H2, named now, not searched for.</li>
+    <li><b>Other markers of flow</b> are abnormal volume and taker imbalance. Each is a separate trial.</li>
+  </ul>
+
+  <h3>H4. Reversal pays in stress</h3>
+  <p>The fade earns more when market volatility or dispersion between coins is high.</p>
+  <ul>
+    <li><b>Mechanism.</b> When markets are stressed, liquidity providers pull back and the fee for providing it rises.</li>
+    <li><b>Prediction.</b> Sleeve Sharpe rises across thirds of trailing market volatility and of dispersion, cut points from earlier weeks only. Costs also rise there, so the net answer is genuinely open.</li>
+    <li><b>Relation to trend.</b> Trend failed in 2026, the year of lowest co-movement and highest dispersion. If reversal pays there, the two books complement each other. That is a question for strategy research, not a reason to pass either.</li>
+  </ul>
+
+  <h3>H5. Market-level snap-back</h3>
+  <p>After a crash driven by deleveraging, the whole market recovers part of the move over days.</p>
+  <ul>
+    <li><b>Mechanism.</b> The same as H2 at the level of the market. Trend lost in crashes that snapped back.</li>
+    <li><b>Prediction.</b> A time-series event, few events, very thin evidence. Exploratory only, recorded for regime and risk research.</li>
+  </ul>
+
+  <h3>Not in this lane</h3>
+  <ul>
+    <li><b>Funding extremes.</b> Trend found high funding predicted a higher return the next week, at t 3.00. That belongs to carry.</li>
+    <li><b>Perp against spot basis.</b> Funding mechanics hold it in place. Carry again.</li>
+    <li><b>Path shapes.</b> Which shapes of path snap back is a question for the path shape lane, which reuses this lane's events with the barriers flipped.</li>
+    <li><b>Intraday order flow.</b> Needs trades and depth across the universe, its own lane.</li>
+  </ul>
+</section>
+
+<section id="expect">
+  <span class="num">05</span>
+  <h2>What we expect</h2>
+  <p>Written before any test, so the result can be held against it.</p>
+  <ul>
+    <li><b>Gross, yes.</b> A gross residual reversal exists somewhere under three weeks. Both the rank evidence and the losing momentum book point to it.</li>
+    <li><b>Net, thin.</b> A short-horizon reversal turns over most of its book every rebalance, and the shorter the window the more it trades. At a $100k book on $10M coins the expectation is a net Sharpe between zero and 0.5 for H1. A park would be a good outcome.</li>
+    <li><b>Fading.</b> The later weeks will be weaker than the earlier ones, as they were in trend's numbers.</li>
+    <li><b>The opposite crash shape to trend.</b> Steady small gains and sharp losses when a run-away keeps running. Trend wins in crashes that keep going, reversal in ones that snap back. Returns should be negatively skewed, and correlated with trend near zero or below.</li>
+    <li><b>The edge is in the extremes.</b> H2 should beat H1 per trade. Whether it beats it per year depends on how many independent events there are.</li>
+    <li><b>Conditions matter more here than in trend.</b> H3 and H4 are where an edge is most likely to survive cost. The sleeve then runs few weeks, and the sample will be the binding constraint again.</li>
+    <li><b>The likeliest verdict, once every hypothesis has run.</b> H1 fails or parks as an always-on book. The event book parks on too few independent events. The lane hands regime research a stress condition and hands strategy research a book that diversifies trend.</li>
+  </ul>
+</section>
+
+<section id="data">
+  <span class="num">06</span>
+  <h2>Data and its shapes</h2>
+  <h3>What exists</h3>
+  <table>
+    <tr><th>data</th><th>span</th><th>grain</th><th>state</th></tr>
+    <tr><td>Daily bars, every USDT perp, live and delisted</td><td class="mono">2020-01 to 2026-09</td><td>day × coin</td><td>cached, the trend panel</td></tr>
+    <tr><td>Funding prints</td><td class="mono">2020-01 to 2026-09</td><td>8 hours × coin</td><td>cached</td></tr>
+    <tr><td>Hourly closes</td><td class="mono">2020-10 to 2026-08</td><td>hour × coin</td><td>cached, close only</td></tr>
+    <tr><td>Open interest, whole universe</td><td>from the metrics dataset</td><td>daily, from 5 minutes</td><td>cached daily</td></tr>
+    <tr><td>Top trader and taker long-short ratios</td><td>from the metrics dataset</td><td>5 minutes</td><td>streamable, not pulled</td></tr>
+    <tr><td>Mark and premium price bars</td><td>archive</td><td>any interval</td><td>streamable, not pulled</td></tr>
+    <tr><td>Trade tape and book depth</td><td>depth from 2023</td><td>tick and 30 seconds</td><td>sampled for the cost ladder</td></tr>
+  </table>
+  <h3>Gaps to close</h3>
+  <ul>
+    <li><b>Taker buy volume.</b> Binance bars carry it, and the parser drops it. Flow features in H3 want it. Without it, taker imbalance comes from the metrics ratio or the trade tape.</li>
+    <li><b>Hourly volume, high and low.</b> The hourly cache holds closes only. Event triggers need only closes, but flow features at the trigger want volume.</li>
+    <li><b>Last trade against mark price.</b> On a thin coin the last trade bounces between bid and ask, which looks like reversal and is not. Mark price closes, or a skip between formation and holding, remove it. The size of the bounce is measured before the spec.</li>
+  </ul>
+  <h3>Shapes each test eats</h3>
+  <ul>
+    <li><b>Calendar books.</b> Wide frames, time on rows, coins on columns. Residuals, \(z\), weights and returns all share that shape. One book is one weekly return series, which is what the ledger stores.</li>
+    <li><b>Event books.</b> A long table with one row per trigger. Coin, trigger time, \(z\), the residual path before the trigger, the features known at the trigger, and the outcome under each exit rule. The ledger stores the daily return series of the resulting book.</li>
+    <li><b>Models.</b> For meta-labelling, the event table itself, features in and take or skip out. For deep learning, a tensor of coins by trailing window by channels at each decision time. Channels are residual returns, volume, open interest change and funding. The target is the position's net return, not a direction.</li>
+  </ul>
+</section>
+
+<section id="knobs">
+  <span class="num">07</span>
+  <h2>The knobs</h2>
+  <p>Every value tried is a trial. The primary test fixes most of these in the spec, with the grid it deflates by. The rest are exploratory. Where a value has no reason to be preferred, it is averaged over, not chosen.</p>
+  <div class="scroll">
+  <table>
+    <tr><th>knob</th><th>range</th><th>default</th><th>why it matters</th></tr>
+    <tr><td>Residual model</td><td>Raw minus market. Minus \(\beta\) times market. Minus the first few principal components</td><td>Minus \(\beta\) times market</td><td>What counts as the coin's own move. Too little removed and the book is a market bet, too much and the signal is gone</td></tr>
+    <tr><td>Formation window \(L\)</td><td>1, 2, 3, 5, 7, 10, 14, 21, 28 days, or hours for events</td><td>The whole grid, quoted as a band</td><td>How far back the run-away is measured. Spaced wider as it grows, and reaching into trend's momentum zone to see where reversal crosses over</td></tr>
+    <tr><td>Skip</td><td>None or one day</td><td>One day</td><td>Removes bid-ask bounce and lead-lag that would pass as reversal</td></tr>
+    <tr><td>Holding</td><td>1, 3, 7, 14 days</td><td>1 week first, then swept on the band that moved</td><td>How long the snap-back takes. Shorter holds trade more. Swept after formation, never at the same time</td></tr>
+    <tr><td>Rebalance day</td><td>All seven</td><td>Seven slices</td><td>Arbitrary, so averaged over from the start</td></tr>
+    <tr><td>Signal shape \(g\)</td><td>Sign, rank, \(z\), extremes only</td><td>Rank</td><td>A rank is market neutral by construction and ignores the size of outliers</td></tr>
+    <tr><td>Sizing</td><td>Inverse volatility, dollar neutral, \(\beta\) neutral</td><td>Inverse volatility, dollar neutral</td><td>Keeps one wild coin from running the book</td></tr>
+    <tr><td>Universe floor</td><td>$10M, $1M as a check</td><td>$10M</td><td>Prior art puts reversal in illiquid coins, where cost is highest</td></tr>
+    <tr><td>Book size</td><td>$100k, $1M</td><td>$100k</td><td>Sets impact. Reversal trades more, so capacity will be smaller than trend's</td></tr>
+    <tr><td>Event threshold</td><td>2 to 4 residual standard deviations</td><td>Event book</td><td>How extreme a move has to be to fade</td></tr>
+    <tr><td>Event exits</td><td>Revert a fraction, time stop, stop loss</td><td>Event book</td><td>Where most of an event book's result is decided</td></tr>
+    <tr><td>Condition</td><td>Volatility, dispersion, co-movement, open interest change</td><td>Named in the spec, or chosen in fold</td><td>H3 and H4. Cut points from earlier periods only</td></tr>
+  </table>
+  </div>
+</section>
+
+<section id="judging">
+  <span class="num">08</span>
+  <h2>How a result is judged</h2>
+  <p>The signal gate, as in trend. What changes is the clock and the baselines.</p>
+  <h3>Counting evidence</h3>
+  <ul>
+    <li><b>Weekly book.</b> About 340 weeks, each one bet. The same as trend, and the same hard limit. A true 0.8 needs about 504 weeks to pass four times in five.</li>
+    <li><b>Faster books.</b> A daily book with a one-day hold earns more independent bets a year, so a real effect passes in fewer years if it survives its larger cost. Rows on the same day are still one bet, so errors are clustered by day.</li>
+    <li><b>Event books.</b> Counted in independent events, not triggers. Triggers cluster in volatile weeks, so ten coins tripping on one crash day are close to one bet.</li>
+    <li>The gate is calibrated on weekly books. It is recalibrated on simulated daily and event books with a known edge before scoring any of them.</li>
+  </ul>
+  <h3>Baselines</h3>
+  <ul>
+    <li><b>Zero.</b> A market-neutral book has no basket to beat. The long and short baskets are still reported for the sleeve.</li>
+    <li><b>Random signs at the same turnover.</b> What trading this much costs with no signal at all.</li>
+    <li><b>The mirror.</b> The momentum book on the same residual. Reversal net has to beat the cost of trading, not just beat its mirror.</li>
+    <li><b>The calendar book</b> is the baseline for the event book. The rule taking every trade is the baseline for any model.</li>
+    <li><b>Trend.</b> Correlation with the trend book is reported for every result.</li>
+  </ul>
+  <h3>Checks this lane adds</h3>
+  <ul>
+    <li><b>Market exposure.</b> Realised \(\beta\) of the book to the market near zero. A neutral book that earns from a hidden market bet is trend again.</li>
+    <li><b>Bounce.</b> The result with and without the skip day, and on mark price closes. A gap between them is microstructure, not reversal.</li>
+    <li><b>Lead-lag.</b> The result with the market measured at the same time against one period earlier. A lagging alt catching up to BTC is not a reverting coin.</li>
+    <li><b>Long and short legs apart.</b> Prior art says the long side is fire sales and the short side sentiment. Each leg is reported, and the short leg's worst squeezes.</li>
+    <li><b>Delisting.</b> Coins that crash and delist are often exactly what the long leg buys. Their last move is booked.</li>
+  </ul>
+</section>
+
+<section id="ml">
+  <span class="num">09</span>
+  <h2>Where ML and deep learning fit</h2>
+  <p>This lane has more room for learning than trend did. The problem is cross-sectional, hundreds of coins at once, with hourly paths and positioning data beside price. Prior art has the clearest deep learning result in exactly this problem. The rules from trend still hold. Learning does not pick the direction from a zoo of features. Every model beats the plain rule net of cost, out of fold, or it is dropped. Every architecture and setting tried goes in the ledger.</p>
+  <h3>Stage 0. Estimation, not learning</h3>
+  <p>The residual model and the Ornstein-Uhlenbeck fits are classical statistics. Principal components for the factors, a regression per coin for the pull and the half-life. No labels, no forward returns, so nothing is fitted to the outcome.</p>
+  <h3>Stage 1. Meta-labelling the event book</h3>
+  <p>The rule picks the side, fade the shock. A gradient-boosted classifier only decides whether to take it.</p>
+  <ul>
+    <li><b>Labels.</b> Every trigger, not only the winners. Triple barrier, a take-profit and a stop sized from the cost ladder, and a time limit.</li>
+    <li><b>Features.</b> A handful, each with a reason stated first. Open interest change, volume shock, funding, size of the move, the coin's liquidity, market volatility and dispersion, time of day.</li>
+    <li><b>Validation.</b> Purged walk forward, with an embargo the length of the longest hold, so no training label overlaps a test one.</li>
+    <li><b>Bar.</b> Beats taking every trigger, net of cost, out of fold.</li>
+  </ul>
+  <h3>Stage 2. A learned residual</h3>
+  <p>Factors that move with coin characteristics, size, liquidity, age, funding, instead of fixed components. Instrumented principal components are the standard tool. Judged by whether the reversal on its residual beats the reversal on the plain \(\beta\) residual.</p>
+  <h3>Stage 3. Deep learning on residual paths</h3>
+  <p>The deep statistical arbitrage design. Each coin's recent residual path goes through a convolutional network and a transformer, and the output is a position, trained directly to maximise the book's net Sharpe with cost inside the loss. It learns which shapes of path revert, without being told the shape.</p>
+  <ul>
+    <li><b>Why it might work here.</b> Hundreds of coins and six years of hours is millions of training paths. The cross-section shares one model, so each coin borrows from the others.</li>
+    <li><b>Why it might not.</b> The evidence is still counted in days and weeks, not paths. The market changes, so a model fitted on 2021 may be wrong in 2026. Prior art is gross of a cost far lower than crypto's.</li>
+    <li><b>Bar.</b> Beats the meta-labelled event book net of cost, out of fold, on every walk-forward fold, with its trials counted. Then a registered forward test, since nothing else can pass a model with this many settings.</li>
+    <li><b>Order.</b> Only after Stages 0 to 2. A deep model with no simple baseline beneath it cannot be told from a fitted one.</li>
+  </ul>
+  <h3>Where learning stays out</h3>
+  <ul>
+    <li>A model over lagged returns and indicators to predict direction. That is the feature zoo, and the plain rule already holds what it would find.</li>
+    <li>Regime detection. Conditions named here are cut by thirds on past data. Learning the regime belongs to regime research.</li>
+  </ul>
+</section>
+
+<section id="order">
+  <span class="num">10</span>
+  <h2>Order of work</h2>
+  <table>
+    <tr><th>step</th><th>what</th><th>touches the signal</th></tr>
+    <tr><td class="mono">0</td><td>Research package and trial ledger, so every book is recorded from the first run</td><td>no</td></tr>
+    <tr><td class="mono">1</td><td>Describe the data. Turnover and cost ceiling of a reversal book from its signs alone. Bid-ask bounce on last trade against mark price. How often triggers fire and how they cluster. Residual tails and their skew. Open interest coverage</td><td>no</td></tr>
+    <tr><td class="mono">2</td><td>Recalibrate the gate on simulated daily and event books with a known edge</td><td>no</td></tr>
+    <tr><td class="mono">3</td><td>Choose the primary from steps 1 and 2, then write and commit the spec. Hypothesis, mechanism, primary book as coded, its grid, kill and park rules, spent trials</td><td>no</td></tr>
+    <tr><td class="mono">4</td><td>The primary book through the gate</td><td>primary</td></tr>
+    <tr><td class="mono">5</td><td>Residual model, legs, conditions H3 and H4, chosen in fold</td><td>exploratory</td></tr>
+    <tr><td class="mono">6</td><td>Event book H2, against the calendar book</td><td>exploratory</td></tr>
+    <tr><td class="mono">7</td><td>Meta-labelling, then a learned residual</td><td>exploratory</td></tr>
+    <tr><td class="mono">8</td><td>Deep learning on residual paths</td><td>exploratory</td></tr>
+    <tr><td class="mono">9</td><td>Registered test on US stocks, a market this lane never loaded</td><td>registered</td></tr>
+    <tr><td class="mono">10</td><td>Write-up and close</td><td></td></tr>
+  </table>
+</section>
+
+<section id="rules">
+  <span class="num">11</span>
+  <h2>Kill, park and pass</h2>
+  <p>A sketch. The spec fixes the numbers.</p>
+  <ul>
+    <li><b>Kill a book.</b> Its net Sharpe at or below zero, or the gate failing on anything other than sample size. A failed H1 stops the calendar book, not the lane. The event book and the conditions have their own mechanism and still run.</li>
+    <li><b>Close the lane.</b> When the data cannot say more, or a cheap check rules out a whole branch first, such as the step 1 cost ceiling asking for a gross Sharpe no fast book could reach.</li>
+    <li><b>Park.</b> Every check passes and probability real sits between 0.5 and 0.95, or a condition's sleeve is promising and under-powered. The expected outcome for a real, modest edge. With its mechanism it goes forward to strategy research and small-size trading, and the forward record decides its size.</li>
+    <li><b>Pass.</b> Only on a registered test, on data never searched. Everything on 2020 to 2026 perps is spent, by trend and by this lane's own exploration. US stocks test the idea, not the crypto signal. A fail there says the crypto result was probably fitted, a pass says the idea travels. The crypto signal itself earns its size from forward trading.</li>
+  </ul>
+</section>
+
+<section id="sources">
+  <span class="num">Appendix A</span>
+  <h2>Sources</h2>
+  <ul>
+    <li>Jegadeesh, N. 1990. Evidence of predictable behavior of security returns. Journal of Finance.</li>
+    <li>Lehmann, B. 1990. Fads, martingales, and market efficiency. Quarterly Journal of Economics.</li>
+    <li>Lo, A. and MacKinlay, A. C. 1990. When are contrarian profits due to stock market overreaction? Review of Financial Studies.</li>
+    <li>Gatev, E., Goetzmann, W. and Rouwenhorst, K. G. 2006. Pairs trading. Review of Financial Studies.</li>
+    <li>Avellaneda, M. and Lee, J.-H. 2010. Statistical arbitrage in the US equities market. Quantitative Finance.</li>
+    <li><a href="https://www.nber.org/papers/w17653">Nagel, S. 2012. Evaporating liquidity. Review of Financial Studies.</a></li>
+    <li><a href="https://ideas.repec.org/a/inm/ormnsc/v60y2014i3p658-674.html">Da, Z., Liu, Q. and Schaumburg, E. 2014. A closer look at the short-term return reversal. Management Science.</a></li>
+    <li>Krauss, C., Do, X. A. and Huck, N. 2017. Deep neural networks, gradient-boosted trees, random forests. Statistical arbitrage on the S&amp;P 500. European Journal of Operational Research.</li>
+    <li>López de Prado, M. 2018. Advances in Financial Machine Learning. Wiley.</li>
+    <li><a href="https://papers.ssrn.com/abstract=3379131">Liu, Y., Tsyvinski, A. and Wu, X. 2022. Common risk factors in cryptocurrency. Journal of Finance.</a></li>
+    <li><a href="https://ideas.repec.org/a/eee/finana/v78y2021ics1057521921002349.html">Zaremba, A., Bilgin, M. H., Long, H., Mercik, A. and Szczygielski, J. J. 2021. Up or down? Short-term reversal, momentum, and liquidity effects in cryptocurrency markets. International Review of Financial Analysis.</a></li>
+    <li><a href="https://www.hse.ru/en/news/research/559533243.html">Dobrynskaya, V. 2023. Cryptocurrency momentum and reversal. Journal of Alternative Investments.</a></li>
+    <li><a href="https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5263475">Jung, J. Statistical arbitrage within crypto markets using PCA. SSRN.</a></li>
+    <li><a href="https://arxiv.org/abs/2106.04028">Guijarro-Ordonez, J., Pelger, M. and Zanotti, G. Deep learning statistical arbitrage. Management Science.</a></li>
+  </ul>
+</section>
+
+<footer>quant-platform · signal research · mean reversion</footer>
+</div>
+</body>
+</html>
