@@ -7,7 +7,7 @@ Two kinds of page share one base. Prose follows the `writing` skill and, for res
 
 ## Base
 
-- One self-contained `.html`. Fonts from Google Fonts only, Fraunces for headings, IBM Plex Sans for body, IBM Plex Mono for labels and numbers. KaTeX from jsDelivr where there is math.
+- One `.html` per page. Fonts from Google Fonts only, Fraunces for headings, IBM Plex Sans for body, IBM Plex Mono for labels and numbers. KaTeX from jsDelivr where there is math.
 - Colours are tokens on `:root`, redefined under `@media (prefers-color-scheme: dark)` guarded by `:root:not([data-theme="light"])` and again under `:root[data-theme="dark"]`. `body` sets its background.
 - One column, `max-width` 680 to 720px, 16px side gutter, no horizontal scroll at phone width. Wide tables sit in a `.scroll` wrapper.
 - A cover that fills the first screen. Mono eyebrow, a short accent bar, a Fraunces title, one-line sub, a `dl.meta` block.
@@ -17,9 +17,10 @@ Two kinds of page share one base. Prose follows the `writing` skill and, for res
 
 ## Lane write-up
 
-`research/signal/<lane>/<lane>.html`. Single purple accent. Section order is set by the `research` skill's closing-a-lane steps.
+`research/signal/<lane>/<lane>.html`. Single purple accent. Section order is set by the `research` skill's closing-a-lane steps. A lane opens with the same page as its plan, rewritten into the write-up at close.
 
-- `.overview` for the summary card, `.corrected` for a number as it stood with its later correction.
+- Styling lives once in `research/signal/page.css`, linked as `../page.css`. No `<style>` block in a lane page. A new class goes in the shared sheet.
+- `.overview` for the summary card, `.corrected` for a number as it stood with its later correction, `.think` for a question to settle before building.
 - Each number as it stood on the day. A correction never silently replaces it.
 
 ## Roadmap
