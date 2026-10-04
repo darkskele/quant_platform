@@ -71,15 +71,15 @@ Signal research proves an edge inside a stated market condition. It does not bui
 
 ## Opening a lane
 
-A lane opens with `spec.md` in its folder, committed before any return of the signal is computed. Describing the data comes first and may shape the spec. Measuring the signal may not.
+A lane opens with its plan page, `<lane>.html` in its folder, committed before any return of the signal is computed. The plan is the lane's spec. Describing the data comes first and may shape it. Measuring the signal may not.
 
 - Hypothesis. What pays, in which condition, on which universe and cadence.
 - Mechanism. Why it should pay, and who is on the other side.
-- Primary test. One book exactly as it will be coded, and its setting grid, which is the trial family S1 deflates by.
-- Kill rule. The result that closes the lane, and the result that parks it.
+- Named test. One book named in advance, exactly as it will be coded, and its setting grid, which is the trial family S1 deflates by.
+- Kill rule. The result that kills a book, the result that parks it, and when the lane closes.
 - Data and span, and every trial already spent on them by coupled lanes.
 
-Everything outside the primary test is exploratory from the start. Amending the spec after a result is a new spec, its trials counted on top.
+Everything outside the named test is exploratory from the start. Amending the plan after a result makes a new named test, its trials counted on top.
 
 ## Registering a test
 

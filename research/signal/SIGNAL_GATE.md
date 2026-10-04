@@ -30,12 +30,20 @@ The stamp measures evidence. It is not a verdict on whether to trade. Six and a 
 
 ## Primary and exploratory
 
-- Each hypothesis names one primary test before any run. Its setting grid is the trial family S1 deflates by.
+The stamp measures evidence. It is not a verdict on whether to trade. Six and a half years of weekly data passes a true 0.8 Sharpe only about two times in three on a single clean test, so a real, modest edge is expected to park.
+
+- `gate pass`. Proven on data it was not chosen on. Eligible for full size.
+- `gate park`. Promising, not proven. With a mechanism stated before the test, it goes to strategy research and trades at small size, paper or live, which collects the forward data a pass needs. It scales as the forward record agrees with the backtest and is cut when it diverges.
+- `gate fail`. A specific check failed. Not traded until the cause is fixed and the whole gate rerun.
+
+## Named and exploratory
+
+- Each hypothesis names one test in advance, before any run. Its setting grid is the trial family S1 deflates by.
 - Everything else is exploratory. It is deflated by every trial run in the lane, old grids included. Trials do not reset when the data widens.
 - An exploratory result can at best park. It passes only on data it was not chosen on, a forward run or a span registered before it was looked at.
 - A registered test is committed before it is run. The spec names the hypothesis, the books as coded, the data, the trials, the pass, park and fail rules, and the reviews.
 - A setting with no reason to prefer one value, a rebalance day or a start phase, is staggered or averaged over, never chosen.
-- A mechanism stated before the test is what earns a result primary status. It is the prior, and it is why a pre-registered test pays a smaller penalty than a search.
+- A mechanism stated before the test is what earns a test its place as the named one. It is the prior, and it is why a pre-registered test pays a smaller penalty than a search.
 
 ## Conditional signals
 
@@ -102,7 +110,7 @@ A signal may earn only inside a market condition. It is judged on its sleeve, th
 
 Six and a half years of weekly returns, fat tailed with clustered volatility. Share of books passing each check.
 
-| true Sharpe | edge | S2 year stability | S1, one primary test | S1, 3 effective trials | old bar, every year above 0.5 | old bar, Bonferroni over 45 |
+| true Sharpe | edge | S2 year stability | S1, one named test | S1, 3 effective trials | old bar, every year above 0.5 | old bar, Bonferroni over 45 |
 |---|---|---|---|---|---|---|
 | 0.0 | none | 0.18 | 0.06 | 0.01 | 0.00 | 0.00 |
 | 0.5 | stationary | 0.64 | 0.37 | 0.13 | 0.03 | 0.04 |
@@ -125,11 +133,11 @@ No edge anywhere, the best cell picked from a correlated grid. Share wrongly pas
 
 S4 on three settings correlated 0.85 passes a flat plateau at Sharpe 0.5 81% of the time and at 0.8 87%. It fails a 0.8 spike between two flat neighbours every time.
 
-Weeks a single primary test needs to pass S1 with 80% power. 1287 at Sharpe 0.5, 504 at 0.8, 323 at 1.0, 144 at 1.5.
+Weeks a single named test needs to pass S1 with 80% power. 1287 at Sharpe 0.5, 504 at 0.8, 323 at 1.0, 144 at 1.5.
 
 What it means for a signal.
 
-- Six and a half years of weekly data cannot prove a real 0.8 Sharpe on its own. S1 passes it about two times in three on one primary test. Park is the expected outcome for a real but modest edge, not a failure.
+- Six and a half years of weekly data cannot prove a real 0.8 Sharpe on its own. S1 passes it about two times in three on one named test. Park is the expected outcome for a real but modest edge, not a failure.
 - S2 is what catches an edge carried by one year. S1 cannot tell the two apart.
 - Deflating by effective trials holds wrong passes at 3 to 7% on correlated grids. Counting the grid as one test lets 13 to 47% through.
 - The previous bar passed a real 0.8 edge about one time in ten, and a real 0.5 edge almost never.

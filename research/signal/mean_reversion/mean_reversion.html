@@ -363,21 +363,20 @@
     <tr><td class="mono">0</td><td>Research package and trial ledger, so every book is recorded from the first run</td><td>no</td></tr>
     <tr><td class="mono">1</td><td>Describe the data. Turnover and cost ceiling of a reversal book from its signs alone. Bid-ask bounce on last trade against mark price. How often triggers fire and how they cluster. Residual tails and their skew. Open interest coverage</td><td>no</td></tr>
     <tr><td class="mono">2</td><td>Recalibrate the gate on simulated daily and event books with a known edge</td><td>no</td></tr>
-    <tr><td class="mono">3</td><td>Choose the primary from steps 1 and 2, then write and commit the spec. Hypothesis, mechanism, primary book as coded, its grid, kill and park rules, spent trials</td><td>no</td></tr>
-    <tr><td class="mono">4</td><td>The primary book through the gate</td><td>primary</td></tr>
-    <tr><td class="mono">5</td><td>Residual model, legs, conditions H3 and H4, chosen in fold</td><td>exploratory</td></tr>
-    <tr><td class="mono">6</td><td>Event book H2, against the calendar book</td><td>exploratory</td></tr>
-    <tr><td class="mono">7</td><td>Meta-labelling, then a learned residual</td><td>exploratory</td></tr>
-    <tr><td class="mono">8</td><td>Deep learning on residual paths</td><td>exploratory</td></tr>
-    <tr><td class="mono">9</td><td>Registered test on US stocks, a market this lane never loaded</td><td>registered</td></tr>
-    <tr><td class="mono">10</td><td>Write-up and close</td><td></td></tr>
+    <tr><td class="mono">3</td><td>The calendar book H1 through the gate</td><td>named in advance</td></tr>
+    <tr><td class="mono">4</td><td>Residual model, legs, conditions H3 and H4, chosen in fold</td><td>exploratory</td></tr>
+    <tr><td class="mono">5</td><td>Event book H2, against the calendar book</td><td>exploratory</td></tr>
+    <tr><td class="mono">6</td><td>Meta-labelling, then a learned residual</td><td>exploratory</td></tr>
+    <tr><td class="mono">7</td><td>Deep learning on residual paths</td><td>exploratory</td></tr>
+    <tr><td class="mono">8</td><td>Registered test on US stocks, a market this lane never loaded</td><td>registered</td></tr>
+    <tr><td class="mono">9</td><td>Write-up and close</td><td></td></tr>
   </table>
 </section>
 
 <section id="rules">
   <span class="num">11</span>
   <h2>Kill, park and pass</h2>
-  <p>A sketch. The spec fixes the numbers.</p>
+  <p>The gate's thresholds apply.</p>
   <ul>
     <li><b>Kill a book.</b> Its net Sharpe at or below zero, or the gate failing on anything other than sample size. A failed H1 stops the calendar book, not the lane. The event book and the conditions have their own mechanism and still run.</li>
     <li><b>Close the lane.</b> When the data cannot say more, or a cheap check rules out a whole branch first, such as the step 1 cost ceiling asking for a gross Sharpe no fast book could reach.</li>
