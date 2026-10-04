@@ -4,7 +4,7 @@ The bar a signal result clears before it is quoted as a finding. A signal is a f
 
 Scope is the signal question only. Is there an edge, in which market condition, net of honest cost. Capacity, fill realism, live decay and live agreement belong to strategy research. Detecting a condition live belongs to regime research.
 
-The statistical checks and the stamp have a function in `gate.py`. Their thresholds come from `calibrate_gate.py`, which runs each check on simulated books with a known edge.
+The statistical checks and the stamp have a function in `qp_research.gate`, and `gate.score` runs them on one book. Their thresholds come from `qp_research.calibrate`, which runs each check on simulated books with a known edge.
 
 ## Outcomes
 
@@ -110,12 +110,12 @@ No edge anywhere, the best cell picked from a correlated grid. Share wrongly pas
 
 | cells | correlation | effective trials | counted as one test | deflated by effective trials |
 |---|---|---|---|---|
-| 5 | 0.85 | 1.7 | 0.13 | 0.07 |
-| 20 | 0.85 | 2.5 | 0.17 | 0.05 |
-| 20 | 0.50 | 6.7 | 0.38 | 0.03 |
-| 95 | 0.60 | 11.4 | 0.47 | 0.03 |
+| 5 | 0.85 | 1.7 | 0.11 | 0.05 |
+| 20 | 0.85 | 2.6 | 0.19 | 0.04 |
+| 20 | 0.50 | 6.7 | 0.36 | 0.03 |
+| 95 | 0.60 | 11.5 | 0.47 | 0.02 |
 
-S4 on three settings correlated 0.85 passes a flat plateau at Sharpe 0.5 81% of the time and at 0.8 87%. It fails a 0.8 spike between two flat neighbours every time.
+S4 on three settings correlated 0.85 passes a flat plateau at Sharpe 0.5 78% of the time and at 0.8 87%. It fails a 0.8 spike between two flat neighbours every time.
 
 Weeks a single primary test needs to pass S1 with 80% power. 1287 at Sharpe 0.5, 504 at 0.8, 323 at 1.0, 144 at 1.5.
 
@@ -123,5 +123,5 @@ What it means for a signal.
 
 - Six and a half years of weekly data cannot prove a real 0.8 Sharpe on its own. S1 passes it about two times in three on one primary test. Park is the expected outcome for a real but modest edge, not a failure.
 - S2 is what catches an edge carried by one year. S1 cannot tell the two apart.
-- Deflating by effective trials holds wrong passes at 3 to 7% on correlated grids. Counting the grid as one test lets 13 to 47% through.
+- Deflating by effective trials holds wrong passes at 2 to 5% on correlated grids. Counting the grid as one test lets 11 to 47% through.
 - The previous bar passed a real 0.8 edge about one time in ten, and a real 0.5 edge almost never.
