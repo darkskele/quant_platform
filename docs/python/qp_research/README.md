@@ -20,6 +20,8 @@ engine ─▶ data ─▶ panel ─▶ book ─▶ net returns ─▶ stats, gat
   - `universe`. Which symbols count per market. Listings, the non-crypto perps, redenominations.
   - `etf`. Daily bars of a fixed US ETF list.
 - `costs`. Cost models pricing a weight change in one-way bps, and the measurement that fits a spread and depth ladder.
+- `book`. Weights in, net returns out. One book per panel and cost model, or a sliced book holding one slice per rebalance day.
+- `condition`. Market conditions and past-only cuts on them, the gated sleeve's inputs, and the in-fold condition search.
 - `panel`. Bar-level panels built once, then period panels of returns, PnL, liquidity, volatility, funding and halts at any rebalance period.
 
 ## Milestones
@@ -30,7 +32,7 @@ engine ─▶ data ─▶ panel ─▶ book ─▶ net returns ─▶ stats, gat
   - [x] ~~`cache` and `data`~~
   - [x] ~~`panel`~~
   - [x] ~~`costs`~~
-  - [ ] `book` and `condition`
+  - [x] ~~`book` and `condition`~~
   - [ ] `cv`, `plot`, `nb`
 - [ ] Trend notebooks ported, outputs matched
 - [ ] Trial ledger
