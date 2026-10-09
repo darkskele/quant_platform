@@ -31,3 +31,8 @@
 29. Liquidity is the 30-bar median dollar volume and volatility the 12-period spread of returns, both as of the prior period's end.
 30. A funding print is placed on the bar it falls in, then summed over the period like the bars.
 31. A coin idle on a period's last bar is halted only if it trades again later.
+32. A cost model prices a weight change in one-way bps from the coin's liquidity. Flat, a provisional band, and a taker off a ladder.
+33. Taker cost is the market's fee, half the spread and half the trade over the depth within 1%, with spread and depth read off log-log lines in daily dollar volume.
+34. Fees are the base tier taker rate per market, 5 bps on USD-M and 10 on spot.
+35. The perps ladder is a named constant at full precision, fitted on 72 perps over two days at four dates from 2023 to 2026.
+36. A cost sample is cached per coin and date, since measuring streams every trade and book snapshot of those days.
