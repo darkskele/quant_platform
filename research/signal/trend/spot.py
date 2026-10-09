@@ -1,12 +1,9 @@
-"""Daily bars of every USDT spot pair, read straight from the Binance archive.
+"""Daily bars of every USDT spot pair, read straight from the Binance archive as CSV.
 
-Each symbol's monthly daily-kline files are listed and read as CSV. A day
-missing inside a symbol's span is refilled from the daily files where the
-archive has them. Bars are keyed on close time, so a bar is dated the day it
-was known. Stablecoins, fiat, tokenised gold and leveraged tokens are dropped,
-since they are not coins that trend.
-
-Pulled tables are cached under ~/.cache/qp-research.
+An independent reader to check the qp source against. Each symbol's monthly
+daily-kline files are listed and read. A day missing inside a symbol's span is
+refilled from the daily files where the archive has them. Bars are keyed on
+close time, so a bar is dated the day it was known. Nothing is cached.
 """
 from __future__ import annotations
 
@@ -21,12 +18,9 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pandas as pd
 
-from stream import CACHE
+from qp_research.data import universe
 
 ARCHIVE = "https://s3-ap-northeast-1.amazonaws.com/data.binance.vision"
-NOT_COINS = {'USDC', 'TUSD', 'PAX', 'BUSD', 'USDS', 'USDSB', 'USDP', 'DAI', 'FDUSD', 'UST', 'EUR', 'GBP', 'AUD',
-             'PAXG', 'XAUT'}
-LEVERAGED = re.compile(r'(UP|DOWN|BULL|BEAR)USDT$')
 COLUMNS = ['open_time', 'open', 'high', 'low', 'close', 'volume', 'close_time']
 
 
@@ -58,7 +52,7 @@ def usdt_pairs() -> list[str]:
     """Every USDT spot pair the archive has carried, delisted included, coins only."""
     prefix = 'data/spot/monthly/klines/'
     names = _list(prefix, rf'<Prefix>{prefix}([^/<]+)/</Prefix>')
-    return sorted(n for n in names if n.endswith('USDT') and n[:-4] not in NOT_COINS and not LEVERAGED.search(n))
+    return sorted(n for n in names if n.endswith('USDT') and n[:-4] not in universe.NOT_COINS and not universe.LEVERAGED.search(n))
 
 
 def _read(key: str) -> pd.DataFrame | None:
@@ -98,10 +92,7 @@ def _symbol(sym: str, start: pd.Timestamp, end: pd.Timestamp) -> tuple[pd.DataFr
 
 
 def daily_bars(start: str, end: str, workers=16, log=print) -> pd.DataFrame:
-    """Daily high, low, close and volume in long form for days in [start, end), cached."""
-    path = CACHE / f"spot_daily_{pd.Timestamp(start).date()}_{pd.Timestamp(end).date()}.parquet"
-    if path.exists():
-        return pd.read_parquet(path)
+    """Daily high, low, close and volume in long form for days in [start, end)."""
     lo, hi = pd.Timestamp(start, tz='UTC'), pd.Timestamp(end, tz='UTC')
     with ThreadPoolExecutor(workers) as pool:
         parts = list(pool.map(lambda s: _symbol(s, lo, hi), usdt_pairs()))
@@ -110,7 +101,4 @@ def daily_bars(start: str, end: str, workers=16, log=print) -> pd.DataFrame:
             log(line)
     bars = pd.concat([b for b, _ in parts if len(b)], ignore_index=True)
     bars = bars[(bars.day >= lo) & (bars.day < hi)].drop_duplicates(['symbol', 'day'])
-    bars = bars[['symbol', 'day', 'high', 'low', 'close', 'volume']].sort_values(['symbol', 'day']).reset_index(drop=True)
-    CACHE.mkdir(parents=True, exist_ok=True)
-    bars.to_parquet(path)
-    return bars
+    return bars[['symbol', 'day', 'high', 'low', 'close', 'volume']].sort_values(['symbol', 'day']).reset_index(drop=True)
