@@ -19,6 +19,7 @@ engine ─▶ data ─▶ panel ─▶ book ─▶ net returns ─▶ stats, gat
   - `binance`. Klines, mark and premium klines, funding and metrics from the Binance archive through the qp source.
   - `universe`. Which symbols count per market. Listings, the non-crypto perps, redenominations.
   - `etf`. Daily bars of a fixed US ETF list.
+- `costs`. Cost models pricing a weight change in one-way bps, and the measurement that fits a spread and depth ladder.
 - `panel`. Bar-level panels built once, then period panels of returns, PnL, liquidity, volatility, funding and halts at any rebalance period.
 
 ## Milestones
@@ -28,7 +29,7 @@ engine ─▶ data ─▶ panel ─▶ book ─▶ net returns ─▶ stats, gat
   - [x] ~~`gate` and its calibration~~
   - [x] ~~`cache` and `data`~~
   - [x] ~~`panel`~~
-  - [ ] `costs`
+  - [x] ~~`costs`~~
   - [ ] `book` and `condition`
   - [ ] `cv`, `plot`, `nb`
 - [ ] Trend notebooks ported, outputs matched
