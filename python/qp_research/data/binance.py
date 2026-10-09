@@ -118,11 +118,14 @@ def _refill(market, ds, interval, rows: pd.DataFrame, before: pd.Timestamp) -> p
         missing = pd.date_range(days.min(), days.max(), freq='D').difference(days)
         for run in runs(missing[missing < before]):
             gaps.setdefault(run, []).append(sym)
-    fills = []
+    fills, lines = [], []
     for (first, last), syms in gaps.items():
         got = _stream(market, ds, interval, syms, 'Daily', first, last + pd.Timedelta(days=1))
-        log.info('%d symbols %s filled %s to %s from daily files, %d rows', len(syms), interval, first.date(), last.date(), len(got))
+        counts = got.symbol.value_counts()
+        lines += [(s, first, last, int(counts.get(s, 0))) for s in syms]
         fills.append(got)
+    for sym, first, last, n in sorted(lines):
+        log.info('%s filled %s to %s from daily files, %d rows', sym, first.date(), last.date(), n)
     if not fills:
         return rows
     return pd.concat([rows, *fills], ignore_index=True).drop_duplicates(['symbol', 'open_time'])
