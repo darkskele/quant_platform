@@ -17,3 +17,5 @@ include = ["qp_research*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["network: streams from the live archive, run with -m network"]
+addopts = "-m 'not network'"
