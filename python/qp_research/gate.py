@@ -19,6 +19,7 @@ CONFIDENCE = 0.95   # significance a signal needs to pass
 PARK = 0.5          # below this it is noise, between this and CONFIDENCE it is under-powered
 DROP_KEEP = 0.4     # share of the full Sharpe that must survive removing any one year
 Z = sps.norm.ppf(CONFIDENCE)
+LARGE = 1000        # trial count above which effective trials draws only in directions with variance
 
 
 @functools.lru_cache(maxsize=None)
@@ -56,8 +57,12 @@ def effective_trials(books, extra=0) -> float:
         k = len(c)
         c = np.block([[c, np.zeros((k, extra))], [np.zeros((extra, k)), np.eye(extra)]])
     w, v = np.linalg.eigh(c)
+    # A large family over few periods has directions with no variance, so draw only in the rest.
+    keep = w > 1e-10 * w.max()
+    if len(c) > LARGE and not keep.all():
+        w, v = w[keep], v[:, keep]
     root = v * np.sqrt(np.clip(w, 0, None))
-    draws = np.random.default_rng(0).standard_normal((20000, len(c))) @ root.T
+    draws = np.random.default_rng(0).standard_normal((20000, root.shape[1])) @ root.T
     ns, emax = _emax_table()
     return float(np.interp(draws.max(axis=1).mean(), emax, ns))
 
@@ -229,10 +234,13 @@ def score(net: pd.Series, trials: float, periods=None, exploratory=False, oos=No
           grid=None, open_items=()) -> Verdict:
     """Runs S1, S2 and V1 always, S3 to S5 when their inputs are given, and stamps the result.
 
+    trials is a count or a ledger, whose effective trials are read from it.
     oos is an (in sample, out of sample) pair, neighbours the books one step
     either side, grid the periods by settings table the choice came from. A
     statistical check without its input is named open.
     """
+    if hasattr(trials, 'trials'):
+        trials = trials.trials()
     p = periods if periods is not None else stats.periods_per_year(net)
     prob, bar = significance(net, trials, p)
     stable, kept = year_stability(net, p)

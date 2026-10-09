@@ -26,6 +26,7 @@ Reuse the package and the walk-forward splits, do not re-derive them. Pickle an 
 - `condition`. Market conditions, past-only cuts and the in-fold condition search.
 - `stats` and `gate`. Every Sharpe, drawdown, year table, IC and clustered error comes from `stats`. `gate.score` runs the statistical checks and stamps any it was not given as open.
 - `cv`, `plot`, `nb`. Splits, the house chart style, the notebook builder.
+- `lane` and `ledger`. Open a lane with `lane = Lane(folder)` and give every `Book` and `Sliced` `ledger=lane.ledger`. Every run is then a trial. Name the ones you will quote, tag the primary test `kind='primary'`, and sanity runs such as random signs `kind='check'`. Score with `gate.score(net, lane.ledger)`, never a typed trial count.
 - Lane-specific signals live in the lane folder beside its notebooks, on top of the package.
 
 ## Environment
