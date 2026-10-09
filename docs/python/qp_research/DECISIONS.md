@@ -25,3 +25,9 @@
 23. Listings come from the qp source's archive listing, union the monthly and daily folders, and are kept for a day. Only the non-crypto tags come from the exchange's REST info in python.
 24. An ETF window is fetched and cached whole, since adjusted closes are rewritten whenever a fund pays.
 25. Tests that stream from the live archive are marked `network` and run only with `-m network`.
+26. Bar-level panels are built once and shared by every rebalance period built from them.
+27. A signal return needs the bar and the bar before it traded, and skips each coin's first 30 traded bars. A period needs 5 valid bars.
+28. PnL returns span halts and book the gap on the bar trading resumes. Redenomination days are dropped.
+29. Liquidity is the 30-bar median dollar volume and volatility the 12-period spread of returns, both as of the prior period's end.
+30. A funding print is placed on the bar it falls in, then summed over the period like the bars.
+31. A coin idle on a period's last bar is halted only if it trades again later.
