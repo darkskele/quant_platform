@@ -4,8 +4,8 @@ The python research package. Archive data in, panels and books out, every number
 
 ```
 engine ─▶ data ─▶ panel ─▶ book ─▶ net returns ─▶ stats, gate
-                            ▲
-                          costs
+           ▲                 ▲
+         cache             costs
 ```
 
 ## Components
@@ -14,13 +14,18 @@ engine ─▶ data ─▶ panel ─▶ book ─▶ net returns ─▶ stats, gat
 - `stats`. Sharpe, return, volatility, drawdown, t, IC, per-year tables and clustered OLS on period returns.
 - `gate`. The signal gate's statistical checks, the stamp, and `score`, which runs them on one book.
 - `calibrate`. Pass rates of each check on simulated books with known edges.
+- `cache`. Fetched data on local disk, one parquet file per dataset, symbol and span, evicted least recently read past a size cap.
+- `data`. Datasets fetched through `cache`.
+  - `binance`. Klines, mark and premium klines, funding and metrics from the Binance archive through the qp source.
+  - `universe`. Which symbols count per market. Listings, the non-crypto perps, redenominations.
+  - `etf`. Daily bars of a fixed US ETF list.
 
 ## Milestones
 
 - [ ] Package
   - [x] ~~Skeleton, `engine`, `stats`~~
   - [x] ~~`gate` and its calibration~~
-  - [ ] `cache` and `data`
+  - [x] ~~`cache` and `data`~~
   - [ ] `panel`
   - [ ] `costs`
   - [ ] `book` and `condition`
