@@ -249,7 +249,7 @@ footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--rule);
   <div>
     <dl class="meta">
       <dt>Author</dt><dd>Swag Master Extreme</dd>
-      <dt>As of</dt><dd>2 October 2026</dd>
+      <dt>As of</dt><dd>9 October 2026</dd>
       <dt>Open lane</dt><dd>Mean reversion</dd>
       <dt>Colour</dt><dd>
         <span class="tag sig">signal</span><span class="tag reg">regime</span><span class="tag str">strategy</span><span class="tag eng">engineering</span><span class="tag dat">data</span>
@@ -273,6 +273,7 @@ footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--rule);
     <tr><td><span class="tag str">strategy</span></td><td>Strategy research</td><td>Waits on regime detection and a risk model. Two registered trend tests run forward on perps</td></tr>
     <tr><td><span class="tag eng">engineering</span></td><td>Engine</td><td>Backtest runs on the live code path. Basic risk gate, python bindings. A cost-aware matcher is built, but no backtest runs on it yet</td></tr>
     <tr><td><span class="tag dat">data</span></td><td>Binance historical</td><td>Klines, mark, premium, funding, metrics, aggTrades and book depth, streamed from the public archive through the live source</td></tr>
+    <tr><td><span class="tag eng">engineering</span></td><td>Research tooling</td><td>The qp_research package is built and tested, and the trend lane runs on it. The trial ledger is next</td></tr>
     <tr><td><span class="tag eng">engineering</span></td><td>Live</td><td>Not started</td></tr>
   </table></div>
 </section>
@@ -383,7 +384,7 @@ footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--rule);
 
   <p>Handed over from trend.</p>
   <ul>
-    <li>Conditioning on the market pays. A search choosing from the past alone made 1.38 against 0.64 always on.</li>
+    <li>Conditioning on the market pays. A search choosing from the past alone made 1.37 against 0.64 always on.</li>
     <li>Trend loses after deleveraging, with open interest below its recent average.</li>
     <li>The moderate month is a hypothesis only.</li>
   </ul>
@@ -496,7 +497,7 @@ footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--rule);
   </ul>
 </section>
 
-<footer>quant-platform · roadmap · 2 October 2026</footer>
+<footer>quant-platform · roadmap · 9 October 2026</footer>
 
 </div>
 </body>

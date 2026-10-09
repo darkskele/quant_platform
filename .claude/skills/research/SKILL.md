@@ -10,15 +10,29 @@ Research here judges a signal by downstream money on the C++ engine, not by a fi
 Probe, then build, then execute. Three passes, in order.
 
 1. Probe. A throwaway script in the scratchpad that wires the pipeline and prints real numbers. Validate the wiring and get the numbers before writing a word of interpretation. Never write a read from a guess.
-2. Build. A python builder script that emits the `.ipynb` as JSON, one `md`/`code` helper per cell. Interpretation cells are written from the probe's real numbers.
-3. Execute. `jupyter nbconvert --to notebook --execute --inplace` to embed outputs. Verify zero errors and that the tables landed.
+2. Build. A python builder script that lists the cells with `qp_research.nb.md` and `nb.code`. Interpretation cells are written from the probe's real numbers.
+3. Execute. `nb.build(path, cells)` writes and executes in place, and refuses a notebook with any failed cell. Check the tables landed.
 
-Reuse the feature pipeline and the walk-forward splits, do not re-derive them. Pickle the out-of-fold set so a rerun skips regeneration, gbm generation is about 20s and each backtest about 30s, they add up.
+Reuse the package and the walk-forward splits, do not re-derive them. Pickle an out-of-fold set so a rerun skips regeneration.
+
+## The package
+
+`qp_research` under `python/` is the research library. A notebook imports it and writes only the lane's own hypothesis. Code another lane would copy belongs in the package, with a test.
+
+- `data`. `daily_bars`, `klines`, `funding`, `metrics` and `universe`, cached by partition. Always check the cache, fetch what is missing. Never write a loader in a notebook.
+- `panel`. `panel.load()` or `panel.bars(...)` then `panel.build(bars, 'W-SUN')`. Returns, PnL, liquidity, vol, funding and halts at any rebalance period.
+- `costs`. Every book carries an explicit cost model. `costs.for_market('usdm', size)` off the measured ladder, `Provisional`, `Flat`. Fees come from `costs.FEES`, never a literal.
+- `book`. `Book(panel, cost).run(w)` for one rebalance day, `Sliced(bars, cost).run(weights)` for one slice per day. `inverse_vol`, `gated`, `sleeve`, `equal_risk`.
+- `condition`. Market conditions, past-only cuts and the in-fold condition search.
+- `stats` and `gate`. Every Sharpe, drawdown, year table, IC and clustered error comes from `stats`. `gate.score` runs the statistical checks and stamps any it was not given as open.
+- `cv`, `plot`, `nb`. Splits, the house chart style, the notebook builder.
+- Lane-specific signals live in the lane folder beside its notebooks, on top of the package.
 
 ## Environment
 
-- Kernel and libs, `source ~/miniconda3/etc/profile.d/conda.sh && conda activate qp-research`. lightgbm, sklearn, pyarrow live only there.
-- The engine module, glob `build/release/**/qp_python_backtest*.so` and insert its dir on `sys.path`.
+- Kernel and libs, `source ~/miniconda3/etc/profile.d/conda.sh && conda activate qp-research`. `qp_research` is installed there editable, from `python/environment.yml`.
+- The engine module, `qp_research.engine.module()`. Data needs the `qp_python_backtest` build.
+- Tests, `python -m pytest` from `python/`, and `-m network` for the ones that stream the archive.
 - Heavy runs go in the background, `run_in_background`, watched with a Monitor until-grep loop. Foreground has a 2 minute cap.
 - Piped or redirected stdout is block-buffered, so a watched file stays empty until exit. Use `stdbuf -oL` or `print(..., flush=True)` when you need to watch progress.
 
@@ -144,6 +158,8 @@ Two phases, and the seam between them gates the roadmap.
 - A registered test ran before its spec was committed. The spec was unchanged, but the history cannot show it.
 - Every exploratory book enters the trial ledger. A late check ran about 5,700 books and quoted them against the ledger's older count, which is generous to them. Rebuild them as return series and recount the effective trials.
 - Hindsight conditions look robust. Nudging the windows of a condition found on the full sample barely moved it, because every nudge was fitted to the same weeks. Robustness to its own settings is not evidence the condition would have been found.
+- A default cost hides in a helper. The in-fold condition search ran its books at the provisional rate while the sleeves beside it used the ladder, and quoted 1.38 where the ladder gives 1.37. A book now always carries an explicit cost model.
+- A charge booked on a calendar label vanishes when that day did not trade. Slices rebalancing on ETF holidays and the final partial week paid no cost. Book a period's funding and cost on its last bar that exists.
 
 ## Working with the repo owner and git
 
