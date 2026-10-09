@@ -13,6 +13,7 @@
 #include "binance_historical_source.hpp"
 #include "endpoints.hpp"
 #include "http_fetch_pool.hpp"
+#include "listing.hpp"
 #include "source.hpp"
 #include "subscription.hpp"
 #include "types.hpp"
@@ -168,6 +169,11 @@ void bind_binance_historical(py::module_& m) {
 
     // The ceiling a prefetch depth is clamped to.
     m.attr("FILE_SLOTS") = binance::kFileSlotCount;
+
+    m.def(
+        "list_children", [](const std::string& prefix) { return binance::list_children(prefix); },
+        py::arg("prefix"), py::call_guard<py::gil_scoped_release>(),
+        "Every immediate child name under an archive key prefix, paged to exhaustion.");
 
     using Source = PythonBinanceHistoricalSource;
     py::class_<Source>(m, "BinanceHistoricalSource")

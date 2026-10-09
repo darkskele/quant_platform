@@ -235,6 +235,18 @@
             "python": "${userHome}/miniconda3/envs/qp-research/bin/python"
         },
         {
+            "name": "qp_research tests, network",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": ["-q", "-m", "network"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/python",
+            "justMyCode": false,
+            "python": "${userHome}/miniconda3/envs/qp-research/bin/python",
+            "preLaunchTask": "qp_python_backtest"
+        },
+        {
             "name": "qp_research tests, current file",
             "type": "debugpy",
             "request": "launch",
