@@ -20,6 +20,8 @@ config/*.local.*
 # Data — never commit collected market data (dir or symlink to shared store)
 /data
 *.parquet
+# Trial ledgers are research records, committed beside their lane
+!research/**/ledger/*.parquet
 *.zst
 *.bin
 
