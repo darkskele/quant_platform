@@ -45,3 +45,11 @@
 43. Condition cuts are expanding quantiles of the condition's own earlier periods.
 44. Purged splits walk forward over distinct stamps, so rows sharing a stamp always land in the same fold.
 45. A built notebook runs on the qp-research kernel and is executed in place with errors captured, then refused if any cell failed.
+46. A trial is keyed by its name and settings, or by its returns when unnamed. The latest record of a key replaces earlier ones.
+47. A ledger is append-only zstd parquet in the lane folder, committed. Recording identical returns writes nothing.
+48. Kinds are primary, exploratory, registered and check. Checks are kept and never counted. A run at other than full cost is a check.
+49. A book with a ledger records every run. Runs inside a sleeve, a slice or a by-bar view are not recorded, the composed result is.
+50. `gate.score` takes the ledger in place of a trial count.
+51. A primary or registered trial needs the lane's spec.md tracked and unchanged since its last commit.
+52. The ledger's last buffer is written at exit, single threaded.
+53. Above 1,000 trials, effective trials draws only in the directions with variance, since a family larger than its periods has at most as many. Below that the full draw is kept, so smaller counts never move.

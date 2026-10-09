@@ -178,3 +178,16 @@ def test_calibration_volatility_is_set_per_year():
     assert weekly_paths.std() == pytest.approx(daily_paths.std(), rel=0.05)
     one_year = calibrate.returns(rng, 1.0, 500, 2372, 365, concentrated=True)
     assert one_year.mean() / one_year.std() * np.sqrt(365) == pytest.approx(1.0, abs=0.15)
+
+
+def test_effective_trials_scales_past_the_periods(monkeypatch):
+    rng = np.random.default_rng(3)
+    factors = rng.normal(size=(120, 8))
+    books = pd.DataFrame(factors @ rng.normal(size=(8, 1200)) + 0.3 * rng.normal(size=(120, 1200)))
+    fast = gate.effective_trials(books)
+    small = gate.effective_trials(books.iloc[:, :100])
+    assert small < fast < 1200
+    import time
+    t = time.time()
+    gate.effective_trials(pd.DataFrame(rng.normal(size=(60, 2000))))
+    assert time.time() - t < 30
