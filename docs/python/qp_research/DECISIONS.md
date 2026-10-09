@@ -36,3 +36,10 @@
 34. Fees are the base tier taker rate per market, 5 bps on USD-M and 10 on spot.
 35. The perps ladder is a named constant at full precision, fitted on 72 perps over two days at four dates from 2023 to 2026.
 36. A cost sample is cached per coin and date, since measuring streams every trade and book snapshot of those days.
+37. A book always carries an explicit cost model. There is no default cost.
+38. A weight set at a period's close earns the next period's return and pays its funding. Cost is charged one way on every weight change.
+39. A halted coin keeps its weight until it trades again.
+40. A sliced book's slice weights come from a function of the slice's own panel, so each slice signals on its own rebalance day.
+41. A slice books moves by bar as weights drift, and funding and cost on its period's last bar. Slices are averaged by bar and summed to the reporting period.
+42. A sleeve is the gated book's returns on its on periods, with the exit cost booked to the last on period.
+43. Condition cuts are expanding quantiles of the condition's own earlier periods.
