@@ -43,3 +43,5 @@
 41. A slice books moves by bar as weights drift, and funding and cost on its period's last bar. Slices are averaged by bar and summed to the reporting period.
 42. A sleeve is the gated book's returns on its on periods, with the exit cost booked to the last on period.
 43. Condition cuts are expanding quantiles of the condition's own earlier periods.
+44. Purged splits walk forward over distinct stamps, so rows sharing a stamp always land in the same fold.
+45. A built notebook runs on the qp-research kernel and is executed in place with errors captured, then refused if any cell failed.

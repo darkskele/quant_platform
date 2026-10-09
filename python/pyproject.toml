@@ -7,7 +7,7 @@ name = "qp-research"
 version = "0.1.0"
 description = "Research tooling for quant-platform"
 requires-python = ">=3.12"
-dependencies = ["numpy", "pandas", "scipy", "pyarrow"]
+dependencies = ["numpy", "pandas", "scipy", "pyarrow", "matplotlib", "nbconvert", "ipykernel"]
 
 [project.optional-dependencies]
 test = ["pytest", "statsmodels"]
