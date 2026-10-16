@@ -19,7 +19,7 @@ from functools import partial
 import numpy as np
 import pandas as pd
 
-from qp_research import condition, data, stats
+from qp_research import condition, stats
 from qp_research.book import inverse_vol
 from qp_research.panel import Panel
 
@@ -88,9 +88,3 @@ def strict(p: Panel, ln: Lines, days: int, per_week: int, z_cut=Z_CUT, r2_cut=R2
     """Coins whose line clears both cuts, on the sign of the slope, fully invested in those that pass."""
     _, direction, z, r2 = parts(p, ln, days, per_week)
     return inverse_vol(p, direction.where((z >= z_cut) & (r2 >= r2_cut)).shift(1))
-
-
-def open_interest(symbols, start, end) -> pd.DataFrame:
-    """Open interest in quote terms per 5-minute sample, symbols on columns."""
-    m = data.metrics(symbols, start, end)
-    return m.pivot_table(index='t', columns='symbol', values='open_interest_value', aggfunc='last').sort_index()

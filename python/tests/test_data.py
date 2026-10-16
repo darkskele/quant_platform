@@ -85,3 +85,12 @@ def test_listing_through_the_engine(tmp_path, monkeypatch):
     names = universe.listed('usdm')
     assert len(names) > 1000 and 'BTCUSDT' in names
     assert (tmp_path / 'listings' / 'usdm.txt').exists()
+
+
+def test_open_interest_is_the_last_print_per_sample_by_symbol(monkeypatch):
+    rows = pd.DataFrame({'symbol': ['B', 'A', 'A', 'A'], 't': [ts('2024-01-01 00:05')] * 3 + [ts('2024-01-01 00:00')],
+                         'open_interest_value': [7.0, 1.0, 2.0, 5.0]})
+    monkeypatch.setattr(binance, 'metrics', lambda *a, **kw: rows)
+    oi = binance.open_interest(['A', 'B'], '2024-01-01', '2024-01-02')
+    assert list(oi.columns) == ['A', 'B'] and list(oi.index) == [ts('2024-01-01 00:00'), ts('2024-01-01 00:05')]
+    assert oi.loc[ts('2024-01-01 00:05'), 'A'] == 2.0 and oi.loc[ts('2024-01-01 00:05'), 'B'] == 7.0
