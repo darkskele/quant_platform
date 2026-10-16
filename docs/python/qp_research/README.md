@@ -16,7 +16,7 @@ engine ─▶ data ─▶ panel ─▶ book ─▶ net returns ─▶ stats, gat
 - `calibrate`. Pass rates of each check on simulated books with known edges.
 - `cache`. Fetched data on local disk, one parquet file per dataset, symbol and span, evicted least recently read past a size cap. Read lazily with polars.
 - `data`. Datasets fetched through `cache`, as pandas or as a lazy polars `scan`.
-  - `binance`. Klines, mark and premium klines, funding and metrics from the Binance archive through the qp source.
+  - `binance`. Klines, mark and premium klines, funding, metrics and open interest per coin from the Binance archive through the qp source.
   - `universe`. Which symbols count per market. Listings, the non-crypto perps, redenominations.
   - `etf`. Daily bars of a fixed US ETF list.
 - `panel`. Bar rules in long form at any bar size, `long`, wide bar-level panels built once from it, then period panels of returns, PnL, liquidity, volatility, funding and halts at any rebalance period.
