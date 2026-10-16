@@ -53,3 +53,6 @@
 51. A primary or registered trial needs the lane's spec.md tracked and unchanged since its last commit.
 52. The ledger's last buffer is written at exit, single threaded.
 53. Above 1,000 trials, effective trials draws only in the directions with variance, since a family larger than its periods has at most as many. Below that the full draw is kept, so smaller counts never move.
+54. The cache and data layers read with polars. `scan` returns a lazy frame for work too large to hold, such as hourly bars across the universe. The named loaders collect it into pandas.
+55. Bar rules are computed in long form, one row per coin and bar, so they hold at any bar size. The wide bar panels are scattered from it. The bar before a coin's bar is the previous bar any coin has.
+56. A copy of the repo without `.git`, as on the build box, checks a lane's spec against `.git-head`, `git ls-tree -r HEAD` written at sync.

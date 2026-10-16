@@ -5,6 +5,9 @@ The index records how far each partition is complete, so a request reads what
 it has and fetches only what is missing or not complete far enough. Past a
 size cap the least recently read partitions are evicted.
 
+scan reads lazily with polars, so a large dataset is filtered and reduced
+before it is held. load is the same read collected into pandas.
+
 Root is QP_CACHE_DIR, else ~/.cache/qp-research/store. The cap is
 QP_CACHE_MAX_GB, else 50.
 """
@@ -19,7 +22,7 @@ from pathlib import Path
 from typing import Callable
 
 import pandas as pd
-import pyarrow.dataset as pds
+import polars as pl
 
 NS = 1_000_000_000
 
@@ -89,11 +92,18 @@ class Cache:
 
     def load(self, venue: str, market: str, dataset: str, symbols: list[str], parts: list[Part],
              need: pd.Timestamp, fetch: Fetch, stamp: str, chunk=50) -> pd.DataFrame:
+        """Rows for symbols over parts in pandas, as scan reads them."""
+        rows = self.scan(venue, market, dataset, symbols, parts, need, fetch, stamp, chunk)
+        return pd.DataFrame(columns=['symbol']) if rows is None else rows.collect().to_pandas()
+
+    def scan(self, venue: str, market: str, dataset: str, symbols: list[str], parts: list[Part],
+             need: pd.Timestamp, fetch: Fetch, stamp: str, chunk=50) -> pl.LazyFrame | None:
         """Rows for symbols over parts, fetching what is missing or not complete as far as need.
 
         fetch(symbols, start, end) returns rows with a symbol column and the
         time its rows are complete through. stamp names the column rows are
-        partitioned on.
+        partitioned on. Fetching happens now, reading when the frame is
+        collected. None when no partition on disk holds rows.
         """
         key = (venue, market, dataset)
         have = self._index(key, symbols)
@@ -138,24 +148,24 @@ class Cache:
         with self._db() as db:
             db.executemany('INSERT OR REPLACE INTO partitions VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', entries)
 
-    def _read(self, key, symbols, parts) -> tuple[pd.DataFrame, set[str]]:
-        """The rows of every requested partition on disk, and their paths."""
+    def _read(self, key, symbols, parts) -> tuple[pl.LazyFrame | None, set[str]]:
+        """A lazy read of every requested partition on disk, and their paths."""
         starts, wanted = {_ns(p.start) for p in parts}, set(symbols)
         with self._db() as db:
             q = 'SELECT symbol, start, path FROM partitions WHERE venue=? AND market=? AND dataset=? AND path IS NOT NULL'
-            found = [(s, path) for s, st, path in db.execute(q, key) if st in starts and s in wanted]
+            found = [(s, st, path) for s, st, path in db.execute(q, key) if st in starts and s in wanted]
             stamp = time.time_ns()
-            db.executemany('UPDATE partitions SET last_read=? WHERE path=?', [(stamp, p) for _, p in found])
+            # By primary key, since path has no index.
+            db.executemany('UPDATE partitions SET last_read=? WHERE venue=? AND market=? AND dataset=? AND symbol=? AND start=?',
+                           [(stamp, *key, s, st) for s, st, _ in found])
 
-        read = {p for _, p in found}
+        read = {p for _, _, p in found}
         if not found:
-            return pd.DataFrame(columns=['symbol']), read
+            return None, read
         # Symbol and span come back from the folder names, only symbol is kept.
-        table = pds.dataset([str(self.root / p) for _, p in found], format='parquet', partition_base_dir=str(self.root.joinpath(*key)),
-                            partitioning=pds.partitioning(flavor='hive')).to_table()
-        out = table.drop_columns([c for c in ('year', 'month', 'span') if c in table.column_names]).to_pandas()
-        out['symbol'] = out.symbol.astype(str)
-        return out[['symbol', *[c for c in out.columns if c != 'symbol']]], read
+        out = pl.scan_parquet([str(self.root / p) for _, _, p in found], hive_partitioning=True)
+        out = out.drop('year', 'month', 'span', strict=False)
+        return out.select(pl.col('symbol').cast(pl.String), pl.exclude('symbol')), read
 
     def info(self) -> pd.DataFrame:
         """Partitions, rows, gigabytes and the last read per dataset."""

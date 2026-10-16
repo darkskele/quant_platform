@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import polars as pl
 import pytest
 
 from qp_research import panel
@@ -119,3 +120,17 @@ def test_other_rebalance_days_share_the_bars():
     assert (wed.returns.index.dayofweek == 2).all()
     assert np.allclose(wed.returns['A'].iloc[1:-1], 0.07)
     assert wed.bars is b
+
+
+def test_long_bars_hold_at_any_bar_size():
+    hours = pd.date_range(ts('2024-01-01'), periods=6, freq='h')
+    rows = pd.DataFrame({'symbol': ['A'] * 5 + ['B'] * 6, 'open_time': [*hours.delete(3), *hours],
+                         'close': [100.0, 101.0, 102.0, 104.0, 105.0, 50, 50, 50, 50, 50, 50], 'volume': 1.0})
+    out = panel.long(pl.from_pandas(rows).lazy(), at='open_time', warmup=0).collect().to_pandas()
+    a = out[out.symbol == 'A'].set_index('open_time')
+    # A has no bar at 03:00, which B has, so the 04:00 return would span the gap.
+    assert np.isnan(a.returns.iloc[0]) and np.isnan(a.loc[hours[4], 'returns'])
+    assert a.loc[hours[2], 'returns'] == pytest.approx(np.log(102 / 101))
+    assert a.loc[hours[4], 'held'] == pytest.approx(np.log(104 / 102))
+    wide = panel.bars(rows, at='open_time', warmup=0)
+    assert wide.returns.index.equals(hours) and np.isnan(wide.close.loc[hours[3], 'A'])

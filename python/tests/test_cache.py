@@ -116,3 +116,17 @@ def test_trim_spares_what_a_load_just_read(tmp_path):
     c = cache_.Cache(tmp_path, max_gb=1e-12)
     out = load(c, Fake())
     assert len(out) == 1460
+
+
+def test_scan_reads_lazily_what_load_returns(c):
+    f = Fake()
+    parts = cache_.years('2021-01-01', '2023-01-01')
+    lazy = c.scan('v', 'm', 'd', ['A', 'B'], parts, ts('2023-01-01'), f, 't')
+    pd.testing.assert_frame_equal(lazy.collect().to_pandas(), load(c, f))
+    assert len(f.calls) == 1
+
+
+def test_scan_is_none_when_nothing_is_on_disk(c):
+    parts = cache_.years('2021-01-01', '2022-01-01')
+    assert c.scan('v', 'm', 'd', ['A'], parts, ts('2022-01-01'), Fake(absent={'A'}), 't') is None
+    assert list(load(c, Fake(absent={'A'}), symbols=['A'], end='2022-01-01').columns) == ['symbol']
