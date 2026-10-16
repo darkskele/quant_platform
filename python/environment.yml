@@ -13,6 +13,7 @@ dependencies:
   - scikit-learn
   - lightgbm
   - pyarrow
+  - polars>=2
   - pytest
   - statsmodels
   - pip

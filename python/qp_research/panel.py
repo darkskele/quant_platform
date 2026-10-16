@@ -12,6 +12,10 @@ exception, since their gap is not a move.
 
 A funding print belongs to the bar it falls in, so it is paid by the position
 held over that bar.
+
+The bar rules live in long, a lazy polars frame with one row per coin and bar,
+which holds at any bar size. bars pivots it into the wide panels a period
+panel is built from.
 """
 from __future__ import annotations
 
@@ -19,6 +23,7 @@ from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
+import polars as pl
 
 from . import data
 from .data import universe
@@ -49,32 +54,60 @@ class Panel:
     bars: Bars
 
 
-def bars(long: pd.DataFrame, prints: pd.DataFrame | None = None, at='day', warmup=30) -> Bars:
+def long(rows: pl.LazyFrame | pd.DataFrame, at='day', warmup=30) -> pl.LazyFrame:
+    """Bar-level columns in long form from bars in long form, sorted by symbol then bar.
+
+    Adds traded, dollar_volume, returns and held beside symbol, at, close and
+    volume. A return needs the bar before to exist for the coin and to have
+    traded, where the bars before are every bar any coin has.
+    """
+    rows = rows.lazy() if isinstance(rows, pl.DataFrame) else pl.from_pandas(rows).lazy() if isinstance(rows, pd.DataFrame) else rows
+    prev = lambda c: pl.col(c).shift(1).over('symbol')
+    traded = pl.col('volume') > 0
+    # numpy's log, so the values match the wide panels bit for bit.
+    level = pl.when(traded).then(pl.col('close')).otherwise(np.nan).map_batches(np.log, return_dtype=pl.Float64).fill_nan(None)
+    out = (rows.select('symbol', at, 'close', 'volume').sort('symbol', at)
+           .with_columns(bar=pl.col(at).rank('dense'), traded=traded, level=level))
+    seen = pl.col('traded').cast(pl.Int64).cum_sum().over('symbol')
+    valid = pl.col('traded') & prev('traded') & (pl.col('bar') - prev('bar') == 1) & (seen > warmup)
+    held = pl.col('level') - pl.col('level').forward_fill().shift(1).over('symbol')
+    resumed = pl.any_horizontal([(pl.col('symbol') == sym) & (pl.col(at) == pd.Timestamp(day, tz='UTC'))
+                                 for sym, day in universe.REDENOMINATIONS] or [pl.lit(False)])
+    return out.with_columns(
+        dollar_volume=pl.when('traded').then(pl.col('volume') * pl.col('close')),
+        returns=pl.when(valid).then(pl.col('level') - prev('level')),
+        held=pl.when(pl.col('traded') & ~resumed).then(held),
+    ).drop('bar', 'level')
+
+
+def bars(rows: pd.DataFrame | pl.LazyFrame, prints: pd.DataFrame | None = None, at='day', warmup=30) -> Bars:
     """Bar-level panels from bars in long form, and funding prints in long form when given.
 
     at names the bar time column. Prints are placed on the bar they fall in.
     """
-    close = long.pivot(index=at, columns='symbol', values='close').sort_index()
-    volume = long.pivot(index=at, columns='symbol', values='volume').reindex_like(close)
+    lf = long(rows, at, warmup).collect()
+    if lf.select(pl.struct('symbol', at).is_duplicated().any()).item():
+        raise ValueError(f'more than one bar per symbol and {at}')
+    symbols = pd.Index(sorted(lf['symbol'].unique().to_list()), name='symbol')
+    index = pd.DatetimeIndex(lf[at].unique().sort().to_pandas(), name=at)
+    row = index.get_indexer(lf[at].to_pandas())
+    col = symbols.get_indexer(lf['symbol'].to_numpy())
+
+    def wide(c):
+        out = np.full((len(index), len(symbols)), np.nan)
+        out[row, col] = lf[c].to_numpy()
+        return pd.DataFrame(out, index=index, columns=symbols)
+
+    close, volume = wide('close'), wide('volume')
     traded = volume > 0
-    level = np.log(close.where(traded))
-    returns = level.diff().where(traded & traded.shift(1, fill_value=False))
-    returns = returns.where(traded.cumsum().where(traded) > warmup)
-
-    held = level.ffill().diff().where(traded)
-    for sym, day in universe.REDENOMINATIONS:
-        day = pd.Timestamp(day, tz='UTC')
-        if sym in held.columns and day in held.index:
-            held.loc[day, sym] = np.nan
-
     funding = pd.DataFrame(0.0, index=close.index, columns=close.columns)
     if prints is not None and len(prints):
         step = pd.Series(close.index).diff().median()
         prints = prints.drop_duplicates(['symbol', 't'], keep='last')
         per_bar = prints.assign(bar=prints.t.dt.floor(step)).pivot_table(index='bar', columns='symbol', values='funding_rate', aggfunc='sum')
         funding = per_bar.reindex(index=close.index, columns=close.columns).fillna(0.0)
-    return Bars(close=close, traded=traded, dollar_volume=(volume * close).where(traded), returns=returns,
-                held=held, funding=funding)
+    return Bars(close=close, traded=traded, dollar_volume=wide('dollar_volume'), returns=wide('returns'),
+                held=wide('held'), funding=funding)
 
 
 def build(b: Bars, period='W-SUN', min_bars=5, liquidity_bars=30, liquidity_min=20, vol_periods=12, vol_min=8) -> Panel:

@@ -5,6 +5,9 @@ the archive has published. A dataset published at one cadence only uses that
 one. Kline days missing from a monthly file inside a symbol's span are refilled
 from the daily files. Every frame carries the event time t, a kline also its
 open_time.
+
+scan returns a lazy polars frame for work too large to hold, such as hourly
+bars across the universe. The named loaders collect it into pandas.
 """
 from __future__ import annotations
 
@@ -12,6 +15,7 @@ import logging
 from dataclasses import dataclass
 
 import pandas as pd
+import polars as pl
 
 from .. import cache as cache_, engine
 
@@ -132,7 +136,19 @@ def _refill(market, ds, interval, rows: pd.DataFrame, before: pd.Timestamp) -> p
 
 
 def load(dataset: str, symbols, start, end, interval=None, market='usdm', cache=None, now=None) -> pd.DataFrame:
-    """Rows of one dataset for symbols with stamps in [start, end), long form, cached by partition."""
+    """Rows of one dataset for symbols with stamps in [start, end), long form in pandas, as scan reads them."""
+    rows = scan(dataset, symbols, start, end, interval, market, cache, now).collect()
+    if not len(rows):
+        return pd.DataFrame(columns=['symbol', 't', *DATASETS[dataset].fields])
+    return rows.to_pandas()
+
+
+def scan(dataset: str, symbols, start, end, interval=None, market='usdm', cache=None, now=None) -> pl.LazyFrame:
+    """Rows of one dataset for symbols with stamps in [start, end), long form, sorted by symbol then stamp.
+
+    Missing partitions are fetched and cached now, the rows are read when the
+    frame is collected.
+    """
     ds = DATASETS[dataset]
     now = pd.Timestamp.now(tz='UTC') if now is None else cache_.utc(now)
     lo, hi = cache_.utc(start), cache_.utc(end)
@@ -151,11 +167,12 @@ def load(dataset: str, symbols, start, end, interval=None, market='usdm', cache=
         return rows, through
 
     _, need = plan(ds.cadence, parts[0].start, hi, now)
-    rows = (cache or cache_.default()).load('binance', market, name, list(symbols), parts, need, fetch, stamp)
-    if not len(rows):
-        return pd.DataFrame(columns=['symbol', 't', *ds.fields])
-    rows = rows[(rows[stamp] >= lo) & (rows[stamp] < hi)]
-    return rows.sort_values(['symbol', stamp]).reset_index(drop=True)
+    rows = (cache or cache_.default()).scan('binance', market, name, list(symbols), parts, need, fetch, stamp)
+    if rows is None:
+        return pl.LazyFrame(schema={'symbol': pl.String, 't': pl.Datetime('ns', 'UTC'), **dict.fromkeys(ds.fields, pl.Float64)})
+    at = lambda t: pl.lit(t.value).cast(pl.Datetime('ns')).dt.replace_time_zone('UTC')
+    rows = rows.filter((pl.col(stamp) >= at(lo)) & (pl.col(stamp) < at(hi)))
+    return rows.sort('symbol', stamp, maintain_order=True)
 
 
 def klines(symbols, start, end, interval='1d', market='usdm', **kw) -> pd.DataFrame:
