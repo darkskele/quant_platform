@@ -36,6 +36,9 @@ class PythonBinanceHistoricalSource {
 
     void plan() { source_.plan(); }
 
+    /// The next event if one is ready, without waiting.
+    data_source::source::PullResult try_next() { return source_.next(); }
+
     /// The next event in timestamp order, or none once every stream is done.
     /// Waits while a fetch is still landing, since NoData is not the end.
     std::optional<MarketEvent> next() {
@@ -185,6 +188,10 @@ void bind_binance_historical(py::module_& m) {
             py::return_value_policy::reference_internal)
         .def("__next__",
              [](Source& self) {
+                 // A buffered event is handed out with the GIL held. Only a wait drops it.
+                 auto pulled = self.try_next();
+                 if (pulled) return std::move(*pulled);
+                 if (pulled.error() == SourceStatus::Eof) throw py::stop_iteration();
                  std::optional<MarketEvent> event;
                  {
                      py::gil_scoped_release release;

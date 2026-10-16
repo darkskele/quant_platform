@@ -31,3 +31,6 @@ config/*.local.*
 __pycache__/
 *.py[cod]
 *.pkl
+
+# Symlink to the shared devenv/vscode
+/.vscode
