@@ -19,7 +19,7 @@ engine ─▶ data ─▶ panel ─▶ book ─▶ net returns ─▶ stats, gat
   - `binance`. Klines, mark and premium klines, funding, metrics and open interest per coin from the Binance archive through the qp source.
   - `universe`. Which symbols count per market. Listings, the non-crypto perps, redenominations.
   - `etf`. Daily bars of a fixed US ETF list.
-- `panel`. Bar rules and funding in long form at any bar size, `long`, wide bar-level panels built once from it, then period panels of returns, PnL, liquidity, volatility, funding and halts at any rebalance period.
+- `panel`. Bar rules and funding in long form at any bar size, `long`, with trailing vol and liquidity, `rolling`, wide bar-level panels built once from it, then period panels of returns, PnL, liquidity, volatility, funding and halts at any rebalance period.
 - `costs`. Cost models pricing a weight change in one-way bps, and the measurement that fits a spread and depth ladder.
 - `book`. Weights in, net returns out. One book per panel and cost model, or a sliced book holding one slice per rebalance day.
 - `condition`. Market conditions and past-only cuts on them, the gated sleeve's inputs, and the in-fold condition search.

@@ -147,3 +147,18 @@ def test_long_funding_is_paid_on_the_bar_it_falls_in_or_where_trading_resumes():
     # Before the first bar and after the last are dropped, the halted 03:00 print lands on 04:00.
     assert paid.to_dict() == {hours[0]: 0.0, hours[1]: pytest.approx(0.03), hours[2]: 0.0,
                               hours[4]: pytest.approx(0.12), hours[5]: 0.0}
+
+
+def test_rolling_vol_and_liquidity_are_known_the_bar_before():
+    days = pd.date_range(ts('2024-01-01'), periods=40, freq='D')
+    rng = np.random.default_rng(1)
+    close = 100 * np.exp(np.cumsum(rng.normal(0, 0.02, 40)))
+    rows = pd.DataFrame({'symbol': 'A', 'day': days, 'close': close, 'volume': np.arange(1.0, 41.0)})
+    out = panel.rolling(panel.long(rows, warmup=0), at='day', vol='10d', vol_min=5, liquidity='10d', liquidity_min=5)
+    out = out.collect().to_pandas().set_index('day')
+    wide = panel.bars(rows, warmup=0)
+    vol = wide.returns['A'].rolling(10, min_periods=5).std().shift(1)
+    liq = wide.dollar_volume['A'].rolling(10, min_periods=5).median().shift(1)
+    assert np.allclose(out.vol, vol, equal_nan=True, rtol=1e-12) and out.vol.notna().sum() == vol.notna().sum()
+    assert np.allclose(out.liquidity, liq, equal_nan=True, rtol=0) and np.isnan(out.liquidity.iloc[4])
+    assert out.liquidity.iloc[5] == np.median(np.arange(1, 6) * close[:5])
