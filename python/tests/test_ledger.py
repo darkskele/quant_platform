@@ -151,3 +151,23 @@ def test_lane_refuses_primary_trials_before_the_spec_is_committed(tmp_path):
     with pytest.raises(SpecNotCommitted):
         lane.ledger.record(noise(2), 'the registered test', kind='registered')
     assert set(lane.ledger.table().name) == {'look around', 'the test'}
+
+
+def test_lane_without_git_reads_the_head_tree(tmp_path):
+    repo, copy = tmp_path / 'repo', tmp_path / 'copy'
+    (repo / 'lane').mkdir(parents=True)
+    git(repo, 'init', '-q')
+    (repo / 'lane' / 'spec.md').write_text('hypothesis\n')
+    git(repo, 'add', 'lane/spec.md')
+    git(repo, 'commit', '-q', '-m', 'spec')
+    tree = subprocess.run(['git', 'ls-tree', '-r', 'HEAD'], cwd=repo, capture_output=True, text=True, check=True).stdout
+    (copy / 'lane').mkdir(parents=True)
+    lane = Lane(copy / 'lane')
+    lane.spec.write_text('hypothesis\n')
+    with pytest.raises(SpecNotCommitted):
+        lane.ledger.record(noise(1), 'the test', kind='primary')
+    (copy / '.git-head').write_text(tree)
+    lane.ledger.record(noise(1), 'the test', kind='primary')
+    lane.spec.write_text('hypothesis, amended after the run\n')
+    with pytest.raises(SpecNotCommitted):
+        lane.ledger.record(noise(2), 'the registered test', kind='registered')

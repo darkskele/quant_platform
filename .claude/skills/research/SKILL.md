@@ -19,8 +19,8 @@ Reuse the package and the walk-forward splits, do not re-derive them. Pickle an 
 
 `qp_research` under `python/` is the research library. A notebook imports it and writes only the lane's own hypothesis. Code another lane would copy belongs in the package, with a test.
 
-- `data`. `daily_bars`, `klines`, `funding`, `metrics` and `universe`, cached by partition. Always check the cache, fetch what is missing. Never write a loader in a notebook.
-- `panel`. `panel.load()` or `panel.bars(...)` then `panel.build(bars, 'W-SUN')`. Returns, PnL, liquidity, vol, funding and halts at any rebalance period.
+- `data`. `daily_bars`, `klines`, `funding`, `metrics` and `universe`, cached by partition. Always check the cache, fetch what is missing. Never write a loader in a notebook. `data.scan` gives the same rows as a lazy polars frame, for anything too large to hold in pandas, hourly bars across the universe included.
+- `panel`. `panel.load()` or `panel.bars(...)` then `panel.build(bars, 'W-SUN')`. Returns, PnL, liquidity, vol, funding and halts at any rebalance period. `panel.long(data.scan(...), at='open_time')` applies the same bar rules lazily in long form at any bar size, the hourly path.
 - `costs`. Every book carries an explicit cost model. `costs.for_market('usdm', size)` off the measured ladder, `Provisional`, `Flat`. Fees come from `costs.FEES`, never a literal.
 - `book`. `Book(panel, cost).run(w)` for one rebalance day, `Sliced(bars, cost).run(weights)` for one slice per day. `inverse_vol`, `gated`, `sleeve`, `equal_risk`.
 - `condition`. Market conditions, past-only cuts and the in-fold condition search.
