@@ -107,6 +107,20 @@ def _funding(keys: pl.LazyFrame, prints: pl.LazyFrame, at: str, every: str) -> p
             .rename({'paid_on': at}))
 
 
+def rolling(bars: pl.LazyFrame, *, at: str, vol: str, vol_min: int, liquidity: str, liquidity_min: int) -> pl.LazyFrame:
+    """Adds vol and liquidity to bars in long form, both as of the coin's bar before, so they are known at trade time.
+
+    vol is the spread of signal returns and liquidity the median dollar volume,
+    each over a trailing span of time such as '720h' that ends on the bar, with
+    at least the given count of values in it. Spans are in time, so a missing
+    bar shortens a window rather than stretching it.
+    """
+    window = lambda span, least: {'by': at, 'window_size': span, 'min_samples': least}
+    by = {'partition_by': 'symbol'}
+    return bars.with_columns(
+        vol=pl.col('returns').rolling_std_by(**window(vol, vol_min)).over(**by).shift(1).over(**by),
+        liquidity=pl.col('dollar_volume').rolling_median_by(**window(liquidity, liquidity_min)).over(**by).shift(1).over(**by))
+
 def bars(rows: pd.DataFrame | pl.LazyFrame, prints: pd.DataFrame | None = None, at='day', warmup=30) -> Bars:
     """Bar-level panels from bars in long form, and funding prints in long form when given.
 

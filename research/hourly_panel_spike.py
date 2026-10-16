@@ -1,10 +1,10 @@
 """Spike: the full-universe hourly panel through qp_research, lazily, end to end.
 
-data.scan reads the hourly klines from the cache and panel.long applies the bar
-rules the weekly panels use. On top, the prior 720h vol and median dollar
-volume, the equal-weight market return over liquid coins, and the |z| > 4
-triggers. Prints wall time and peak RSS. --full also collects the whole panel,
-to size the buffer a notebook needs.
+data.scan reads the hourly klines from the cache, panel.long applies the bar
+rules the weekly panels use and panel.rolling adds the prior 720h vol and median
+dollar volume. On top, the equal-weight market return over liquid coins and the
+|z| > 4 triggers. Prints wall time and peak RSS. --full also collects the whole
+panel, to size the buffer a notebook needs.
 """
 from __future__ import annotations
 
@@ -21,13 +21,8 @@ from qp_research.data import universe
 def hourly() -> pl.LazyFrame:
     rows = data.scan('klines', universe.perps(), '2020-01-01', '2026-09-01', '1h')
     b = panel.long(rows, at='open_time', warmup=0)
-    roll = {'by': 'open_time', 'window_size': '720h', 'min_samples': 360}
-    by = {'partition_by': 'symbol'}
-    b = b.with_columns(vol=pl.col('returns').rolling_std_by(**roll).over(**by),
-                       liq=pl.col('dollar_volume').rolling_median_by(**roll).over(**by))
-    # Conditioning uses only what was known the hour before.
-    b = b.with_columns(prior_vol=pl.col('vol').shift(1).over(**by), prior_liq=pl.col('liq').shift(1).over(**by))
-    return b.with_columns(z=pl.col('returns') / pl.col('prior_vol'), liquid=pl.col('prior_liq') > 1e6)
+    b = panel.rolling(b, at='open_time', vol='720h', vol_min=360, liquidity='720h', liquidity_min=360)
+    return b.with_columns(z=pl.col('returns') / pl.col('vol'), liquid=pl.col('liquidity') > 1e6)
 
 
 def main():
