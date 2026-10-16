@@ -56,3 +56,4 @@
 54. The cache and data layers read with polars. `scan` returns a lazy frame for work too large to hold, such as hourly bars across the universe. The named loaders collect it into pandas.
 55. Bar rules are computed in long form, one row per coin and bar, so they hold at any bar size. The wide bar panels are scattered from it. The bar before a coin's bar is the previous bar any coin has.
 56. A copy of the repo without `.git`, as on the build box, checks a lane's spec against `.git-head`, `git ls-tree -r HEAD` written at sync.
+57. In long form a funding print is paid on the bar it falls in, and a print inside a halt on the bar trading resumes, where the halt's gap is booked. Prints before a coin's first bar or after its last are dropped. The wide daily panels keep a halted day's print on that day.

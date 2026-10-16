@@ -85,7 +85,7 @@ Signal research proves an edge inside a stated market condition. It does not bui
 
 ## Opening a lane
 
-A lane opens with `spec.md` in its folder, committed before any return of the signal is computed. Describing the data comes first and may shape the spec. Measuring the signal may not.
+A lane opens with a plan page, `<lane>.html` in its folder in the `pages` style, committed. The plan is broad and revised as the lane learns, its hypotheses, knobs, baselines and judging. Then `spec.md`, taken from the plan and committed before any return of the signal is computed. The spec is narrow and frozen, so its commit shows the test was fixed before any result. Keep them apart, since an edit to a plan that doubled as the spec would read as an amended test. Describing the data comes first and may shape the spec. Measuring the signal may not.
 
 - Hypothesis. What pays, in which condition, on which universe and cadence.
 - Mechanism. Why it should pay, and who is on the other side.
@@ -166,7 +166,7 @@ Two phases, and the seam between them gates the roadmap.
 
 - Never `git commit`, `git add`, or touch the index, however the request is phrased, unless commit permission is given explicitly for that turn. The owner commits, often between turns, and works out of staged changes as pre-commit review.
 - In a cloud session the work exists only in the container. On request, commit it to a temporary `claude/` branch and push, so the owner can build and run it, then squash to one commit on the named branch and delete the temp branch.
-- Plan docs are never committed, a hard rule. A research plan markdown is a working file only, it never enters a commit and no reference to it does either, not in a tracked file, not in a commit message.
+- Working plan markdown is never committed, a hard rule. It is a scratch file only, it never enters a commit and no reference to it does either, not in a tracked file, not in a commit message. A lane's plan page is the exception, it is the lane's committed opening document.
 - Push, merge and branch only when prompted. Merge with `--ff-only` so no merge commit is created, which also keeps it inside the no-commit rule.
 - Do not edit research notebooks to answer a question, answer in chat unless asked to write it in.
 - Give direct technical answers and correct a wrong premise. Size cancels out of the fee breakeven because fees and funding both scale with notional. Persistence is period-based and uses only the last print.
