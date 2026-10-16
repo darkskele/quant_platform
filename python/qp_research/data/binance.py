@@ -190,6 +190,12 @@ def metrics(symbols, start, end, market='usdm', **kw) -> pd.DataFrame:
     return load('metrics', symbols, start, end, None, market, **kw)
 
 
+def open_interest(symbols, start, end, market='usdm', **kw) -> pd.DataFrame:
+    """Open interest in quote terms per 5-minute sample, symbols on columns, the last print per sample."""
+    m = metrics(symbols, start, end, market, **kw)
+    return m.pivot_table(index='t', columns='symbol', values='open_interest_value', aggfunc='last').sort_index()
+
+
 def daily_bars(symbols, start, end, market='usdm', **kw) -> pd.DataFrame:
     """Daily high, low, close and volume, dated the day each bar covers, for days in [start, end)."""
     k = klines(symbols, start, end, '1d', market, **kw)
