@@ -54,14 +54,19 @@ class Panel:
     bars: Bars
 
 
-def long(rows: pl.LazyFrame | pd.DataFrame, at='day', warmup=30) -> pl.LazyFrame:
+def _lazy(x: pl.LazyFrame | pl.DataFrame | pd.DataFrame) -> pl.LazyFrame:
+    return x.lazy() if isinstance(x, pl.DataFrame) else pl.from_pandas(x).lazy() if isinstance(x, pd.DataFrame) else x
+
+
+def long(rows: pl.LazyFrame | pd.DataFrame, at='day', warmup=30, prints=None, every='1d') -> pl.LazyFrame:
     """Bar-level columns in long form from bars in long form, sorted by symbol then bar.
 
     Adds traded, dollar_volume, returns and held beside symbol, at, close and
     volume. A return needs the bar before to exist for the coin and to have
-    traded, where the bars before are every bar any coin has.
+    traded, where the bars before are every bar any coin has. With funding
+    prints in long form, adds funding per bar, every naming the bar length.
     """
-    rows = rows.lazy() if isinstance(rows, pl.DataFrame) else pl.from_pandas(rows).lazy() if isinstance(rows, pd.DataFrame) else rows
+    rows = _lazy(rows)
     prev = lambda c: pl.col(c).shift(1).over('symbol')
     traded = pl.col('volume') > 0
     # numpy's log, so the values match the wide panels bit for bit.
@@ -73,11 +78,33 @@ def long(rows: pl.LazyFrame | pd.DataFrame, at='day', warmup=30) -> pl.LazyFrame
     held = pl.col('level') - pl.col('level').forward_fill().shift(1).over('symbol')
     resumed = pl.any_horizontal([(pl.col('symbol') == sym) & (pl.col(at) == pd.Timestamp(day, tz='UTC'))
                                  for sym, day in universe.REDENOMINATIONS] or [pl.lit(False)])
-    return out.with_columns(
+    out = out.with_columns(
         dollar_volume=pl.when('traded').then(pl.col('volume') * pl.col('close')),
         returns=pl.when(valid).then(pl.col('level') - prev('level')),
         held=pl.when(pl.col('traded') & ~resumed).then(held),
     ).drop('bar', 'level')
+    if prints is None:
+        return out
+    paid = _funding(out.select('symbol', at), _lazy(prints), at, every)
+    return out.join(paid, on=['symbol', at], how='left').with_columns(pl.col('funding').fill_null(0.0)).sort('symbol', at)
+
+
+def _funding(keys: pl.LazyFrame, prints: pl.LazyFrame, at: str, every: str) -> pl.LazyFrame:
+    """Funding per coin and bar, summed over the prints each bar pays.
+
+    A print belongs to the bar it falls in. One inside a halt is paid on the bar
+    trading resumes, where the halt's gap is booked, since the position is still
+    held. Prints before a coin's first bar or after its last are dropped.
+    """
+    first = keys.group_by('symbol').agg(first=pl.col(at).min())
+    p = (prints.select('symbol', 't', 'funding_rate').unique(['symbol', 't'], keep='last', maintain_order=True)
+         .with_columns(start=pl.col('t').dt.truncate(every)).join(first, on='symbol')
+         .filter(pl.col('start') >= pl.col('first')).sort('start'))
+    bars = keys.select('symbol', pl.col(at).alias('paid_on')).sort('paid_on')
+    # Both sides are sorted on the key above.
+    placed = p.join_asof(bars, left_on='start', right_on='paid_on', by='symbol', strategy='forward', check_sortedness=False)
+    return (placed.drop_nulls('paid_on').group_by('symbol', 'paid_on').agg(funding=pl.col('funding_rate').sum())
+            .rename({'paid_on': at}))
 
 
 def bars(rows: pd.DataFrame | pl.LazyFrame, prints: pd.DataFrame | None = None, at='day', warmup=30) -> Bars:
