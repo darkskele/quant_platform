@@ -134,3 +134,16 @@ def test_long_bars_hold_at_any_bar_size():
     assert a.loc[hours[4], 'held'] == pytest.approx(np.log(104 / 102))
     wide = panel.bars(rows, at='open_time', warmup=0)
     assert wide.returns.index.equals(hours) and np.isnan(wide.close.loc[hours[3], 'A'])
+
+
+def test_long_funding_is_paid_on_the_bar_it_falls_in_or_where_trading_resumes():
+    hours = pd.date_range(ts('2024-01-01'), periods=6, freq='h')
+    rows = pd.DataFrame({'symbol': 'A', 'open_time': hours.delete(3), 'close': 100.0, 'volume': 1.0})
+    prints = pd.DataFrame({'symbol': 'A', 'funding_rate': [0.5, 0.01, 0.02, 0.04, 0.08, 0.16],
+                           't': [ts('2023-12-31 23:00'), ts('2024-01-01 01:00'), ts('2024-01-01 01:59'),
+                                 ts('2024-01-01 03:00'), ts('2024-01-01 04:00'), ts('2024-01-01 06:00')]})
+    out = panel.long(rows, at='open_time', warmup=0, prints=prints, every='1h').collect().to_pandas()
+    paid = out.set_index('open_time').funding
+    # Before the first bar and after the last are dropped, the halted 03:00 print lands on 04:00.
+    assert paid.to_dict() == {hours[0]: 0.0, hours[1]: pytest.approx(0.03), hours[2]: 0.0,
+                              hours[4]: pytest.approx(0.12), hours[5]: 0.0}
