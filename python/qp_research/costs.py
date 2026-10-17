@@ -1,6 +1,8 @@
 """Trading cost models in one-way basis points per trade, and the measurement that fits a ladder.
 
-Every model prices a weight change given the coin's liquidity. A ladder prices
+Every model prices a weight change given the coin's daily dollar volume, through
+bps(liquidity, dw), elementwise over a frame, a series or an array of the same
+shape, so a book of weights and a book of trades price alike. A ladder prices
 a taker order as the fee, half the spread and the impact of eating into the
 book, with spread and depth fitted against daily dollar volume.
 
@@ -12,6 +14,7 @@ resting within 1% of mid on each side.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Protocol
 
 import numpy as np
 import pandas as pd
@@ -45,13 +48,27 @@ class Ladder:
 PERPS_LADDER = Ladder(spread=(2.0103404763096764, -0.2738586941533421), depth=(-0.7160494356491773, 0.8183787124741141))
 
 
+class CostModel(Protocol):
+    def bps(self, liquidity, dw):
+        """One-way bps of each weight change dw, given each coin's daily dollar volume."""
+
+
+def _like(liquidity, values):
+    """values shaped and labelled like liquidity."""
+    if isinstance(liquidity, pd.DataFrame):
+        return pd.DataFrame(values, index=liquidity.index, columns=liquidity.columns)
+    if isinstance(liquidity, pd.Series):
+        return pd.Series(values, index=liquidity.index)
+    return np.broadcast_to(values, np.shape(liquidity)).astype(float)
+
+
 @dataclass(frozen=True)
 class Flat:
     """The same cost on every trade."""
     one_way: float
 
-    def bps(self, liquidity: pd.DataFrame, dw: pd.DataFrame) -> pd.DataFrame:
-        return pd.DataFrame(self.one_way, index=liquidity.index, columns=liquidity.columns)
+    def bps(self, liquidity, dw):
+        return _like(liquidity, self.one_way)
 
 
 @dataclass(frozen=True)
@@ -61,9 +78,8 @@ class Provisional:
     thin: float = 15.0
     floor: float = 1e7
 
-    def bps(self, liquidity: pd.DataFrame, dw: pd.DataFrame) -> pd.DataFrame:
-        return pd.DataFrame(np.where(liquidity >= self.floor, self.liquid, self.thin), index=liquidity.index,
-                            columns=liquidity.columns)
+    def bps(self, liquidity, dw):
+        return _like(liquidity, np.where(liquidity >= self.floor, self.liquid, self.thin))
 
 
 @dataclass(frozen=True)
@@ -77,8 +93,8 @@ class Taker:
     ladder: Ladder
     size: float
 
-    def bps(self, liquidity: pd.DataFrame, dw: pd.DataFrame) -> pd.DataFrame:
-        trade = dw.abs() * self.size
+    def bps(self, liquidity, dw):
+        trade = np.abs(dw) * self.size
         return self.fee + self.ladder.half_spread_bps(liquidity) + 50 * trade / self.ladder.depth_usd(liquidity)
 
 

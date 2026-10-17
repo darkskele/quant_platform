@@ -23,6 +23,7 @@ Reuse the package and the walk-forward splits, do not re-derive them. Pickle an 
 - `panel`. `panel.load()` or `panel.bars(...)` then `panel.build(bars, 'W-SUN')`. Returns, PnL, liquidity, vol, funding and halts at any rebalance period. `panel.long(data.scan(...), at='open_time')` applies the same bar rules lazily in long form at any bar size, the hourly path.
 - `costs`. Every book carries an explicit cost model. `costs.for_market('usdm', size)` off the measured ladder, `Provisional`, `Flat`. Fees come from `costs.FEES`, never a literal.
 - `book`. `Book(panel, cost).run(w)` for one rebalance day, `Sliced(bars, cost).run(weights)` for one slice per day. `inverse_vol`, `gated`, `sleeve`, `equal_risk`.
+- `event`. `EventBook(panel.rolling(panel.long(...)), cost, day_scale=24).run(triggers, Exits(...))` for a book of trades opened by triggers, the hourly path. Trades, a daily book and the effective count of independent trades.
 - `condition`. Market conditions, past-only cuts and the in-fold condition search.
 - `stats` and `gate`. Every Sharpe, drawdown, year table, IC and clustered error comes from `stats`. `gate.score` runs the statistical checks and stamps any it was not given as open.
 - `cv`, `plot`, `nb`. Splits, the house chart style, the notebook builder.
