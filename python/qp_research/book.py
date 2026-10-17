@@ -18,9 +18,8 @@ import numpy as np
 import pandas as pd
 
 from . import panel as panel_
-from .costs import Flat, Provisional, Taker
+from .costs import CostModel
 
-CostModel = Flat | Provisional | Taker
 WEEK = ('W-MON', 'W-TUE', 'W-WED', 'W-THU', 'W-FRI', 'W-SAT', 'W-SUN')
 
 
