@@ -191,3 +191,16 @@ def test_effective_trials_scales_past_the_periods(monkeypatch):
     t = time.time()
     gate.effective_trials(pd.DataFrame(rng.normal(size=(60, 2000))))
     assert time.time() - t < 30
+
+
+def test_event_books_hold_the_daily_calibration():
+    rng = np.random.default_rng(11)
+    passes = lambda x: np.mean([gate.significance(r, 1.0, 365)[0] >= gate.CONFIDENCE for r in x])
+    for agree in (0.5, 0.9):
+        null, active = calibrate.event_book(rng, 0.0, 300, 2415, agree=agree)
+        assert passes(null) < 0.12 and np.median(active) > 2000
+        assert abs(np.mean([np.corrcoef(v[:-1], v[1:])[0, 1] for v in null])) < 0.02
+    edge, _ = calibrate.event_book(rng, 1.5, 300, 2415, agree=0.9)
+    assert passes(edge) > 0.9
+    one_year, _ = calibrate.event_book(rng, 1.5, 300, 2415, agree=0.9, concentrated=True)
+    assert np.mean([gate.year_stability(r, 365)[0] for r in one_year]) < 0.2

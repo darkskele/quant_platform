@@ -125,3 +125,28 @@ What it means for a signal.
 - S2 is what catches an edge carried by one year. S1 cannot tell the two apart.
 - Deflating by effective trials holds wrong passes at 2 to 5% on correlated grids. Counting the grid as one test lets 11 to 47% through.
 - The previous bar passed a real 0.8 edge about one time in ten, and a real 0.5 edge almost never.
+
+### Event books
+
+An event book is scored on its daily series, open trades marked to market. Simulated event books over six and a half years of days, triggers arriving more often as volatility rises, holds of 16 hours, 10 slots, every trade loading 0.8 on one market shock shared that day, and sides that agree on the day either half or nine times in ten, as fades do in a crash. Share of books passing each check.
+
+| sides agree | true Sharpe | edge | S2 | S1, one test | S1, 3 trials | S1 on weekly sums | V1 |
+|---|---|---|---|---|---|---|---|
+| 0.5 | 0.0 | none | 0.17 | 0.04 | 0.01 | 0.05 | 0.05 |
+| 0.5 | 0.5 | stationary | 0.65 | 0.38 | 0.12 | 0.39 | 0.39 |
+| 0.5 | 1.0 | stationary | 0.92 | 0.82 | 0.53 | 0.81 | 0.82 |
+| 0.5 | 1.0 | one year | 0.12 | 0.68 | 0.51 | 0.66 | 0.67 |
+| 0.5 | 1.5 | stationary | 0.99 | 0.98 | 0.90 | 0.98 | 0.99 |
+| 0.9 | 0.0 | none | 0.18 | 0.06 | 0.01 | 0.06 | 0.05 |
+| 0.9 | 0.5 | stationary | 0.62 | 0.36 | 0.12 | 0.38 | 0.38 |
+| 0.9 | 1.0 | stationary | 0.93 | 0.80 | 0.52 | 0.79 | 0.81 |
+| 0.9 | 1.0 | one year | 0.12 | 0.69 | 0.49 | 0.67 | 0.68 |
+| 0.9 | 1.5 | stationary | 1.00 | 0.99 | 0.91 | 0.98 | 0.99 |
+
+Days a single primary test needs to pass S1 with 80% power. 9028 at Sharpe 0.5, 3527 at 0.8, 2258 at 1.0, 1004 at 1.5.
+
+- The daily checks hold for event books unchanged. Wrong passes stay at 4 to 6%, as on weekly books, whether sides are independent or agree in a crash.
+- Clustered triggers do not inflate the evidence. Trades open on one day share that day's return, so ten coins tripping on one crash are one larger day, not ten observations.
+- Scoring by day matches scoring by week at the same annual Sharpe. A faster book earns its advantage through a higher Sharpe from more bets a year, not through more periods.
+- The effective count of independent trades is reported beside the stamp for S7. It counts the evidence behind per-trade statistics, and S1 does not take it.
+- Barrier exits are not simulated. Under no edge they add no mean, since each day's position is set from the past, and their skew is what S1's correction is for.
