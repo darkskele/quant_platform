@@ -64,3 +64,4 @@
 62. Overlap rules run as a walk in time order after every candidate's exit is found. At most per_coin open trades in a coin and slots in the book, stronger triggers first at one close. Each trade holds an equal slot, so the book is at most fully invested.
 63. An event book's liquidity is scaled to a day for its cost model, since the ladder is fitted on daily dollar volume.
 64. An event book's daily series marks open trades to market. Its effective trade count sums each trade's average uniqueness, one over the trades open in the book beside it on each bar.
+65. An event book is scored by the gate on its daily series marked to market, with no change to the checks. Simulated event books with clustered triggers and agreeing sides hold the daily calibration, and the effective trade count is reported, not deflated by.
