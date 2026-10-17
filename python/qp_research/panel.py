@@ -97,7 +97,9 @@ def _funding(keys: pl.LazyFrame, prints: pl.LazyFrame, at: str, every: str) -> p
     held. Prints before a coin's first bar or after its last are dropped.
     """
     first = keys.group_by('symbol').agg(first=pl.col(at).min())
-    p = (prints.select('symbol', 't', 'funding_rate').unique(['symbol', 't'], keep='last', maintain_order=True)
+    # Prints take the bars' time unit, so the two always join.
+    stamp = keys.collect_schema()[at]
+    p = (prints.select('symbol', pl.col('t').cast(stamp), 'funding_rate').unique(['symbol', 't'], keep='last', maintain_order=True)
          .with_columns(start=pl.col('t').dt.truncate(every)).join(first, on='symbol')
          .filter(pl.col('start') >= pl.col('first')).sort('start'))
     bars = keys.select('symbol', pl.col(at).alias('paid_on')).sort('paid_on')

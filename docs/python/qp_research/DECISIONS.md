@@ -58,3 +58,9 @@
 56. A copy of the repo without `.git`, as on the build box, checks a lane's spec against `.git-head`, `git ls-tree -r HEAD` written at sync.
 57. In long form a funding print is paid on the bar it falls in, and a print inside a halt on the bar trading resumes, where the halt's gap is booked. Prints before a coin's first bar or after its last are dropped. The wide daily panels keep a halted day's print on that day.
 58. In long form, vol and liquidity are the spread of signal returns and the median dollar volume over a trailing span of time, as of the coin's bar before. Spans are in time, so a missing bar shortens a window. The spans are the lane's, there are no defaults.
+59. Every cost model prices through `bps(liquidity, dw)`, elementwise over a frame, series or array of one shape, so weight books and event books share models and a new model only implements `bps`.
+60. An event trade fills at its trigger's close, or delay bars later, and exits at the first close past its profit target or stop, in units of entry vol, or at its time stop. Barriers are read on closes only, so a gapping stop fills at the close.
+61. A halted coin exits on the bar trading resumes, a coin that ends on its last bar.
+62. Overlap rules run as a walk in time order after every candidate's exit is found. At most per_coin open trades in a coin and slots in the book, stronger triggers first at one close. Each trade holds an equal slot, so the book is at most fully invested.
+63. An event book's liquidity is scaled to a day for its cost model, since the ladder is fitted on daily dollar volume.
+64. An event book's daily series marks open trades to market. Its effective trade count sums each trade's average uniqueness, one over the trades open in the book beside it on each bar.
