@@ -59,10 +59,14 @@
 57. In long form a funding print is paid on the bar it falls in, and a print inside a halt on the bar trading resumes, where the halt's gap is booked. Prints before a coin's first bar or after its last are dropped. The wide daily panels keep a halted day's print on that day.
 58. In long form, vol and liquidity are the spread of signal returns and the median dollar volume over a trailing span of time, as of the coin's bar before. Spans are in time, so a missing bar shortens a window. The spans are the lane's, there are no defaults.
 59. Every cost model prices through `bps(liquidity, dw)`, elementwise over a frame, series or array of one shape, so weight books and event books share models and a new model only implements `bps`.
-60. An event trade fills at its trigger's close, or delay bars later, and exits at the first close past its profit target or stop, in units of entry vol, or at its time stop. Barriers are read on closes only, so a gapping stop fills at the close.
+60. An event trade fills at its trigger's close, or delay bars later, and exits at the first close past its profit target or stop, in units of the vol known at the trigger, or at its time stop. Barriers are read on closes only, so a gapping stop fills at the close.
 61. A halted coin exits on the bar trading resumes, a coin that ends on its last bar.
 62. Overlap rules run as a walk in time order after every candidate's exit is found. At most per_coin open trades in a coin and slots in the book, stronger triggers first at one close. Each trade holds an equal slot, so the book is at most fully invested.
 63. An event book's liquidity is scaled to a day for its cost model, since the ladder is fitted on daily dollar volume.
 64. An event book's daily series marks open trades to market. Its effective trade count sums each trade's average uniqueness, one over the trades open in the book beside it on each bar.
 65. An event book is scored by the gate on its daily series marked to market, with no change to the checks. Simulated event books with clustered triggers and agreeing sides hold the daily calibration, and the effective trade count is reported, not deflated by.
 66. Every python test lives under `python/tests` and runs under pytest, the built module's own tests in `python/tests/engine`. They skip where the module is not built.
+67. A ledger may carry a calendar. Each trial is summed onto it before trials are compared, so books stamped on different days line up. The trend ledger uses Sunday weeks.
+68. The market is the average signal return of coins at or above a liquidity floor on the bar. A residual is a coin's return less the market. Residual vol is the residual's trailing spread over a span of time, as of the coin's bar before.
+69. A hedged event trade holds the opposite position in one hedge symbol at the same notional, paying its own cost and funding. Barriers read the coin's log price less the hedge's. A bar the hedge did not trade cannot open or close a trade.
+70. A reversion exit fires at the first close where the move since the trigger bar undoes at least a set share of the trigger's gap, both in units of the vol known at the trigger.

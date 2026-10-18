@@ -5,6 +5,18 @@ description: How to write code comments and prose docs for quant-platform. Load 
 
 Soft-wrap everything. One line per paragraph, let the editor wrap. Never hard-wrap prose.
 
+# Clarity first
+
+Applies to every comment, doc, notebook and chat reply. The reader should get it on one skim. If a sentence needs rereading, rewrite it.
+
+- Say what literally happens, in plain words. No metaphor, idiom or insider shorthand. "Counts toward the luck bar", "generous to them", "the near copies they are" are banned style. Write "raises the number of backtests the result is judged against".
+- Name the concrete thing. Say "backtest", not "book", "trial" or "cell", unless the word is defined first. One word for one thing, throughout.
+- A term the reader may not know gets one plain sentence before it is used.
+- An example is marked as an example, or left out. A named case such as "Thursday" reads as the rule.
+- Lead with the point. First sentence says what is done or what was found. Detail after, only if the reader needs it to follow.
+- Leave out detail that lives in the code or another doc. No restating mechanics the reader did not ask for.
+- Short beats complete. Two clear sentences beat a full paragraph.
+
 # Code comments
 
 ## The one rule

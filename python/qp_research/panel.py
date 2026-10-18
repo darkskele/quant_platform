@@ -123,6 +123,22 @@ def rolling(bars: pl.LazyFrame, *, at: str, vol: str, vol_min: int, liquidity: s
         vol=pl.col('returns').rolling_std_by(**window(vol, vol_min)).over(**by).shift(1).over(**by),
         liquidity=pl.col('dollar_volume').rolling_median_by(**window(liquidity, liquidity_min)).over(**by).shift(1).over(**by))
 
+
+def market(bars: pl.LazyFrame, *, at: str, floor: float, vol: str, vol_min: int) -> pl.LazyFrame:
+    """Adds the market's return per bar, each coin's residual beyond it, and the residual's vol as of the coin's bar before.
+
+    The market is the average signal return of coins with liquidity of at least
+    floor on the bar. residual_vol is the spread of residuals over a trailing
+    span of time, with at least vol_min values in it.
+    """
+    m = (bars.filter((pl.col('liquidity') >= floor) & pl.col('returns').is_not_null())
+         .group_by(at).agg(market=pl.col('returns').mean()))
+    by = {'partition_by': 'symbol'}
+    return (bars.join(m, on=at, how='left').sort('symbol', at)
+            .with_columns(residual=pl.col('returns') - pl.col('market'))
+            .with_columns(residual_vol=pl.col('residual').rolling_std_by(by=at, window_size=vol, min_samples=vol_min).over(**by).shift(1).over(**by)))
+
+
 def bars(rows: pd.DataFrame | pl.LazyFrame, prints: pd.DataFrame | None = None, at='day', warmup=30) -> Bars:
     """Bar-level panels from bars in long form, and funding prints in long form when given.
 

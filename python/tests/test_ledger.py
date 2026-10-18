@@ -86,6 +86,18 @@ def test_trials_count_copies_once_and_independents_in_full(tmp_path):
     assert ledger_.Ledger(tmp_path / 'empty').trials(extra=3) == 3.0
 
 
+def test_books_on_other_weekdays_count_as_copies_on_one_calendar(tmp_path):
+    days = pd.Series(np.random.default_rng(0).normal(0, 0.01, 3500), index=pd.date_range('2016-01-01', periods=3500, freq='D', tz='UTC'))
+    books = {d: days.resample(f'W-{d}').sum() for d in ('SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT')}
+    apart, aligned = ledger_.Ledger(tmp_path / 'apart'), ledger_.Ledger(tmp_path / 'aligned', every='W-SUN')
+    for d, r in books.items():
+        apart.record(r, d)
+        aligned.record(r, d)
+    assert apart.trials() == pytest.approx(7.0, rel=0.15)
+    assert aligned.trials() < 3.0
+    assert aligned.frame().index.freqstr == 'W-SUN'
+
+
 def test_buffer_flushes_to_files(tmp_path, monkeypatch):
     monkeypatch.setattr(ledger_, 'FLUSH', 3)
     led = ledger_.Ledger(tmp_path)

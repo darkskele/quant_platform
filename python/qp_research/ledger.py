@@ -27,7 +27,7 @@ import pyarrow.parquet as pq
 from . import gate
 
 KINDS = ('primary', 'exploratory', 'registered', 'check')
-FLUSH = 200   # buffered trials written per file
+FLUSH = 2000  # buffered trials written per file
 
 
 def _commit(folder: Path) -> str:
@@ -42,10 +42,14 @@ def _digest(r: pd.Series) -> str:
 
 
 class Ledger:
-    """One lane's trials, read from and appended to a folder of parquet files."""
+    """One lane's trials, read from and appended to a folder of parquet files.
 
-    def __init__(self, folder):
-        self.folder = Path(folder)
+    every, a pandas period such as 'W-SUN', sums each trial onto that calendar
+    before trials are compared, so books stamped on different days line up.
+    """
+
+    def __init__(self, folder, every: str | None = None):
+        self.folder, self.every = Path(folder), every
         self._buffer: dict[str, pd.DataFrame] = {}
         self._known: dict[str, str] | None = None
         atexit.register(self.save)
@@ -110,12 +114,13 @@ class Ledger:
                                                    periods=('r', 'size')).reset_index()
 
     def frame(self, kinds=('primary', 'exploratory', 'registered')) -> pd.DataFrame:
-        """Periods by trials, the returns of every trial of the given kinds."""
+        """Periods by trials, the returns of every trial of the given kinds, on the ledger's calendar when it has one."""
         rows = self._rows()
         rows = rows[rows.kind.isin(kinds)]
         if not len(rows):
             return pd.DataFrame()
-        return rows.pivot_table(index='t', columns='key', values='r', aggfunc='last').sort_index()
+        f = rows.pivot_table(index='t', columns='key', values='r', aggfunc='last').sort_index()
+        return f.resample(self.every).sum(min_count=1) if self.every else f
 
     def trials(self, kinds=('primary', 'exploratory', 'registered'), extra=0) -> float:
         """How many independent tests the trials of the given kinds are worth. extra adds trials with no series."""

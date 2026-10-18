@@ -22,12 +22,12 @@ class SpecNotCommitted(RuntimeError):
 
 
 class Lane:
-    """The lane in folder, with its ledger in folder/ledger."""
+    """The lane in folder, with its ledger in folder/ledger on the calendar every."""
 
-    def __init__(self, folder):
+    def __init__(self, folder, every: str | None = None):
         self.folder = Path(folder).resolve()
         self.spec = self.folder / 'spec.md'
-        self.ledger = GuardedLedger(self.folder / 'ledger', self)
+        self.ledger = GuardedLedger(self.folder / 'ledger', self, every)
 
     def committed(self) -> bool:
         """True when spec.md is tracked and has no uncommitted change."""
@@ -60,8 +60,8 @@ def _in_head_tree(path: Path) -> bool:
 class GuardedLedger(Ledger):
     """A ledger that refuses primary and registered trials while the lane's spec is not committed."""
 
-    def __init__(self, folder, lane: Lane):
-        super().__init__(folder)
+    def __init__(self, folder, lane: Lane, every: str | None = None):
+        super().__init__(folder, every)
         self.lane = lane
 
     def record(self, returns: pd.Series, name=None, kind='exploratory', params=None) -> pd.Series:

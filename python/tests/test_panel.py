@@ -162,3 +162,19 @@ def test_rolling_vol_and_liquidity_are_known_the_bar_before():
     assert np.allclose(out.vol, vol, equal_nan=True, rtol=1e-12) and out.vol.notna().sum() == vol.notna().sum()
     assert np.allclose(out.liquidity, liq, equal_nan=True, rtol=0) and np.isnan(out.liquidity.iloc[4])
     assert out.liquidity.iloc[5] == np.median(np.arange(1, 6) * close[:5])
+
+
+def test_market_is_the_average_liquid_return_and_residuals_are_beyond_it():
+    hours = pd.date_range(ts('2024-01-01'), periods=30, freq='h')
+    rng = np.random.default_rng(2)
+    closes = {s: 100 * np.exp(np.cumsum(rng.normal(0, 0.01, 30))) for s in 'ABC'}
+    rows = pd.concat([pd.DataFrame({'symbol': s, 'open_time': hours, 'close': c, 'volume': 1.0}) for s, c in closes.items()])
+    long = panel.long(rows, at='open_time', warmup=0).with_columns(liquidity=pl.when(pl.col('symbol') == 'C').then(1.0).otherwise(1e8))
+    out = panel.market(long, at='open_time', floor=1e7, vol='10h', vol_min=5).collect().to_pandas()
+    w = out.pivot(index='open_time', columns='symbol', values='returns')
+    m = out.pivot(index='open_time', columns='symbol', values='market')
+    res = out.pivot(index='open_time', columns='symbol', values='residual')
+    assert np.allclose(m['C'], w[['A', 'B']].mean(axis=1), equal_nan=True)
+    assert np.allclose(res, w.sub(w[['A', 'B']].mean(axis=1), axis=0), equal_nan=True)
+    rv = out.pivot(index='open_time', columns='symbol', values='residual_vol')
+    assert np.allclose(rv['C'], res['C'].rolling(10, min_periods=5).std().shift(1), equal_nan=True, rtol=1e-10)
