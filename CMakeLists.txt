@@ -69,6 +69,7 @@ if(QP_BUILD_PYTHON)
 endif()
 
 add_subdirectory(cmake/core)
+add_subdirectory(cmake/network/byte_stream)
 add_subdirectory(cmake/execution)
 add_subdirectory(cmake/strategy)
 add_subdirectory(cmake/risk)

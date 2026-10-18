@@ -23,6 +23,7 @@ Source ─▶ Sink ─▶ Transport ─▶ Engine.step()
 - **[apps/backtest](apps/backtest/README.md)**: composes all of it into a runnable backtest on the live code path.
 - **[core](core/README.md)**: shared vocabulary and containers. `MarketEvent`/`Intent`/`Order`/`Fill`, `Subscription`, `Portfolio`, the lock-free queues.
 - **[python/qp_research](python/qp_research/README.md)**: the python research package. Archive data in, panels and books out, scored by one set of statistics.
+- **[network](network/README.md)**: the network stack. Layered concepts, starting with ordered byte streams (`ByteStream`).
 
 Each module's README covers its own concept, variations, and milestones. Each `DECISIONS.md` records that module's choices.
 
