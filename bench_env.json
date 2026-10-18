@@ -1,6 +1,6 @@
 {
-  "started": "2026-10-16T21:03:01Z",
-  "commit": "29d2f9a-dirty",
+  "started": "2026-10-18T20:39:41Z",
+  "commit": "24173ed-dirty",
   "host": "tallandstrongplatform",
   "kernel": "7.0.0-38-generic",
   "cmdline": "BOOT_IMAGE=/vmlinuz-7.0.0-38-generic root=/dev/mapper/ubuntu--vg-ubuntu--lv ro irqaffinity=8-11 isolcpus=managed_irq,4-7 rcu_nocbs=4-7 crashkernel=2G-4G:320M,4G-32G:512M,32G-64G:1024M,64G-128G:2048M,128G-:4096M",
@@ -8,7 +8,7 @@
   "bench": {
     "cpus": "4-7",
     "khz": 3000000,
-    "held_khz": 2992774,
+    "held_khz": 2992830,
     "max_cstate": 1,
     "governor": "powersave",
     "epp": "balance_performance"
@@ -17,28 +17,26 @@
     "ac_online": true,
     "battery_pct": "77"
   },
-  "load_before": "1.16 1.04 0.66",
+  "load_before": "1.15 1.03 0.49",
   "pkg_temp_c": {
-    "before": "48",
-    "after": "54"
+    "before": "46",
+    "after": "53"
   },
   "bench_cpu_irqs": {
-    "167": 30,
-    "168": 51,
-    "169": 6,
-    "170": 3,
+    "167": 1,
+    "168": 1,
     "NMI": 10,
-    "LOC": 99437,
+    "LOC": 103166,
     "PMI": 10,
-    "RES": 9,
-    "CAL": 1020,
-    "TLB": 1043
+    "RES": 14,
+    "CAL": 1163,
+    "TLB": 1083
   },
   "perf": [
-    "296399319994,,cpu_atom/cycles/,372763044976,100.00,,",
-    "266214962300,,cpu_atom/ref-cycles/,372763026818,100.00,,",
-    "7066,,context-switches,372763016359,100.00,,",
-    "367,,cpu-migrations,372763012116,100.00,,"
+    "307684860845,,cpu_atom/cycles/,387776490984,100.00,,",
+    "276346083020,,cpu_atom/ref-cycles/,387776475402,100.00,,",
+    "7411,,context-switches,387776452347,100.00,,",
+    "372,,cpu-migrations,387776448234,100.00,,"
   ],
   "exit_code": 0
 }
