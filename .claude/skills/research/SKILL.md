@@ -34,7 +34,7 @@ Reuse the package and the walk-forward splits, do not re-derive them. Pickle an 
 
 - Kernel and libs, `source ~/miniconda3/etc/profile.d/conda.sh && conda activate qp-research`. `qp_research` is installed there editable, from `python/environment.yml`.
 - The engine module, `qp_research.engine.module()`. Data needs the `qp_python_backtest` build.
-- Tests, `python -m pytest` from `python/`, and `-m network` for the ones that stream the archive.
+- Tests, `python -m pytest` from `python/`. Add `-m 'not network'` to skip the ones that stream the archive.
 - Heavy runs go in the background, `run_in_background`, watched with a Monitor until-grep loop. Foreground has a 2 minute cap.
 - Piped or redirected stdout is block-buffered, so a watched file stays empty until exit. Use `stdbuf -oL` or `print(..., flush=True)` when you need to watch progress.
 

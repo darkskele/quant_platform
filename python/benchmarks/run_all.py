@@ -2,10 +2,10 @@
 """Single entry point for the python benches.
 
 Run:
-  python benchmarks/python/run_all.py                 every bench, default window
-  python benchmarks/python/run_all.py --years 1       a shorter window
-  python benchmarks/python/run_all.py -k backtest     only names containing backtest
-  python benchmarks/python/run_all.py --list          names only, nothing executed
+  python python/benchmarks/run_all.py                 every bench, default window
+  python python/benchmarks/run_all.py --years 1       a shorter window
+  python python/benchmarks/run_all.py -k backtest     only names containing backtest
+  python python/benchmarks/run_all.py --list          names only, nothing executed
 """
 from __future__ import annotations
 

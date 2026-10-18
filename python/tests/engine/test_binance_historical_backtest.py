@@ -8,9 +8,15 @@ from __future__ import annotations
 
 import threading
 
-from qp_module import load
+import pytest
 
-qpb = load()
+from qp_research import engine
+
+# These stream from the live archive through the built module.
+pytestmark = pytest.mark.network
+if not engine.built():
+    pytest.skip('qp_python_backtest not built', allow_module_level=True)
+qpb = engine.module()
 
 EventKind = qpb.EventKind
 Intent, Order, Side = qpb.Intent, qpb.Order, qpb.Side

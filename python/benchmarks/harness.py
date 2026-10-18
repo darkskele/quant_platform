@@ -5,9 +5,9 @@ Build the module first:
   cmake --preset release -DQP_BUILD_PYTHON=ON -DPYTHON_EXECUTABLE=$HOME/miniconda3/envs/qp-research/bin/python
   cmake --build build/release --target qp_python_backtest -j
 Run:
-  python benchmarks/python/bench_python_backtest.py
-  python benchmarks/python/bench_python_backtest.py --years 1 --tiers
-  python benchmarks/python/bench_python_backtest.py --years 1 --sweep 4,8,16,32,64
+  python python/benchmarks/bench_python_backtest.py
+  python python/benchmarks/bench_python_backtest.py --years 1 --tiers
+  python python/benchmarks/bench_python_backtest.py --years 1 --sweep 4,8,16,32,64
 """
 from __future__ import annotations
 
