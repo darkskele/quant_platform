@@ -24,7 +24,7 @@
 22. A daily bar is dated the day it covers. A kline also carries its close as `t`.
 23. Listings come from the qp source's archive listing, union the monthly and daily folders, and are kept for a day. Only the non-crypto tags come from the exchange's REST info in python.
 24. An ETF window is fetched and cached whole, since adjusted closes are rewritten whenever a fund pays.
-25. Tests that stream from the live archive are marked `network` and run only with `-m network`.
+25. Tests that stream from the live archive are marked `network`. They run by default and `-m 'not network'` skips them.
 26. Bar-level panels are built once and shared by every rebalance period built from them.
 27. A signal return needs the bar and the bar before it traded, and skips each coin's first 30 traded bars. A period needs 5 valid bars.
 28. PnL returns span halts and book the gap on the bar trading resumes. Redenomination days are dropped.
@@ -65,3 +65,4 @@
 63. An event book's liquidity is scaled to a day for its cost model, since the ladder is fitted on daily dollar volume.
 64. An event book's daily series marks open trades to market. Its effective trade count sums each trade's average uniqueness, one over the trades open in the book beside it on each bar.
 65. An event book is scored by the gate on its daily series marked to market, with no change to the checks. Simulated event books with clustered triggers and agreeing sides hold the daily calibration, and the effective trade count is reported, not deflated by.
+66. Every python test lives under `python/tests` and runs under pytest, the built module's own tests in `python/tests/engine`. They skip where the module is not built.
