@@ -20,14 +20,14 @@ Reuse the package and the walk-forward splits, do not re-derive them. Pickle an 
 `qp_research` under `python/` is the research library. A notebook imports it and writes only the lane's own hypothesis. Code another lane would copy belongs in the package, with a test.
 
 - `data`. `daily_bars`, `klines`, `funding`, `metrics` and `universe`, cached by partition. Always check the cache, fetch what is missing. Never write a loader in a notebook. `data.scan` gives the same rows as a lazy polars frame, for anything too large to hold in pandas, hourly bars across the universe included.
-- `panel`. `panel.load()` or `panel.bars(...)` then `panel.build(bars, 'W-SUN')`. Returns, PnL, liquidity, vol, funding and halts at any rebalance period. `panel.long(data.scan(...), at='open_time')` applies the same bar rules lazily in long form at any bar size, the hourly path.
+- `panel`. `panel.load()` or `panel.bars(...)` then `panel.build(bars, 'W-SUN')`. Returns, PnL, liquidity, vol, funding and halts at any rebalance period. `panel.long(data.scan(...), at='open_time')` applies the same bar rules lazily in long form at any bar size, the hourly path. `panel.market` adds the market's return and each coin's residual beyond it, with residual vol.
 - `costs`. Every book carries an explicit cost model. `costs.for_market('usdm', size)` off the measured ladder, `Provisional`, `Flat`. Fees come from `costs.FEES`, never a literal.
 - `book`. `Book(panel, cost).run(w)` for one rebalance day, `Sliced(bars, cost).run(weights)` for one slice per day. `inverse_vol`, `gated`, `sleeve`, `equal_risk`.
-- `event`. `EventBook(panel.rolling(panel.long(...)), cost, day_scale=24).run(triggers, Exits(...))` for a book of trades opened by triggers, the hourly path. Trades, a daily book and the effective count of independent trades.
+- `event`. `EventBook(panel.rolling(panel.long(...)), cost, day_scale=24).run(triggers, Exits(...))` for a book of trades opened by triggers, the hourly path. `hedge='BTCUSDT'` trades the opposite leg and reads barriers on the spread, `Exits(revert=...)` exits once a share of the trigger's `gap` is undone. Trades, a daily book and the effective count of independent trades.
 - `condition`. Market conditions, past-only cuts and the in-fold condition search.
 - `stats` and `gate`. Every Sharpe, drawdown, year table, IC and clustered error comes from `stats`. `gate.score` runs the statistical checks and stamps any it was not given as open.
 - `cv`, `plot`, `nb`. Splits, the house chart style, the notebook builder.
-- `lane` and `ledger`. Open a lane with `lane = Lane(folder)` and give every `Book` and `Sliced` `ledger=lane.ledger`. Every run is then a trial. Name the ones you will quote, tag the primary test `kind='primary'`, and sanity runs such as random signs `kind='check'`. Score with `gate.score(net, lane.ledger)`, never a typed trial count.
+- `lane` and `ledger`. Open a lane with `lane = Lane(folder)`, or `Lane(folder, every='W-SUN')` when its books sit on different calendars, and give every `Book` and `Sliced` `ledger=lane.ledger`. Every run is then a trial. Name the ones you will quote, tag the primary test `kind='primary'`, and sanity runs such as random signs `kind='check'`. Score with `gate.score(net, lane.ledger)`, never a typed trial count.
 - Lane-specific signals live in the lane folder beside its notebooks, on top of the package.
 
 ## Environment
@@ -40,12 +40,13 @@ Reuse the package and the walk-forward splits, do not re-derive them. Pickle an 
 
 ## Notebook voice
 
-Prose follows the `writing` skill, terse, no em dashes, no colons or semicolons, one line per paragraph, no hard wrap.
+Prose follows the `writing` skill, its clarity rules first, terse, no em dashes, no colons or semicolons, one line per paragraph, no hard wrap.
 
-- Match the voice of the sibling notebooks before writing a new one.
+- The owner skims. An intro is one or two sentences saying what the section does. A finding leads with the number that matters. Anything longer has to earn its place.
+- Plain words over lane jargon. Say "backtest" and "probability the Sharpe is real", not "book", "trial" or "luck bar", unless defined in the notebook first.
+- Older notebooks are written in a denser voice. Do not copy it.
 - No cross-references. No see-below, no cell-N, no naming another doc, and never reference the plan from inside a notebook.
 - State the finding directly and stay honest about softness, a soft Sharpe is called soft.
-- Easy on the jargon, explain the concept once in plain terms before naming it.
 - Math in KaTeX with dollar delimiters. Inline is `$x$`, display is `$$x$$`.
 - After a display block, break the terms down in plain notes form, one bullet a term, what each symbol is and what it contributes. Read it back so a reader gets the formula without parsing the notation.
 
@@ -158,7 +159,7 @@ Two phases, and the seam between them gates the roadmap.
 - Judge a rule that sits out on the trades it takes and on return per dollar deployed. Flat time lowers a Sharpe by itself.
 - Scale a cost to the market it is charged in. 7.5 bps copied to ETFs was several times heavier against funds that move a fifth as much as coins.
 - A registered test ran before its spec was committed. The spec was unchanged, but the history cannot show it.
-- Every exploratory book enters the trial ledger. A late check ran about 5,700 books and quoted them against the ledger's older count, which is generous to them. Rebuild them as return series and recount the effective trials.
+- Every exploratory book enters the trial ledger. A late check ran 5,101 books and quoted them against the ledger's older 74 trials. Rebuilt, the lane was worth 306.5 and the seven-slice book fell from 0.58 to 0.39. Books on different rebalance days share no stamps, so a ledger mixing them needs a calendar or every copy counts as independent.
 - Hindsight conditions look robust. Nudging the windows of a condition found on the full sample barely moved it, because every nudge was fitted to the same weeks. Robustness to its own settings is not evidence the condition would have been found.
 - A default cost hides in a helper. The in-fold condition search ran its books at the provisional rate while the sleeves beside it used the ladder, and quoted 1.38 where the ladder gives 1.37. A book now always carries an explicit cost model.
 - A charge booked on a calendar label vanishes when that day did not trade. Slices rebalancing on ETF holidays and the final partial week paid no cost. Book a period's funding and cost on its last bar that exists.

@@ -112,3 +112,38 @@ def test_effective_count_is_the_sum_of_uniqueness():
     same = book(b, slots=4).run(triggers(('A', hour(0), 1, 1.0), ('B', hour(0), 1, 1.0)), Exits(None, None, hold=4))
     apart = book(b, slots=4).run(triggers(('C', hour(0), 1, 1.0), ('D', hour(4), 1, 1.0)), Exits(None, None, hold=4))
     assert same.effective == pytest.approx(1.0) and apart.effective == pytest.approx(2.0)
+
+
+def test_a_hedged_trade_earns_the_spread_and_pays_both_legs():
+    prints = pd.DataFrame({'symbol': ['A', 'H'], 't': [hour(2), hour(2)], 'funding_rate': [0.001, 0.003]})
+    b = bars({'A': path(100, [0.01] * 6), 'H': path(100, [0.004] * 6)}, prints=prints)
+    r = EventBook(b, costs.Flat(10.0), day_scale=24, slots=1, hedge='H').run(triggers(('A', hour(0), 1, 1.0)), Exits(None, None, hold=4))
+    t = r.trades.iloc[0]
+    assert r.trades.symbol.tolist() == ['A'] and t.reason == 'time'
+    assert t.gross == pytest.approx((np.exp(0.04) - 1) - (np.exp(0.016) - 1))
+    # Long A pays its print, short H is paid its own, each on its value when the print falls.
+    assert t.funding == pytest.approx(-0.001 * np.exp(0.01) + 0.003 * np.exp(0.004))
+    assert t.cost == pytest.approx(-10 / 1e4 * (1 + np.exp(0.04) + 1 + np.exp(0.016)))
+
+
+def test_hedged_barriers_read_the_spread():
+    b = bars({'A': path(100, [0.01] * 6), 'H': path(100, [0.01] * 6)})
+    alone = book(b, slots=1).run(triggers(('A', hour(0), 1, 1.0)), Exits(take=1.0, stop=1.0, hold=5)).trades
+    hedged = book(b, slots=1, hedge='H').run(triggers(('A', hour(0), 1, 1.0)), Exits(take=1.0, stop=1.0, hold=5)).trades
+    assert alone.reason.tolist() == ['take'] and hedged.reason.tolist() == ['time']
+    assert hedged.gross.iloc[0] == pytest.approx(0.0, abs=1e-12)
+
+
+def test_a_hedged_trade_waits_for_the_hedge_to_trade():
+    b = bars({'A': [100.0] * 6, 'H': [np.nan, 100.0, 100.0, 100.0, 100.0, 100.0]})
+    t = book(b, slots=1, hedge='H').run(triggers(('A', hour(0), 1, 1.0), ('A', hour(1), 1, 1.0)), Exits(None, None, hold=2)).trades
+    assert t.entry.tolist() == [hour(1)]
+
+
+def test_revert_exits_once_a_share_of_the_gap_is_undone_since_the_trigger():
+    # A fell 2 vol into the trigger, the long fills a bar later and the bounce is read from the trigger.
+    b = bars({'A': path(100, [-0.01, -0.01, 0.004, 0.004, 0.004, 0.004, 0.004])})
+    t = pd.DataFrame({'symbol': ['A'], 'open_time': [hour(2)], 'side': [1], 'strength': [2.0], 'gap': [-2.0]})
+    r = book(b, slots=1).run(t, Exits(take=None, stop=None, hold=6, delay=1, revert=0.5)).trades
+    # Undone from the 02:00 close is 0.4, 0.8, 1.2 vol, past half the gap at 05:00.
+    assert r.reason.tolist() == ['revert'] and r.entry.tolist() == [hour(3)] and r.exit.tolist() == [hour(5)]
