@@ -10,26 +10,43 @@ Research here judges a signal by downstream money on the C++ engine, not by a fi
 Probe, then build, then execute. Three passes, in order.
 
 1. Probe. A throwaway script in the scratchpad that wires the pipeline and prints real numbers. Validate the wiring and get the numbers before writing a word of interpretation. Never write a read from a guess.
-2. Build. A python builder script that emits the `.ipynb` as JSON, one `md`/`code` helper per cell. Interpretation cells are written from the probe's real numbers.
-3. Execute. `jupyter nbconvert --to notebook --execute --inplace` to embed outputs. Verify zero errors and that the tables landed.
+2. Build. A python builder script that lists the cells with `qp_research.nb.md` and `nb.code`. Interpretation cells are written from the probe's real numbers.
+3. Execute. `nb.build(path, cells)` writes and executes in place, and refuses a notebook with any failed cell. Check the tables landed.
 
-Reuse the feature pipeline and the walk-forward splits, do not re-derive them. Pickle the out-of-fold set so a rerun skips regeneration, gbm generation is about 20s and each backtest about 30s, they add up.
+Reuse the package and the walk-forward splits, do not re-derive them. Pickle an out-of-fold set so a rerun skips regeneration.
+
+## The package
+
+`qp_research` under `python/` is the research library. A notebook imports it and writes only the lane's own hypothesis. Code another lane would copy belongs in the package, with a test.
+
+- `data`. `daily_bars`, `klines`, `funding`, `metrics` and `universe`, cached by partition. Always check the cache, fetch what is missing. Never write a loader in a notebook. `data.scan` gives the same rows as a lazy polars frame, for anything too large to hold in pandas, hourly bars across the universe included.
+- `panel`. `panel.load()` or `panel.bars(...)` then `panel.build(bars, 'W-SUN')`. Returns, PnL, liquidity, vol, funding and halts at any rebalance period. `panel.long(data.scan(...), at='open_time')` applies the same bar rules lazily in long form at any bar size, the hourly path. `panel.market` adds the market's return and each coin's residual beyond it, with residual vol.
+- `costs`. Every book carries an explicit cost model. `costs.for_market('usdm', size)` off the measured ladder, `Provisional`, `Flat`. Fees come from `costs.FEES`, never a literal.
+- `book`. `Book(panel, cost).run(w)` for one rebalance day, `Sliced(bars, cost).run(weights)` for one slice per day. `inverse_vol`, `gated`, `sleeve`, `equal_risk`.
+- `event`. `EventBook(panel.rolling(panel.long(...)), cost, day_scale=24).run(triggers, Exits(...))` for a book of trades opened by triggers, the hourly path. `hedge='BTCUSDT'` trades the opposite leg and reads barriers on the spread, `Exits(revert=...)` exits once a share of the trigger's `gap` is undone. Trades, a daily book and the effective count of independent trades.
+- `condition`. Market conditions, past-only cuts and the in-fold condition search.
+- `stats` and `gate`. Every Sharpe, drawdown, year table, IC and clustered error comes from `stats`. `gate.score` runs the statistical checks and stamps any it was not given as open.
+- `cv`, `plot`, `nb`. Splits, the house chart style, the notebook builder.
+- `lane` and `ledger`. Open a lane with `lane = Lane(folder)`, or `Lane(folder, every='W-SUN')` when its books sit on different calendars, and give every `Book` and `Sliced` `ledger=lane.ledger`. Every run is then a trial. Name the ones you will quote, tag the primary test `kind='primary'`, and sanity runs such as random signs `kind='check'`. Score with `gate.score(net, lane.ledger)`, never a typed trial count.
+- Lane-specific signals live in the lane folder beside its notebooks, on top of the package.
 
 ## Environment
 
-- Kernel and libs, `source ~/miniconda3/etc/profile.d/conda.sh && conda activate qp-research`. lightgbm, sklearn, pyarrow live only there.
-- The engine module, glob `build/release/**/qp_python_backtest*.so` and insert its dir on `sys.path`.
+- Kernel and libs, `source ~/miniconda3/etc/profile.d/conda.sh && conda activate qp-research`. `qp_research` is installed there editable, from `python/environment.yml`.
+- The engine module, `qp_research.engine.module()`. Data needs the `qp_python_backtest` build.
+- Tests, `python -m pytest` from `python/`. Add `-m 'not network'` to skip the ones that stream the archive.
 - Heavy runs go in the background, `run_in_background`, watched with a Monitor until-grep loop. Foreground has a 2 minute cap.
 - Piped or redirected stdout is block-buffered, so a watched file stays empty until exit. Use `stdbuf -oL` or `print(..., flush=True)` when you need to watch progress.
 
 ## Notebook voice
 
-Prose follows the `writing` skill, terse, no em dashes, no colons or semicolons, one line per paragraph, no hard wrap.
+Prose follows the `writing` skill, its clarity rules first, terse, no em dashes, no colons or semicolons, one line per paragraph, no hard wrap.
 
-- Match the voice of the sibling notebooks before writing a new one.
+- The owner skims. An intro is one or two sentences saying what the section does. A finding leads with the number that matters. Anything longer has to earn its place.
+- Plain words over lane jargon. Say "backtest" and "probability the Sharpe is real", not "book", "trial" or "luck bar", unless defined in the notebook first.
+- Older notebooks are written in a denser voice. Do not copy it.
 - No cross-references. No see-below, no cell-N, no naming another doc, and never reference the plan from inside a notebook.
 - State the finding directly and stay honest about softness, a soft Sharpe is called soft.
-- Easy on the jargon, explain the concept once in plain terms before naming it.
 - Math in KaTeX with dollar delimiters. Inline is `$x$`, display is `$$x$$`.
 - After a display block, break the terms down in plain notes form, one bullet a term, what each symbol is and what it contributes. Read it back so a reader gets the formula without parsing the notation.
 
@@ -70,7 +87,7 @@ Signal research proves an edge inside a stated market condition. It does not bui
 
 ## Opening a lane
 
-A lane opens with `spec.md` in its folder, committed before any return of the signal is computed. Describing the data comes first and may shape the spec. Measuring the signal may not.
+A lane opens with a plan page, `<lane>.html` in its folder in the `pages` style, committed. The plan is broad and revised as the lane learns, its hypotheses, knobs, baselines and judging. Then `spec.md`, taken from the plan and committed before any return of the signal is computed. The spec is narrow and frozen, so its commit shows the test was fixed before any result. Keep them apart, since an edit to a plan that doubled as the spec would read as an amended test. Describing the data comes first and may shape the spec. Measuring the signal may not.
 
 - Hypothesis. What pays, in which condition, on which universe and cadence.
 - Mechanism. Why it should pay, and who is on the other side.
@@ -142,14 +159,16 @@ Two phases, and the seam between them gates the roadmap.
 - Judge a rule that sits out on the trades it takes and on return per dollar deployed. Flat time lowers a Sharpe by itself.
 - Scale a cost to the market it is charged in. 7.5 bps copied to ETFs was several times heavier against funds that move a fifth as much as coins.
 - A registered test ran before its spec was committed. The spec was unchanged, but the history cannot show it.
-- Every exploratory book enters the trial ledger. A late check ran about 5,700 books and quoted them against the ledger's older count, which is generous to them. Rebuild them as return series and recount the effective trials.
+- Every exploratory book enters the trial ledger. A late check ran 5,101 books and quoted them against the ledger's older 74 trials. Rebuilt, the lane was worth 306.5 and the seven-slice book fell from 0.58 to 0.39. Books on different rebalance days share no stamps, so a ledger mixing them needs a calendar or every copy counts as independent.
 - Hindsight conditions look robust. Nudging the windows of a condition found on the full sample barely moved it, because every nudge was fitted to the same weeks. Robustness to its own settings is not evidence the condition would have been found.
+- A default cost hides in a helper. The in-fold condition search ran its books at the provisional rate while the sleeves beside it used the ladder, and quoted 1.38 where the ladder gives 1.37. A book now always carries an explicit cost model.
+- A charge booked on a calendar label vanishes when that day did not trade. Slices rebalancing on ETF holidays and the final partial week paid no cost. Book a period's funding and cost on its last bar that exists.
 
 ## Working with the repo owner and git
 
 - Never `git commit`, `git add`, or touch the index, however the request is phrased, unless commit permission is given explicitly for that turn. The owner commits, often between turns, and works out of staged changes as pre-commit review.
 - In a cloud session the work exists only in the container. On request, commit it to a temporary `claude/` branch and push, so the owner can build and run it, then squash to one commit on the named branch and delete the temp branch.
-- Plan docs are never committed, a hard rule. A research plan markdown is a working file only, it never enters a commit and no reference to it does either, not in a tracked file, not in a commit message.
+- Working plan markdown is never committed, a hard rule. It is a scratch file only, it never enters a commit and no reference to it does either, not in a tracked file, not in a commit message. A lane's plan page is the exception, it is the lane's committed opening document.
 - Push, merge and branch only when prompted. Merge with `--ff-only` so no merge commit is created, which also keeps it inside the no-commit rule.
 - Do not edit research notebooks to answer a question, answer in chat unless asked to write it in.
 - Give direct technical answers and correct a wrong premise. Size cancels out of the fee breakeven because fees and funding both scale with notional. Persistence is period-based and uses only the last print.
