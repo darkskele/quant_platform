@@ -156,6 +156,26 @@ TEST(LentMirrorRing, MovedRingKeepsLentBytesValid) {
     EXPECT_EQ(space(moved), kPage);
 }
 
+TEST(LentMirrorRing, DropUnlentKeepsLentBytesAndFreesTheRest) {
+    Ring          ring;
+    std::uint64_t pos = 0;
+    fill(ring, 10, pos);
+    LentBytes a = ring.lend(4);
+
+    ring.drop_unlent();
+    EXPECT_EQ(ring.unlent(), 0u);
+    const LentBytes none = ring.lend(10);
+    EXPECT_TRUE(none.bytes().empty());
+    EXPECT_EQ(space(ring), kPage - 4);
+
+    fill(ring, 5, pos);
+    const LentBytes b = ring.lend(10);
+    ASSERT_EQ(b.bytes().size(), 5u);
+    EXPECT_EQ(b.bytes()[0], std::byte(10));
+    EXPECT_EQ(a.bytes()[0], std::byte(0));
+    EXPECT_EQ(a.bytes()[3], std::byte(3));
+}
+
 TEST(LentMirrorRing, RandomTrafficKeepsEveryByteInOrder) {
     qp::LentMirrorRing<4096, 8> ring;
     std::mt19937                rng(7);

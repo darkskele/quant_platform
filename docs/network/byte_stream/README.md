@@ -5,7 +5,7 @@ A `ByteStream` is an ordered byte stream to a remote IP and port. It lends what 
 ## Diagram
 
 ```
-ByteStream::connect(ip, port)
+ByteStream::connect(ip, port)    close() ends it, connect again reuses the stream
    │
 bytes in
    │
@@ -19,9 +19,13 @@ Readable              bytes, receive time, stream status
 consumers             destroying the Readable hands the bytes back
 ```
 
+## Variations
+
+- **KernelTcpStream**. A kernel TCP socket, received straight into the stream's ring.
+
 ## Milestones
 
 - [x] ~~`ByteStream` concept~~
-- [ ] Kernel TCP stream
+- [x] ~~Kernel TCP stream~~
 - [ ] Rig benchmarks
-- [ ] Busy-polled, io_uring and eBPF peek streams
+- [ ] io_uring and eBPF peek streams

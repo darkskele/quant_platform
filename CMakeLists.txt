@@ -111,7 +111,7 @@ if(BUILD_TESTING)
         qp_engine qp_transport qp_transport_backtest_in_process qp_strategy qp_strategy_test_support
         qp_strategy_carry qp_risk
         qp_risk_test_support qp_risk_basic qp_engine_test_support
-        qp_backtest_compose Threads::Threads GTest::gtest GTest::gtest_main
+        qp_backtest_compose qp_network_byte_stream Threads::Threads GTest::gtest GTest::gtest_main
     )
     add_test(NAME qp_tests COMMAND qp_tests)
 

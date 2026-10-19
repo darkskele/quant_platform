@@ -135,6 +135,9 @@ class LentMirrorRing {
 
     std::size_t unlent() const noexcept { return static_cast<std::size_t>(filled_ - lent_); }
 
+    /// Drops every byte written but not yet lent. Lent bytes stay valid.
+    void drop_unlent() noexcept { filled_ = lent_; }
+
     static constexpr std::size_t size() noexcept { return Size; }
 
    private:

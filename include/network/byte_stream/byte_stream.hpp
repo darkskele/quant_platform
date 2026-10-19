@@ -22,11 +22,12 @@ struct [[nodiscard]] Readable {
 };
 
 /// An ordered byte stream to a remote IPv4 address and port. read(n) lends at most n bytes
-/// without blocking, fewer when fewer have arrived.
+/// without blocking, fewer when fewer have arrived. A stream can close and connect again.
 template <class S>
 concept ByteStream = requires(S s, std::string_view ip, std::uint16_t port, std::size_t n) {
     { s.connect(ip, port) } -> std::same_as<StreamStatus>;  // blocks, Open once connected
     { s.read(n) } -> std::same_as<Readable>;
+    { s.close() } -> std::same_as<void>;  // drops unread bytes, lent ones stay valid
 };
 
 }  // namespace qp::network::byte_stream
