@@ -1,27 +1,30 @@
 # network/byte_stream
 
-A `ByteStream` is an ordered byte stream to a remote IP and port. It lends what it has read without copying and never blocks on a read.
+A `ByteStream` is an ordered two way byte stream to a remote IP and port. It lends what it has read, and the space to write into, without copying. It never blocks on a read or a write.
 
 ## Diagram
 
 ```
 ByteStream::connect(ip, port)    close() ends it, connect again reuses the stream
-   │
-bytes in
-   │
-   ▼
-ByteStream::read(n)   lends up to n bytes as a Readable
-   │
-   ▼
-Readable              bytes, receive time, stream status
-   │
-   ▼
-consumers             destroying the Readable hands the bytes back
+
+bytes in                                     consumers
+   │                                            │
+   ▼                                            ▼
+read(n)       lends up to n bytes            write(max, fill)   lends max bytes of space, fill writes in place
+   │                                            │
+   ▼                                            ▼
+Readable      bytes, receive time, status    Written            bytes accepted, status
+   │                                            │
+   ▼                                            ▼
+consumers     destroying it hands back       flush()            sends what a write left waiting
+                                                │
+                                                ▼
+                                             bytes out
 ```
 
 ## Variations
 
-- **KernelTcpStream**. A kernel TCP socket, received straight into the stream's ring.
+- **KernelTcpStream**. A kernel TCP socket. Receives straight into one ring and sends from a second one the caller fills in place.
 
 ## Milestones
 

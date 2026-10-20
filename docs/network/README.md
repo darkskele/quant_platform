@@ -6,11 +6,11 @@ The network stack. Each layer is a concept, and each layer above is built on the
 
 ```
 bytes on the wire
-   │
-   ▼
-ByteStream        ordered bytes, lent without copying
-   │
-   ▼
+   ▲ │
+   │ ▼
+ByteStream        ordered bytes both ways, lent without copying
+   ▲ │
+   │ ▼
 consumers
 ```
 

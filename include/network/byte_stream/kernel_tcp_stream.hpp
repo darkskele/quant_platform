@@ -7,11 +7,13 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <cassert>
 #include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <span>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 
 #include "byte_stream.hpp"
@@ -20,13 +22,15 @@
 namespace qp::network::byte_stream {
 
 /// A ByteStream over a kernel TCP socket. Reads go straight from the socket into a ring the
-/// stream lends from.
-/// @tparam RingSize ring bytes, a power of two and a page multiple.
+/// stream lends from. Writes fill a second ring the stream sends from.
+/// @tparam RxSize receive ring bytes, a power of two and a page multiple.
 /// @tparam MaxLent Readables alive at once, a power of two.
-template <std::size_t RingSize, std::size_t MaxLent>
+/// @tparam TxSize send ring bytes, a power of two and a page multiple. The most one write can
+/// take.
+template <std::size_t RxSize, std::size_t MaxLent, std::size_t TxSize>
 class KernelTcpStream {
    public:
-    /// Throws if the ring cannot be mapped.
+    /// Throws if its rings cannot be mapped.
     KernelTcpStream() = default;
 
     ~KernelTcpStream() {
@@ -34,10 +38,13 @@ class KernelTcpStream {
     }
 
     KernelTcpStream(KernelTcpStream&& other) noexcept
-        : ring_(std::move(other.ring_)),
+        : rx_(std::move(other.rx_)),
           fd_(std::exchange(other.fd_, -1)),
           rx_ts_(other.rx_ts_),
-          status_(other.status_) {}
+          status_(other.status_),
+          tx_(std::move(other.tx_)),
+          inflight_(std::move(other.inflight_)),
+          inflight_sent_(other.inflight_sent_) {}
 
     KernelTcpStream& operator=(KernelTcpStream&&)      = delete;
     KernelTcpStream(const KernelTcpStream&)            = delete;
@@ -64,14 +71,45 @@ class KernelTcpStream {
     }
 
     Readable read(std::size_t n) noexcept {
-        // Only an empty ring receives, so every lend comes from one recv and one rx_ts.
-        if (ring_.unlent() == 0 && status_ == StreamStatus::Open) receive();
-        return {ring_.lend(n), rx_ts_, status_};
+        // Only an empty receive ring receives, so every lend comes from one recv and one rx_ts.
+        if (rx_.unlent() == 0 && status_ == StreamStatus::Open) receive();
+        return {rx_.lend(n), rx_ts_, status_};
     }
 
+    /// Sends what is waiting first. Full when max bytes do not fit, Error when max exceeds
+    /// TxSize.
+    template <class F>
+        requires std::is_invocable_r_v<std::size_t, F&, std::span<std::byte>>
+    Written write(std::size_t max,
+                  F&& fill) noexcept(std::is_nothrow_invocable_v<F&, std::span<std::byte>>) {
+        if (status_ != StreamStatus::Open) return {0, status_};
+        if (max > TxSize) return {0, status_ = StreamStatus::Error};
+        send_pending();
+        if (status_ != StreamStatus::Open) return {0, status_};
+        bool              fits = false;
+        const std::size_t n    = tx_.write([&](std::span<std::byte> space) noexcept(
+                                            std::is_nothrow_invocable_v<F&, std::span<std::byte>>) {
+            fits = space.size() >= max;
+            return fits ? fill(space.first(max)) : std::size_t{0};
+        });
+        if (!fits) return {0, StreamStatus::Full};
+        assert(n <= max);
+        send_pending();
+        return {n, status_};
+    }
+
+    Flushed flush() noexcept {
+        const std::size_t sent = status_ == StreamStatus::Open ? send_pending() : 0;
+        return {sent, inflight_.bytes().size() - inflight_sent_ + tx_.unlent(), status_};
+    }
+
+    /// Drops unread and unsent bytes.
     void close() noexcept {
         if (fd_ >= 0) ::close(std::exchange(fd_, -1));
-        ring_.drop_unlent();
+        rx_.drop_unlent();
+        inflight_      = {};
+        inflight_sent_ = 0;
+        tx_.drop_unlent();
         rx_ts_  = 0;
         status_ = StreamStatus::Closed;
     }
@@ -82,7 +120,7 @@ class KernelTcpStream {
     void receive() noexcept {
         ssize_t got = -1;
         int     err = EAGAIN;
-        ring_.write([&](std::span<std::byte> space) noexcept {
+        rx_.write([&](std::span<std::byte> space) noexcept {
             // A zero length recv returns 0, which reads as a close.
             if (space.empty()) return std::size_t{0};
             got = ::recv(fd_, space.data(), space.size(), 0);
@@ -99,16 +137,42 @@ class KernelTcpStream {
             status_ = StreamStatus::Error;
     }
 
+    // One send of the range out, or of everything waiting when none is. Returns the bytes the
+    // kernel took.
+    std::size_t send_pending() noexcept {
+        if (inflight_.bytes().empty()) inflight_ = tx_.lend(tx_.unlent());
+        const auto rest = inflight_.bytes().subspan(inflight_sent_);
+        if (rest.empty()) return 0; // nothing waiting
+        // MSG_NOSIGNAL turns a send to a closed peer into EPIPE, not SIGPIPE.
+        const ssize_t sent = ::send(fd_, rest.data(), rest.size(), MSG_NOSIGNAL);
+        if (sent < 0) {
+            if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
+                status_ = StreamStatus::Error;
+            return 0;
+        }
+        inflight_sent_ += static_cast<std::size_t>(sent);
+        if (inflight_sent_ == inflight_.bytes().size()) {
+            inflight_      = {};
+            inflight_sent_ = 0;
+        }
+        return static_cast<std::size_t>(sent);
+    }
+
     static RxTime now() noexcept {
         timespec ts{};
         ::clock_gettime(CLOCK_MONOTONIC, &ts);
         return static_cast<RxTime>(ts.tv_sec) * 1'000'000'000 + ts.tv_nsec;
     }
 
-    LentMirrorRing<RingSize, MaxLent> ring_;
-    int                               fd_     = -1;
-    RxTime                            rx_ts_  = 0;
-    StreamStatus                      status_ = StreamStatus::Closed;  // Open once connected
+    LentMirrorRing<RxSize, MaxLent> rx_;
+    int                             fd_     = -1;
+    RxTime                          rx_ts_  = 0;
+    StreamStatus                    status_ = StreamStatus::Closed;  // Open once connected
+
+    // inflight_ is the range being sent, declared after tx_ so it is handed back first.
+    LentMirrorRing<TxSize, 1> tx_;
+    LentBytes                 inflight_;
+    std::size_t               inflight_sent_ = 0;  // bytes of inflight_ the kernel took
 };
 
 }  // namespace qp::network::byte_stream

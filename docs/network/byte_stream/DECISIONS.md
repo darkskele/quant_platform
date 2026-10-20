@@ -13,5 +13,13 @@
 11. A stream never waits for bytes. Sleeping or spinning between reads is the caller's choice, outside the stream.
 12. A stream receives only once every byte it holds is lent, so each `Readable` comes from one receive and its receive time is exact.
 13. A stream is reusable. `close` ends the connection and `connect` opens a new one, keeping the stream's memory.
-14. `close` drops bytes not yet lent. `Readable`s already out stay valid and hand back as normal.
+14. `close` drops bytes not yet lent and bytes not yet sent. `Readable`s already out stay valid and hand back as normal.
 15. Destroying a stream closes it.
+16. A write lends the stream's own space and `fill` writes into it in place. Nothing is copied in from the caller's memory.
+17. `write(max, fill)` gets all `max` bytes of space or none. With no room it returns `Full` and never calls `fill`.
+18. Bytes a write accepts are the stream's to deliver. The caller never sends them again.
+19. A write sends at once. Bytes that do not go out wait in the stream, ahead of anything written later.
+20. `flush` sends what is waiting and reports what it sent and what is left. It is its own call, so a read never sends.
+21. `Full` is only ever a write's answer. A stream's lasting status is `Open`, `Closed` or `Error`.
+22. A write larger than the stream's send space can never fit, so it is an `Error`.
+23. Writing to a closed peer reports `Error`. It never raises a signal.
