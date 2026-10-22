@@ -1,4 +1,4 @@
-# network/byte_stream decisions
+# network/transport/byte_stream decisions
 
 1. A read lends a view into the stream's own buffer. Nothing is copied into the caller's memory.
 2. `read(n)` returns at most `n` bytes, fewer when fewer have arrived. It never blocks.

@@ -16,7 +16,7 @@
 #include "byte_stream.hpp"
 #include "kernel_tcp_stream.hpp"
 
-using namespace qp::network::byte_stream;
+using namespace qp::network::transport::byte_stream;
 using Stream = KernelTcpStream<4096, 4, 4096>;
 
 static_assert(ByteStream<Stream>);
@@ -31,8 +31,9 @@ class Listener {
     // A nonzero rcvbuf shrinks what accepted peers buffer before the sender backs up.
     explicit Listener(int rcvbuf = 0) {
         fd_ = ::socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
-        if (rcvbuf > 0)
+        if (rcvbuf > 0) {
             EXPECT_EQ(::setsockopt(fd_, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof rcvbuf), 0);
+        }
         sockaddr_in addr{};
         addr.sin_family      = AF_INET;
         addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);

@@ -8,7 +8,7 @@ The network stack. Each layer is a concept, and each layer above is built on the
 bytes on the wire
    ▲ │
    │ ▼
-ByteStream        ordered bytes both ways, lent without copying
+transport         bytes to and from a remote address, lent without copying
    ▲ │
    │ ▼
 consumers
@@ -16,11 +16,12 @@ consumers
 
 ## Components
 
-- **[byte_stream](byte_stream/README.md)**. The `ByteStream` concept and its backends.
+- **[transport](transport/README.md)**. Moving bytes to and from a remote address, one concept per kind of delivery.
 
 ## Milestones
 
-- [x] ~~Byte streams~~
-- [ ] Datagram channels
+- [ ] Transport
+    - [x] ~~Byte streams~~
+    - [ ] Datagram channels
 - [ ] Security layer over any `ByteStream`
 - [ ] Application protocols over any `ByteStream`

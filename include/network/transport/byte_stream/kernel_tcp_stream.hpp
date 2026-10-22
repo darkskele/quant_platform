@@ -19,7 +19,7 @@
 #include "byte_stream.hpp"
 #include "lent_mirror_ring.hpp"
 
-namespace qp::network::byte_stream {
+namespace qp::network::transport::byte_stream {
 
 /// A ByteStream over a kernel TCP socket. Reads go straight from the socket into a ring the
 /// stream lends from. Writes fill a second ring the stream sends from.
@@ -175,4 +175,4 @@ class KernelTcpStream {
     std::size_t               inflight_sent_ = 0;  // bytes of inflight_ the kernel took
 };
 
-}  // namespace qp::network::byte_stream
+}  // namespace qp::network::transport::byte_stream

@@ -1,4 +1,4 @@
-# network/byte_stream
+# network/transport/byte_stream
 
 A `ByteStream` is an ordered two way byte stream to a remote IP and port. It lends what it has read, and the space to write into, without copying. It never blocks on a read or a write.
 

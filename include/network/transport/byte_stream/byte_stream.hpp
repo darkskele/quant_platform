@@ -7,7 +7,7 @@
 
 #include "lent_mirror_ring.hpp"
 
-namespace qp::network::byte_stream {
+namespace qp::network::transport::byte_stream {
 
 /// Nanoseconds on the monotonic clock.
 using RxTime = std::int64_t;
@@ -50,4 +50,4 @@ concept ByteStream = requires(S s, std::string_view ip, std::uint16_t port, std:
     { s.close() } -> std::same_as<void>;     // drops unread bytes, lent ones stay valid
 };
 
-}  // namespace qp::network::byte_stream
+}  // namespace qp::network::transport::byte_stream
