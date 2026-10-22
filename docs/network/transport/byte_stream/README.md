@@ -13,7 +13,7 @@ bytes in                                     consumers
 read(n)       lends up to n bytes            write(max, fill)   lends max bytes of space, fill writes in place
    │                                            │
    ▼                                            ▼
-Readable      bytes, receive time, status    Written            bytes accepted, status
+Readable      bytes, receive times, status   Written            bytes accepted, status
    │                                            │
    ▼                                            ▼
 consumers     destroying it hands back       flush()            sends what a write left waiting

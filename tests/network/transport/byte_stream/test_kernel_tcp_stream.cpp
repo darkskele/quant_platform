@@ -20,6 +20,7 @@ using namespace qp::network::transport::byte_stream;
 using Stream = KernelTcpStream<4096, 4, 4096>;
 
 static_assert(ByteStream<Stream>);
+static_assert(ByteStream<KernelTcpStream<4096, 4, 4096, RxStamps{.kernel = true, .nic = true}>>);
 
 namespace {
 
@@ -94,8 +95,8 @@ std::vector<std::byte> pattern(std::size_t n, std::size_t from = 0) {
 }
 
 // Reads until done(r) holds or a second passes.
-template <class Done>
-Readable read_until(Stream& s, std::size_t n, Done done) {
+template <class S, class Done>
+Readable read_until(S& s, std::size_t n, Done done) {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
     for (;;) {
         Readable r = s.read(n);
@@ -103,7 +104,8 @@ Readable read_until(Stream& s, std::size_t n, Done done) {
     }
 }
 
-Readable read_some(Stream& s, std::size_t n) {
+template <class S>
+Readable read_some(S& s, std::size_t n) {
     return read_until(s, n, [](const Readable& r) { return !r.lent.bytes().empty(); });
 }
 
@@ -187,12 +189,56 @@ TEST(KernelTcpStream, InOrderAcrossWrapsWithRisingRxTime) {
         }
         Readable r = read_some(s, 700);
         ASSERT_FALSE(r.lent.bytes().empty());
-        EXPECT_GT(r.rx_ts, 0);
-        EXPECT_GE(r.rx_ts, last);
-        last = r.rx_ts;
+        EXPECT_GT(r.rx_ts.user, 0);
+        EXPECT_GE(r.rx_ts.user, last);
+        last = r.rx_ts.user;
         for (const std::byte b : r.lent.bytes()) ASSERT_EQ(b, std::byte(got++ % 251));
         held = std::move(r);
     }
+}
+
+TEST(KernelTcpStream, StampsOnlyUserByDefault) {
+    Listener l;
+    Stream   s;
+    ASSERT_EQ(s.connect(kLocal, l.port()), StreamStatus::Open);
+    Peer p{l.accept()};
+    p.send(pattern(100));
+
+    const Readable r = read_some(s, 1000);
+    ASSERT_FALSE(r.lent.bytes().empty());
+    EXPECT_GT(r.rx_ts.user, 0);
+    EXPECT_EQ(r.rx_ts.kernel, 0);
+    EXPECT_EQ(r.rx_ts.nic, 0);
+}
+
+TEST(KernelTcpStream, KernelStampComesShortlyBeforeUser) {
+    Listener                                                 l;
+    KernelTcpStream<4096, 4, 4096, RxStamps{.kernel = true}> s;
+    ASSERT_EQ(s.connect(kLocal, l.port()), StreamStatus::Open);
+    Peer p{l.accept()};
+    p.send(pattern(100));
+
+    const Readable r = read_some(s, 1000);
+    ASSERT_FALSE(r.lent.bytes().empty());
+    EXPECT_GT(r.rx_ts.kernel, 0);
+    EXPECT_LE(r.rx_ts.kernel, r.rx_ts.user);
+    EXPECT_LT(r.rx_ts.user - r.rx_ts.kernel, 1'000'000'000);
+    EXPECT_EQ(r.rx_ts.nic, 0);
+}
+
+// Loopback has no NIC clock, so asking for one connects and stamps nothing.
+TEST(KernelTcpStream, NicStampIsZeroWithoutHardware) {
+    Listener                                              l;
+    KernelTcpStream<4096, 4, 4096, RxStamps{.nic = true}> s;
+    ASSERT_EQ(s.connect(kLocal, l.port()), StreamStatus::Open);
+    Peer p{l.accept()};
+    p.send(pattern(100));
+
+    const Readable r = read_some(s, 1000);
+    ASSERT_FALSE(r.lent.bytes().empty());
+    EXPECT_GT(r.rx_ts.user, 0);
+    EXPECT_EQ(r.rx_ts.nic, 0);
+    EXPECT_EQ(r.rx_ts.kernel, 0);
 }
 
 TEST(KernelTcpStream, PeerCloseDeliversBytesThenClosed) {

@@ -1,16 +1,21 @@
 #pragma once
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <linux/errqueue.h>
+#include <linux/net_tstamp.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <sys/uio.h>
 #include <time.h>
 #include <unistd.h>
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cerrno>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <span>
 #include <string_view>
 #include <type_traits>
@@ -27,8 +32,16 @@ namespace qp::network::transport::byte_stream {
 /// @tparam MaxLent Readables alive at once, a power of two.
 /// @tparam TxSize send ring bytes, a power of two and a page multiple. The most one write can
 /// take.
-template <std::size_t RxSize, std::size_t MaxLent, std::size_t TxSize>
+/// @tparam Stamps receive stamps taken besides the user one.
+template <std::size_t RxSize, std::size_t MaxLent, std::size_t TxSize, RxStamps Stamps = RxStamps{}>
 class KernelTcpStream {
+    static constexpr bool STAMPED = Stamps.kernel || Stamps.nic;
+    static constexpr int  STAMP_FLAGS =
+        (Stamps.kernel ? SOF_TIMESTAMPING_RX_SOFTWARE | SOF_TIMESTAMPING_SOFTWARE : 0) |
+        (Stamps.nic ? SOF_TIMESTAMPING_RX_HARDWARE | SOF_TIMESTAMPING_RAW_HARDWARE : 0);
+    // Room for the stamps one recvmsg returns.
+    static constexpr std::size_t CTRL_BYTES = STAMPED ? CMSG_SPACE(sizeof(scm_timestamping)) : 0;
+
    public:
     /// Throws if its rings cannot be mapped.
     KernelTcpStream() = default;
@@ -63,6 +76,11 @@ class KernelTcpStream {
 
         fd_ = ::socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
         if (fd_ < 0) return fail();
+        if constexpr (STAMPED) {
+            const int flags = STAMP_FLAGS;
+            if (::setsockopt(fd_, SOL_SOCKET, SO_TIMESTAMPING, &flags, sizeof flags) != 0)
+                return fail();
+        }
         if (::connect(fd_, reinterpret_cast<const sockaddr*>(&addr), sizeof addr) != 0)
             return fail();
         const int flags = ::fcntl(fd_, F_GETFL);
@@ -71,7 +89,8 @@ class KernelTcpStream {
     }
 
     Readable read(std::size_t n) noexcept {
-        // Only an empty receive ring receives, so every lend comes from one recv and one rx_ts.
+        // Only an empty receive ring receives, so every lend comes from one recv and one set of
+        // stamps.
         if (rx_.unlent() == 0 && status_ == StreamStatus::Open) receive();
         return {rx_.lend(n), rx_ts_, status_};
     }
@@ -110,7 +129,7 @@ class KernelTcpStream {
         inflight_      = {};
         inflight_sent_ = 0;
         tx_.drop_unlent();
-        rx_ts_  = 0;
+        rx_ts_  = {};
         status_ = StreamStatus::Closed;
     }
 
@@ -123,11 +142,20 @@ class KernelTcpStream {
         rx_.write([&](std::span<std::byte> space) noexcept {
             // A zero length recv returns 0, which reads as a close.
             if (space.empty()) return std::size_t{0};
-            got = ::recv(fd_, space.data(), space.size(), 0);
-            if (got > 0) {
-                rx_ts_ = now();
-                return static_cast<std::size_t>(got);
+            if constexpr (STAMPED) {
+                iovec  iov{space.data(), space.size()};
+                msghdr msg{};
+                msg.msg_iov        = &iov;
+                msg.msg_iovlen     = 1;
+                msg.msg_control    = ctrl_.data();
+                msg.msg_controllen = ctrl_.size();
+                got                = ::recvmsg(fd_, &msg, 0);
+                if (got > 0) stamp(msg);
+            } else {
+                got = ::recv(fd_, space.data(), space.size(), 0);
+                if (got > 0) rx_ts_ = {.user = clock_ns(CLOCK_MONOTONIC)};
             }
+            if (got > 0) return static_cast<std::size_t>(got);
             err = errno;
             return std::size_t{0};
         });
@@ -158,16 +186,38 @@ class KernelTcpStream {
         return static_cast<std::size_t>(sent);
     }
 
-    static RxTime now() noexcept {
-        timespec ts{};
-        ::clock_gettime(CLOCK_MONOTONIC, &ts);
+    // The kernel stamps the newest bytes of a recv on the realtime clock. It moves onto the
+    // monotonic one by the gap between the two clocks now.
+    void stamp(msghdr& msg) noexcept {
+        rx_ts_ = {.user = clock_ns(CLOCK_MONOTONIC)};
+        for (cmsghdr* c = CMSG_FIRSTHDR(&msg); c; c = CMSG_NXTHDR(&msg, c)) {
+            if (c->cmsg_level != SOL_SOCKET || c->cmsg_type != SCM_TIMESTAMPING) continue;
+            scm_timestamping t;
+            std::memcpy(&t, CMSG_DATA(c), sizeof t);
+            if constexpr (Stamps.kernel)
+                if (const RxTime real = ns(t.ts[0]); real != 0)
+                    rx_ts_.kernel = real - (clock_ns(CLOCK_REALTIME) - rx_ts_.user);
+            if constexpr (Stamps.nic) rx_ts_.nic = ns(t.ts[2]);
+            break;  // one per recv
+        }
+    }
+
+    static RxTime ns(const timespec& ts) noexcept {
         return static_cast<RxTime>(ts.tv_sec) * 1'000'000'000 + ts.tv_nsec;
     }
 
+    static RxTime clock_ns(clockid_t clock) noexcept {
+        timespec ts{};
+        ::clock_gettime(clock, &ts);
+        return ns(ts);
+    }
+
     LentMirrorRing<RxSize, MaxLent> rx_;
-    int                             fd_     = -1;
-    RxTime                          rx_ts_  = 0;
+    int                             fd_ = -1;
+    RxTimes                         rx_ts_{};
     StreamStatus                    status_ = StreamStatus::Closed;  // Open once connected
+
+    alignas(cmsghdr) std::array<std::byte, CTRL_BYTES> ctrl_{};
 
     // inflight_ is the range being sent, declared after tx_ so it is handed back first.
     LentMirrorRing<TxSize, 1> tx_;
