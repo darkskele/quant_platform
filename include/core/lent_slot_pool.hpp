@@ -81,6 +81,9 @@ class [[nodiscard]] LentSlot {
 
     std::span<std::byte> bytes() && = delete;
 
+    /// Whether this view holds a slot. A zero length view still does.
+    explicit operator bool() const noexcept { return free_ != nullptr; }
+
    private:
     template <std::size_t SlotSize, std::size_t Count>
     friend class LentSlotPool;

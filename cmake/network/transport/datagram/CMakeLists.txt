@@ -1,0 +1,7 @@
+# network/transport/datagram. The DatagramChannel concept.
+qp_dir(include QP_INC)
+
+add_library(qp_network_transport_datagram INTERFACE)
+target_include_directories(qp_network_transport_datagram INTERFACE ${QP_INC})
+target_compile_features(qp_network_transport_datagram INTERFACE cxx_std_23)
+target_link_libraries(qp_network_transport_datagram INTERFACE qp_network_transport)

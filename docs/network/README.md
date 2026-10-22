@@ -8,7 +8,7 @@ The network stack. Each layer is a concept, and each layer above is built on the
 bytes on the wire
    ▲ │
    │ ▼
-transport         bytes to and from a remote address, lent without copying
+transport         bytes between this machine and the network, lent without copying
    ▲ │
    │ ▼
 consumers
@@ -16,7 +16,7 @@ consumers
 
 ## Components
 
-- **[transport](transport/README.md)**. Moving bytes to and from a remote address, one concept per kind of delivery.
+- **[transport](transport/README.md)**. Moving bytes between this machine and the network, one concept per kind of delivery.
 
 ## Milestones
 

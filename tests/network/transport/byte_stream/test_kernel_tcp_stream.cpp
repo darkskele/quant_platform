@@ -16,6 +16,7 @@
 #include "byte_stream.hpp"
 #include "kernel_tcp_stream.hpp"
 
+using namespace qp::network::transport;
 using namespace qp::network::transport::byte_stream;
 using Stream = KernelTcpStream<4096, 4, 4096>;
 

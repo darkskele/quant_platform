@@ -71,10 +71,17 @@ TEST(LentSlotPool, EmptyLendStillHoldsTheSlot) {
     Pool pool;
     {
         const LentSlot l = pool.lend(*pool.acquire(), 0, 0);
+        EXPECT_TRUE(l);
         EXPECT_TRUE(l.bytes().empty());
         EXPECT_EQ(pool.free(), 7u);
     }
     EXPECT_EQ(pool.free(), 8u);
+}
+
+TEST(LentSlotPool, DefaultLentSlotHoldsNothing) {
+    const LentSlot l;
+    EXPECT_FALSE(l);
+    EXPECT_TRUE(l.bytes().empty());
 }
 
 TEST(LentSlotPool, DroppingLentSlotFreesIt) {
@@ -127,6 +134,8 @@ TEST(LentSlotPool, MovedLentSlotReleasesOnce) {
     LentSlot a = pool.lend(*pool.acquire(), 0, 1);
     {
         LentSlot moved = std::move(a);
+        EXPECT_FALSE(a);
+        EXPECT_TRUE(moved);
         EXPECT_EQ(pool.free(), 7u);
     }
     EXPECT_EQ(pool.free(), 8u);
