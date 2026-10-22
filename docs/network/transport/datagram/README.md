@@ -22,9 +22,13 @@ Datagram       slot, receive times, status
 consumers      destroying it hands the slot back
 ```
 
+## Variations
+
+- **KernelUdpChannel**. A kernel UDP socket. One `recvmmsg` fills a batch of slots, which reads lend one at a time.
+
 ## Milestones
 
 - [x] ~~`DatagramChannel` concept, read side~~
-- [ ] Kernel UDP channel
+- [x] ~~Kernel UDP channel~~
 - [ ] Send side
 - [ ] io_uring and eBPF peek channels

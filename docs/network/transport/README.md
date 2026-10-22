@@ -26,4 +26,4 @@ consumers                  consumers
 - [x] ~~Byte streams~~
 - [ ] Datagram channels
     - [x] ~~Concept, read side~~
-    - [ ] Kernel UDP channel
+    - [x] ~~Kernel UDP channel~~
