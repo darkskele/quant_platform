@@ -1,5 +1,6 @@
 # Build
 /build/
+/netbench_out/
 /out/
 /dist/
 *.o
