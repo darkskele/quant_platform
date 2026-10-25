@@ -21,7 +21,7 @@ A modular C++ trading platform where **backtest and live run the same code**. Ve
 C++23, CMake + Ninja, `CMakePresets.json` (`release`/`debug`/`tsan`; presets are the prod/test switch), dependencies from apt (Boost, OpenSSL, libzip, GoogleTest; `vcpkg.json` exists but is unused), Google Benchmark via FetchContent. Dev in WSL Ubuntu (relative benchmarks only, WSL2 PMU is unreliable); absolute perf on the build box.
 
 ## Docs and comments
-Follow the `writing` skill for every comment and doc. In short: terse, self-contained, single-source; `docs/` mirrors `include/` with a `README.md` + `DECISIONS.md` per concept directory; module-local decision numbering; no em dashes. Run `clang-format -i` on every `.cpp`/`.hpp` created or edited (never on `CMakeLists.txt`).
+Follow the `writing` skill for every comment and doc. In short: terse, self-contained, single-source; `docs/` mirrors `include/` with a `README.md` + `DECISIONS.md` per concept directory; module-local decision numbering; no em dashes. Run `clang-format -i` on every `.cpp`/`.hpp` created or edited (never on `CMakeLists.txt`). Goals live as `## Milestones` checklists in the `docs/` READMEs. `TODO.md` is generated from them and the code `@todo`s by the pre-commit hook, so never edit it by hand.
 
 ## Working style
 - Terse. State what changed; don't re-narrate.

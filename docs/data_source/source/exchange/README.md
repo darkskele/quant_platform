@@ -24,4 +24,5 @@ one directory per exchange, one source per exchange and endpoint
 
 - [x] ~~First exchange source, historical~~
 - [ ] Binance live, websocket plus REST resync
+    - connect, subscribe and resync written as a coroutine, the receive loop stays a plain poll (C++20)
 - [ ] A second exchange, to find what actually generalises

@@ -26,3 +26,4 @@ Matcher::try_fill() / on_market_event()   (matcher.hpp: the concept)
 - [x] ~~Honest cost matcher~~
 - [ ] Book-walking `Matcher` variation
     - fills against L2 book depth from the historical feed
+- [ ] `try_fill` returns `std::expected<Fill, Reject>` (C++23)

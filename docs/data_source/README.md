@@ -25,3 +25,6 @@ Source[1]::next() ─▶ event ─▶ Sink[1]::record()
 
 - [x] ~~`run_data_source` pairs sources to sinks and drives the pipeline~~
 - [x] ~~A source can fetch over the network and decompress~~
+- [ ] `http` client on Asio C++20 coroutines, a few io threads holding many requests in flight instead of one blocked thread per request (C++20)
+    - retry backoff awaits a `steady_timer` rather than sleeping the thread
+- [ ] `run_data_source` walks its source and sink tuples with an expansion statement, no index sequence helper (C++26, GCC 16)
