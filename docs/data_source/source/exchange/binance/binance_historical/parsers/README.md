@@ -35,3 +35,6 @@ Parser::parse()      (parser.hpp: the concept)
 - [x] ~~Single-pass field readers~~
 - [x] ~~A parser per published dataset~~
 - [x] ~~Trades and book depth rows~~
+- [ ] Row parsers generated from the payload struct by reflection, optional fields and column order from field annotations (C++26, GCC 16)
+- [ ] Calendar maths on constexpr `std::chrono::year_month_day`, hand-rolled day counts dropped (C++20)
+- [ ] Stamp scaling with `std::mul_sat`, the overflow ceiling constant dropped (C++26, GCC 14)

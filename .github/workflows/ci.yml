@@ -1,0 +1,77 @@
+# Builds every preset and runs the fast suites on pull requests into main.
+# Benchmarks are built, never run. Shared runners give no useful numbers.
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  todo:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: TODO.md matches the READMEs and code
+        run: python3 tools/todo/collect_todo.py --check
+
+  build:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [release, debug, tsan]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            g++ cmake ninja-build ccache pkg-config \
+            libboost-dev libssl-dev libzip-dev libgtest-dev \
+            python3-dev python3-venv pybind11-dev
+
+      - name: ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-${{ matrix.preset }}-${{ github.sha }}
+          restore-keys: ccache-${{ matrix.preset }}-
+
+      # The release build carries the python bindings, so it needs the package
+      # and its test dependencies in the interpreter it binds against.
+      - name: Python
+        if: matrix.preset == 'release'
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -e "python[test]"
+
+      - name: Configure
+        run: |
+          if [ "${{ matrix.preset }}" = release ]; then
+            cmake --preset release -DQP_BUILD_PYTHON=ON -DPython_EXECUTABLE="$PWD/.venv/bin/python"
+          else
+            cmake --preset ${{ matrix.preset }}
+          fi
+
+      - name: Build
+        run: cmake --build build/${{ matrix.preset }}
+
+      # TSan cannot map its shadow memory with ASLR on.
+      - name: Test
+        run: |
+          if [ "${{ matrix.preset }}" = tsan ]; then
+            setarch "$(uname -m)" -R ctest --test-dir build/tsan --output-on-failure
+          else
+            ctest --test-dir build/${{ matrix.preset }} --output-on-failure
+          fi
+
+      - name: Python tests
+        if: matrix.preset == 'release'
+        working-directory: python
+        run: ../.venv/bin/python -m pytest -m "not network"

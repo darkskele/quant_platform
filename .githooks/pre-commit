@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Regenerates TODO.md and stages it into this commit.
+set -euo pipefail
+
+root="$(git rev-parse --show-toplevel)"
+python3 "$root/tools/todo/collect_todo.py" "$root"
+git -C "$root" add TODO.md

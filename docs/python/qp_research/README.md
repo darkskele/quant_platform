@@ -46,3 +46,4 @@ engine ─▶ data ─▶ panel ─▶ book, event ─▶ net returns ─▶ sta
 - [x] ~~Event book on long-form bars, gate calibration held on simulated event books~~
 - [x] ~~Market residuals, hedged event trades and the reversion exit~~
 - [x] ~~Trend late check rebuilt as return series in the trend ledger~~
+- [ ] `data.binance` builds its frames from numpy columns, no python object per event
