@@ -3,14 +3,14 @@
 # checkout for a concurrent chat, sharing one .git. Build dirs stay per-worktree.
 #
 # Usage: tools/qp-worktree.sh <branch> [base]
-#   <branch>  new branch, worktree lands at ../quant-platform-<branch>
+#   <branch>  new branch, worktree lands beside this one at ../<branch>, slashes as dashes
 #   [base]    branch to fork from, default main
 set -euo pipefail
 
 branch="$1"
 base="${2:-main}"
 repo="$(git rev-parse --show-toplevel)"
-wt="$(dirname "$repo")/quant-platform-${branch//\//-}"
+wt="$(dirname "$repo")/${branch//\//-}"
 
 git -C "$repo" worktree add -b "$branch" "$wt" "$base"
 

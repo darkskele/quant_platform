@@ -20,3 +20,6 @@ Recorder::sample(ts, Portfolio)      (recorder.hpp: the concept)
 
 - [x] ~~`Recorder` concept and no-op default~~
 - [x] ~~equity series recorded off the record path~~
+- [ ] Equity drain thread parks on `std::atomic::wait`, no yield spin burning a core (C++20)
+- [ ] Equity series written as binary and zstd, each file stamped with a schema hash built by reflection (C++26, GCC 16)
+    - read back through a numpy dtype generated from the same struct

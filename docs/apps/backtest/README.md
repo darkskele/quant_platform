@@ -28,3 +28,5 @@ BacktestBase::run()  (two threads, joined)
 - [x] ~~A real backtest run against real exchange data~~
 - [ ] Wire `FundingCarryBacktest` onto a real source
 - [ ] A python backtest on the `CostAwareMatcher`
+- [ ] `BacktestBase` drops CRTP for an explicit object parameter (C++23, GCC 14)
+- [ ] Source pump and engine composed as senders, `when_all` stopping the other on an error, no hand-rolled exception handoff (std::execution via stdexec)

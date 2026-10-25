@@ -25,3 +25,4 @@ optional<FillPricing>
 - [x] ~~Cost-row reader for the finalize step's CSV~~
 - [ ] Fitted-from-trades variation
     - slippage regressed against public trade tapes
+- [ ] Cost-row reader maps CSV columns to `CostRow` fields by reflection, header names from field annotations (C++26, GCC 16)

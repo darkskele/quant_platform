@@ -2,9 +2,9 @@
 """Render a Google Benchmark JSON report as BENCHMARKS.md: a grouped summary
 of every benchmark, then (when a baseline is given) the diff against it.
 
-The summary is one section per class under the repo naming convention
-(benchmarks/README.md: `BM_<Class>_<Description>`, so the class is the text
-between `BM_` and the first following underscore), one row per benchmark,
+The summary is one section per class under the naming convention
+`BM_<Class>_<Description>`, so the class is the text between `BM_` and the
+first following underscore, one row per benchmark,
 with Google Benchmark's own repetition statistics as columns
 (mean/median/stddev/cv). A benchmark that doesn't follow the convention
 becomes its own single-entry "Other" group rather than crashing.

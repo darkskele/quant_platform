@@ -21,7 +21,8 @@ Source ─▶ Sink ─▶ Transport ─▶ Engine.step()
 - **[risk](risk/README.md)**: turns `Intent`s into sized `Order`s or rejects, with autonomous kill-switch authority (`RiskGate`).
 - **[execution](execution/README.md)**: turns `Order`s into `Fill`s (`ExecutionGateway`, `Matcher`).
 - **[apps/backtest](apps/backtest/README.md)**: composes all of it into a runnable backtest on the live code path.
-- **core**: shared vocabulary and containers. `MarketEvent`/`Intent`/`Order`/`Fill`, `Subscription`, `Portfolio`, the lock-free queues.
+- **[core](core/README.md)**: shared vocabulary and containers. `MarketEvent`/`Intent`/`Order`/`Fill`, `Subscription`, `Portfolio`, the lock-free queues.
+- **[python/qp_research](python/qp_research/README.md)**: the python research package. Archive data in, panels and books out, scored by one set of statistics.
 
 Each module's README covers its own concept, variations, and milestones. Each `DECISIONS.md` records that module's choices.
 
@@ -37,7 +38,7 @@ Each module's README covers its own concept, variations, and milestones. Each `D
 
 `docs/` mirrors `include/`. `cmake/<module>` derives its `include`/`tests`/`benchmarks` dirs by path. One concept per directory; variations nest below.
 
-To add a component: create its dir under `include/`, mirror it in `cmake/`, `tests/`, `benchmarks/`, and add a `README.md` + `DECISIONS.md` under `docs/`.
+To add a component: create its dir under `include/`, mirror it in `cmake/`, `tests/`, `benchmarks/`. Under `docs/`, a dir owning a concept or a nested seam gets a `README.md` + `DECISIONS.md`. A single concrete implementation gets a bullet in its parent's README instead.
 
 ## Milestones
 
@@ -55,8 +56,10 @@ Platform:
 
 Strategies, in order of increasing sophistication and data appetite:
 
-- [x] ~~Funding / basis carry~~
+- [ ] Funding / basis carry
+    - first pass invalidated and retired, redo pending
 - [ ] Time-series trend
+    - signal lane closed, parked for regime gating, registered test running
 - [ ] Cross-sectional statistical arbitrage: residual reversal, momentum, funding
 - [ ] Open interest and positioning signals, regime gating
 - [ ] Intraday flow and reversal on depth and trades
