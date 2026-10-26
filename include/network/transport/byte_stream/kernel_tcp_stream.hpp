@@ -4,6 +4,7 @@
 #include <linux/errqueue.h>
 #include <linux/net_tstamp.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
 #include <time.h>
@@ -83,6 +84,9 @@ class KernelTcpStream {
         }
         if (::connect(fd_, reinterpret_cast<const sockaddr*>(&addr), sizeof addr) != 0)
             return fail();
+        // Each write leaves at once, never held back to join a later one.
+        const int on = 1;
+        if (::setsockopt(fd_, IPPROTO_TCP, TCP_NODELAY, &on, sizeof on) != 0) return fail();
         const int flags = ::fcntl(fd_, F_GETFL);
         if (flags < 0 || ::fcntl(fd_, F_SETFL, flags | O_NONBLOCK) != 0) return fail();
         return status_ = StreamStatus::Open;
@@ -170,7 +174,7 @@ class KernelTcpStream {
     std::size_t send_pending() noexcept {
         if (inflight_.bytes().empty()) inflight_ = tx_.lend(tx_.unlent());
         const auto rest = inflight_.bytes().subspan(inflight_sent_);
-        if (rest.empty()) return 0; // nothing waiting
+        if (rest.empty()) return 0;  // nothing waiting
         // MSG_NOSIGNAL turns a send to a closed peer into EPIPE, not SIGPIPE.
         const ssize_t sent = ::send(fd_, rest.data(), rest.size(), MSG_NOSIGNAL);
         if (sent < 0) {

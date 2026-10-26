@@ -3,9 +3,10 @@
 
     python3 tools/netbench/sweep.py -o benchmarks/network/results/results.json [--suite transport] [--reps 3]
 
-A variant is a backend and a receive path. Variants interleave within each workload, rotated per
-repetition, so drift spreads across them. Every run takes kernel stamps. A run is void when it
-did not finish or a correctness count is nonzero.
+A variant is a backend and a receive path. Each runs in both directions, receive with peers
+sending to it and send with it sending to one peer. Variants interleave within each workload,
+rotated per repetition, so drift spreads across them. Every run takes kernel stamps. A run is void
+when it did not finish or a correctness count is nonzero.
 """
 
 import argparse
@@ -20,6 +21,7 @@ RUN_PAIR = pathlib.Path(__file__).with_name("run_pair.sh")
 RUN_TIMEOUT_S = 120
 
 BACKENDS = ["kernel_udp", "kernel_tcp"]
+DIRECTIONS = ["receive", "send"]
 # How qp-rx processes what arrives, set through qp-netns-config. napi takes it off the sender's
 # core, as a real receive path would be.
 NETS = ["napi"]
@@ -46,9 +48,10 @@ def load_step(rate):
                     rate=rate, tcp_batch=32, udp_peers=4, drops=True, peer_cpus=PEER_CPUS)
 
 
-def peer_args(w, backend):
-    """Every peer's args and the peer count for one backend."""
-    peers = w["udp_peers"] if backend == "kernel_udp" else 1
+def peer_args(w, backend, direction):
+    """Every sender's traffic args and the peer count for one backend and direction. Sending, the
+    backend is the one sender."""
+    peers = w["udp_peers"] if backend == "kernel_udp" and direction == "receive" else 1
     count = w["count"] // peers
     args = ["--mode", w["mode"], "--sizes", w["sizes"], "--count", str(count),
             "--warmup", str(count // 10)]
@@ -99,18 +102,18 @@ ALWAYS_VOID = ["late", "bad_framing", "bad_size", "bad_sender", "truncated"]
 LOSS = ["gaps", "dropped"]
 
 
-def void_reason(w, peer, receiver):
-    if receiver is None or peer is None:
+def void_reason(w, sender, receiver):
+    if receiver is None or sender is None:
         return "no report"
     if not receiver.get("completed"):
         return "did not finish"
     counters = receiver["counters"]
     checks = ALWAYS_VOID + ([] if w["drops_allowed"] else LOSS)
     bad = [f"{k}={counters[k]}" for k in checks if counters.get(k)]
-    if peer.get("missed_acks"):
-        bad.append(f"missed_acks={peer['missed_acks']}")
-    if peer.get("send_errors") and not w["drops_allowed"]:
-        bad.append(f"send_errors={peer['send_errors']}")
+    if sender.get("missed_acks"):
+        bad.append(f"missed_acks={sender['missed_acks']}")
+    if sender.get("send_errors") and not w["drops_allowed"]:
+        bad.append(f"send_errors={sender['send_errors']}")
     return ", ".join(bad) or None
 
 
@@ -140,22 +143,28 @@ def read_json(path):
     return json.loads(path.read_text()) if path.exists() else None
 
 
-def run_one(w, backend, args, peers):
+def run_one(w, backend, args, peers, direction):
+    """The sender's and receiver's reports and why the run is void. Receiving, the peers are the
+    sender, merged. Sending, the backend is."""
     with tempfile.TemporaryDirectory() as out:
         cpus = ["-c", w["peer_cpus"]] if w["peer_cpus"] else []
-        cmd = [str(RUN_PAIR), backend, "-s", STAMPS, "-n", str(peers), *cpus, "-o", out, "--",
-               *args]
+        cmd = [str(RUN_PAIR), backend, "-d", direction, "-s", STAMPS, "-n", str(peers), *cpus,
+               "-o", out, "--", *args]
         try:
             proc = subprocess.run(cmd, capture_output=True, text=True, timeout=RUN_TIMEOUT_S)
         except subprocess.TimeoutExpired:
             return None, None, "timeout"
-        peer = merge_peers([read_json(pathlib.Path(out, f"peer-{k}.json")) for k in range(peers)])
+        if direction == "send":
+            sender = read_json(pathlib.Path(out, "sender.json"))
+        else:
+            sender = merge_peers([read_json(pathlib.Path(out, f"peer-{k}.json"))
+                                  for k in range(peers)])
         receiver = read_json(pathlib.Path(out, "receiver.json"))
-        reason = void_reason(w, peer, receiver)
+        reason = void_reason(w, sender, receiver)
         if reason == "no report" and proc.stderr:
             # The last lines before run_pair's own summary say what failed.
             reason += ": " + " | ".join(proc.stderr.strip().splitlines()[-4:])
-        return peer, receiver, reason
+        return sender, receiver, reason
 
 
 def main():
@@ -164,36 +173,40 @@ def main():
     parser.add_argument("--suite", choices=[*SUITES, "all"], default="all")
     parser.add_argument("--reps", type=int, default=3)
     parser.add_argument("--only", help="run only workloads whose name contains this")
+    parser.add_argument("--direction", choices=[*DIRECTIONS, "both"], default="both")
     args = parser.parse_args()
 
     suites = SUITES if args.suite == "all" else {args.suite: SUITES[args.suite]}
+    directions = DIRECTIONS if args.direction == "both" else [args.direction]
     variants = [(b, n) for b in BACKENDS for n in NETS]
     started = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
     runs = []
     for rep in range(args.reps):
-        for suite, workloads in suites.items():
-            for w in workloads:
-                if args.only and args.only not in w["name"]:
-                    continue
-                k = rep % len(variants)
-                for backend, net in variants[k:] + variants[:k]:
-                    if backend not in w["backends"]:
+        for direction in directions:
+            for suite, workloads in suites.items():
+                for w in workloads:
+                    if args.only and args.only not in w["name"]:
                         continue
-                    run_args, peers = peer_args(w, backend)
-                    net_state = set_net(net)
-                    if net_state is None:
-                        peer, receiver, reason = None, None, "receive path not set"
-                    else:
-                        peer, receiver, reason = run_one(w, backend, run_args, peers)
-                    runs.append({"direction": "receive", "suite": suite, "workload": w["name"],
-                                 "backend": backend,
-                                 "net": net, "net_state": net_state, "stamps": STAMPS, "rep": rep,
-                                 "peer_args": run_args, "peers": peers, "offered": w["rate"],
-                                 "peer_cpus": w["peer_cpus"], "void": reason, "peer": peer,
-                                 "receiver": receiver})
-                    state = f"void, {reason}" if reason else "ok"
-                    print(f"sweep: rep {rep} {w['name']} {backend} {net}: {state}",
-                          file=sys.stderr, flush=True)
+                    k = rep % len(variants)
+                    for backend, net in variants[k:] + variants[:k]:
+                        if backend not in w["backends"]:
+                            continue
+                        run_args, peers = peer_args(w, backend, direction)
+                        net_state = set_net(net)
+                        if net_state is None:
+                            sender, receiver, reason = None, None, "receive path not set"
+                        else:
+                            sender, receiver, reason = run_one(w, backend, run_args, peers,
+                                                               direction)
+                        runs.append({"direction": direction, "suite": suite,
+                                     "workload": w["name"], "backend": backend, "net": net,
+                                     "net_state": net_state, "stamps": STAMPS, "rep": rep,
+                                     "peer_args": run_args, "peers": peers, "offered": w["rate"],
+                                     "peer_cpus": w["peer_cpus"], "void": reason,
+                                     "sender": sender, "receiver": receiver})
+                        state = f"void, {reason}" if reason else "ok"
+                        print(f"sweep: rep {rep} {direction} {w['name']} {backend} {net}: "
+                              f"{state}", file=sys.stderr, flush=True)
     set_net(NETS[0])
 
     out = pathlib.Path(args.out)

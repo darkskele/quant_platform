@@ -19,6 +19,7 @@
 #include "endpoint.hpp"
 #include "histogram.hpp"
 #include "message.hpp"
+#include "report.hpp"
 #include "rx_times.hpp"
 #include "stream_framer.hpp"
 
@@ -227,28 +228,6 @@ inline std::optional<ReceiverArgs> parse_receiver_args(int argc, char** argv) {
                  "[--out file] [--idle-ms n]\n",
                  argv[0]);
     return std::nullopt;
-}
-
-template <int PrecisionBits, int RangeBits>
-void write_histogram(std::FILE* f, const LogLinearHistogram<PrecisionBits, RangeBits>& h) {
-    std::fprintf(f, "{\"precision_bits\": %d, \"range_bits\": %d, ", PrecisionBits, RangeBits);
-    std::fprintf(
-        f,
-        "\"count\": %llu, \"negative\": %llu, \"min\": %lld, \"max\": %lld, \"mean\": "
-        "%.1f, \"p50\": %lld, \"p90\": %lld, \"p99\": %lld, \"p99.9\": %lld, \"p99.99\": "
-        "%lld, \"buckets\": [",
-        static_cast<unsigned long long>(h.count()), static_cast<unsigned long long>(h.negative()),
-        static_cast<long long>(h.min()), static_cast<long long>(h.max()), h.mean(),
-        static_cast<long long>(h.percentile(50)), static_cast<long long>(h.percentile(90)),
-        static_cast<long long>(h.percentile(99)), static_cast<long long>(h.percentile(99.9)),
-        static_cast<long long>(h.percentile(99.99)));
-    bool first = true;
-    h.each([&](std::int64_t lo, std::int64_t hi, std::uint64_t n) {
-        std::fprintf(f, "%s[%lld, %lld, %llu]", first ? "" : ", ", static_cast<long long>(lo),
-                     static_cast<long long>(hi), static_cast<unsigned long long>(n));
-        first = false;
-    });
-    std::fprintf(f, "]}");
 }
 
 /// The run as JSON, to path or to stdout when path is empty. Values are nanoseconds.

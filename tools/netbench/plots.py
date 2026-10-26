@@ -3,7 +3,7 @@
 
     python tools/netbench/plots.py benchmarks/network/results/results.json -o benchmarks/network/results/plots
 
-<direction>_<backend>_<case>.png plots send to user latency against percentile, the median of the valid
+<direction>_<backend>_<case>.png plots the direction's latency against percentile, the median of the valid
 repetitions, with p99 marked and quoted per receive path. <direction>_<backend>_throughput.png and
 _latency.png plot what the receiver took, and its p99, against the load offered, with losses and
 steps the peers could not send marked. Needs matplotlib.
@@ -24,6 +24,14 @@ from matplotlib.ticker import FuncFormatter, LogLocator, NullFormatter  # noqa: 
 
 CASES = {"base": "base_fixed_100k_512", "hard": "hard_poisson_200k_mixed"}
 CAPACITY_PREFIX = "load_"
+
+# The latency each direction is judged by, and how to name it.
+LATENCY = {"receive": ("send_to_user", "send to user latency"),
+           "send": ("send_to_kernel", "write to peer kernel latency")}
+
+
+def latency_of(run):
+    return LATENCY[run.get("direction", "receive")]
 
 # Fixed order, so a receive path keeps its colour whichever ones a sweep ran.
 NET_COLOURS = {"napi": "#2a78d6", "default": "#eb6834", "rps": "#1baf7a"}
@@ -69,7 +77,7 @@ def quote_us(us):
 
 
 def loss(run):
-    sent = run["peer"]["count"] + run["peer"]["warmup"]
+    sent = run["sender"]["count"] + run["sender"]["warmup"]
     return run["receiver"]["counters"]["gaps"] / sent if sent else 0
 
 
@@ -96,11 +104,11 @@ def load_steps(runs):
         def med(f):
             return [median(f(r) for r in steps[o]) for o in offered]
 
-        sent = med(lambda r: (r["peer"]["count"] + r["peer"]["warmup"]) / r["peer"]["elapsed_ns"]
+        sent = med(lambda r: (r["sender"]["count"] + r["sender"]["warmup"]) / r["sender"]["elapsed_ns"]
                    * 1e9)
         out[net] = {
             "offered": offered,
-            "p99": med(lambda r: r["receiver"]["stages"]["send_to_user"]["p99"] / 1000),
+            "p99": med(lambda r: r["receiver"]["stages"][latency_of(r)[0]]["p99"] / 1000),
             "received": med(lambda r: r["receiver"]["counters"]["messages"]
                             / r["receiver"]["span_ns"] * 1e9 if r["receiver"].get("span_ns")
                             else None),
@@ -201,7 +209,7 @@ def case_figure(backend, case, workload, by_net, out):
         runs = by_net.get(net, [])
         if not runs:
             continue
-        ys = [median(percentile(r["receiver"]["stages"]["send_to_user"], p) for r in runs)
+        ys = [median(percentile(r["receiver"]["stages"][latency_of(r)[0]], p) for r in runs)
               for p in PERCENTILES]
         us = [y / 1000 if y is not None else None for y in ys]
         (line,) = ax.plot(xs, us, color=colour, linewidth=2)
@@ -227,7 +235,8 @@ def case_figure(backend, case, workload, by_net, out):
     ax.yaxis.set_major_formatter(FuncFormatter(fmt_us))
     ax.yaxis.set_minor_formatter(NullFormatter())
     ax.set_xlabel("percentile, each step one more nine", fontsize=10, color=TEXT_SECONDARY)
-    ax.set_ylabel("send to user latency", fontsize=10, color=TEXT_SECONDARY)
+    ax.set_ylabel(latency_of(next(iter(by_net.values()))[0])[1], fontsize=10,
+                  color=TEXT_SECONDARY)
     ax.legend(handles, labels, loc="upper left", frameon=False, fontsize=11, labelcolor=TEXT,
               title="receive path", title_fontsize=10, alignment="left")
 
@@ -273,7 +282,7 @@ def main():
             load_figure(backend, load, "capacity: what the receiver took",
                         "received, thousand msg/s", plot_throughput, out / f"{name}_throughput.png")
             load_figure(backend, load, "capacity: latency under load",
-                        "send to user latency, p99", plot_latency, out / f"{name}_latency.png")
+                        f"{LATENCY[direction][1]}, p99", plot_latency, out / f"{name}_latency.png")
 
 
 if __name__ == "__main__":

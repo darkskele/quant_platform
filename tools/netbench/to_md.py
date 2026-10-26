@@ -4,9 +4,11 @@
     python3 tools/netbench/to_md.py benchmarks/network/results/results.json --env benchmarks/network/results/env.json \
         -o benchmarks/network/results/RESULTS.md
 
-A section per direction, receive then send, each with a table per backend and a row per workload. Each figure is the median across a row's valid
-repetitions. Latency is the peer's send to the bytes reaching user space. sent/s is what the peers
-sent, recv/s what the receiver took over its own first to last message.
+A section per direction, receive then send, each with a table per backend and a row per
+workload. Each figure is the median across a row's valid repetitions. Receive latency is the
+peer's send to the bytes reaching the backend's user space. Send latency is the backend's write
+to the bytes reaching the peer's kernel, and write is how long that write held the caller.
+sent/s is what the sender sent, recv/s what the receiver took over its own first to last message.
 """
 
 import argparse
@@ -16,6 +18,9 @@ import statistics
 from collections import defaultdict
 
 PERCENTILES = ["p50", "p90", "p99", "p99.9", "max"]
+
+# The latency each direction is judged by.
+LATENCY = {"receive": "send_to_user", "send": "send_to_kernel"}
 
 
 def fmt_ns(ns):
@@ -38,10 +43,20 @@ def stage(run, name, key):
     return h[key] if h["count"] else None
 
 
+def sent_messages(run):
+    return run["sender"]["count"] + run["sender"]["warmup"]
+
+
 def sent_rate(run):
-    """Messages per second the peers sent."""
-    elapsed = run["peer"]["elapsed_ns"]
-    return (run["peer"]["count"] + run["peer"]["warmup"]) / elapsed * 1e9 if elapsed else None
+    """Messages per second the sender sent."""
+    elapsed = run["sender"]["elapsed_ns"]
+    return sent_messages(run) / elapsed * 1e9 if elapsed else None
+
+
+def write_call(run, key):
+    """How long the backend's writes held the caller, sending only."""
+    h = run["sender"].get("write_call")
+    return h[key] if h and h["count"] else None
 
 
 def received_rate(run):
@@ -58,25 +73,30 @@ def mean_size(run):
 
 
 def loss(run):
-    sent = run["peer"]["count"] + run["peer"]["warmup"]
+    sent = sent_messages(run)
     return run["receiver"]["counters"]["gaps"] / sent if sent else None
 
 
-def table(runs):
+def table(runs, direction):
     """One row per workload, in sweep order. The receive path joins the name when there are
     several."""
     rows = defaultdict(list)
     for r in runs:
         rows[(r["workload"], r["net"])].append(r)
     several_nets = len({net for _, net in rows}) > 1
-    head = ["Workload", "Valid", *PERCENTILES, "k→u p50", "k→u p99", "msg/read", "sent/s", "recv/s",
-            "recv MB/s", "lost"]
+    extra = ["k→u p50", "k→u p99"] if direction == "receive" else ["write p50", "write p99"]
+    head = ["Workload", "Valid", *PERCENTILES, *extra, "msg/read", "sent/s", "recv/s", "recv MB/s",
+            "lost"]
     lines = ["| " + " | ".join(head) + " |", "|" + " --- |" * len(head)]
     for (workload, net), rs in rows.items():
         ok = [r for r in rs if not r["void"]]
         cells = [f"{workload} / {net}" if several_nets else workload, f"{len(ok)}/{len(rs)}"]
-        cells += [fmt_ns(median(stage(r, "send_to_user", p) for r in ok)) for p in PERCENTILES]
-        cells += [fmt_ns(median(stage(r, "kernel_to_user", p) for r in ok)) for p in ("p50", "p99")]
+        cells += [fmt_ns(median(stage(r, LATENCY[direction], p) for r in ok)) for p in PERCENTILES]
+        if direction == "receive":
+            cells += [fmt_ns(median(stage(r, "kernel_to_user", p) for r in ok))
+                      for p in ("p50", "p99")]
+        else:
+            cells += [fmt_ns(median(write_call(r, p) for r in ok)) for p in ("p50", "p99")]
         per_read = median(stage(r, "messages_per_read", "mean") for r in ok)
         cells.append(f"{per_read:.1f}" if per_read else "")
         sent = median(sent_rate(r) for r in ok)
@@ -113,7 +133,7 @@ def section(direction, runs, plots):
     for r in runs:
         by_backend[r["backend"]].append(r)
     for backend, rs in sorted(by_backend.items()):
-        out += [f"### {backend}", "", *table(rs), ""]
+        out += [f"### {backend}", "", *table(rs, direction), ""]
 
     # What each workload sent, per backend since tcp batches and udp splits across peers.
     out += ["### Workloads", ""]
@@ -160,7 +180,8 @@ def main():
     void = [r for r in runs if r["void"]]
     if void:
         out += ["## Void runs", ""]
-        out += [f"- {r['workload']} {r['backend']} / {r['net']} rep {r['rep']}: {r['void']}"
+        out += [f"- {r.get('direction', 'receive')} {r['workload']} {r['backend']} / {r['net']} "
+                f"rep {r['rep']}: {r['void']}"
                 for r in void]
         out.append("")
     pathlib.Path(args.out).write_text("\n".join(out))
