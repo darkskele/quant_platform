@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <optional>
 #include <random>
 #include <span>
 #include <utility>
@@ -71,6 +72,57 @@ Datagram read_one(C& c) {
         Datagram d = c.read();
         if (d.lent || std::chrono::steady_clock::now() > deadline) return d;
     }
+}
+
+// A plain UDP socket on a free loopback port, waiting up to a second for each datagram.
+class Receiver {
+   public:
+    Receiver() : fd_(::socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0)) {
+        sockaddr_in addr{};
+        addr.sin_family      = AF_INET;
+        addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+        socklen_t len        = sizeof addr;
+        EXPECT_EQ(::bind(fd_, reinterpret_cast<sockaddr*>(&addr), len), 0);
+        EXPECT_EQ(::getsockname(fd_, reinterpret_cast<sockaddr*>(&addr), &len), 0);
+        port_ = ntohs(addr.sin_port);
+        const timeval timeout{1, 0};
+        ::setsockopt(fd_, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof timeout);
+    }
+
+    ~Receiver() { ::close(fd_); }
+
+    std::uint16_t port() const { return port_; }
+
+    // The next datagram, nothing when none arrives in a second.
+    std::optional<std::vector<std::byte>> recv() const {
+        std::vector<std::byte> out(65536);
+        const ssize_t          n = ::recv(fd_, out.data(), out.size(), 0);
+        if (n < 0) return std::nullopt;
+        out.resize(static_cast<std::size_t>(n));
+        return out;
+    }
+
+    void send_to(std::uint16_t port, std::span<const std::byte> bytes) const {
+        sockaddr_in to{};
+        to.sin_family      = AF_INET;
+        to.sin_port        = htons(port);
+        to.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+        ASSERT_EQ(::sendto(fd_, bytes.data(), bytes.size(), 0, reinterpret_cast<sockaddr*>(&to),
+                           sizeof to),
+                  static_cast<ssize_t>(bytes.size()));
+    }
+
+   private:
+    int           fd_;
+    std::uint16_t port_{};
+};
+
+template <class C>
+Written write_bytes(C& c, std::span<const std::byte> bytes) {
+    return c.write(bytes.size(), [&](std::span<std::byte> space) {
+        std::memcpy(space.data(), bytes.data(), bytes.size());
+        return bytes.size();
+    });
 }
 
 }  // namespace
@@ -252,4 +304,144 @@ TEST(KernelUdpChannel, MovedChannelKeepsReading) {
     EXPECT_TRUE(matches(second.lent.bytes(), 1, 100));
     // Handed back before the channel holding its slot goes.
     first.lent = {};
+}
+
+TEST(KernelUdpChannel, WriteBeforeTargetIsErrorAndLeavesTheChannelOpen) {
+    Channel c;
+    ASSERT_EQ(c.bind(kLocal, 0), ChannelStatus::Open);
+    EXPECT_EQ(write_bytes(c, payload(0, 64)).status, ChannelStatus::Error);
+    EXPECT_EQ(c.read().status, ChannelStatus::Open);
+}
+
+TEST(KernelUdpChannel, SendOnlyChannelNeedsNoBind) {
+    Receiver r;
+    Channel  c;
+    ASSERT_EQ(c.target(kLocal, r.port()), ChannelStatus::Open);
+    EXPECT_NE(c.local_port(), 0);
+    const Written w = write_bytes(c, payload(0, 100));
+    EXPECT_EQ(w.status, ChannelStatus::Open);
+    EXPECT_EQ(w.bytes, 100u);
+    const auto got = r.recv();
+    ASSERT_TRUE(got);
+    EXPECT_TRUE(matches(*got, 0, 100));
+}
+
+TEST(KernelUdpChannel, WritesArriveWholeAndInOrder) {
+    Receiver r;
+    Channel  c;
+    ASSERT_EQ(c.target(kLocal, r.port()), ChannelStatus::Open);
+    const std::size_t sizes[] = {1, 100, 1472, 2048, 7};
+    for (std::uint32_t i = 0; i < 5; ++i)
+        ASSERT_EQ(write_bytes(c, payload(i, sizes[i])).status, ChannelStatus::Open);
+    for (std::uint32_t i = 0; i < 5; ++i) {
+        const auto got = r.recv();
+        ASSERT_TRUE(got) << "datagram " << i;
+        EXPECT_TRUE(matches(*got, i, sizes[i])) << "datagram " << i;
+    }
+}
+
+TEST(KernelUdpChannel, ZeroLengthWriteSendsAnEmptyDatagram) {
+    Receiver r;
+    Channel  c;
+    ASSERT_EQ(c.target(kLocal, r.port()), ChannelStatus::Open);
+    EXPECT_EQ(c.write(0, [](std::span<std::byte>) { return std::size_t{0}; }).status,
+              ChannelStatus::Open);
+    const auto got = r.recv();
+    ASSERT_TRUE(got);
+    EXPECT_TRUE(got->empty());
+}
+
+TEST(KernelUdpChannel, WriteLargerThanASlotIsErrorAndNeverFills) {
+    Receiver r;
+    Channel  c;
+    ASSERT_EQ(c.target(kLocal, r.port()), ChannelStatus::Open);
+    bool          filled = false;
+    const Written w      = c.write(2049, [&](std::span<std::byte>) {
+        filled = true;
+        return std::size_t{0};
+    });
+    EXPECT_EQ(w.status, ChannelStatus::Error);
+    EXPECT_FALSE(filled);
+}
+
+TEST(KernelUdpChannel, RetargetSendsToTheNewDestination) {
+    Receiver a, b;
+    Channel  c;
+    ASSERT_EQ(c.target(kLocal, a.port()), ChannelStatus::Open);
+    write_bytes(c, payload(0, 10));
+    ASSERT_EQ(c.target(kLocal, b.port()), ChannelStatus::Open);
+    write_bytes(c, payload(1, 20));
+
+    const auto at_a = a.recv();
+    const auto at_b = b.recv();
+    ASSERT_TRUE(at_a && at_b);
+    EXPECT_TRUE(matches(*at_a, 0, 10));
+    EXPECT_TRUE(matches(*at_b, 1, 20));
+}
+
+TEST(KernelUdpChannel, BoundAndTargetedChannelTalksBothWays) {
+    Receiver r;
+    Channel  c;
+    ASSERT_EQ(c.bind(kLocal, 0), ChannelStatus::Open);
+    ASSERT_EQ(c.target(kLocal, r.port()), ChannelStatus::Open);
+    write_bytes(c, payload(0, 64));
+    const auto out = r.recv();
+    ASSERT_TRUE(out);
+    EXPECT_TRUE(matches(*out, 0, 64));
+
+    r.send_to(c.local_port(), payload(1, 32));
+    const Datagram back = read_one(c);
+    ASSERT_TRUE(back.lent);
+    EXPECT_TRUE(matches(back.lent.bytes(), 1, 32));
+}
+
+// The refusal comes back as an ICMP error on the write after the one it answers.
+TEST(KernelUdpChannel, WritingToAClosedPortEndsInError) {
+    std::uint16_t port = 0;
+    {
+        Receiver gone;
+        port = gone.port();
+    }
+    Channel c;
+    ASSERT_EQ(c.target(kLocal, port), ChannelStatus::Open);
+    const auto    deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+    ChannelStatus status   = ChannelStatus::Open;
+    while (status == ChannelStatus::Open && std::chrono::steady_clock::now() < deadline)
+        status = write_bytes(c, payload(0, 10)).status;
+    EXPECT_EQ(status, ChannelStatus::Error);
+}
+
+TEST(KernelUdpChannel, FlushWithNothingWaitingSendsNothing) {
+    Receiver r;
+    Channel  c;
+    ASSERT_EQ(c.target(kLocal, r.port()), ChannelStatus::Open);
+    write_bytes(c, payload(0, 10));
+    const Flushed f = c.flush();
+    EXPECT_EQ(f.sent, 0u);
+    EXPECT_EQ(f.pending, 0u);
+    EXPECT_EQ(f.status, ChannelStatus::Open);
+}
+
+TEST(KernelUdpChannel, CloseForgetsTheTarget) {
+    Receiver r;
+    Channel  c;
+    ASSERT_EQ(c.target(kLocal, r.port()), ChannelStatus::Open);
+    c.close();
+    EXPECT_EQ(write_bytes(c, payload(0, 10)).status, ChannelStatus::Closed);
+    ASSERT_EQ(c.target(kLocal, r.port()), ChannelStatus::Open);
+    EXPECT_EQ(write_bytes(c, payload(1, 10)).status, ChannelStatus::Open);
+    const auto got = r.recv();
+    ASSERT_TRUE(got);
+    EXPECT_TRUE(matches(*got, 1, 10));
+}
+
+TEST(KernelUdpChannel, MovedChannelKeepsSending) {
+    Receiver r;
+    Channel  c;
+    ASSERT_EQ(c.target(kLocal, r.port()), ChannelStatus::Open);
+    Channel moved = std::move(c);
+    EXPECT_EQ(write_bytes(moved, payload(0, 40)).status, ChannelStatus::Open);
+    const auto got = r.recv();
+    ASSERT_TRUE(got);
+    EXPECT_TRUE(matches(*got, 0, 40));
 }

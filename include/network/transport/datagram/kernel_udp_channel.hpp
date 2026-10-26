@@ -10,11 +10,14 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <span>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 
 #include "datagram_channel.hpp"
@@ -24,10 +27,12 @@
 namespace qp::network::transport::datagram {
 
 /// A DatagramChannel over a kernel UDP socket. One recvmmsg fills a batch of slots, then reads
-/// lend them one at a time.
-/// @tparam SlotSize slot bytes, the largest datagram kept, a multiple of 64.
-/// @tparam SlotCount slots in the pool, lent and posted together.
-/// @tparam Batch most datagrams one recvmmsg takes, at most SlotCount.
+/// lend them one at a time. Writes fill a slot of a second pool and send it, and datagrams the
+/// kernel cannot take yet wait in their slots.
+/// @tparam SlotSize slot bytes, the largest datagram kept or written, a multiple of 64.
+/// @tparam SlotCount receive slots, lent and posted together.
+/// @tparam Batch most datagrams one recvmmsg takes, at most SlotCount. Also the send slots, so
+/// the most datagrams that can wait.
 /// @tparam Stamps receive stamps taken besides the user one.
 template <std::size_t SlotSize, std::size_t SlotCount, std::size_t Batch,
           RxStamps Stamps = RxStamps{}>
@@ -54,6 +59,12 @@ class KernelUdpChannel {
         RxTimes       rx_ts{};
     };
 
+    // A datagram written and not yet sent.
+    struct Pending {
+        std::uint32_t slot = 0;
+        std::size_t   len  = 0;
+    };
+
    public:
     /// Throws if its pool cannot be mapped.
     KernelUdpChannel() = default;
@@ -71,7 +82,12 @@ class KernelUdpChannel {
           posted_count_(std::exchange(other.posted_count_, 0)),
           ready_(other.ready_),
           ready_head_(std::exchange(other.ready_head_, 0)),
-          ready_count_(std::exchange(other.ready_count_, 0)) {}
+          ready_count_(std::exchange(other.ready_count_, 0)),
+          tx_pool_(std::move(other.tx_pool_)),
+          targeted_(std::exchange(other.targeted_, false)),
+          pending_(other.pending_),
+          pending_head_(std::exchange(other.pending_head_, 0)),
+          pending_count_(std::exchange(other.pending_count_, 0)) {}
 
     KernelUdpChannel& operator=(KernelUdpChannel&&)      = delete;
     KernelUdpChannel(const KernelUdpChannel&)            = delete;
@@ -82,27 +98,32 @@ class KernelUdpChannel {
     ChannelStatus bind(std::string_view ip, std::uint16_t port) noexcept {
         close();
         sockaddr_in addr{};
-        addr.sin_family = AF_INET;
-        addr.sin_port   = htons(port);
-        char text[INET_ADDRSTRLEN]{};
-        if (ip.size() >= sizeof text) return fail();
-        std::ranges::copy(ip, text);
-        if (::inet_pton(AF_INET, text, &addr.sin_addr) != 1) return fail();
-
-        fd_ = ::socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
-        if (fd_ < 0) return fail();
-        const int on = 1;
-        if (::setsockopt(fd_, SOL_SOCKET, SO_RXQ_OVFL, &on, sizeof on) != 0) return fail();
-        if constexpr (STAMPED) {
-            const int flags = STAMP_FLAGS;
-            if (::setsockopt(fd_, SOL_SOCKET, SO_TIMESTAMPING, &flags, sizeof flags) != 0)
-                return fail();
-        }
-        socklen_t len = sizeof addr;
-        if (::bind(fd_, reinterpret_cast<const sockaddr*>(&addr), len) != 0) return fail();
-        if (::getsockname(fd_, reinterpret_cast<sockaddr*>(&addr), &len) != 0) return fail();
-        port_          = ntohs(addr.sin_port);
+        if (!to_addr(ip, port, addr) || !open_socket()) return fail();
+        if (::bind(fd_, reinterpret_cast<const sockaddr*>(&addr), sizeof addr) != 0) return fail();
+        if (!learn_port()) return fail();
         return status_ = ChannelStatus::Open;
+    }
+
+    /// Opens a socket when none is, so a channel that only sends needs no bind. Sends what is
+    /// waiting to the old target first, and is Full, keeping the old target, when that cannot
+    /// finish. Error on a bad address.
+    ChannelStatus target(std::string_view ip, std::uint16_t port) noexcept {
+        sockaddr_in addr{};
+        if (!to_addr(ip, port, addr)) return fail();
+        if (fd_ < 0) {
+            if (!open_socket()) return fail();
+            status_ = ChannelStatus::Open;
+        }
+        if (status_ != ChannelStatus::Open) return status_;
+        send_pending();
+        if (status_ != ChannelStatus::Open) return status_;
+        if (pending_count_ > 0) return ChannelStatus::Full;
+        // A UDP connect only sets where sends go and which source reads accept.
+        if (::connect(fd_, reinterpret_cast<const sockaddr*>(&addr), sizeof addr) != 0)
+            return fail();
+        targeted_ = true;
+        if (port_ == 0 && !learn_port()) return fail();
+        return status_;
     }
 
     Datagram read() noexcept {
@@ -113,25 +134,117 @@ class KernelUdpChannel {
         return {pool_.lend(r.slot, 0, r.len), r.rx_ts, status_};
     }
 
+    /// Sends what is waiting first. Full when no send slot is free, Error with no target or when
+    /// max exceeds SlotSize.
+    template <class F>
+        requires std::is_invocable_r_v<std::size_t, F&, std::span<std::byte>>
+    Written write(std::size_t max,
+                  F&& fill) noexcept(std::is_nothrow_invocable_v<F&, std::span<std::byte>>) {
+        if (status_ != ChannelStatus::Open) return {0, status_};
+        if (!targeted_) return {0, ChannelStatus::Error};
+        if (max > SlotSize) return {0, status_ = ChannelStatus::Error};
+        send_pending();
+        if (status_ != ChannelStatus::Open) return {0, status_};
+        const auto slot = tx_pool_.acquire();
+        if (!slot) return {0, ChannelStatus::Full};
+        const std::size_t n = fill(tx_pool_.slot(*slot).first(max));
+        assert(n <= max);
+        pending_[(pending_head_ + pending_count_++) % Batch] = {*slot, n};
+        send_pending();
+        return {n, status_};
+    }
+
+    Flushed flush() noexcept {
+        const std::size_t sent = status_ == ChannelStatus::Open ? send_pending() : 0;
+        return {sent, pending_count_, status_};
+    }
+
     /// As the kernel reports it with the next datagram that arrives after a drop.
     std::uint64_t dropped() const noexcept { return dropped_; }
 
     std::uint64_t truncated() const noexcept { return truncated_; }
 
-    /// Drops unread datagrams. Posted slots stay posted for the next bind.
+    /// Drops unread and unsent datagrams and the target. Posted slots stay posted for the next
+    /// bind.
     void close() noexcept {
         if (fd_ >= 0) ::close(std::exchange(fd_, -1));
         while (ready_head_ < ready_count_) pool_.release(ready_[ready_head_++].slot);
         ready_head_ = ready_count_ = 0;
-        port_                      = 0;
-        status_                    = ChannelStatus::Closed;
+        for (; pending_count_ > 0; --pending_count_, pending_head_ = (pending_head_ + 1) % Batch)
+            tx_pool_.release(pending_[pending_head_].slot);
+        pending_head_ = 0;
+        targeted_     = false;
+        port_         = 0;
+        status_       = ChannelStatus::Closed;
     }
 
-    /// The bound port, 0 when not bound.
+    /// The local port, 0 before bind or target.
     std::uint16_t local_port() const noexcept { return port_; }
 
    private:
     ChannelStatus fail() noexcept { return status_ = ChannelStatus::Error; }
+
+    static bool to_addr(std::string_view ip, std::uint16_t port, sockaddr_in& addr) noexcept {
+        addr.sin_family = AF_INET;
+        addr.sin_port   = htons(port);
+        char text[INET_ADDRSTRLEN]{};
+        if (ip.size() >= sizeof text) return false;
+        std::ranges::copy(ip, text);
+        return ::inet_pton(AF_INET, text, &addr.sin_addr) == 1;
+    }
+
+    bool open_socket() noexcept {
+        fd_ = ::socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
+        if (fd_ < 0) return false;
+        const int on = 1;
+        if (::setsockopt(fd_, SOL_SOCKET, SO_RXQ_OVFL, &on, sizeof on) != 0) return false;
+        if constexpr (STAMPED) {
+            const int flags = STAMP_FLAGS;
+            if (::setsockopt(fd_, SOL_SOCKET, SO_TIMESTAMPING, &flags, sizeof flags) != 0)
+                return false;
+        }
+        return true;
+    }
+
+    bool learn_port() noexcept {
+        sockaddr_in addr{};
+        socklen_t   len = sizeof addr;
+        if (::getsockname(fd_, reinterpret_cast<sockaddr*>(&addr), &len) != 0) return false;
+        port_ = ntohs(addr.sin_port);
+        return true;
+    }
+
+    // Sends waiting datagrams oldest first until the kernel takes no more. Returns how many went.
+    std::size_t send_pending() noexcept {
+        std::size_t sent = 0;
+        while (pending_count_ > 0) {
+            // The waiting run up to the ring's end goes in one call.
+            const std::size_t run = std::min(pending_count_, Batch - pending_head_);
+            for (std::size_t k = 0; k < run; ++k) {
+                const Pending& p               = pending_[pending_head_ + k];
+                tx_iov_[k]                     = {tx_pool_.slot(p.slot).data(), p.len};
+                tx_hdrs_[k].msg_hdr            = {};
+                tx_hdrs_[k].msg_hdr.msg_iov    = &tx_iov_[k];
+                tx_hdrs_[k].msg_hdr.msg_iovlen = 1;
+            }
+            const int n =
+                ::sendmmsg(fd_, tx_hdrs_.data(), static_cast<unsigned>(run), MSG_DONTWAIT);
+            if (n < 0) {
+                // ENOBUFS is a full device queue, worth a retry like a full socket.
+                if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR && errno != ENOBUFS)
+                    fail();
+                break;
+            }
+            for (int k = 0; k < n; ++k) {
+                tx_pool_.release(pending_[pending_head_].slot);
+                pending_head_ = (pending_head_ + 1) % Batch;
+                --pending_count_;
+                ++sent;
+            }
+            if (static_cast<std::size_t>(n) < run) break;
+        }
+        return sent;
+    }
 
     void close_and_release() noexcept {
         close();
@@ -235,6 +348,17 @@ class KernelUdpChannel {
     std::array<mmsghdr, Batch> hdrs_{};
     std::array<iovec, Batch>   iov_{};
     std::array<Ctrl, Batch>    ctrl_{};
+
+    // Send slots, and the datagrams waiting in them as a ring from pending_head_.
+    LentSlotPool<SlotSize, Batch> tx_pool_;
+    bool                          targeted_ = false;
+    std::array<Pending, Batch>    pending_{};
+    std::size_t                   pending_head_  = 0;
+    std::size_t                   pending_count_ = 0;
+
+    // sendmmsg's arguments, pointed into the send slots each call.
+    std::array<mmsghdr, Batch> tx_hdrs_{};
+    std::array<iovec, Batch>   tx_iov_{};
 };
 
 }  // namespace qp::network::transport::datagram

@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <string_view>
 
@@ -13,7 +14,16 @@ namespace {
 struct NullChannel {
     ChannelStatus bind(std::string_view, std::uint16_t) { return ChannelStatus::Open; }
 
+    ChannelStatus target(std::string_view, std::uint16_t) { return ChannelStatus::Open; }
+
     Datagram read() { return {}; }
+
+    template <class F>
+    Written write(std::size_t, F&&) {
+        return {};
+    }
+
+    Flushed flush() { return {}; }
 
     std::uint64_t dropped() { return 0; }
 

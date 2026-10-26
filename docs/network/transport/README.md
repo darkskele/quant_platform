@@ -6,12 +6,12 @@ Moves bytes between this machine and the network. Each kind of delivery is its o
 
 ```
 bytes on the wire
-   ▲ │                        │
-   │ ▼                        ▼
+   ▲ │                        ▲ │
+   │ ▼                        │ ▼
 ByteStream                 DatagramChannel
-ordered bytes both ways    whole datagrams in
-   ▲ │                        │
-   │ ▼                        ▼
+ordered bytes both ways    whole datagrams both ways
+   ▲ │                        ▲ │
+   │ ▼                        │ ▼
 consumers                  consumers
 ```
 
@@ -27,3 +27,4 @@ consumers                  consumers
 - [ ] Datagram channels
     - [x] ~~Concept, read side~~
     - [x] ~~Kernel UDP channel~~
+    - [x] ~~Send side~~
