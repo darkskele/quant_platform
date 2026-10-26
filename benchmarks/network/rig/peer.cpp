@@ -48,6 +48,8 @@ struct PeerArgs {
     std::uint64_t           warmup     = 10'000;
     std::uint64_t           rate   = 10'000;  // messages per second, bursts per second for burst
     std::uint64_t           burst  = 8;
+    std::uint64_t           batch  = 1;  // most messages one send call takes
+    std::uint32_t           sender = 0;  // this peer's id when several send to one receiver
     std::uint64_t           seed   = 1;
     int                     ack_ms = 100;
     std::string             out;
@@ -120,6 +122,10 @@ std::optional<PeerArgs> parse_args(int argc, char** argv) {
             ok = parse_number(value, a.rate) && a.rate > 0;
         } else if (key == "--burst") {
             ok = parse_number(value, a.burst) && a.burst > 0;
+        } else if (key == "--sender") {
+            ok = parse_number(value, a.sender) && a.sender < MAX_PEERS;
+        } else if (key == "--batch") {
+            ok = parse_number(value, a.batch) && a.batch > 0 && a.batch <= 1024;
         } else if (key == "--seed") {
             ok = parse_number(value, a.seed);
         } else if (key == "--ack-ms") {
@@ -130,11 +136,14 @@ std::optional<PeerArgs> parse_args(int argc, char** argv) {
             ok = false;
         }
     }
+    // One tcp connection carries one peer.
+    if (ok && a.tcp && a.sender != 0) ok = false;
     if (ok && have_proto && have_target && have_ack) return a;
     std::fprintf(stderr,
                  "usage: %s --proto tcp|udp --target ip:port --ack ip:port\n"
                  "  [--mode ack|fixed|poisson|burst|flood] [--rate per_second] [--burst n]\n"
-                 "  [--sizes size[:weight],...] [--count n] [--warmup n] [--seed n] [--ack-ms n]\n"
+                 "  [--sizes size[:weight],...] [--batch n] [--sender n] [--count n] [--warmup n]\n"
+                 "  [--seed n] [--ack-ms n]\n"
                  "  [--out file]\n",
                  argv[0]);
     return std::nullopt;
@@ -212,6 +221,27 @@ int accept_one(const Endpoint& at) {
     return fd;
 }
 
+// Sends lens.size() messages laid back to back in bytes, as one datagram each. False when any
+// was not sent.
+bool send_datagrams(int fd, std::span<std::byte> bytes, std::span<const std::uint32_t> lens,
+                    std::vector<iovec>& iov, std::vector<mmsghdr>& hdrs) {
+    std::size_t at = 0;
+    for (std::size_t k = 0; k < lens.size(); ++k) {
+        iov[k]                     = {bytes.data() + at, lens[k]};
+        hdrs[k].msg_hdr            = {};
+        hdrs[k].msg_hdr.msg_iov    = &iov[k];
+        hdrs[k].msg_hdr.msg_iovlen = 1;
+        at += lens[k];
+    }
+    for (std::size_t sent = 0; sent < lens.size();) {
+        const int n =
+            ::sendmmsg(fd, hdrs.data() + sent, static_cast<unsigned>(lens.size() - sent), 0);
+        if (n <= 0) return false;
+        sent += static_cast<std::size_t>(n);
+    }
+    return true;
+}
+
 bool send_all(int fd, std::span<const std::byte> bytes) {
     while (!bytes.empty()) {
         const ssize_t n = ::send(fd, bytes.data(), bytes.size(), MSG_NOSIGNAL);
@@ -228,10 +258,14 @@ int main(int argc, char** argv) {
     if (!parsed) return 2;
     const PeerArgs& a = *parsed;
 
-    const Schedule         plan    = make_schedule(a);
-    const std::uint64_t    total   = plan.sizes.size();
-    const auto             largest = std::ranges::max(a.sizes, {}, &SizeWeight::size).size;
-    std::vector<std::byte> buf(largest);
+    const Schedule      plan    = make_schedule(a);
+    const std::uint64_t total   = plan.sizes.size();
+    const auto          largest = std::ranges::max(a.sizes, {}, &SizeWeight::size).size;
+    // A batch of messages back to back.
+    std::vector<std::byte>     buf(largest * a.batch);
+    std::vector<std::uint32_t> lens(a.batch);
+    std::vector<iovec>         iov(a.batch);
+    std::vector<mmsghdr>       hdrs(a.batch);
 
     const int ack = udp_socket(&a.ack, nullptr);
     const int fd  = a.tcp ? accept_one(a.target) : udp_socket(nullptr, &a.target);
@@ -247,11 +281,11 @@ int main(int argc, char** argv) {
     set_timeout(ack, a.ack_ms);
 
     const bool    paced = a.mode == Mode::Fixed || a.mode == Mode::Poisson || a.mode == Mode::Burst;
-    std::uint64_t behind = 0, missed_acks = 0, send_errors = 0;
+    std::uint64_t behind = 0, missed_acks = 0, send_errors = 0, sends = 0;
     std::int64_t  worst_late = 0;
     const std::int64_t start = mono_ns();
 
-    for (std::uint64_t i = 0; i < total; ++i) {
+    for (std::uint64_t i = 0; i < total;) {
         if (paced) {
             const std::int64_t due = start + plan.due_ns[i];
             std::int64_t       now = mono_ns();
@@ -262,17 +296,34 @@ int main(int argc, char** argv) {
                 if (now - due > LATE_NS) ++behind;
             }
         }
-        const std::uint32_t flags = (i < a.warmup ? WARMUP : 0) | (a.mode == Mode::Ack ? ACK : 0);
-        const auto          msg   = std::span(buf).first(plan.sizes[i]);
-        write_header(msg, {plan.sizes[i], flags, i, mono_ns()});
-        if (!send_all(fd, msg)) ++send_errors;
+        // Everything already due goes in one send, up to batch. Each waits for its own ack in ack
+        // mode, so never batches.
+        const std::int64_t send_ts = mono_ns();
+        std::uint64_t      n       = 0;
+        std::size_t        bytes   = 0;
+        do {
+            const std::uint64_t seq   = i + n;
+            const std::uint32_t size  = plan.sizes[seq];
+            const std::uint32_t flags = with_sender(
+                (seq < a.warmup ? WARMUP : 0) | (a.mode == Mode::Ack ? ACK : 0), a.sender);
+            write_header(std::span(buf).subspan(bytes, size), {size, flags, seq, send_ts});
+            lens[n++] = size;
+            bytes += size;
+        } while (n < a.batch && i + n < total && a.mode != Mode::Ack &&
+                 (!paced || start + plan.due_ns[i + n] <= send_ts));
+
+        const bool sent = a.tcp ? send_all(fd, std::span(buf).first(bytes))
+                                : send_datagrams(fd, buf, std::span(lens).first(n), iov, hdrs);
+        if (!sent) ++send_errors;
         if (a.mode == Mode::Ack && !await_ack(ack, i)) ++missed_acks;
+        ++sends;
+        i += n;
     }
     const std::int64_t elapsed = mono_ns() - start;
 
     // Sent a few times on udp, apart so a receiver still draining a flood has room for one.
     const auto end_msg = std::span(buf).first(sizeof(MessageHeader));
-    write_header(end_msg, {sizeof(MessageHeader), END, total, mono_ns()});
+    write_header(end_msg, {sizeof(MessageHeader), with_sender(END, a.sender), total, mono_ns()});
     for (int i = 0; i < (a.tcp ? 1 : 3); ++i) {
         if (i) std::this_thread::sleep_for(std::chrono::milliseconds(10));
         send_all(fd, end_msg);
@@ -287,11 +338,13 @@ int main(int argc, char** argv) {
     }
     std::fprintf(f,
                  "{\"proto\": \"%s\", \"mode\": \"%s\", \"sizes\": \"%s\", \"rate\": %llu, "
-                 "\"burst\": %llu, \"seed\": %llu, \"count\": %llu, \"warmup\": %llu, "
+                 "\"burst\": %llu, \"batch\": %llu, \"sends\": %llu, \"seed\": %llu, \"count\": "
+                 "%llu, \"warmup\": %llu, "
                  "\"elapsed_ns\": %lld, \"behind\": %llu, \"worst_late_ns\": %lld, "
                  "\"missed_acks\": %llu, \"send_errors\": %llu}\n",
                  a.tcp ? "tcp" : "udp", a.mode_name.c_str(), a.sizes_text.c_str(),
                  static_cast<unsigned long long>(a.rate), static_cast<unsigned long long>(a.burst),
+                 static_cast<unsigned long long>(a.batch), static_cast<unsigned long long>(sends),
                  static_cast<unsigned long long>(a.seed), static_cast<unsigned long long>(a.count),
                  static_cast<unsigned long long>(a.warmup), static_cast<long long>(elapsed),
                  static_cast<unsigned long long>(behind), static_cast<long long>(worst_late),

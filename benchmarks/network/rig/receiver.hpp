@@ -12,6 +12,7 @@
 #include <string>
 #include <string_view>
 #include <thread>
+#include <vector>
 
 #include "byte_stream.hpp"
 #include "datagram_channel.hpp"
@@ -23,27 +24,54 @@
 
 namespace qp::network::rig {
 
-/// Per stage latencies and correctness counts for one receiver run.
+/// Per stage latencies and correctness counts for one receiver run, from one or more peers.
 class Recorder {
    public:
-    explicit Recorder(int ack_fd) noexcept : ack_fd_(ack_fd), last_rx_(mono_ns()) {}
+    /// Peer k's acks go to ack_base's port plus k.
+    Recorder(int ack_fd, const sockaddr_in& ack_base, std::uint32_t peers)
+        : ack_fd_(ack_fd),
+          last_rx_(mono_ns()),
+          acks_(peers, ack_base),
+          next_(peers),
+          started_(peers),
+          ended_(peers),
+          unstarted_(peers) {
+        for (std::uint32_t k = 0; k < peers; ++k)
+            acks_[k].sin_port = htons(static_cast<std::uint16_t>(ntohs(ack_base.sin_port) + k));
+    }
 
-    /// Tells the peer to start. Repeated by idle() until the first message, in case the peer
-    /// was not listening yet.
+    /// Tells every peer that has not sent yet to start.
     void ready() noexcept {
-        ack(READY);
+        for (std::uint32_t k = 0; k < acks_.size(); ++k)
+            if (!started_[k]) ack(k, READY);
         last_ready_ = mono_ns();
+    }
+
+    /// Call once per loop. Repeats ready() every 100 ms while a peer has not sent, in case it was
+    /// not listening yet. Reads the clock once in 1024 calls, and only until every peer starts.
+    void nudge() noexcept {
+        if (unstarted_ == 0 || ++nudge_polls_ % 1024 != 0) return;
+        if (mono_ns() - last_ready_ > 100'000'000) ready();
     }
 
     /// app is when the message was parsed.
     void on_message(const MessageHeader& h, const transport::RxTimes& t,
                     std::int64_t app) noexcept {
-        if (h.flags & END) {
-            done_ = true;
+        const std::uint32_t sender = sender_of(h);
+        if (sender >= acks_.size()) {
+            ++bad_sender_;
             return;
         }
-        track(h.seq);
-        started_ = true;
+        if (!started_[sender]) {
+            started_[sender] = true;
+            --unstarted_;
+        }
+        if (h.flags & END) {
+            if (!ended_[sender]) ++peers_ended_;
+            ended_[sender] = true;
+            return;
+        }
+        track(sender, h.seq);
         last_rx_ = t.user;
         if (!(h.flags & WARMUP)) {
             ++messages_;
@@ -57,10 +85,10 @@ class Recorder {
         } else {
             ++warmup_;
         }
-        if (h.flags & ACK) ack(h.seq);
+        if (h.flags & ACK) ack(sender, h.seq);
     }
 
-    /// Messages one stream read completed.
+    /// Messages one read or one batch of datagrams brought.
     void on_read(std::size_t messages) noexcept {
         per_read_.record(static_cast<std::int64_t>(messages));
     }
@@ -74,13 +102,13 @@ class Recorder {
         truncated_ = truncated;
     }
 
-    bool done() const noexcept { return done_; }
+    /// Every peer has ended its run.
+    bool done() const noexcept { return peers_ended_ == acks_.size(); }
 
     /// True once nothing has arrived for limit_ns. Reads the clock once in 1024 calls.
     bool idle(std::int64_t limit_ns) noexcept {
         if (++idle_polls_ % 1024 != 0) return false;
         const std::int64_t now = mono_ns();
-        if (!started_ && now - last_ready_ > 100'000'000) ready();
         return now - last_rx_ > limit_ns;
     }
 
@@ -104,19 +132,25 @@ class Recorder {
         f("late", late_);
         f("bad_framing", bad_framing_);
         f("bad_size", bad_size_);
+        f("bad_sender", bad_sender_);
         f("dropped", dropped_);
         f("truncated", truncated_);
     }
 
    private:
-    void ack(std::uint64_t seq) const noexcept { ::send(ack_fd_, &seq, sizeof seq, 0); }
+    void ack(std::uint32_t peer, std::uint64_t seq) const noexcept {
+        ::sendto(ack_fd_, &seq, sizeof seq, 0, reinterpret_cast<const sockaddr*>(&acks_[peer]),
+                 sizeof acks_[peer]);
+    }
 
-    void track(std::uint64_t seq) noexcept {
-        if (seq == next_) {
-            ++next_;
-        } else if (seq > next_) {
-            gaps_ += seq - next_;
-            next_ = seq + 1;
+    // Each peer numbers its own messages from 0.
+    void track(std::uint32_t sender, std::uint64_t seq) noexcept {
+        std::uint64_t& next = next_[sender];
+        if (seq == next) {
+            ++next;
+        } else if (seq > next) {
+            gaps_ += seq - next;
+            next = seq + 1;
         } else {
             ++late_;
         }
@@ -124,25 +158,31 @@ class Recorder {
 
     int           ack_fd_;
     std::int64_t  last_rx_;
-    std::uint64_t idle_polls_ = 0;
-    std::int64_t  last_ready_ = 0;
-    bool          started_    = false;
-    bool          done_       = false;
-    std::uint64_t next_       = 0;
+    std::uint64_t idle_polls_  = 0;
+    std::int64_t  last_ready_  = 0;
+    std::uint64_t nudge_polls_ = 0;
+
+    std::vector<sockaddr_in>   acks_;
+    std::vector<std::uint64_t> next_;
+    std::vector<bool>          started_;
+    std::vector<bool>          ended_;
+    std::size_t                unstarted_;
+    std::size_t                peers_ended_ = 0;
 
     Histogram send_to_user_, send_to_app_, user_to_app_, send_to_kernel_, kernel_to_user_,
         per_read_;
 
     std::uint64_t messages_ = 0, warmup_ = 0, gaps_ = 0, late_ = 0, bad_framing_ = 0, bad_size_ = 0,
-                  dropped_ = 0, truncated_ = 0;
+                  bad_sender_ = 0, dropped_ = 0, truncated_ = 0;
 };
 
 struct ReceiverArgs {
-    Endpoint     target;  ///< The peer to connect to on a stream, the address to bind on a channel.
-    Endpoint     ack;     ///< The peer's ack socket.
-    std::string  stamps = "none";
-    std::string  out;
-    std::int64_t idle_ns = 2'000'000'000;
+    Endpoint target;  ///< The peer to connect to on a stream, the address to bind on a channel.
+    Endpoint ack;     ///< The first peer's ack socket, the next peers' on the ports after.
+    std::uint32_t peers  = 1;
+    std::string   stamps = "none";
+    std::string   out;
+    std::int64_t  idle_ns = 2'000'000'000;
 };
 
 inline std::optional<ReceiverArgs> parse_receiver_args(int argc, char** argv) {
@@ -160,6 +200,11 @@ inline std::optional<ReceiverArgs> parse_receiver_args(int argc, char** argv) {
             a.stamps = value;
         } else if (key == "--out") {
             a.out = value;
+        } else if (key == "--peers") {
+            const auto [end, err] =
+                std::from_chars(value.data(), value.data() + value.size(), a.peers);
+            ok = err == std::errc{} && end == value.data() + value.size() && a.peers > 0 &&
+                 a.peers <= MAX_PEERS;
         } else if (key == "--idle-ms") {
             std::int64_t ms       = 0;
             const auto [end, err] = std::from_chars(value.data(), value.data() + value.size(), ms);
@@ -171,8 +216,8 @@ inline std::optional<ReceiverArgs> parse_receiver_args(int argc, char** argv) {
     }
     if (ok && have_target && have_ack) return a;
     std::fprintf(stderr,
-                 "usage: %s --target ip:port --ack ip:port [--stamps none|kernel] [--out file] "
-                 "[--idle-ms n]\n",
+                 "usage: %s --target ip:port --ack ip:port [--peers n] [--stamps none|kernel] "
+                 "[--out file] [--idle-ms n]\n",
                  argv[0]);
     return std::nullopt;
 }
@@ -232,8 +277,9 @@ inline void write_report(const std::string& path, std::string_view backend, std:
 template <transport::byte_stream::ByteStream S>
 int run_stream_receiver(const ReceiverArgs& a, std::string_view backend) {
     using transport::byte_stream::StreamStatus;
-    const int ack = udp_socket(nullptr, &a.ack);
-    if (ack < 0) {
+    const int  ack      = udp_socket(nullptr, nullptr);
+    const auto ack_base = to_sockaddr(a.ack);
+    if (ack < 0 || !ack_base) {
         std::perror("ack socket");
         return 1;
     }
@@ -249,10 +295,11 @@ int run_stream_receiver(const ReceiverArgs& a, std::string_view backend) {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
-    Recorder rec(ack);
+    Recorder rec(ack, *ack_base, a.peers);
     rec.ready();
     StreamFramer framer;
     while (!rec.done()) {
+        rec.nudge();
         const auto r = s.read(std::numeric_limits<std::size_t>::max());
         if (r.lent.bytes().empty()) {
             if (r.status != StreamStatus::Open || rec.idle(a.idle_ns)) break;
@@ -271,12 +318,13 @@ int run_stream_receiver(const ReceiverArgs& a, std::string_view backend) {
     return rec.done() ? 0 : 1;
 }
 
-/// Binds, then reads one message per datagram until the peer ends the run.
+/// Binds, then reads one message per datagram until every peer ends its run.
 template <transport::datagram::DatagramChannel C>
 int run_channel_receiver(const ReceiverArgs& a, std::string_view backend) {
     using transport::datagram::ChannelStatus;
-    const int ack = udp_socket(nullptr, &a.ack);
-    if (ack < 0) {
+    const int  ack      = udp_socket(nullptr, nullptr);
+    const auto ack_base = to_sockaddr(a.ack);
+    if (ack < 0 || !ack_base) {
         std::perror("ack socket");
         return 1;
     }
@@ -287,14 +335,24 @@ int run_channel_receiver(const ReceiverArgs& a, std::string_view backend) {
         return 1;
     }
 
-    Recorder rec(ack);
+    Recorder rec(ack, *ack_base, a.peers);
     rec.ready();
+    // Datagrams from one receive share its user stamp, so a change of stamp ends a batch.
+    std::int64_t batch_ts = 0;
+    std::size_t  batch    = 0;
     while (!rec.done()) {
+        rec.nudge();
         const auto d = c.read();
         if (!d.lent) {
             if (d.status != ChannelStatus::Open || rec.idle(a.idle_ns)) break;
             continue;
         }
+        if (d.rx_ts.user != batch_ts) {
+            if (batch) rec.on_read(batch);
+            batch_ts = d.rx_ts.user;
+            batch    = 0;
+        }
+        ++batch;
         const auto bytes = d.lent.bytes();
         if (bytes.size() < sizeof(MessageHeader)) {
             rec.bad_size();
@@ -307,6 +365,7 @@ int run_channel_receiver(const ReceiverArgs& a, std::string_view backend) {
         }
         rec.on_message(h, d.rx_ts, mono_ns());
     }
+    if (batch) rec.on_read(batch);
     rec.lost(c.dropped(), c.truncated());
     write_report(a.out, backend, a.stamps, rec.done(), rec);
     ::close(ack);

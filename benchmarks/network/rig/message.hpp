@@ -19,10 +19,19 @@ struct MessageHeader {
 
 static_assert(sizeof(MessageHeader) == 24);
 
-/// MessageHeader::flags.
+/// MessageHeader::flags, low bits. The top 16 bits carry the sending peer's id.
 inline constexpr std::uint32_t WARMUP = 1;  ///< Not recorded.
 inline constexpr std::uint32_t ACK    = 2;  ///< The receiver acks it, so the peer sends the next.
-inline constexpr std::uint32_t END    = 4;  ///< The run is over.
+inline constexpr std::uint32_t END    = 4;  ///< This peer's run is over.
+
+/// The most peers one receiver tells apart.
+inline constexpr std::uint32_t MAX_PEERS = 64;
+
+inline constexpr std::uint32_t with_sender(std::uint32_t flags, std::uint32_t sender) noexcept {
+    return flags | sender << 16;
+}
+
+inline constexpr std::uint32_t sender_of(const MessageHeader& h) noexcept { return h.flags >> 16; }
 
 /// The ack carrying this seq says the receiver is ready.
 inline constexpr std::uint64_t READY = ~std::uint64_t{0};

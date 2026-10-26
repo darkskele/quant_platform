@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""The sweep's results as one markdown page, a table per workload.
+"""The sweep's results as one markdown page.
 
     python3 tools/netbench/to_md.py benchmarks/network/results/results.json --env benchmarks/network/results/env.json \
         -o benchmarks/network/results/RESULTS.md
 
-A variant is a backend and a receive path. Each figure is the median across a variant's valid
+One table per backend, a row per workload. Each figure is the median across a row's valid
 repetitions. Latency is the peer's send to the bytes reaching user space.
 """
 
@@ -49,21 +49,31 @@ def loss(run):
 
 
 def table(runs):
-    by_variant = defaultdict(list)
+    """One row per workload, in sweep order. The receive path joins the name when there are
+    several."""
+    rows = defaultdict(list)
     for r in runs:
-        by_variant[(r["backend"], r["net"])].append(r)
-    head = ["Variant", "Valid", *PERCENTILES, "k→u p50", "k→u p99", "msg/s", "lost"]
+        rows[(r["workload"], r["net"])].append(r)
+    several_nets = len({net for _, net in rows}) > 1
+    head = ["Workload", "Valid", *PERCENTILES, "k→u p50", "k→u p99", "msg/read", "msg/s", "lost"]
     lines = ["| " + " | ".join(head) + " |", "|" + " --- |" * len(head)]
-    for (backend, net), rs in sorted(by_variant.items()):
+    for (workload, net), rs in rows.items():
         ok = [r for r in rs if not r["void"]]
-        cells = [f"{backend} / {net}", f"{len(ok)}/{len(rs)}"]
+        cells = [f"{workload} / {net}" if several_nets else workload, f"{len(ok)}/{len(rs)}"]
         cells += [fmt_ns(median(stage(r, "send_to_user", p) for r in ok)) for p in PERCENTILES]
         cells += [fmt_ns(median(stage(r, "kernel_to_user", p) for r in ok)) for p in ("p50", "p99")]
+        per_read = median(stage(r, "messages_per_read", "mean") for r in ok)
+        cells.append(f"{per_read:.1f}" if per_read else "")
         msgs = median(rate(r) for r in ok)
         lost = median(loss(r) for r in ok)
         cells += [f"{msgs:,.0f}" if msgs else "", f"{lost:.2%}" if lost else ""]
         lines.append("| " + " | ".join(cells) + " |")
     return lines
+
+
+def peers_text(r):
+    args = " ".join(r["peer_args"])
+    return f"{r['peers']} peers, each {args}" if r.get("peers", 1) > 1 else args
 
 
 def main():
@@ -90,16 +100,25 @@ def main():
         out += [f"![{png.stem}](plots/{png.name})" for png in sorted(plots.glob("*.png"))]
         out.append("")
 
-    workloads = defaultdict(list)
+    by_backend = defaultdict(list)
     for r in runs:
-        workloads[(r["suite"], r["workload"])].append(r)
-    suite = None
-    for (s, name), rs in workloads.items():
-        if s != suite:
-            suite = s
-            out += [f"## {s}", ""]
-        args_text = " ".join(rs[0]["peer_args"])
-        out += [f"### {name}", "", f"`{args_text}`", "", *table(rs), ""]
+        by_backend[r["backend"]].append(r)
+    for backend, rs in sorted(by_backend.items()):
+        out += [f"## {backend}", "", *table(rs), ""]
+
+    # What each workload sent, per backend since tcp batches and udp splits across peers.
+    out += ["## Workloads", ""]
+    sent = defaultdict(dict)
+    for r in runs:
+        sent[r["workload"]].setdefault(r["backend"], peers_text(r))
+    for workload, by_backend in sent.items():
+        texts = set(by_backend.values())
+        if len(texts) == 1:
+            out.append(f"- {workload}: `{texts.pop()}`")
+        else:
+            out.append(f"- {workload}")
+            out += [f"    - {backend}: `{text}`" for backend, text in sorted(by_backend.items())]
+    out.append("")
 
     void = [r for r in runs if r["void"]]
     if void:

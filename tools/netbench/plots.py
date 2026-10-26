@@ -119,7 +119,10 @@ def case_figure(backend, case, workload, by_net, out):
               title="receive path", title_fontsize=10, alignment="left")
 
     reps = max((len(rs) for rs in by_net.values()), default=0)
-    args = " ".join(next(iter(by_net.values()))[0]["peer_args"])
+    first = next(iter(by_net.values()))[0]
+    args = " ".join(first["peer_args"])
+    if first.get("peers", 1) > 1:
+        args = f"{first['peers']} peers, each {args}"
     fig.suptitle(f"{backend}, {case} case: {workload}", x=0.01, ha="left", fontsize=14,
                  color=TEXT)
     fig.text(0.01, 0.925, f"{args}   median of up to {reps} runs", fontsize=10,
