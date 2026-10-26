@@ -74,6 +74,8 @@ class Recorder {
         track(sender, h.seq);
         last_rx_ = t.user;
         if (!(h.flags & WARMUP)) {
+            if (messages_ == 0) first_rx_ = t.user;
+            last_msg_rx_ = t.user;
             ++messages_;
             send_to_user_.record(t.user - h.send_ts);
             send_to_app_.record(app - h.send_ts);
@@ -104,6 +106,9 @@ class Recorder {
 
     /// Every peer has ended its run.
     bool done() const noexcept { return peers_ended_ == acks_.size(); }
+
+    /// From the first recorded message reaching user space to the last.
+    std::int64_t span_ns() const noexcept { return last_msg_rx_ - first_rx_; }
 
     /// True once nothing has arrived for limit_ns. Reads the clock once in 1024 calls.
     bool idle(std::int64_t limit_ns) noexcept {
@@ -158,6 +163,8 @@ class Recorder {
 
     int           ack_fd_;
     std::int64_t  last_rx_;
+    std::int64_t  first_rx_    = 0;
+    std::int64_t  last_msg_rx_ = 0;
     std::uint64_t idle_polls_  = 0;
     std::int64_t  last_ready_  = 0;
     std::uint64_t nudge_polls_ = 0;
@@ -252,9 +259,12 @@ inline void write_report(const std::string& path, std::string_view backend, std:
         std::perror(path.c_str());
         return;
     }
-    std::fprintf(f, "{\"backend\": \"%.*s\", \"stamps\": \"%.*s\", \"completed\": %s,\n",
+    std::fprintf(f,
+                 "{\"backend\": \"%.*s\", \"stamps\": \"%.*s\", \"completed\": %s, \"span_ns\": "
+                 "%lld,\n",
                  static_cast<int>(backend.size()), backend.data(), static_cast<int>(stamps.size()),
-                 stamps.data(), completed ? "true" : "false");
+                 stamps.data(), completed ? "true" : "false",
+                 static_cast<long long>(rec.span_ns()));
     std::fprintf(f, " \"counters\": {");
     bool first = true;
     rec.each_counter([&](const char* name, std::uint64_t n) {

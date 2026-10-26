@@ -1,24 +1,26 @@
 #!/bin/bash
 # One rig run on the box. The peer in qp-peer, a receiver in qp-rx, joined only by the veth pair.
 #
-#   tools/netbench/run_pair.sh <kernel_tcp|kernel_udp> [-s none|kernel] [-n peers] [-o dir]
-#       [-- peer args...]
+#   tools/netbench/run_pair.sh <kernel_tcp|kernel_udp> [-s none|kernel] [-n peers] [-c cpus]
+#       [-o dir] [-- peer args...]
 #
 # Writes peer-<k>.json per peer and receiver.json into dir (netbench_out). Peer args pass to
 # every peer, for example -- --sizes 512 --rate 10000. Several peers need udp, each gets its own
-# id, seed and ack port.
+# id, seed and ack port. -c runs the peers on those CPUs, outside the bench partition.
 set -euo pipefail
 
-usage="usage: run_pair.sh <kernel_tcp|kernel_udp> [-s none|kernel] [-n peers] [-o dir] [-- peer args...]"
+usage="usage: run_pair.sh <kernel_tcp|kernel_udp> [-s none|kernel] [-n peers] [-c cpus] [-o dir] [-- peer args...]"
 backend=${1:?$usage}
 shift
 stamps=none
 peers=1
+peer_cpus=
 out=netbench_out
-while getopts s:n:o: opt; do
+while getopts s:n:c:o: opt; do
     case $opt in
         s) stamps=$OPTARG ;;
         n) peers=$OPTARG ;;
+        c) peer_cpus=$OPTARG ;;
         o) out=$OPTARG ;;
         *) echo "$usage" >&2; exit 2 ;;
     esac
@@ -46,7 +48,8 @@ mkdir -p "$out"
 pids=()
 for (( k = 0; k < peers; k++ )); do
     # After the shared args, so each peer's own id, seed and ack port win.
-    sudo -n qp-netns-run qp-peer "$bin/netbench_peer" --proto "$proto" --target "$target" \
+    QP_RIG_PEER_CPUS=$peer_cpus sudo -n qp-netns-run qp-peer "$bin/netbench_peer" \
+        --proto "$proto" --target "$target" \
         --out "$out/peer-$k.json" "$@" --sender "$k" --seed "$((k + 1))" \
         --ack "$peer_ip:$((ack_port + k))" &
     pids+=($!)

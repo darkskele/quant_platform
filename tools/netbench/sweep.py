@@ -24,14 +24,26 @@ BACKENDS = ["kernel_udp", "kernel_tcp"]
 # core, as a real receive path would be.
 NETS = ["napi"]
 STAMPS = "kernel"
+# The housekeeping CPUs, where capacity peers run so the bench CPUs are the receiver's.
+PEER_CPUS = "8-11"
 
 
 def workload(name, mode, sizes="64", count=20_000, rate=None, burst=None, tcp_batch=None,
-             udp_peers=1, drops=False):
+             udp_peers=1, drops=False, backends=None, peer_cpus=None):
     """A traffic shape. tcp_batch lets one tcp peer send what is due in one call. udp_peers splits
-    the load across that many udp peers, since batching only delays datagrams in the sender."""
+    the load across that many udp peers, since batching only delays datagrams in the sender.
+    backends limits it to those it means something for. peer_cpus runs the peers there, outside the
+    bench partition, so they are not what runs out first."""
     return {"name": name, "mode": mode, "sizes": sizes, "count": count, "rate": rate,
-            "burst": burst, "tcp_batch": tcp_batch, "udp_peers": udp_peers, "drops_allowed": drops}
+            "burst": burst, "tcp_batch": tcp_batch, "udp_peers": udp_peers, "drops_allowed": drops,
+            "backends": backends or BACKENDS, "peer_cpus": peer_cpus}
+
+
+def load_step(rate):
+    """Offered load at a fixed rate for about a second and a half. Where losses start or p99
+    climbs is the receiver's limit."""
+    return workload(f"load_{rate // 1000}k_512", "fixed", sizes="512", count=rate * 3 // 2,
+                    rate=rate, tcp_batch=32, udp_peers=4, drops=True, peer_cpus=PEER_CPUS)
 
 
 def peer_args(w, backend):
@@ -70,6 +82,15 @@ SUITES = {
         # The throughput limit.
         workload("flood_1460", "flood", sizes="1460", count=600_000, tcp_batch=32, udp_peers=3,
                  drops=True),
+    ],
+    # What the receiver can take, as load steps and bulk bytes.
+    "capacity": [
+        *(load_step(rate) for rate in (200_000, 400_000, 800_000, 1_200_000, 1_600_000)),
+        # Larger than a udp slot, so tcp only.
+        workload("bulk_16k", "flood", sizes="16384", count=200_000, tcp_batch=8,
+                 backends=["kernel_tcp"], peer_cpus=PEER_CPUS),
+        workload("bulk_64k", "flood", sizes="65000", count=50_000, tcp_batch=8,
+                 backends=["kernel_tcp"], peer_cpus=PEER_CPUS),
     ],
 }
 
@@ -121,7 +142,9 @@ def read_json(path):
 
 def run_one(w, backend, args, peers):
     with tempfile.TemporaryDirectory() as out:
-        cmd = [str(RUN_PAIR), backend, "-s", STAMPS, "-n", str(peers), "-o", out, "--", *args]
+        cpus = ["-c", w["peer_cpus"]] if w["peer_cpus"] else []
+        cmd = [str(RUN_PAIR), backend, "-s", STAMPS, "-n", str(peers), *cpus, "-o", out, "--",
+               *args]
         try:
             proc = subprocess.run(cmd, capture_output=True, text=True, timeout=RUN_TIMEOUT_S)
         except subprocess.TimeoutExpired:
@@ -154,15 +177,19 @@ def main():
                     continue
                 k = rep % len(variants)
                 for backend, net in variants[k:] + variants[:k]:
+                    if backend not in w["backends"]:
+                        continue
                     run_args, peers = peer_args(w, backend)
                     net_state = set_net(net)
                     if net_state is None:
                         peer, receiver, reason = None, None, "receive path not set"
                     else:
                         peer, receiver, reason = run_one(w, backend, run_args, peers)
-                    runs.append({"suite": suite, "workload": w["name"], "backend": backend,
+                    runs.append({"direction": "receive", "suite": suite, "workload": w["name"],
+                                 "backend": backend,
                                  "net": net, "net_state": net_state, "stamps": STAMPS, "rep": rep,
-                                 "peer_args": run_args, "peers": peers, "void": reason, "peer": peer,
+                                 "peer_args": run_args, "peers": peers, "offered": w["rate"],
+                                 "peer_cpus": w["peer_cpus"], "void": reason, "peer": peer,
                                  "receiver": receiver})
                     state = f"void, {reason}" if reason else "ok"
                     print(f"sweep: rep {rep} {w['name']} {backend} {net}: {state}",

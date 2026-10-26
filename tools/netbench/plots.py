@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""The base and hard cases as one large figure per backend, each receive path in its own colour.
+"""The base and hard cases, and capacity, as large figures per backend.
 
     python tools/netbench/plots.py benchmarks/network/results/results.json -o benchmarks/network/results/plots
 
-<backend>_<case>.png plots send to user latency against percentile, the median of the valid
-repetitions, with p99 marked and quoted per receive path. Needs matplotlib.
+<direction>_<backend>_<case>.png plots send to user latency against percentile, the median of the valid
+repetitions, with p99 marked and quoted per receive path. <direction>_<backend>_throughput.png and
+_latency.png plot what the receiver took, and its p99, against the load offered, with losses and
+steps the peers could not send marked. Needs matplotlib.
 """
 
 import argparse
@@ -21,6 +23,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 from matplotlib.ticker import FuncFormatter, LogLocator, NullFormatter  # noqa: E402
 
 CASES = {"base": "base_fixed_100k_512", "hard": "hard_poisson_200k_mixed"}
+CAPACITY_PREFIX = "load_"
 
 # Fixed order, so a receive path keeps its colour whichever ones a sweep ran.
 NET_COLOURS = {"napi": "#2a78d6", "default": "#eb6834", "rps": "#1baf7a"}
@@ -68,6 +71,116 @@ def quote_us(us):
 def loss(run):
     sent = run["peer"]["count"] + run["peer"]["warmup"]
     return run["receiver"]["counters"]["gaps"] / sent if sent else 0
+
+
+def style(ax):
+    ax.set_facecolor(SURFACE)
+    ax.grid(axis="both", which="major", color=GRID, linewidth=0.8)
+    ax.set_axisbelow(True)
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+    for side in ("left", "bottom"):
+        ax.spines[side].set_color(GRID)
+    ax.tick_params(colors=TEXT_SECONDARY, labelsize=10)
+
+
+def load_steps(runs):
+    """Per receive path, each load step's offered rate, p99, sent and received rates and loss."""
+    by_net = defaultdict(lambda: defaultdict(list))
+    for r in runs:
+        by_net[r.get("net", "default")][r["offered"]].append(r)
+    out = {}
+    for net, steps in by_net.items():
+        offered = sorted(steps)
+
+        def med(f):
+            return [median(f(r) for r in steps[o]) for o in offered]
+
+        sent = med(lambda r: (r["peer"]["count"] + r["peer"]["warmup"]) / r["peer"]["elapsed_ns"]
+                   * 1e9)
+        out[net] = {
+            "offered": offered,
+            "p99": med(lambda r: r["receiver"]["stages"]["send_to_user"]["p99"] / 1000),
+            "received": med(lambda r: r["receiver"]["counters"]["messages"]
+                            / r["receiver"]["span_ns"] * 1e9 if r["receiver"].get("span_ns")
+                            else None),
+            "lost": med(loss),
+            # A step the peers could not send at says nothing about the receiver.
+            "short": [s < 0.95 * o for s, o in zip(sent, offered)],
+        }
+    return out
+
+
+def mark(ax, xs, ys, shorts, colour):
+    """Filled where the step is a receiver result, hollow where the peers fell short. The surface
+    coloured edge rings the marker where lines cross."""
+    for x, y, short in zip(xs, ys, shorts):
+        if y is not None:
+            ax.plot(x, y, "o", markersize=9, markeredgewidth=2,
+                    color=SURFACE if short else colour,
+                    markeredgecolor=colour if short else SURFACE)
+
+
+def load_figure(backend, runs, title, ylabel, plot, out):
+    """One panel against offered load, a line per receive path. plot draws a path's line and
+    returns its legend label."""
+    fig, ax = plt.subplots(figsize=(12, 6.5), facecolor=SURFACE)
+    style(ax)
+    handles, labels = [], []
+    steps = load_steps(runs)
+    for net, colour in NET_COLOURS.items():
+        if net in steps:
+            line, label = plot(ax, steps[net], colour)
+            handles.append(line)
+            labels.append(f"{net}   {label}")
+    handles.append(plt.Line2D([], [], color=TEXT_SECONDARY, marker="o", markersize=9,
+                              markerfacecolor=SURFACE, linestyle="none"))
+    labels.append("peers sent under 95% of the offered load")
+    ax.legend(handles, labels, loc="upper left", frameon=False, fontsize=11, labelcolor=TEXT,
+              title="receive path", title_fontsize=10, alignment="left")
+    ax.set_xlabel("offered load, thousand msg/s", fontsize=10, color=TEXT_SECONDARY)
+    ax.set_ylabel(ylabel, fontsize=10, color=TEXT_SECONDARY)
+
+    first = runs[0]
+    peers = f"{first['peers']} peers, " if first.get("peers", 1) > 1 else ""
+    fig.suptitle(f"{backend}, {title}", x=0.01, ha="left", fontsize=14, color=TEXT)
+    fig.text(0.01, 0.925, f"{peers}512 B messages at fixed rate steps   median of up to 3 runs "
+             f"per step", fontsize=10, color=TEXT_SECONDARY)
+    fig.tight_layout(rect=(0, 0, 1, 0.92))
+    fig.savefig(out, dpi=120, facecolor=SURFACE)
+    plt.close(fig)
+
+
+def plot_throughput(ax, step, colour):
+    k = [o / 1000 for o in step["offered"]]
+    got = [r / 1000 if r is not None else None for r in step["received"]]
+    # Every offered message taken lies on the diagonal. Below it the receiver could not keep up.
+    ax.plot(k, k, color=TEXT_SECONDARY, linewidth=1, linestyle=(0, (4, 4)))
+    (line,) = ax.plot(k, got, color=colour, linewidth=2)
+    mark(ax, k, got, step["short"], colour)
+    for x, y, l in zip(k, got, step["lost"]):
+        if l and y is not None:
+            ax.annotate(f"lost {l:.2%}", (x, y), xytext=(0, -18), textcoords="offset points",
+                        ha="center", fontsize=10, color=TEXT)
+    ax.set_ylim(bottom=0)
+    best = max((y for y in got if y is not None), default=None)
+    return line, f"most received {best:,.0f}k msg/s" if best else ""
+
+
+def plot_latency(ax, step, colour):
+    k = [o / 1000 for o in step["offered"]]
+    ax.set_yscale("log")
+    (line,) = ax.plot(k, step["p99"], color=colour, linewidth=2)
+    mark(ax, k, step["p99"], step["short"], colour)
+    for x, y, l in zip(k, step["p99"], step["lost"]):
+        if l:
+            ax.annotate(f"lost {l:.2%}", (x, y), xytext=(0, 12), textcoords="offset points",
+                        ha="center", fontsize=10, color=TEXT)
+    ax.yaxis.set_major_locator(LogLocator(subs=(1, 2, 5)))
+    ax.yaxis.set_major_formatter(FuncFormatter(fmt_us))
+    ax.yaxis.set_minor_formatter(NullFormatter())
+    clean = [x for x, l, sh in zip(k, step["lost"], step["short"]) if not l and not sh]
+    return line, f"clean up to {clean[-1]:g}k msg/s" if clean else ""
 
 
 def case_figure(backend, case, workload, by_net, out):
@@ -145,12 +258,22 @@ def main():
         stale.unlink()
     grouped = defaultdict(lambda: defaultdict(list))
     for r in runs:
-        grouped[(r["backend"], r["workload"])][r.get("net", "default")].append(r)
-    for backend in sorted({b for b, _ in grouped}):
+        grouped[(r.get("direction", "receive"), r["backend"], r["workload"])][
+            r.get("net", "default")].append(r)
+    for direction, backend in sorted({(d, b) for d, b, _ in grouped}):
+        name = f"{direction}_{backend}"
         for case, workload in CASES.items():
-            by_net = grouped.get((backend, workload))
+            by_net = grouped.get((direction, backend, workload))
             if by_net:
-                case_figure(backend, case, workload, by_net, out / f"{backend}_{case}.png")
+                case_figure(backend, case, workload, by_net, out / f"{name}_{case}.png")
+        load = [r for r in runs if r.get("direction", "receive") == direction
+                and r["backend"] == backend and r.get("offered")
+                and r["workload"].startswith(CAPACITY_PREFIX)]
+        if load:
+            load_figure(backend, load, "capacity: what the receiver took",
+                        "received, thousand msg/s", plot_throughput, out / f"{name}_throughput.png")
+            load_figure(backend, load, "capacity: latency under load",
+                        "send to user latency, p99", plot_latency, out / f"{name}_latency.png")
 
 
 if __name__ == "__main__":

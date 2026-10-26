@@ -4,8 +4,9 @@
     python3 tools/netbench/to_md.py benchmarks/network/results/results.json --env benchmarks/network/results/env.json \
         -o benchmarks/network/results/RESULTS.md
 
-One table per backend, a row per workload. Each figure is the median across a row's valid
-repetitions. Latency is the peer's send to the bytes reaching user space.
+A section per direction, receive then send, each with a table per backend and a row per workload. Each figure is the median across a row's valid
+repetitions. Latency is the peer's send to the bytes reaching user space. sent/s is what the peers
+sent, recv/s what the receiver took over its own first to last message.
 """
 
 import argparse
@@ -37,10 +38,23 @@ def stage(run, name, key):
     return h[key] if h["count"] else None
 
 
-def rate(run):
+def sent_rate(run):
+    """Messages per second the peers sent."""
     elapsed = run["peer"]["elapsed_ns"]
-    c = run["receiver"]["counters"]
-    return (c["messages"] + c["warmup"]) / elapsed * 1e9 if elapsed else None
+    return (run["peer"]["count"] + run["peer"]["warmup"]) / elapsed * 1e9 if elapsed else None
+
+
+def received_rate(run):
+    """Recorded messages per second, over the receiver's own first to last."""
+    span = run["receiver"].get("span_ns")
+    return run["receiver"]["counters"]["messages"] / span * 1e9 if span else None
+
+
+def mean_size(run):
+    """The average message size the peer sent, from its size:weight list."""
+    sizes = run["peer_args"][run["peer_args"].index("--sizes") + 1]
+    pairs = [(int(a), int(b or 1)) for a, _, b in (item.partition(":") for item in sizes.split(","))]
+    return sum(size * weight for size, weight in pairs) / sum(weight for _, weight in pairs)
 
 
 def loss(run):
@@ -55,7 +69,8 @@ def table(runs):
     for r in runs:
         rows[(r["workload"], r["net"])].append(r)
     several_nets = len({net for _, net in rows}) > 1
-    head = ["Workload", "Valid", *PERCENTILES, "k→u p50", "k→u p99", "msg/read", "msg/s", "lost"]
+    head = ["Workload", "Valid", *PERCENTILES, "k→u p50", "k→u p99", "msg/read", "sent/s", "recv/s",
+            "recv MB/s", "lost"]
     lines = ["| " + " | ".join(head) + " |", "|" + " --- |" * len(head)]
     for (workload, net), rs in rows.items():
         ok = [r for r in rs if not r["void"]]
@@ -64,9 +79,12 @@ def table(runs):
         cells += [fmt_ns(median(stage(r, "kernel_to_user", p) for r in ok)) for p in ("p50", "p99")]
         per_read = median(stage(r, "messages_per_read", "mean") for r in ok)
         cells.append(f"{per_read:.1f}" if per_read else "")
-        msgs = median(rate(r) for r in ok)
+        sent = median(sent_rate(r) for r in ok)
+        received = median(received_rate(r) for r in ok)
         lost = median(loss(r) for r in ok)
-        cells += [f"{msgs:,.0f}" if msgs else "", f"{lost:.2%}" if lost else ""]
+        mb = received * mean_size(rs[0]) / 1e6 if received else None
+        cells += [f"{sent:,.0f}" if sent else "", f"{received:,.0f}" if received else "",
+                  f"{mb:,.0f}" if mb else "", f"{lost:.2%}" if lost else ""]
         lines.append("| " + " | ".join(cells) + " |")
     return lines
 
@@ -74,6 +92,43 @@ def table(runs):
 def peers_text(r):
     args = " ".join(r["peer_args"])
     return f"{r['peers']} peers, each {args}" if r.get("peers", 1) > 1 else args
+
+
+def section(direction, runs, plots):
+    """One direction's plots, a table per backend and what each workload sent."""
+    out = [f"## {direction.capitalize()}", ""]
+    order = ["base", "hard", "throughput", "latency"]
+
+    def rank(png):
+        backend, _, case = png.stem.removeprefix(f"{direction}_").rpartition("_")
+        return backend, order.index(case) if case in order else len(order)
+
+    pngs = sorted(plots.glob(f"{direction}_*.png"), key=rank) if plots.is_dir() else []
+    if pngs:
+        out += ["### Plots", ""]
+        out += [f"![{png.stem}](plots/{png.name})" for png in pngs]
+        out.append("")
+
+    by_backend = defaultdict(list)
+    for r in runs:
+        by_backend[r["backend"]].append(r)
+    for backend, rs in sorted(by_backend.items()):
+        out += [f"### {backend}", "", *table(rs), ""]
+
+    # What each workload sent, per backend since tcp batches and udp splits across peers.
+    out += ["### Workloads", ""]
+    sent = defaultdict(dict)
+    for r in runs:
+        sent[r["workload"]].setdefault(r["backend"], peers_text(r))
+    for workload, by_backend_text in sent.items():
+        texts = set(by_backend_text.values())
+        if len(texts) == 1:
+            out.append(f"- {workload}: `{texts.pop()}`")
+        else:
+            out.append(f"- {workload}")
+            out += [f"    - {b}: `{t}`" for b, t in sorted(by_backend_text.items())]
+    out.append("")
+    return out
 
 
 def main():
@@ -95,30 +150,12 @@ def main():
         out.append("")
 
     plots = pathlib.Path(args.out).parent / "plots"
-    if plots.is_dir():
-        out += ["## Plots", ""]
-        out += [f"![{png.stem}](plots/{png.name})" for png in sorted(plots.glob("*.png"))]
-        out.append("")
-
-    by_backend = defaultdict(list)
+    by_direction = defaultdict(list)
     for r in runs:
-        by_backend[r["backend"]].append(r)
-    for backend, rs in sorted(by_backend.items()):
-        out += [f"## {backend}", "", *table(rs), ""]
-
-    # What each workload sent, per backend since tcp batches and udp splits across peers.
-    out += ["## Workloads", ""]
-    sent = defaultdict(dict)
-    for r in runs:
-        sent[r["workload"]].setdefault(r["backend"], peers_text(r))
-    for workload, by_backend in sent.items():
-        texts = set(by_backend.values())
-        if len(texts) == 1:
-            out.append(f"- {workload}: `{texts.pop()}`")
-        else:
-            out.append(f"- {workload}")
-            out += [f"    - {backend}: `{text}`" for backend, text in sorted(by_backend.items())]
-    out.append("")
+        by_direction[r.get("direction", "receive")].append(r)
+    for direction in ("receive", "send"):
+        if direction in by_direction:
+            out += section(direction, by_direction[direction], plots)
 
     void = [r for r in runs if r["void"]]
     if void:
