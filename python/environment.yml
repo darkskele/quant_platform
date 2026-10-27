@@ -1,0 +1,21 @@
+name: qp-research
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - numpy
+  - pandas
+  - scipy
+  - matplotlib
+  - jupyterlab
+  - ipykernel
+  - optuna
+  - scikit-learn
+  - lightgbm
+  - pyarrow
+  - polars>=2
+  - pytest
+  - statsmodels
+  - pip
+  - pip:
+      - -e .

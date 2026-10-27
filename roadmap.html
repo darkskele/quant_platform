@@ -249,7 +249,7 @@ footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--rule);
   <div>
     <dl class="meta">
       <dt>Author</dt><dd>Swag Master Extreme</dd>
-      <dt>As of</dt><dd>2 October 2026</dd>
+      <dt>As of</dt><dd>17 October 2026</dd>
       <dt>Open lane</dt><dd>Mean reversion</dd>
       <dt>Colour</dt><dd>
         <span class="tag sig">signal</span><span class="tag reg">regime</span><span class="tag str">strategy</span><span class="tag eng">engineering</span><span class="tag dat">data</span>
@@ -263,7 +263,7 @@ footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--rule);
   <h2>Where things stand</h2>
   <div class="scroll"><table>
     <tr><th>area</th><th>what</th><th>state</th></tr>
-    <tr><td><span class="tag sig">signal</span></td><td>Time-series trend</td><td>Closed, parked. A market-timing premium near four weeks. The Sunday book makes 0.85 at probability 0.49, the seven-slice book 1.02 at 0.58 to 0.67, exploratory. Failed on 66 ETFs. <a href="research/signal/trend/trend.html">Write-up</a></td></tr>
+    <tr><td><span class="tag sig">signal</span></td><td>Time-series trend</td><td>Closed, parked. A market-timing premium near four weeks. The Sunday book makes 0.85 at probability 0.49, the seven-slice book 1.02 with a 0.39 probability of being real once every backtest is counted, exploratory. Failed on 66 ETFs. <a href="research/signal/trend/trend.html">Write-up</a></td></tr>
     <tr><td><span class="tag sig">signal</span></td><td>Funding carry</td><td>Invalidated. Built before the method trend hardened, scored on gross funding. Redone from scratch</td></tr>
     <tr><td><span class="tag sig">signal</span></td><td>Mean reversion</td><td>Next</td></tr>
     <tr><td><span class="tag sig">signal</span></td><td>Path shape</td><td>Future. After mean reversion</td></tr>
@@ -273,6 +273,7 @@ footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--rule);
     <tr><td><span class="tag str">strategy</span></td><td>Strategy research</td><td>Waits on regime detection and a risk model. Two registered trend tests run forward on perps</td></tr>
     <tr><td><span class="tag eng">engineering</span></td><td>Engine</td><td>Backtest runs on the live code path. Basic risk gate, python bindings. A cost-aware matcher is built, but no backtest runs on it yet</td></tr>
     <tr><td><span class="tag dat">data</span></td><td>Binance historical</td><td>Klines, mark, premium, funding, metrics, aggTrades and book depth, streamed from the public archive through the live source</td></tr>
+    <tr><td><span class="tag eng">engineering</span></td><td>Research tooling</td><td>The qp_research package, trial ledger, event book and polars data path are built and tested. The trend lane runs on it. Rebuilding the trend late check into the ledger is next</td></tr>
     <tr><td><span class="tag eng">engineering</span></td><td>Live</td><td>Not started</td></tr>
   </table></div>
 </section>
@@ -287,7 +288,7 @@ footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--rule);
     <ul>
       <li>Banked from trend. Coins reverse against the market over 1 to 2 weeks, cross zero near 3 and follow it from 4 to 6.</li>
       <li>The question. Is the 1 to 2 week snap-back of a coin's return beyond the market a net-of-cost edge, and in which condition.</li>
-      <li>Event-driven. A trigger on a move large against the coin's own volatility, checked at every hourly close, with exits on reversion, a time stop or a stop. The calendar book is its baseline. The gate is recalibrated for event books first.</li>
+      <li>Event-driven. A trigger on a move large against the coin's own volatility, checked at every hourly close, with exits on reversion, a time stop or a stop. The calendar book is its baseline. The gate holds its calibration on simulated event books.</li>
       <li>Every trend trial counts against it. Name the primary test and its mechanism before the first run.</li>
       <li>Starts on the research package and the trial ledger, not on copies of the trend modules.</li>
     </ul>
@@ -383,7 +384,7 @@ footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--rule);
 
   <p>Handed over from trend.</p>
   <ul>
-    <li>Conditioning on the market pays. A search choosing from the past alone made 1.38 against 0.64 always on.</li>
+    <li>Conditioning on the market pays. A search choosing from the past alone made 1.37 against 0.64 always on.</li>
     <li>Trend loses after deleveraging, with open interest below its recent average.</li>
     <li>The moderate month is a hypothesis only.</li>
   </ul>
@@ -425,40 +426,21 @@ footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--rule);
 
   <div class="item">
     <h3>A research package</h3>
-    <p>An audit of 29 notebooks and the lane modules found the same code copied everywhere and no python unit tests.</p>
-    <div class="scroll"><table>
-      <tr><th>repeated</th><th>count</th></tr>
-      <tr><td><code>sys.path</code> inserts</td><td>17 in 13 notebooks</td></tr>
-      <tr><td>Locating the engine <code>.so</code></td><td>7 in 5</td></tr>
-      <tr><td>Inline Sharpe beside <code>gate.sharpe</code></td><td>22 in 14</td></tr>
-      <tr><td>Year tables</td><td>37 in 11</td></tr>
-      <tr><td>Plot style</td><td>11 in 11</td></tr>
-      <tr><td>Fee and bps literals</td><td>132 in 20</td></tr>
-      <tr><td>Funding loaders and model wrappers</td><td>5 to 8 carry notebooks each</td></tr>
-      <tr><td>Notebook builder helpers</td><td>every <code>build_*.py</code></td></tr>
-    </table></div>
-    <p>One package installed editable into <code>qp-research</code>, tested with pytest.</p>
-    <div class="scroll"><table>
-      <tr><th>module</th><th>from</th><th>does</th></tr>
-      <tr><td><code>data</code></td><td>stream, spot, etf</td><td>Archive through the qp source, cached. Universe, redenominations, halts</td></tr>
-      <tr><td><code>panel</code></td><td>panel</td><td>Panels at any cadence and rebalance day</td></tr>
-      <tr><td><code>book</code></td><td>book, rule</td><td>Weights to net returns. Cost, funding, halts, staggered slices by default</td></tr>
-      <tr><td><code>costs</code></td><td>costs</td><td>Cost ladder and fee schedule per market</td></tr>
-      <tr><td><code>stats</code>, <code>gate</code></td><td>gate, inline copies</td><td>Sharpe, drawdown, year tables, computed stamps</td></tr>
-      <tr><td><code>ledger</code></td><td>new</td><td>The trial ledger below</td></tr>
-      <tr><td><code>cv</code>, <code>engine</code>, <code>plot</code>, <code>nb</code></td><td>cv, glob, rcParams, builders</td><td>Splits, the module, house style, the probe, build and execute loop</td></tr>
-    </table></div>
+    <p>Built. One package installed editable into <code>qp-research</code>, every module tested with pytest on synthetic data with known answers. Data through the qp source into a partitioned parquet cache, read with polars. Bar rules in long form at any bar size, calendar and event books on one cost interface, the gate and its calibration, the trial ledger and lane guards. <a href="docs/python/qp_research/README.md">Module doc</a></p>
     <ul>
-      <li>Tests on synthetic data with known answers. Book PnL by hand, cost only on a weight change, halt carry, no look-ahead, the purge, clustered errors against statsmodels, the gate's calibration as a regression.</li>
-      <li>Lane-specific code stays in its lane. Carry's features and models stay put.</li>
       <li>Old notebooks are frozen. The write-ups map them to commits. New work imports the package.</li>
       <li>The research skill documents the package API, so a new lane is the hypothesis and a few calls.</li>
     </ul>
   </div>
 
   <div class="item">
-    <h3>A trial ledger</h3>
-    <p>Every book run records its return series to the lane's ledger, tagged primary, exploratory or registered. Effective trials and the luck bar are read from it. The trend late check ran about 5,700 books that never reached the count.</p>
+    <h3>The trend late check in the ledger</h3>
+    <p>The trend lane's trials were counted in a notebook, and its late check ran about 5,700 books that never reached the count. Rebuild them as return series in the trend ledger and recount the effective trials.</p>
+  </div>
+
+  <div class="item">
+    <h3>Returns beyond the market</h3>
+    <p>Built, for mean reversion. A market return and each coin's residual on long-form bars, an event trade hedged by an opposite leg with barriers read on the spread, and an exit once a share of the trigger's move is undone.</p>
   </div>
 
   <div class="item">
@@ -474,7 +456,7 @@ footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--rule);
 
   <div class="item">
     <h3>A local store</h3>
-    <p>Research caches parquet under <code>~/.cache</code>, per lane. A shared local store in the platform's format, binary, zstd and partitioned, becomes the backend of the package's <code>data</code> module. Pull once, read everywhere.</p>
+    <p>Built. The package's <code>data</code> module caches every dataset as zstd parquet partitioned by dataset, symbol and span, indexed in sqlite and evicted past a size cap. Pull once, read everywhere.</p>
   </div>
 
   <div class="item">
@@ -496,7 +478,7 @@ footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--rule);
   </ul>
 </section>
 
-<footer>quant-platform · roadmap · 2 October 2026</footer>
+<footer>quant-platform · roadmap · 17 October 2026</footer>
 
 </div>
 </body>

@@ -36,3 +36,4 @@ Recorder::sample(ts, Portfolio)   (per step; no-op by default)
 - [x] ~~Compiles against seams only, no concrete adapters~~
 - [x] ~~One full `step()` end-to-end: event → strategy → risk → exec → fill → `Portfolio`~~
 - [x] ~~Timer ticks interleaved with events on one time line~~
+- [ ] Empty policy members take no space, `[[no_unique_address]]` on every collaborator (C++20)

@@ -1,5 +1,6 @@
 # Build
 /build/
+/netbench_out/
 /out/
 /dist/
 *.o
@@ -20,6 +21,8 @@ config/*.local.*
 # Data — never commit collected market data (dir or symlink to shared store)
 /data
 *.parquet
+# Trial ledgers are research records, committed beside their lane
+!research/**/ledger/*.parquet
 *.zst
 *.bin
 
@@ -31,3 +34,9 @@ config/*.local.*
 __pycache__/
 *.py[cod]
 *.pkl
+
+# Symlink to the shared devenv/vscode
+/.vscode
+
+*.egg-info/
+.pytest_cache/

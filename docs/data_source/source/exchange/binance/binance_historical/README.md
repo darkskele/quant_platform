@@ -44,3 +44,9 @@ BinanceHistoricalStream
 - [x] ~~Correctness checked against live files~~
 - [x] ~~Metrics, trades and book depth datasets~~
 - [ ] Resume a planned run without refetching what was already read
+- [ ] `HttpFetchPool` runs each fetch as a coroutine on the http client's io threads, unzip on a small worker pool (C++20)
+- [ ] Per-dataset streams held in one tuple over the parser list, so a new dataset is one line and the per-kind switches go (C++26, GCC 16)
+    - build, refill, finish and report walk the tuple with an expansion statement
+- [ ] Endpoint path names derived from the `EndpointKind` and `BinanceMarket` enumerator names by reflection, looked up in a consteval table (C++26, GCC 16)
+- [ ] Python drains the source into one numpy column per payload field, generated from the payload struct by reflection, no python object per event (C++26, GCC 16)
+- [ ] Unzip and parser tests over real archive files embedded with `#embed`, no network and no hand-typed rows (C++26, GCC 15)

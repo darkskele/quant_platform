@@ -18,10 +18,10 @@ A modular C++ trading platform where **backtest and live run the same code**. Ve
 - **Exchange protocol rules differ by market type (spot vs futures)** even when documented on adjacent pages. Verify against the specific market's own docs. (The resync alignment offset differs between the two; the wrong one passed every mock test and failed 100% against real data.)
 
 ## Toolchain
-C++23, CMake + Ninja, `CMakePresets.json` (`release`/`debug`/`tsan`; presets are the prod/test switch), vcpkg manifest mode, GoogleTest + Google Benchmark. Dev in WSL Ubuntu (relative benchmarks only, WSL2 PMU is unreliable); absolute perf on the VM.
+C++23, CMake + Ninja, `CMakePresets.json` (`release`/`debug`/`tsan`; presets are the prod/test switch), dependencies from apt (Boost, OpenSSL, libzip, GoogleTest; `vcpkg.json` exists but is unused), Google Benchmark via FetchContent. Dev in WSL Ubuntu (relative benchmarks only, WSL2 PMU is unreliable); absolute perf on the build box.
 
 ## Docs and comments
-Follow the `writing` skill for every comment and doc. In short: terse, self-contained, single-source; `docs/` mirrors `include/` with a `README.md` + `DECISIONS.md` per concept directory; module-local decision numbering; no em dashes. Run `clang-format -i` on every `.cpp`/`.hpp` created or edited (never on `CMakeLists.txt`).
+Follow the `writing` skill for every comment and doc. In short: terse, self-contained, single-source; `docs/` mirrors `include/` with a `README.md` + `DECISIONS.md` per concept directory; module-local decision numbering; no em dashes. Run `clang-format -i` on every `.cpp`/`.hpp` created or edited (never on `CMakeLists.txt`). Goals live as `## Milestones` checklists in the `docs/` READMEs. `TODO.md` is generated from them and the code `@todo`s by the pre-commit hook, so never edit it by hand.
 
 ## Working style
 - Terse. State what changed; don't re-narrate.
@@ -39,3 +39,12 @@ Follow the `writing` skill for every comment and doc. In short: terse, self-cont
 ## Build
 - **Don't build or run tests/benchmarks unless explicitly asked.** The user runs those. Exception: an iterative "fix X and verify it" step.
 - When asked: the `test` and `amend` skills build and run directly via Bash. VS Code's cppdbg/gdb launch is flaky under WSL2; plain execution is what works.
+
+## Build box
+The Latitude (`ssh live`, Ubuntu Server 26.04 on real hardware). Setup and tooling live in `~/quant/devenv`, outside this repo.
+- **WSL** runs editing, unit tests, sanitizer builds, research. Code lives here only.
+- **The box** runs real network and live source tests, and benchmarks whose absolute numbers matter (real PMU, `perf` works).
+- **Reach the box only through `boxrun`.** `boxrun [-p preset] [target [args...]]` syncs this worktree, builds there, runs the target. Same build/run permission rule as above.
+- **Never edit code on the box.** It holds disposable synced copies under `~/wt/`.
+- **Never change the box's system config ad hoc.** Changes go into `~/quant/devenv/box/` scripts, which the user runs (sudo needs their password).
+- The box has g++ 15, Boost 1.90, CMake 4.2. WSL has g++ 13, Boost 1.83, CMake 3.28. Code must configure and build on both.

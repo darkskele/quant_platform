@@ -999,6 +999,7 @@ footer { margin-top: 96px; padding-top: 18px; border-top: 1px solid var(--rule);
   </figure>
   <p>As a book that trades only in moderate months and sits flat otherwise, it made 0.90 against 0.85, positive every year, with half the drawdown. But it was in the market only 29% of the time, 98 weeks in all, and earned 20% a year against 45%. A cleaner, smaller book, not a bigger one.</p>
   <div class="corrected">The frozen block was not unseen. The condition had been chosen after looking at every week, including those. When the choice of condition is itself made from the past alone at each fold, the search never picks the moderate month. It picks after a rise, then high funding. Those choices still earn, 1.38 against 0.64 for trading every week, so conditioning on the market pays, but the moderate month was a hindsight pick. The sleeve also had not paid for switching on and off, which takes it from 1.62 to 1.56, and simply holding the basket short over the same weeks makes 0.90 of it.</div>
+  <div class="corrected">Rerun on the research package, the condition search turned out to have priced its books at the provisional cost while every sleeve around it used the measured ladder. At the ladder it makes 1.37 against 0.64. It picks the same conditions, and no verdict moves.</div>
 
   <h3>Priced for the search</h3>
   <p>By now about 95 settings had been tried, counting the sweep, the map and the stress variants. Against that many tries, the sleeve read as 55 to 64% likely to be real. About even odds, on 98 weeks. No window or cut adds more weeks, so the constraint was the sample itself.</p>
@@ -1129,7 +1130,7 @@ footer { margin-top: 96px; padding-top: 18px; border-top: 1px solid var(--rule);
   <ul>
     <li>The always-on books fail on two counts. They sit at the luck bar, and 3 weeks earning nothing beside 4 and 5 fails the neighbour check. Everything else passes. The walk forward picks 4 weeks at every fold, no year carries the result, they beat the baskets, survive twice the cost and stay positive in the bootstrap.</li>
     <li>The sleeve fails on search, on overfitting and on its baseline. The map it came from was more likely than not to have picked a lucky cell, and inside its own weeks the 1-week rule and the short basket did as well.</li>
-    <li>One thing from the conditions work survived. A condition search run on the past alone, picking after a rise and then high funding, made 1.38 out of sample against 0.64 for trading every week.</li>
+    <li>One thing from the conditions work survived. A condition search run on the past alone, picking after a rise and then high funding, made 1.37 out of sample against 0.64 for trading every week.</li>
   </ul>
 
   
@@ -1191,6 +1192,7 @@ footer { margin-top: 96px; padding-top: 18px; border-top: 1px solid var(--rule);
     <figcaption>The seven-slice book against the range of the seven single-day books, by lookback.</figcaption>
   </figure>
   <p>At 28 days the seven-slice book makes 1.02, above the 0.85 quoted so far. It is positive every year from 2020 to 2025 and loses 2026, at −0.50. The earlier weeks make 1.25 and the later weeks 0.66. Against everything the research has tried it is real with probability 0.58 to 0.67, where the Sunday book sat at 0.49. That moves the main result from just under the park line to clearly above it, by removing an arbitrary choice rather than picking a better setting.</p>
+  <div class="corrected">Counting every backtest, including this check's own 5,101, the research is worth 306.5 independent backtests, not 74. Against that, the probability the seven-slice book's 1.02 is real is 0.39, below the 0.5 park line.</div>
 
   <h3>Should a trend be more than a sign</h3>
   <p>The plain sign uses two prices, the start and the end of the window. A stricter idea fits a straight line through the prices in the window and describes the trend by three things.</p>
@@ -1231,8 +1233,10 @@ footer { margin-top: 96px; padding-top: 18px; border-top: 1px solid var(--rule);
     <tr><td>Years positive, of 7</td><td class="mono">6</td><td class="mono">7</td><td class="mono">7</td></tr>
     <tr><td>Probability real</td><td class="mono">0.59</td><td class="mono">0.52</td><td class="mono">0.76</td></tr>
   </table>
+  <div class="corrected">Rerun on the research package, the seven-slice books had dropped the funding and cost of the final partial week. Booked on its last day, the plain sign is real with probability 0.58, and the grid's cell at steepness 1.5 with no fit cut makes 0.88. Every other number in these tables holds to the second decimal.</div>
   <p>The pair beats either book alone on every row, and it is the first thing in this research to improve on the plain sign. The pair's return is scaled to the plain sign's risk, which is why it reads 54%.</p>
   <p>It is a lead, not a finding. The 0.76 does not charge for picking the best corner of sixteen or for pairing the two after seeing both. The strict book often rests on two coins, and 2026 is 35 weeks. About 5,700 exploratory books were run in this check, all on data already searched. The only fair test left is data that does not exist yet, so the pair needed a test on data it had never seen.</p>
+  <div class="corrected">This check ran 5,101 backtests, not about 5,700. Counting them all, the probability the Sharpe is real falls to 0.39 for the plain sign, 0.28 for the strict rule and 0.57 for the pair.</div>
   <h3>Testing the pair on another market</h3>
   <p>The pair could not be tested on more crypto history, because there was none left unseen. But the rule is a general idea, and other markets have decades of history this research had never loaded. So the pair was written up as a second registered test and run on US-listed ETFs.</p>
     <table>
@@ -1255,6 +1259,7 @@ footer { margin-top: 96px; padding-top: 18px; border-top: 1px solid var(--rule);
     <figcaption>The three registered books on 66 ETFs, each scaled to the same risk.</figcaption>
   </figure>
   <p>The test fails on the ETF data. Over 1,089 weeks the pair makes −0.16, the plain sign −0.17 and the strict rule −0.12. The pair is real with probability 0.24 on one trial, and two of the three fail rules fire, the probability under 0.5 and the strict rule negative. Gate fail S1 S2 S6 C4 V1. It was run before the registration was committed, with the spec files unchanged since they were written.</p>
+  <div class="corrected">Rerun on the research package, a slice whose rebalance day fell on a US market holiday had paid no cost that week, 194 weeks in all. Costed, the pair makes −0.17, the plain sign −0.18 and the strict rule −0.13, and the pair is real with probability 0.22. The fail rules, the stamp and the verdict are unchanged. With no cost nothing moves.</div>
   <p>Four-week trend does not pay on these funds at all, so the strict rule had no working base to add to. The registered cost of 7.5 bps was heavy for funds that move a fifth as much as coins, but the failure does not rest on it. With no cost the pair makes 0.23 against 0.13 for the plain sign, all of it from before 2013. The crypto pair has no support from outside crypto, and stays an exploratory lead that only the forward perps run can settle.</p>
 </section>
 
@@ -1274,6 +1279,9 @@ footer { margin-top: 96px; padding-top: 18px; border-top: 1px solid var(--rule);
     <tr><td>Reading single Sunday cells</td><td>3 weeks is a hole, 4 weeks may be luck</td><td>The hole is mostly the Sunday, and 4 weeks is a block on every day</td></tr>
     <tr><td>A cost copied across markets</td><td>7.5 bps is a cautious cost for ETFs</td><td>It is several times heavier against funds that move a fifth as much</td></tr>
     <tr><td>A registered test run before its commit</td><td>The spec came first</td><td>It did, but the history cannot show it</td></tr>
+    <tr><td>A default cost hidden in a helper</td><td>The condition search was priced like the sleeves</td><td>It ran at the provisional cost, 1.38 where the ladder gives 1.37</td></tr>
+    <tr><td>Cost booked on a day that did not trade</td><td>Every slice pays for every rebalance</td><td>Holiday rebalances and the last partial week paid nothing</td></tr>
+    <tr><td>A notebook saved mid-edit</td><td>The fine grid runs from 5 to 35 days</td><td>Its source could not run, and one output was left from a 1 to 35 run</td></tr>
   </table>
   <p>The pattern in most of them is the same. A number looked good, and the check that would have embarrassed it had not been run yet.</p>
 </section>
@@ -1289,6 +1297,7 @@ footer { margin-top: 96px; padding-top: 18px; border-top: 1px solid var(--rule);
     <li>It loses in 2026, it is weaker in the later weeks than the earlier ones, 0.66 against 1.25, and it fades at a $1M book and is gone at $10M.</li>
     <li>It did not carry to another market. On 66 ETFs four-week trend earns nothing.</li>
   </ul>
+  <div class="corrected">Counting every backtest, the probability the seven-slice book is real is 0.39. The Sunday book's 0.49 is unchanged, since it is judged only against the main test's own backtests.</div>
   <p>Signal research on trend is closed with the signal parked. The data that exists cannot say more.</p>
 
   <h3>What held throughout</h3>
@@ -1301,7 +1310,7 @@ footer { margin-top: 96px; padding-top: 18px; border-top: 1px solid var(--rule);
 
   <h3>For regime detection</h3>
   <ul>
-    <li>Conditioning on the market pays. A search choosing its condition from the past alone made 1.38 against 0.64 for trading every week, picking after a rise and then high funding.</li>
+    <li>Conditioning on the market pays. A search choosing its condition from the past alone made 1.37 against 0.64 for trading every week, picking after a rise and then high funding.</li>
     <li>Trend loses after the market has shed leverage, when open interest sits below its recent average.</li>
     <li>The moderate month is a hypothesis only. Hindsight picked it.</li>
   </ul>
@@ -1362,10 +1371,11 @@ footer { margin-top: 96px; padding-top: 18px; border-top: 1px solid var(--rule);
     <tr><td>Wide lookback sweep. 8 lookbacks, 4 books</td><td class="mono">32</td><td class="mono">42 with the ten-coin trials</td><td>primary, fail S1 S4</td></tr>
     <tr><td>Everything else on the wide data. Coin-picking books, funding-aware sign, breakout, cleanliness, small coins, the condition map in both books, open interest, the moderate month and its variants</td><td class="mono">93</td><td class="mono">74 for the whole</td><td>exploratory</td></tr>
     <tr><td>Registered band, spot 2017 to 2019</td><td class="mono">1</td><td class="mono">1</td><td>continues</td></tr>
-    <tr><td>Late check. Lookbacks in days by rebalance day, line fits, thresholds, the pair</td><td class="mono">about 5,700</td><td class="mono">not added to the ledger</td><td>exploratory</td></tr>
+    <tr><td>Late check. Lookbacks in days by rebalance day, line fits, thresholds, the pair</td><td class="mono">5,101</td><td class="mono">197.5 alone, 306.5 with everything</td><td>exploratory</td></tr>
     <tr><td>Registered pair, ETFs</td><td class="mono">1</td><td class="mono">1</td><td>fail</td></tr>
   </table>
   <p>The late check's books are close copies of each other, sixteen threshold books were worth 2.3 independent tests, but they were not rebuilt into the ledger. The probabilities quoted for them use the ledger's 42 and 74, which is generous to them.</p>
+  <div class="corrected">Recounted later. The late check's 5,101 backtests are worth 197.5 independent ones, and the whole research 306.5. The gate scoring's 42 and 74 reproduce exactly.</div>
 </section>
 
 <section id="index">
@@ -1380,6 +1390,7 @@ footer { margin-top: 96px; padding-top: 18px; border-top: 1px solid var(--rule);
     <tr><td>12</td><td>trend_gate</td><td class="mono">6274917 2230fb3 1db299a</td></tr>
     <tr><td>13</td><td>trend_registered</td><td class="mono">a26b03f 8987f36</td></tr>
     <tr><td>14</td><td>trend_fine, trend_replicate</td><td class="mono">4af95af</td></tr>
+    <tr><td>Appendix A</td><td>trend_ledger</td><td class="mono"></td></tr>
   </table>
   <p>Sections 09 to 11 quote the numbers as they stood on the day, from the notebook versions at those commits. The notebooks in the repository are the reruns from the review.</p>
 </section>

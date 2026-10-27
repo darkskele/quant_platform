@@ -13,6 +13,7 @@
 #include "binance_historical_source.hpp"
 #include "endpoints.hpp"
 #include "http_fetch_pool.hpp"
+#include "listing.hpp"
 #include "source.hpp"
 #include "subscription.hpp"
 #include "types.hpp"
@@ -35,6 +36,9 @@ class PythonBinanceHistoricalSource {
         : subscription_(std::move(subscription)), source_(std::move(config), subscription_) {}
 
     void plan() { source_.plan(); }
+
+    /// The next event if one is ready, without waiting.
+    data_source::source::PullResult try_next() { return source_.next(); }
 
     /// The next event in timestamp order, or none once every stream is done.
     /// Waits while a fetch is still landing, since NoData is not the end.
@@ -169,6 +173,11 @@ void bind_binance_historical(py::module_& m) {
     // The ceiling a prefetch depth is clamped to.
     m.attr("FILE_SLOTS") = binance::kFileSlotCount;
 
+    m.def(
+        "list_children", [](const std::string& prefix) { return binance::list_children(prefix); },
+        py::arg("prefix"), py::call_guard<py::gil_scoped_release>(),
+        "Every immediate child name under an archive key prefix, paged to exhaustion.");
+
     using Source = PythonBinanceHistoricalSource;
     py::class_<Source>(m, "BinanceHistoricalSource")
         .def(py::init([](Subscription subscription, Config config) {
@@ -185,6 +194,10 @@ void bind_binance_historical(py::module_& m) {
             py::return_value_policy::reference_internal)
         .def("__next__",
              [](Source& self) {
+                 // A buffered event is handed out with the GIL held. Only a wait drops it.
+                 auto pulled = self.try_next();
+                 if (pulled) return std::move(*pulled);
+                 if (pulled.error() == SourceStatus::Eof) throw py::stop_iteration();
                  std::optional<MarketEvent> event;
                  {
                      py::gil_scoped_release release;

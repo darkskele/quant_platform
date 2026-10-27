@@ -24,3 +24,5 @@ RiskDecision / span<const Order>
 - [x] ~~`RiskGate` concept + `RiskDecision`~~
 - [x] ~~Concrete gate: exposure cap + drawdown kill switch~~
 - [x] ~~Python adapter~~
+- [ ] Contract preconditions on gate inputs, finite targets and known instruments, enforced in debug and ignored in release (C++26, GCC 16)
+    - the kill switch stays plain code, never a contract
