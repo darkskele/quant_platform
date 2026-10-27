@@ -1,51 +1,62 @@
 #!/usr/bin/env python3
-"""Every rig variant over every workload, into one results file. Runs on the box in bench mode.
+"""Every rig variant over every workload, into one results file.
 
-    python3 tools/netbench/sweep.py -o benchmarks/network/results/results.json [--suite transport] [--reps 3]
+    python3 tools/netbench/sweep.py -o results.json [--rig rig.json] [--suite transport] [--reps 3]
 
-A variant is a backend and a receive path. Each runs in both directions, receive with peers
-sending to it and send with it sending to one peer. Variants interleave within each workload,
-rotated per repetition, so drift spreads across them. Every run takes kernel stamps. A run is void
-when it did not finish or a correctness count is nonzero.
+A run is the backend under test, the subject, and one or more peers, each its own process. Each
+workload runs in both directions, receive with peers sending to the subject and send with the
+subject sending to one peer. A run is void when it did not finish or a correctness count is
+nonzero.
+
+The rig file says where and how processes run, so nothing here knows the machine:
+
+    {
+      "addresses": {"subject": "ip", "peer": "ip"},
+      "launch": {"subject": [cmd...], "peer": [cmd...], "isolated_peer": [cmd...]},
+      "variants": {"name": {"setup": [cmd...]}, ...}
+    }
+
+A launch command goes in front of each process of that role. isolated_peer runs the peers of
+workloads that need them off the subject's CPUs, peer when not given. A variant's setup runs
+before each of its runs, and the first variant is set again at the end. Variants interleave
+within each workload, rotated per repetition, so drift spreads across them. Every key is
+optional. Without a rig file everything runs here on 127.0.0.1 as one variant, local.
 """
 
 import argparse
 import datetime
 import json
+import os
 import pathlib
 import subprocess
 import sys
 import tempfile
 
-RUN_PAIR = pathlib.Path(__file__).with_name("run_pair.sh")
 RUN_TIMEOUT_S = 120
+PORT = 9100
+ACK_PORT = 9101
 
 BACKENDS = ["kernel_udp", "kernel_tcp"]
 DIRECTIONS = ["receive", "send"]
-# How qp-rx processes what arrives, set through qp-netns-config. napi takes it off the sender's
-# core, as a real receive path would be.
-NETS = ["napi"]
 STAMPS = "kernel"
-# The housekeeping CPUs, where capacity peers run so the bench CPUs are the receiver's.
-PEER_CPUS = "8-11"
 
 
 def workload(name, mode, sizes="64", count=20_000, rate=None, burst=None, tcp_batch=None,
-             udp_peers=1, drops=False, backends=None, peer_cpus=None):
+             udp_peers=1, drops=False, backends=None, isolate=False):
     """A traffic shape. tcp_batch lets one tcp peer send what is due in one call. udp_peers splits
     the load across that many udp peers, since batching only delays datagrams in the sender.
-    backends limits it to those it means something for. peer_cpus runs the peers there, outside the
-    bench partition, so they are not what runs out first."""
+    backends limits it to those it means something for. isolate keeps the peers off the subject's
+    CPUs, so the subject is what runs out first."""
     return {"name": name, "mode": mode, "sizes": sizes, "count": count, "rate": rate,
             "burst": burst, "tcp_batch": tcp_batch, "udp_peers": udp_peers, "drops_allowed": drops,
-            "backends": backends or BACKENDS, "peer_cpus": peer_cpus}
+            "backends": backends or BACKENDS, "isolate": isolate}
 
 
 def load_step(rate):
     """Offered load at a fixed rate for about a second and a half. Where losses start or p99
-    climbs is the receiver's limit."""
+    climbs is the subject's limit."""
     return workload(f"load_{rate // 1000}k_512", "fixed", sizes="512", count=rate * 3 // 2,
-                    rate=rate, tcp_batch=32, udp_peers=4, drops=True, peer_cpus=PEER_CPUS)
+                    rate=rate, tcp_batch=32, udp_peers=4, drops=True, isolate=True)
 
 
 def peer_args(w, backend, direction):
@@ -86,14 +97,14 @@ SUITES = {
         workload("flood_1460", "flood", sizes="1460", count=600_000, tcp_batch=32, udp_peers=3,
                  drops=True),
     ],
-    # What the receiver can take, as load steps and bulk bytes.
+    # What the subject can take, as load steps and bulk bytes.
     "capacity": [
         *(load_step(rate) for rate in (200_000, 400_000, 800_000, 1_200_000, 1_600_000)),
         # Larger than a udp slot, so tcp only.
         workload("bulk_16k", "flood", sizes="16384", count=200_000, tcp_batch=8,
-                 backends=["kernel_tcp"], peer_cpus=PEER_CPUS),
+                 backends=["kernel_tcp"], isolate=True),
         workload("bulk_64k", "flood", sizes="65000", count=50_000, tcp_batch=8,
-                 backends=["kernel_tcp"], peer_cpus=PEER_CPUS),
+                 backends=["kernel_tcp"], isolate=True),
     ],
 }
 
@@ -117,13 +128,56 @@ def void_reason(w, sender, receiver):
     return ", ".join(bad) or None
 
 
-def set_net(net):
-    """The receive path state qp-netns-config left, or None when it failed."""
-    proc = subprocess.run(["sudo", "-n", "qp-netns-config", net], capture_output=True, text=True)
-    if proc.returncode != 0:
-        print(f"sweep: qp-netns-config {net} failed: {proc.stderr.strip()}", file=sys.stderr)
-        return None
-    return json.loads(proc.stdout.strip().splitlines()[-1])
+class Rig:
+    """Where processes run, read from the rig file, or everything here when there is none."""
+
+    def __init__(self, path):
+        spec = json.loads(pathlib.Path(path).read_text()) if path else {}
+        addresses = spec.get("addresses", {})
+        self.subject_ip = addresses.get("subject", "127.0.0.1")
+        self.peer_ip = addresses.get("peer", "127.0.0.1")
+        launch = spec.get("launch", {})
+        self.subject = launch.get("subject", [])
+        self.peer = launch.get("peer", [])
+        self.isolated_peer = launch.get("isolated_peer", self.peer)
+        self.variants = spec.get("variants", {"local": {}})
+
+    def setup(self, variant):
+        """False when the variant's setup failed."""
+        cmd = self.variants[variant].get("setup")
+        if not cmd:
+            return True
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        if proc.returncode != 0:
+            print(f"sweep: setup of {variant} failed: {proc.stderr.strip()}", file=sys.stderr)
+        return proc.returncode == 0
+
+
+def commands(rig, w, backend, peers, args, direction, out):
+    """The peers' commands, then the subject's. A TCP subject receiving connects to the peer, a
+    UDP one is sent to. Sending, the subject connects to or targets the peer."""
+    bin_dir = pathlib.Path(os.environ.get("QP_BUILD_DIR", "build/release"))
+    peer_bin, subject_bin = str(bin_dir / "netbench_peer"), str(bin_dir / f"netbench_{backend}")
+    launch_peer = rig.isolated_peer if w["isolate"] else rig.peer
+    proto = "tcp" if backend == "kernel_tcp" else "udp"
+    peer_at = f"{rig.peer_ip}:{PORT}"
+    if direction == "send":
+        ack = f"{rig.subject_ip}:{ACK_PORT}"
+        peer = [*launch_peer, peer_bin, "--role", "receive", "--proto", proto, "--target", peer_at,
+                "--ack", ack, "--out", str(out / "receiver.json")]
+        subject = [*rig.subject, subject_bin, "send", "--target", peer_at, "--ack", ack,
+                   "--out", str(out / "sender.json"), *args]
+        return [peer], subject
+    target = peer_at if proto == "tcp" else f"{rig.subject_ip}:{PORT}"
+    # After the shared args, so each peer's own id, seed and ack port win.
+    senders = [[*launch_peer, peer_bin, "--proto", proto, "--target", target,
+                "--out", str(out / f"peer-{k}.json"), *args, "--sender", str(k),
+                "--seed", str(k + 1), "--ack", f"{rig.peer_ip}:{ACK_PORT + k}"]
+               for k in range(peers)]
+    subject = [*rig.subject, subject_bin, "--target", target, "--ack",
+               f"{rig.peer_ip}:{ACK_PORT}", "--peers", str(peers), "--stamps", STAMPS,
+               "--out", str(out / "receiver.json")]
+    return senders, subject
 
 
 def merge_peers(reports):
@@ -143,42 +197,61 @@ def read_json(path):
     return json.loads(path.read_text()) if path.exists() else None
 
 
-def run_one(w, backend, args, peers, direction):
+def run_one(rig, w, backend, args, peers, direction):
     """The sender's and receiver's reports and why the run is void. Receiving, the peers are the
-    sender, merged. Sending, the backend is."""
-    with tempfile.TemporaryDirectory() as out:
-        cpus = ["-c", w["peer_cpus"]] if w["peer_cpus"] else []
-        cmd = [str(RUN_PAIR), backend, "-d", direction, "-s", STAMPS, "-n", str(peers), *cpus,
-               "-o", out, "--", *args]
-        try:
-            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=RUN_TIMEOUT_S)
-        except subprocess.TimeoutExpired:
+    sender, merged. Sending, the subject is."""
+    with tempfile.TemporaryDirectory() as tmp:
+        out = pathlib.Path(tmp)
+        peer_cmds, subject_cmd = commands(rig, w, backend, peers, args, direction, out)
+        log = out / "log.txt"
+        timed_out = False
+        with log.open("w") as err:
+            procs = [subprocess.Popen(c, stdout=subprocess.DEVNULL, stderr=err) for c in peer_cmds]
+            procs.append(subprocess.Popen(subject_cmd, stdout=subprocess.DEVNULL, stderr=err))
+            try:
+                for p in procs:
+                    p.wait(timeout=RUN_TIMEOUT_S)
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                # Terminate first, since a launch command such as sudo passes it on and a kill
+                # would leave the program running.
+                for p in procs:
+                    p.terminate()
+                for p in procs:
+                    try:
+                        p.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        p.kill()
+                        p.wait()
+        if timed_out:
             return None, None, "timeout"
         if direction == "send":
-            sender = read_json(pathlib.Path(out, "sender.json"))
+            sender = read_json(out / "sender.json")
         else:
-            sender = merge_peers([read_json(pathlib.Path(out, f"peer-{k}.json"))
-                                  for k in range(peers)])
-        receiver = read_json(pathlib.Path(out, "receiver.json"))
+            sender = merge_peers([read_json(out / f"peer-{k}.json") for k in range(peers)])
+        receiver = read_json(out / "receiver.json")
         reason = void_reason(w, sender, receiver)
-        if reason == "no report" and proc.stderr:
-            # The last lines before run_pair's own summary say what failed.
-            reason += ": " + " | ".join(proc.stderr.strip().splitlines()[-4:])
+        lines = log.read_text().strip().splitlines()
+        if reason == "no report" and lines:
+            # The last lines say what failed.
+            reason += ": " + " | ".join(lines[-4:])
         return sender, receiver, reason
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-o", "--out", required=True)
+    parser.add_argument("--rig", help="where and how processes run, everything here when absent")
     parser.add_argument("--suite", choices=[*SUITES, "all"], default="all")
     parser.add_argument("--reps", type=int, default=3)
     parser.add_argument("--only", help="run only workloads whose name contains this")
     parser.add_argument("--direction", choices=[*DIRECTIONS, "both"], default="both")
     args = parser.parse_args()
 
+    rig = Rig(args.rig)
     suites = SUITES if args.suite == "all" else {args.suite: SUITES[args.suite]}
     directions = DIRECTIONS if args.direction == "both" else [args.direction]
-    variants = [(b, n) for b in BACKENDS for n in NETS]
+    variants = [(b, v) for b in BACKENDS for v in rig.variants]
     started = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
     runs = []
     for rep in range(args.reps):
@@ -188,30 +261,30 @@ def main():
                     if args.only and args.only not in w["name"]:
                         continue
                     k = rep % len(variants)
-                    for backend, net in variants[k:] + variants[:k]:
+                    for backend, variant in variants[k:] + variants[:k]:
                         if backend not in w["backends"]:
                             continue
                         run_args, peers = peer_args(w, backend, direction)
-                        net_state = set_net(net)
-                        if net_state is None:
-                            sender, receiver, reason = None, None, "receive path not set"
-                        else:
-                            sender, receiver, reason = run_one(w, backend, run_args, peers,
+                        if rig.setup(variant):
+                            sender, receiver, reason = run_one(rig, w, backend, run_args, peers,
                                                                direction)
+                        else:
+                            sender, receiver, reason = None, None, "variant setup failed"
                         runs.append({"direction": direction, "suite": suite,
-                                     "workload": w["name"], "backend": backend, "net": net,
-                                     "net_state": net_state, "stamps": STAMPS, "rep": rep,
+                                     "workload": w["name"], "backend": backend,
+                                     "variant": variant, "stamps": STAMPS, "rep": rep,
                                      "peer_args": run_args, "peers": peers, "offered": w["rate"],
-                                     "peer_cpus": w["peer_cpus"], "void": reason,
+                                     "isolate": w["isolate"], "void": reason,
                                      "sender": sender, "receiver": receiver})
                         state = f"void, {reason}" if reason else "ok"
-                        print(f"sweep: rep {rep} {direction} {w['name']} {backend} {net}: "
+                        print(f"sweep: rep {rep} {direction} {w['name']} {backend} {variant}: "
                               f"{state}", file=sys.stderr, flush=True)
-    set_net(NETS[0])
+    rig.setup(next(iter(rig.variants)))
 
     out = pathlib.Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps({"started": started, "reps": args.reps, "runs": runs}) + "\n")
+    out.write_text(json.dumps({"started": started, "reps": args.reps,
+                               "variants": list(rig.variants), "runs": runs}) + "\n")
     void = sum(1 for r in runs if r["void"])
     print(f"sweep: {len(runs)} runs, {void} void, results in {out}", file=sys.stderr)
 

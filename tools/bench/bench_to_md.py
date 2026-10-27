@@ -12,8 +12,8 @@ becomes its own single-entry "Other" group rather than crashing.
 The diff is delegated to bench_diff.py and appended under its own heading.
 A missing or unparseable baseline degrades to a note, never a crash.
 
---env takes the run's bench mode fingerprint and renders it as an Environment
-section. A missing or unparseable fingerprint degrades to a note.
+--env takes the run's fingerprint, the machine's label, the commit and when it
+started, and renders it as an Environment section. A missing or unparseable fingerprint degrades to a note.
 """
 
 import argparse
@@ -134,49 +134,16 @@ def render_summary(report: dict) -> str:
 
 
 def render_env(env: dict) -> str:
-    bench = env.get("bench", {})
-    power = env.get("power", {})
-    temp = env.get("pkg_temp_c", {})
-
-    def mhz(khz):
-        return f"{khz / 1000:,.0f} MHz" if isinstance(khz, (int, float)) and khz else "unknown"
-
+    """The run's machine by label. Its details stay with the dev environment, under that label
+    and the run's start."""
     rows = [
+        ("Machine", env.get("machine")),
         ("Commit", env.get("commit")),
         ("Started", env.get("started")),
-        ("Host", env.get("host")),
-        ("CPU", env.get("cpu")),
-        ("Kernel", env.get("kernel")),
-        ("Bench CPUs", bench.get("cpus")),
-        ("Clock set / held", f"{mhz(bench.get('khz'))} / {mhz(bench.get('held_khz'))}"),
-        ("Deepest C-state", bench.get("max_cstate")),
-        ("Governor / EPP", f"{bench.get('governor')} / {bench.get('epp')}"),
-        ("AC / battery", f"{'on' if power.get('ac_online') else 'off'} / {power.get('battery_pct')} %"),
-        ("Load before", env.get("load_before")),
-        ("Package temp", f"{temp.get('before')} °C to {temp.get('after')} °C"),
         ("Exit code", env.get("exit_code")),
     ]
     lines = ["## Environment", "", "| | |", "| --- | --- |"]
     lines += [f"| {k} | {v} |" for k, v in rows]
-
-    # perf -x, lines are "value,unit,event,...".
-    counts = []
-    for line in env.get("perf", []):
-        fields = line.split(",")
-        if len(fields) > 2:
-            counts.append((fields[2], fields[0]))
-    if counts:
-        lines += ["", "Counted on the bench CPUs.", "", "| Event | Count |", "| --- | --- |"]
-        lines += [f"| {event} | {int(value):,} |" if value.isdigit() else f"| {event} | {value} |"
-                  for event, value in counts]
-
-    irqs = sorted(env.get("bench_cpu_irqs", {}).items(), key=lambda kv: -kv[1])
-    if irqs:
-        lines += ["", "Interrupts on the bench CPUs.", "", "| Source | Count |", "| --- | --- |"]
-        lines += [f"| {src} | {n:,} |" for src, n in irqs]
-
-    if env.get("cmdline"):
-        lines += ["", "Kernel command line.", "", f"`{env['cmdline']}`"]
     return "\n".join(lines)
 
 

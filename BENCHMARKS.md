@@ -268,43 +268,7 @@ Suite-wide drift x1.00 real, x1.00 cpu (median current/baseline), divided out be
 
 | | |
 | --- | --- |
+| Machine | LATITUDE |
 | Commit | ad93264-dirty |
 | Started | 2026-10-21T20:19:56Z |
-| Host | tallandstrongplatform |
-| CPU | 13th Gen Intel(R) Core(TM) i7-1365U |
-| Kernel | 7.0.0-38-generic |
-| Bench CPUs | 4-7 |
-| Clock set / held | 3,000 MHz / 2,993 MHz |
-| Deepest C-state | 1 |
-| Governor / EPP | powersave / balance_performance |
-| AC / battery | on / 75 % |
-| Load before | 0.83 0.37 0.48 |
-| Package temp | 36 °C to 50 °C |
 | Exit code | 0 |
-
-Counted on the bench CPUs.
-
-| Event | Count |
-| --- | --- |
-| cpu_atom/cycles/ | 318,022,738,863 |
-| cpu_atom/ref-cycles/ | 285,634,210,190 |
-| context-switches | 10,251 |
-| cpu-migrations | 449 |
-
-Interrupts on the bench CPUs.
-
-| Source | Count |
-| --- | --- |
-| LOC | 106,646 |
-| CAL | 1,191 |
-| TLB | 975 |
-| RES | 21 |
-| NMI | 12 |
-| PMI | 12 |
-| MCP | 4 |
-| 168 | 1 |
-| 169 | 1 |
-
-Kernel command line.
-
-`BOOT_IMAGE=/vmlinuz-7.0.0-38-generic root=/dev/mapper/ubuntu--vg-ubuntu--lv ro irqaffinity=8-11 isolcpus=managed_irq,4-7 rcu_nocbs=4-7 crashkernel=2G-4G:320M,4G-32G:512M,32G-64G:1024M,64G-128G:2048M,128G-:4096M`

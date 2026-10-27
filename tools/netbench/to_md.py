@@ -78,19 +78,19 @@ def loss(run):
 
 
 def table(runs, direction):
-    """One row per workload, in sweep order. The receive path joins the name when there are
+    """One row per workload, in sweep order. The variant joins the name when there are
     several."""
     rows = defaultdict(list)
     for r in runs:
-        rows[(r["workload"], r["net"])].append(r)
-    several_nets = len({net for _, net in rows}) > 1
+        rows[(r["workload"], r["variant"])].append(r)
+    several = len({variant for _, variant in rows}) > 1
     extra = ["k→u p50", "k→u p99"] if direction == "receive" else ["write p50", "write p99"]
     head = ["Workload", "Valid", *PERCENTILES, *extra, "msg/read", "sent/s", "recv/s", "recv MB/s",
             "lost"]
     lines = ["| " + " | ".join(head) + " |", "|" + " --- |" * len(head)]
-    for (workload, net), rs in rows.items():
+    for (workload, variant), rs in rows.items():
         ok = [r for r in rs if not r["void"]]
-        cells = [f"{workload} / {net}" if several_nets else workload, f"{len(ok)}/{len(rs)}"]
+        cells = [f"{workload} / {variant}" if several else workload, f"{len(ok)}/{len(rs)}"]
         cells += [fmt_ns(median(stage(r, LATENCY[direction], p) for r in ok)) for p in PERCENTILES]
         if direction == "receive":
             cells += [fmt_ns(median(stage(r, "kernel_to_user", p) for r in ok))
@@ -180,7 +180,7 @@ def main():
     void = [r for r in runs if r["void"]]
     if void:
         out += ["## Void runs", ""]
-        out += [f"- {r.get('direction', 'receive')} {r['workload']} {r['backend']} / {r['net']} "
+        out += [f"- {r.get('direction', 'receive')} {r['workload']} {r['backend']} / {r['variant']} "
                 f"rep {r['rep']}: {r['void']}"
                 for r in void]
         out.append("")

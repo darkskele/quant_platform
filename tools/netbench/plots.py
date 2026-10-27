@@ -4,9 +4,9 @@
     python tools/netbench/plots.py benchmarks/network/results/results.json -o benchmarks/network/results/plots
 
 <direction>_<backend>_<case>.png plots the direction's latency against percentile, the median of the valid
-repetitions, with p99 marked and quoted per receive path. <direction>_<backend>_throughput.png and
-_latency.png plot what the receiver took, and its p99, against the load offered, with losses and
-steps the peers could not send marked. Needs matplotlib.
+repetitions, with p99 marked and quoted per variant. <direction>_<backend>_throughput.png and
+_latency.png plot what arrived, and its p99, against the load offered, with losses and steps the
+sender could not send marked. Needs matplotlib.
 """
 
 import argparse
@@ -33,8 +33,8 @@ LATENCY = {"receive": ("send_to_user", "send to user latency"),
 def latency_of(run):
     return LATENCY[run.get("direction", "receive")]
 
-# Fixed order, so a receive path keeps its colour whichever ones a sweep ran.
-NET_COLOURS = {"napi": "#2a78d6", "default": "#eb6834", "rps": "#1baf7a"}
+# A variant takes the colour at its place in the sweep's variant list.
+COLOURS = ["#2a78d6", "#eb6834", "#1baf7a"]
 SURFACE = "#fcfcfb"
 TEXT = "#0b0b0b"
 TEXT_SECONDARY = "#52514e"
@@ -93,12 +93,12 @@ def style(ax):
 
 
 def load_steps(runs):
-    """Per receive path, each load step's offered rate, p99, sent and received rates and loss."""
-    by_net = defaultdict(lambda: defaultdict(list))
+    """Per variant, each load step's offered rate, p99, sent and received rates and loss."""
+    by_variant = defaultdict(lambda: defaultdict(list))
     for r in runs:
-        by_net[r.get("net", "default")][r["offered"]].append(r)
+        by_variant[r["variant"]][r["offered"]].append(r)
     out = {}
-    for net, steps in by_net.items():
+    for variant, steps in by_variant.items():
         offered = sorted(steps)
 
         def med(f):
@@ -106,21 +106,21 @@ def load_steps(runs):
 
         sent = med(lambda r: (r["sender"]["count"] + r["sender"]["warmup"]) / r["sender"]["elapsed_ns"]
                    * 1e9)
-        out[net] = {
+        out[variant] = {
             "offered": offered,
             "p99": med(lambda r: r["receiver"]["stages"][latency_of(r)[0]]["p99"] / 1000),
             "received": med(lambda r: r["receiver"]["counters"]["messages"]
                             / r["receiver"]["span_ns"] * 1e9 if r["receiver"].get("span_ns")
                             else None),
             "lost": med(loss),
-            # A step the peers could not send at says nothing about the receiver.
+            # A step the sender could not send at says nothing about the receiver.
             "short": [s < 0.95 * o for s, o in zip(sent, offered)],
         }
     return out
 
 
 def mark(ax, xs, ys, shorts, colour):
-    """Filled where the step is a receiver result, hollow where the peers fell short. The surface
+    """Filled where the step is a receiver result, hollow where the sender fell short. The surface
     coloured edge rings the marker where lines cross."""
     for x, y, short in zip(xs, ys, shorts):
         if y is not None:
@@ -129,23 +129,23 @@ def mark(ax, xs, ys, shorts, colour):
                     markeredgecolor=colour if short else SURFACE)
 
 
-def load_figure(backend, runs, title, ylabel, plot, out):
-    """One panel against offered load, a line per receive path. plot draws a path's line and
-    returns its legend label."""
+def load_figure(backend, runs, variants, title, ylabel, plot, out):
+    """One panel against offered load, a line per variant. plot draws a variant's line and returns
+    its legend label."""
     fig, ax = plt.subplots(figsize=(12, 6.5), facecolor=SURFACE)
     style(ax)
     handles, labels = [], []
     steps = load_steps(runs)
-    for net, colour in NET_COLOURS.items():
-        if net in steps:
-            line, label = plot(ax, steps[net], colour)
+    for variant, colour in zip(variants, COLOURS):
+        if variant in steps:
+            line, label = plot(ax, steps[variant], colour)
             handles.append(line)
-            labels.append(f"{net}   {label}")
+            labels.append(f"{variant}   {label}")
     handles.append(plt.Line2D([], [], color=TEXT_SECONDARY, marker="o", markersize=9,
                               markerfacecolor=SURFACE, linestyle="none"))
-    labels.append("peers sent under 95% of the offered load")
+    labels.append("sender sent under 95% of the offered load")
     ax.legend(handles, labels, loc="upper left", frameon=False, fontsize=11, labelcolor=TEXT,
-              title="receive path", title_fontsize=10, alignment="left")
+              title="variant", title_fontsize=10, alignment="left")
     ax.set_xlabel("offered load, thousand msg/s", fontsize=10, color=TEXT_SECONDARY)
     ax.set_ylabel(ylabel, fontsize=10, color=TEXT_SECONDARY)
 
@@ -191,7 +191,7 @@ def plot_latency(ax, step, colour):
     return line, f"clean up to {clean[-1]:g}k msg/s" if clean else ""
 
 
-def case_figure(backend, case, workload, by_net, out):
+def case_figure(backend, case, workload, by_variant, variants, out):
     fig, ax = plt.subplots(figsize=(12, 6.5), facecolor=SURFACE)
     ax.set_facecolor(SURFACE)
     ax.set_yscale("log")
@@ -205,8 +205,8 @@ def case_figure(backend, case, workload, by_net, out):
 
     xs = [tail_x(p) for p in PERCENTILES]
     handles, labels = [], []
-    for net, colour in NET_COLOURS.items():
-        runs = by_net.get(net, [])
+    for variant, colour in zip(variants, COLOURS):
+        runs = by_variant.get(variant, [])
         if not runs:
             continue
         ys = [median(percentile(r["receiver"]["stages"][latency_of(r)[0]], p) for r in runs)
@@ -221,7 +221,7 @@ def case_figure(backend, case, workload, by_net, out):
                         markeredgecolor=SURFACE, markeredgewidth=2)
         p99 = us[PERCENTILES.index(99)]
         lost = median(loss(r) for r in runs)
-        label = f"{net}   p50 {quote_us(us[0])}   p99 {quote_us(p99)}"
+        label = f"{variant}   p50 {quote_us(us[0])}   p99 {quote_us(p99)}"
         if lost:
             label += f"   lost {lost:.2%}"
         handles.append(line)
@@ -235,13 +235,13 @@ def case_figure(backend, case, workload, by_net, out):
     ax.yaxis.set_major_formatter(FuncFormatter(fmt_us))
     ax.yaxis.set_minor_formatter(NullFormatter())
     ax.set_xlabel("percentile, each step one more nine", fontsize=10, color=TEXT_SECONDARY)
-    ax.set_ylabel(latency_of(next(iter(by_net.values()))[0])[1], fontsize=10,
+    ax.set_ylabel(latency_of(next(iter(by_variant.values()))[0])[1], fontsize=10,
                   color=TEXT_SECONDARY)
     ax.legend(handles, labels, loc="upper left", frameon=False, fontsize=11, labelcolor=TEXT,
-              title="receive path", title_fontsize=10, alignment="left")
+              title="variant", title_fontsize=10, alignment="left")
 
-    reps = max((len(rs) for rs in by_net.values()), default=0)
-    first = next(iter(by_net.values()))[0]
+    reps = max((len(rs) for rs in by_variant.values()), default=0)
+    first = next(iter(by_variant.values()))[0]
     args = " ".join(first["peer_args"])
     if first.get("peers", 1) > 1:
         args = f"{first['peers']} peers, each {args}"
@@ -260,7 +260,9 @@ def main():
     parser.add_argument("-o", "--out", required=True)
     args = parser.parse_args()
 
-    runs = [r for r in json.loads(pathlib.Path(args.results).read_text())["runs"] if not r["void"]]
+    results = json.loads(pathlib.Path(args.results).read_text())
+    variants = results["variants"]
+    runs = [r for r in results["runs"] if not r["void"]]
     out = pathlib.Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     for stale in out.glob("*.png"):
@@ -268,20 +270,21 @@ def main():
     grouped = defaultdict(lambda: defaultdict(list))
     for r in runs:
         grouped[(r.get("direction", "receive"), r["backend"], r["workload"])][
-            r.get("net", "default")].append(r)
+            r["variant"]].append(r)
     for direction, backend in sorted({(d, b) for d, b, _ in grouped}):
         name = f"{direction}_{backend}"
         for case, workload in CASES.items():
-            by_net = grouped.get((direction, backend, workload))
-            if by_net:
-                case_figure(backend, case, workload, by_net, out / f"{name}_{case}.png")
+            by_variant = grouped.get((direction, backend, workload))
+            if by_variant:
+                case_figure(backend, case, workload, by_variant, variants,
+                            out / f"{name}_{case}.png")
         load = [r for r in runs if r.get("direction", "receive") == direction
                 and r["backend"] == backend and r.get("offered")
                 and r["workload"].startswith(CAPACITY_PREFIX)]
         if load:
-            load_figure(backend, load, "capacity: what the receiver took",
+            load_figure(backend, load, variants, "capacity: what arrived",
                         "received, thousand msg/s", plot_throughput, out / f"{name}_throughput.png")
-            load_figure(backend, load, "capacity: latency under load",
+            load_figure(backend, load, variants, "capacity: latency under load",
                         f"{LATENCY[direction][1]}, p99", plot_latency, out / f"{name}_latency.png")
 
 
